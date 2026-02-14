@@ -1,9 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 
+type AuthContextType = {
+  setImage: (src: string) => void;
+};
 
 export default function ForgotPassword() {
+    const { setImage } = useOutletContext<AuthContextType>();
+
+    useEffect(() => {
+        setImage("/img/ForgotPassword.png");
+    }, []);
+
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
 

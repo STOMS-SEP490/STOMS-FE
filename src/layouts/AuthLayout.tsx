@@ -2,7 +2,7 @@ import { Outlet } from "react-router-dom";
 import { useState } from "react";
 
 export default function AuthLayout() {
-  const [image, setImage] = useState("/img/ForgotPassword.png");
+  const [image, setImage] = useState("/img/login.png");
 
   return (
     <div className="h-screen bg-[#A9B9D6] overflow-hidden">
