@@ -1,6 +1,3 @@
-
 export default function ManagerDashboard() {
-  return (
-    <div>Dashboard</div>
-  )
+  return <div>Dashboard</div>;
 }
