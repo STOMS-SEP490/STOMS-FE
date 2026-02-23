@@ -25,9 +25,9 @@ export default function Sidebar() {
 
   const menus = useMemo(
     () => [
-      { label: "Thống kê", icon: BarChart3, path: "/dashboard" },
+      { label: "Thống kê", icon: BarChart3, path: "/manager/dashboard" },
       { label: "Hợp đồng", icon: FileText, path: "/contracts" },
-      { label: "Giáo trình", icon: BookOpen, path: "/materials" },
+      { label: "Giáo trình", icon: BookOpen, path: "/manager/curriculum" },
       { label: "Sự kiện", icon: CalendarDays, path: "/events" },
       { label: "Nhật ký", icon: ClipboardList, path: "/logs" },
       { label: "Thiết bị", icon: Laptop, path: "/devices" },
