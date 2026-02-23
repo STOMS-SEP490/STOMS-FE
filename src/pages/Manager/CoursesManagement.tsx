@@ -1,10 +1,9 @@
 import { DataTable } from '@/components/common/DataTable';
-import { StatCard } from '@/components/common/StatCard';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import HoverSearch from '@/components/ui/search';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, Pencil, Eye, BookOpen, GraduationCap, Clock, CheckCircle } from 'lucide-react';
+import { Pencil, Eye  } from 'lucide-react';
+import { useOutletContext } from 'react-router-dom';
 
 type Course = {
   id: string;
@@ -41,15 +40,20 @@ const data: Course[] = [
 const columns: ColumnDef<Course>[] = [
   {
     accessorKey: 'id',
-    header: 'Mã khóa học',
+    header: 'MÃ KHÓA HỌC',
+     cell: ({ row }) => (
+      <div className="text-sm font-medium">
+        {row.original.id}
+      </div>
+    ),
   },
   {
     accessorKey: 'name',
-    header: 'Tên khóa học',
+    header: 'TÊN KHÓA HỌC',
   },
   {
     accessorKey: 'status',
-    header: 'Trạng thái',
+    header: 'TRẠNG THÁI',
     cell: ({ row }) =>
       row.original.status === 'active' ? (
         <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
@@ -59,84 +63,37 @@ const columns: ColumnDef<Course>[] = [
   },
   {
     accessorKey: 'subjects',
-    header: 'Số môn học',
+    header: 'SỐ MÔN HỌC',
     cell: ({ row }) => `${row.original.subjects} môn học`,
   },
   {
     accessorKey: 'updated',
-    header: 'Cập nhật',
+    header: 'CẬP NHẬT',
   },
   {
     id: 'actions',
-    header: 'Thao tác',
+    header: 'HÀNH ĐỘNG',
     enableSorting: false,
     cell: () => (
       <div className="flex gap-3">
-        <Pencil size={18} className="cursor-pointer text-gray-500 hover:text-blue-600" />
-        <Eye size={18} className="cursor-pointer text-gray-500 hover:text-blue-600" />
+        <Pencil size={18} className="cursor-pointer text-gray-600 hover:text-blue-600" />
+        <Eye size={18} className="cursor-pointer text-gray-600 hover:text-blue-600" />
       </div>
     ),
   },
 ];
 
 export default function CoursesManagement() {
-  return (
-    <div className="h-screen overflow-hidden p-6 space-y-6 bg-gray-50">
-      {/* HEADER */}
-      <div className="flex justify-between bg-white  px-6 py-4 mb-3 rounded-xl border shadow-sm items-center">
-        <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>
-          <p className="text-xs text-gray-500">Quản lý khóa học và môn học trong hệ thống</p>
-        </div>
+  const context = useOutletContext<{ position: string }>()
 
-        <div className="flex gap-3 items-center">
-          <HoverSearch />
-
-          <Button className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md">
-            <Plus size={16} />
-            Thêm khóa học
-          </Button>
-
-          <Button className="gap-2 bg-[#2166C0] hover:bg-[#1F58A8] text-white px-4 py-2 rounded-md">
-            <Plus size={16} />
-            Thêm môn học
-          </Button>
-        </div>
-      </div>
-
-      {/* STATS */}
-     <div className="grid grid-cols-4 gap-4 mb-3">
-  <StatCard
-    icon={<GraduationCap />}
-    label="Tổng khóa học"
-    value="48"
-    sub="Khóa học"
-  />
-  <StatCard
-    icon={<CheckCircle />}
-    label="Đang hoạt động"
-    value="42"
-    sub="Khóa học"
-    variant="green"
-  />
-  <StatCard
-    icon={<BookOpen />}
-    label="Tổng môn học"
-    value="156"
-    sub="Môn học"
-  />
-  <StatCard
-    icon={<Clock />}
-    label="Tổng buổi học"
-    value="1,248"
-    sub="Buổi học"
-  />
-</div>
-
-      {/* TABLE CARD */}
-      <div className="bg-white rounded-xl border shadow-sm p-6">
-        <DataTable columns={columns} data={data} />
-      </div>
-    </div>
-  );
+  if (context.position === "toolbar") {
+    return (
+      <div className="flex gap-3">
+<HoverSearch
+  placeholder="Tìm khóa học..."
+/>      </div>
+    )
+  }
+  return <div>
+  <DataTable columns={columns} data={data} /></div> 
 }

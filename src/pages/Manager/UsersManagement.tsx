@@ -174,7 +174,7 @@ const columns: ColumnDef<User>[] = [
 ]
 export default function UserManagement() {
   return (
-    <div className=" p-6 space-y-6 bg-gray-50 ">
+    <div className=" p-6 space-y-6 ">
         {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm items-center">
         <div>
@@ -202,61 +202,60 @@ export default function UserManagement() {
 
 {/* <div className="flex justify-between bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm items-center ">
   <HoverSearch />
-</div> */}
+</div> */}                    {/* Filter Bar */}
+              <div className="flex justify-between mb-3">
+              <HoverSearch/>
+              <div className="flex items-center gap-3">
+                {/* Role Filter */}
+                <Select>
+                  <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white ">
+                    <SelectValue placeholder="Vai trò" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="coordinator">Program Coordinator</SelectItem>
+                    <SelectItem value="teacher">Teacher</SelectItem>
+                    <SelectItem value="ta">Teaching Assistant</SelectItem>
+                  </SelectContent>
+                </Select>
 
+                {/* Status Filter */}
+                <Select >
+                  <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white">
+                    <SelectValue  placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent >
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Group Filter */}
+                <Select>
+                  <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white">
+                    <SelectValue  placeholder="Nhóm" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="group-a">Group A</SelectItem>
+                    <SelectItem value="group-b">Group B</SelectItem>
+                    <SelectItem value="group-c">Group C</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Reset Button */}
+                <Button variant="secondary" className="bg-white">
+                  <RotateCcw />
+                </Button>
+              </div>
+              </div>
        {/* TABLE CARD */}
             <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
 
-        {/* Filter Bar */}
-<div className="flex justify-between pb-2">
- <HoverSearch/>
- <div className="flex items-center gap-3">
-  {/* Role Filter */}
-  <Select>
-    <SelectTrigger className="text-gray-500 text-sm gap-2">
-      <SelectValue placeholder="Vai trò" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all">Tất cả</SelectItem>
-      <SelectItem value="manager">Manager</SelectItem>
-      <SelectItem value="coordinator">Program Coordinator</SelectItem>
-      <SelectItem value="teacher">Teacher</SelectItem>
-      <SelectItem value="ta">Teaching Assistant</SelectItem>
-    </SelectContent>
-  </Select>
-
-  {/* Status Filter */}
-  <Select >
-    <SelectTrigger className="text-gray-500 text-sm gap-2">
-      <SelectValue  placeholder="Trạng thái" />
-    </SelectTrigger>
-    <SelectContent >
-      <SelectItem value="all">Tất cả</SelectItem>
-      <SelectItem value="active">Active</SelectItem>
-      <SelectItem value="inactive">Inactive</SelectItem>
-      <SelectItem value="pending">Pending</SelectItem>
-    </SelectContent>
-  </Select>
-
-  {/* Group Filter */}
-  <Select>
-    <SelectTrigger className="text-gray-500 text-sm gap-2">
-      <SelectValue  placeholder="Nhóm" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all">Tất cả</SelectItem>
-      <SelectItem value="group-a">Group A</SelectItem>
-      <SelectItem value="group-b">Group B</SelectItem>
-      <SelectItem value="group-c">Group C</SelectItem>
-    </SelectContent>
-  </Select>
-
-  {/* Reset Button */}
-  <Button variant="secondary">
-    <RotateCcw />
-  </Button>
-</div>
-</div>
+             
              
               <DataTable columns={columns} data={data} />
             </div>

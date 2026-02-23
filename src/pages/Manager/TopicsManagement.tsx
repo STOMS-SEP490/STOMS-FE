@@ -153,16 +153,16 @@ const columns: ColumnDef<any>[] = [
   },
 ]
  return (
-     <div className="h-screen overflow-hidden p-6 space-y-6 bg-gray-50 ">
+     <div className="h-screen overflow-hidden p-6 space-y-6  ">
          {/* HEADER */}
        <div className="flex justify-between bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm items-center">
          <div>
-           <h2 className="text-xl font-semibold text-black">Quản lý người dùng</h2>
-           <p className="text-xs text-gray-500">Quản lý tài khoản và phân quyền người dùng</p>
+           <h2 className="text-xl font-semibold text-black">Quản lý nhóm và chủ đề</h2>
+           <p className="text-xs text-gray-500">Quản lý chủ đề và nhóm thuộc các chủ đề đó</p>
          </div>
  
          <div className="flex gap-3 items-center">
-           <HoverSearch />
+         
  
            <Button className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md">
              <Plus size={16} />
@@ -178,9 +178,11 @@ const columns: ColumnDef<any>[] = [
          <StatCard icon={<BookOpen />} label="Vô hiệu hóa" value="156" sub="người dùng đã bị vô hiệu hóa" />
          <StatCard icon={<Clock />} label="Tổng buổi học" value="1,248" sub="Buổi học" />
        </div>
- 
+ <div className='flex mb-3'>                <HoverSearch />
+</div>
         {/* TABLE CARD */}
              <div className="bg-white rounded-xl border shadow-sm p-6">
+             
                <DataTable columns={columns} data={data} />
              </div>
      </div>
