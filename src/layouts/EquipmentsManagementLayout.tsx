@@ -47,7 +47,7 @@ if (location.pathname.includes("categories")) {
                 value="categories"
                 onClick={() => navigate("/manager/equipments/categories")}
               >
-                LOẠI THIẾT BỊ
+                DANH MỤC
               </TabsTrigger>
 
               <TabsTrigger

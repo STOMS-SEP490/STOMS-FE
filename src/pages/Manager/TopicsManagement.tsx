@@ -187,7 +187,7 @@ const columns: ColumnDef<any>[] = [
          <StatCard icon={<BookOpen />} label="Vô hiệu hóa" value="156" sub="người dùng đã bị vô hiệu hóa" />
          <StatCard icon={<Clock />} label="Tổng buổi học" value="1,248" sub="Buổi học" />
        </div>
- <div className='flex mb-3'>                <HoverSearch />
+ <div className='flex mb-3 justify-end'>                <HoverSearch />
 </div>
         {/* TABLE CARD */}
              <div className="bg-white rounded-xl border shadow-sm p-6">

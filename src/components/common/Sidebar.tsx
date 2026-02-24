@@ -24,6 +24,7 @@ export default function Sidebar() {
     () => [
       { label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
       { label: 'Người dùng', icon: Users, path: '/manager/users' },
+            { label: 'Nhóm', icon: Users, path: '/manager/teams' },
        { label: 'Giáo trình', icon: BookOpen, path: '/manager/courses' },
        { label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
       { label: 'Thiết bị', icon: Laptop, path: '/manager/equipments' },
@@ -31,7 +32,6 @@ export default function Sidebar() {
       { label: 'Sự kiện', icon: CalendarDays, path: '/manager/events' },
       { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
       { label: 'Quỹ / Thu chi', icon: Wallet, path: '/manager/finance' },
-      { label: 'Nhóm', icon: Users, path: '/manager/groups' },
       { label: 'Thời khóa biểu', icon: Clock, path: '/manager/timetable' },
       { label: 'Trung tâm duyệt', icon: CheckCircle, path: '/manager/approval' },      
      { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },

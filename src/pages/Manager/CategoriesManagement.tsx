@@ -73,7 +73,7 @@ const data: Category[] = [
  const columns: ColumnDef<Category>[] = [
   {
     accessorKey: "name",
-    header: "Tên loại",
+    header: "Tên danh mục",
     cell: ({ row }) => (
       <div>
         <div className="font-medium">{row.original.name}</div>
@@ -129,7 +129,7 @@ export default function CategoriesManagement() {
     return (
       <div className="flex gap-3">
 <HoverSearch
-  placeholder="Tìm loại thiết bị..."
+  placeholder="Tìm tên danh mục..."
 />      </div>
     )
   }

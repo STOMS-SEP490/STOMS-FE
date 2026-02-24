@@ -203,7 +203,7 @@ export default function UserManagement() {
 {/* <div className="flex justify-between bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm items-center ">
   <HoverSearch />
 </div> */}                    {/* Filter Bar */}
-              <div className="flex justify-between mb-3">
+              <div className="flex justify-end gap-3 mb-3">
               <HoverSearch/>
               <div className="flex items-center gap-3">
                 {/* Role Filter */}

@@ -1,8 +1,10 @@
 import { DataTable } from "@/components/common/DataTable";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import HoverSearch from "@/components/ui/search";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 type BorrowSlip = {
   id: string
@@ -173,7 +175,32 @@ export default function EquipmentsHistory() {
       <div className="flex gap-3">
 <HoverSearch
   placeholder="Tìm tên thiết bị..."
-/>      </div>
+/>  
+
+  <div className="flex items-center gap-3">
+               
+
+                {/* Status Filter */}
+                <Select >
+                  <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white">
+                    <SelectValue  placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent >
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+
+               
+                {/* Reset Button */}
+                <Button variant="secondary" className="bg-white">
+                  <RotateCcw />
+                </Button>
+              </div>
+
+    </div>
     )
   }
   return <div>
