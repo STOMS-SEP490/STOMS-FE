@@ -16,86 +16,125 @@ import {
   Clock,
   Eye,
   GraduationCap,
-  Key,
   Pencil,
   Plus,
   RotateCcw,
 } from 'lucide-react';
 
-type Team = {
+type Event = {
   id: string;
   name: string;
-  code: string;
-  leaderName: string;
-  topic: string;
+  status: 'Hoạt động' | 'Nháp' | 'Đã hoàn thành';
+  duration: string;
+  sessions: number;
+  createdAt: string;
 };
-const data: Team[] = [
+const data: Event[] = [
   {
-    id: 'TEAM-2024-001',
-    code: 'AP',
-    name: 'AI Pioneers',
-    leaderName: 'Nguyễn Văn A',
-    topic: 'Trí tuệ nhân tạo AI',
+    id: 'EVT-2024-001',
+    name: 'AI Innovation Summit 2024',
+    status: 'Hoạt động',
+    duration: '3 ngày',
+    sessions: 12,
+    createdAt: '10/01/2024',
   },
   {
-    id: 'TEAM-2024-002',
-    code: 'RB',
-    name: 'Robotics Builders',
-    leaderName: 'Trần Thị B',
-    topic: 'Robot & Tự động hóa',
+    id: 'EVT-2024-002',
+    name: 'Robotics Workshop Series',
+    status: 'Hoạt động',
+    duration: '5 tuần',
+    sessions: 10,
+    createdAt: '12/01/2024',
   },
   {
-    id: 'TEAM-2024-003',
-    code: 'SI',
-    name: 'STEM Innovators',
-    leaderName: 'Lê Văn C',
-    topic: 'Hệ thống thông minh',
+    id: 'EVT-2024-003',
+    name: 'Python Coding Bootcamp',
+    status: 'Nháp',
+    duration: '2 tuần',
+    sessions: 8,
+    createdAt: '15/01/2024',
   },
   {
-    id: 'TEAM-2024-004',
-    code: 'DS',
-    name: 'Data Scientists',
-    leaderName: 'Phạm Thị D',
-    topic: 'Khoa học dữ liệu',
+    id: 'EVT-2024-004',
+    name: 'IoT Smart Home Hackathon',
+    status: 'Hoạt động',
+    duration: '1 ngày',
+    sessions: 4,
+    createdAt: '18/01/2024',
   },
   {
-    id: 'TEAM-2024-005',
-    code: 'EM',
-    name: 'Engineering Minds',
-    leaderName: 'Hoàng Văn E',
-    topic: 'Kỹ thuật & thiết kế',
+    id: 'EVT-2024-005',
+    name: 'Data Science Masterclass',
+    status: 'Hoạt động',
+    duration: '4 tuần',
+    sessions: 16,
+    createdAt: '20/01/2024',
   },
   {
-    id: 'TEAM-2024-006',
-    code: 'ML',
-    name: 'Machine Learning Masters',
-    leaderName: 'Đỗ Văn F',
-    topic: 'Trí tuệ nhân tạo AI',
+    id: 'EVT-2024-006',
+    name: '3D Printing & Design Challenge',
+    status: 'Hoạt động',
+    duration: '2 ngày',
+    sessions: 6,
+    createdAt: '22/01/2024',
   },
   {
-    id: 'TEAM-2024-007',
-    code: 'IA',
-    name: 'IoT Architects',
-    leaderName: 'Nguyễn Văn A',
-    topic: 'Hệ thống thông minh',
+    id: 'EVT-2024-007',
+    name: 'Computer Vision Workshop',
+    status: 'Đã hoàn thành',
+    duration: '1 tuần',
+    sessions: 5,
+    createdAt: '05/01/2024',
+  },
+  {
+    id: 'EVT-2024-008',
+    name: 'Mobile App Development Sprint',
+    status: 'Hoạt động',
+    duration: '3 tuần',
+    sessions: 9,
+    createdAt: '25/01/2024',
   },
 ];
-const columns: ColumnDef<Team>[] = [
+const columns: ColumnDef<Event>[] = [
   {
     accessorKey: 'id',
-    header: 'Mã nhóm',
+    header: 'Mã sự kiện',
   },
   {
     accessorKey: 'name',
-    header: 'Tên nhóm',
+    header: 'Tên sự kiện',
   },
   {
-    accessorKey: 'leaderName',
-    header: 'Trưởng nhóm',
+    accessorKey: 'status',
+    header: 'Trạng thái',
+    cell: ({ row }) => {
+      const status = row.original.status;
+
+      const statusStyle = {
+        'Hoạt động': 'bg-green-100 text-green-700',
+        Nháp: 'bg-orange-100 text-orange-700',
+        'Đã hoàn thành': 'bg-blue-100 text-blue-700',
+      };
+
+      return (
+        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyle[status]}`}>
+          {status}
+        </span>
+      );
+    },
   },
   {
-    accessorKey: 'topic',
-    header: 'Chủ đề',
+    accessorKey: 'duration',
+    header: 'Thời lượng',
+  },
+  {
+    accessorKey: 'sessions',
+    header: 'Số buổi',
+    cell: ({ row }) => <span className="font-medium">{row.original.sessions} buổi</span>,
+  },
+  {
+    accessorKey: 'createdAt',
+    header: 'Ngày tạo',
   },
   {
     id: 'actions',
@@ -109,14 +148,16 @@ const columns: ColumnDef<Team>[] = [
     ),
   },
 ];
-export default function TeamsManagement() {
+export default function EventsManagement() {
   return (
     <div className=" p-6 space-y-6 ">
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý nhóm</h2>
-          <p className="text-xs text-gray-500">Quản lý </p>
+          <h2 className="text-xl font-semibold text-black">Quản lý sự kiện</h2>
+          <p className="text-xs text-gray-500">
+            Quản lý các sự kiện đã được ghi lại trong hệ thống
+          </p>
         </div>
 
         <div className="flex gap-3 items-center">
@@ -158,7 +199,7 @@ export default function TeamsManagement() {
           {/* Group Filter */}
           <Select>
             <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white">
-              <SelectValue placeholder="Chủ đề" />
+              <SelectValue placeholder="Trạng thái" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả</SelectItem>

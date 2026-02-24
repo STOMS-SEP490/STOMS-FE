@@ -1,6 +1,5 @@
 import { DataTable } from '@/components/common/DataTable';
 import { StatCard } from '@/components/common/StatCard';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import HoverSearch from '@/components/ui/search';
 import {
@@ -12,15 +11,12 @@ import {
 } from '@/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  Ban,
   BookOpen,
   CheckCircle,
   Clock,
   Eye,
   FileText,
   GraduationCap,
-  Key,
-  Pencil,
   Plus,
   RotateCcw,
 } from 'lucide-react';

@@ -1,5 +1,4 @@
 import { DataTable } from '@/components/common/DataTable';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import HoverSearch from '@/components/ui/search';
 import {
@@ -10,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, RotateCcw, Trash2 } from 'lucide-react';
+import { Eye, RotateCcw } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 type BorrowSlip = {
   id: string;
