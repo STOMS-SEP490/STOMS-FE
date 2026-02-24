@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 
 type AuthContextType = {
   setImage: (src: string) => void;
@@ -7,7 +7,7 @@ type AuthContextType = {
 
 export default function Login() {
   const { setImage } = useOutletContext<AuthContextType>();
-
+  const navigate = useNavigate();
   useEffect(() => {
     setImage('/img/login.png');
   }, []);
@@ -40,6 +40,7 @@ export default function Login() {
 
           {/* Login Button */}
           <button
+            onClick={() => navigate('/manager/dashboard')}
             type="submit"
             className="w-full py-3 rounded-lg 
                       bg-[#193350]

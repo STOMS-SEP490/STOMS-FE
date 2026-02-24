@@ -1,5 +1,5 @@
-import RequestSidebar from "@/components/request/RequestSideBar"
-import { Outlet } from "react-router-dom"
+import RequestSidebar from '@/components/request/RequestSideBar';
+import { Outlet } from 'react-router-dom';
 
 export default function RequestLayout() {
   return (
@@ -14,5 +14,5 @@ export default function RequestLayout() {
         <Outlet />
       </div>
     </div>
-  )
+  );
 }

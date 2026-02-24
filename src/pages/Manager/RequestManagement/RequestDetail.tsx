@@ -65,9 +65,6 @@
 //   )
 // }
 
-
 export default function RequestDetail() {
-  return (
-    <div>RequestDetail</div>
-  )
+  return <div>RequestDetail</div>;
 }

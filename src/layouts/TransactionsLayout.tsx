@@ -47,11 +47,16 @@ export default function TransactionLayout() {
                 TẤT CẢ GIAO DỊCH
               </TabsTrigger>
 
-              
-              <TabsTrigger value="contribution" onClick={() => navigate('/manager/transactions/contribution')}>
+              <TabsTrigger
+                value="contribution"
+                onClick={() => navigate('/manager/transactions/contribution')}
+              >
                 ĐÃ ĐÓNG GÓP
               </TabsTrigger>
-              <TabsTrigger value="expenditure" onClick={() => navigate('/manager/transactions/expenditure')}>
+              <TabsTrigger
+                value="expenditure"
+                onClick={() => navigate('/manager/transactions/expenditure')}
+              >
                 ĐÃ CHI TRẢ
               </TabsTrigger>
             </TabsList>

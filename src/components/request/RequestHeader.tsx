@@ -1,7 +1,7 @@
 type Props = {
-  title: string
-  status: string
-}
+  title: string;
+  status: string;
+};
 
 export default function RequestHeader({ title, status }: Props) {
   return (
@@ -11,5 +11,5 @@ export default function RequestHeader({ title, status }: Props) {
         <span className="text-orange-600">{status}</span>
       </div>
     </div>
-  )
+  );
 }

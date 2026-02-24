@@ -36,11 +36,11 @@ const ManagerRoutes = [
   { path: 'topics', element: <TopicsManagement /> },
   { path: 'logs', element: <AuditLogs /> },
   {
-    path: "requests",
+    path: 'requests',
     element: <RequestLayout />,
     children: [
       { index: true, element: <RequestDetail /> },
-      { path: ":id", element: <RequestDetail /> },
+      { path: ':id', element: <RequestDetail /> },
     ],
   },
   {
