@@ -13,6 +13,7 @@ cp .env
 npm install
 
 npm run dev
+
 ```
 
 Useful scripts:
@@ -32,3 +33,4 @@ Project layout :
 - `src/services` — API services (axios instances)
 - `src/hooks` — custom hooks (react-query wrappers)
 - `src/types` — shared TypeScript types
+```
