@@ -83,6 +83,15 @@ export default function TopicsManagement() {
 
 const columns: ColumnDef<any>[] = [
   {
+    accessorKey: 'id',
+    header: 'MÃ CHỦ ĐỀ',
+     cell: ({ row }) => (
+      <div className="text-sm font-medium">
+        {row.original.id}
+      </div>
+    ),
+  },
+  {
     accessorKey: "name",
     header: "TÊN CHỦ ĐỀ",
     cell: ({ row }) => (
@@ -157,8 +166,8 @@ const columns: ColumnDef<any>[] = [
          {/* HEADER */}
        <div className="flex justify-between bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm items-center">
          <div>
-           <h2 className="text-xl font-semibold text-black">Quản lý nhóm và chủ đề</h2>
-           <p className="text-xs text-gray-500">Quản lý chủ đề và nhóm thuộc các chủ đề đó</p>
+           <h2 className="text-xl font-semibold text-black">Quản lý chủ đề</h2>
+           <p className="text-xs text-gray-500">Quản lý các chủ đề trong hệ thống</p>
          </div>
  
          <div className="flex gap-3 items-center">

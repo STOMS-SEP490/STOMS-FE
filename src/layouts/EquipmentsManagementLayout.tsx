@@ -3,13 +3,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StatCard } from "@/components/common/StatCard"
 import { GraduationCap, CheckCircle, BookOpen, Clock } from "lucide-react"
 
-export default function CoursesLayout() {
+export default function EquipmentsLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const currentTab = location.pathname.includes("subjects")
-    ? "subjects"
-    : "courses"
+  const currentTab = location.pathname.includes("categories")
+    ? "categories"
+    : "equipments"
 
   return (
     <div className="h-screen overflow-hidden p-6 space-y-6 bg-[#f6f8fb]">
@@ -17,19 +17,19 @@ export default function CoursesLayout() {
       {/* HEADER */}
       <div className="bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm">
         <h2 className="text-xl font-semibold text-black">
-          Quản lý giáo trình
+          Quản lý thiết bị
         </h2>
         <p className="text-xs text-gray-500">
-          Quản lý khóa học và môn học trong hệ thống
+          Quản lý thiết bị và loại thiết bị trong hệ thống
         </p>
       </div>
 
       {/* STATS */}
       <div className="grid grid-cols-4 gap-4  mb-2">
-        <StatCard icon={<GraduationCap />} label="Tổng khóa học" value="48" sub="Khóa học" />
-        <StatCard icon={<CheckCircle />} label="Đang hoạt động" value="42" sub="Khóa học" variant="green" />
-        <StatCard icon={<BookOpen />} label="Tổng môn học" value="156" sub="Môn học" />
-        <StatCard icon={<Clock />} label="Tổng buổi học" value="1,248" sub="Buổi học" />
+        <StatCard icon={<GraduationCap />} label="Tổng thiết bị" value="48" sub="Thiết bị" />
+        <StatCard icon={<CheckCircle />} label="Đang hoạt động" value="42" sub="Thiết bị" variant="green" />
+        <StatCard icon={<BookOpen />} label="Tổng loại thiết bị" value="156" sub="Loại thiết bị" />
+        <StatCard icon={<Clock />} label="Tổng số lượng tồn kho" value="1,248" sub="Sản phẩm tồn kho" />
       </div>
 
       {/* TABS */}
@@ -39,17 +39,17 @@ export default function CoursesLayout() {
             
             <TabsList>
               <TabsTrigger
-                value="courses"
-                onClick={() => navigate("/manager/courses")}
+                value="equipments"
+                onClick={() => navigate("/manager/equipments")}
               >
-                KHÓA HỌC
+                TẤT CẢ THIẾT BỊ
               </TabsTrigger>
 
               <TabsTrigger
-                value="subjects"
-                onClick={() => navigate("/manager/courses/subjects")}
+                value="categories"
+                onClick={() => navigate("/manager/equipments/categories")}
               >
-                MÔN HỌC
+                LOẠI THIẾT BỊ
               </TabsTrigger>
             </TabsList>
 
