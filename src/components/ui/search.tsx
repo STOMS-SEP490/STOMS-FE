@@ -1,19 +1,19 @@
-import { useState, useRef } from 'react'
-import { Search } from 'lucide-react'
+import { useState, useRef } from 'react';
+import { Search } from 'lucide-react';
 
 type HoverSearchProps = {
-  placeholder?: string
-  value?: string
-  onChange?: (value: string) => void
-}
+  placeholder?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+};
 
 export default function HoverSearch({
-  placeholder = "Tìm kiếm...",
+  placeholder = 'Tìm kiếm...',
   value,
-  onChange
+  onChange,
 }: HoverSearchProps) {
-  const [open, setOpen] = useState(false)
-  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   return (
     <div
@@ -28,7 +28,7 @@ export default function HoverSearch({
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => {
         if (!wrapperRef.current?.contains(document.activeElement)) {
-          setOpen(false)
+          setOpen(false);
         }
       }}
     >
@@ -51,5 +51,5 @@ export default function HoverSearch({
         onBlur={() => setOpen(false)}
       />
     </div>
-  )
+  );
 }

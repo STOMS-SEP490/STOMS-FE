@@ -2,7 +2,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { Badge } from '@/components/ui/badge';
 import HoverSearch from '@/components/ui/search';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Eye  } from 'lucide-react';
+import { Pencil, Eye } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 
 type Course = {
@@ -41,11 +41,7 @@ const columns: ColumnDef<Course>[] = [
   {
     accessorKey: 'id',
     header: 'MÃ KHÓA HỌC',
-     cell: ({ row }) => (
-      <div className="text-sm font-medium">
-        {row.original.id}
-      </div>
-    ),
+    cell: ({ row }) => <div className="text-sm font-medium">{row.original.id}</div>,
   },
   {
     accessorKey: 'name',
@@ -84,16 +80,18 @@ const columns: ColumnDef<Course>[] = [
 ];
 
 export default function CoursesManagement() {
-  const context = useOutletContext<{ position: string }>()
+  const context = useOutletContext<{ position: string }>();
 
-  if (context.position === "toolbar") {
+  if (context.position === 'toolbar') {
     return (
       <div className="flex gap-3">
-<HoverSearch
-  placeholder="Tìm khóa học..."
-/>      </div>
-    )
+        <HoverSearch placeholder="Tìm khóa học..." />{' '}
+      </div>
+    );
   }
-  return <div>
-  <DataTable columns={columns} data={data} /></div> 
+  return (
+    <div>
+      <DataTable columns={columns} data={data} />
+    </div>
+  );
 }

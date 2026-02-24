@@ -3,18 +3,25 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatCard } from '@/components/common/StatCard';
 import { GraduationCap, CheckCircle, BookOpen, Clock } from 'lucide-react';
 
-export default function CoursesLayout() {
+export default function TransactionLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const currentTab = location.pathname.includes('subjects') ? 'subjects' : 'courses';
+  let currentTab = 'transactions';
 
+  if (location.pathname.includes('categories')) {
+    currentTab = 'categories';
+  } else if (location.pathname.includes('expenditure')) {
+    currentTab = 'expenditure';
+  } else if (location.pathname.includes('contribution')) {
+    currentTab = 'contribution';
+  }
   return (
     <div className="h-screen overflow-hidden p-6 space-y-6 bg-[#f6f8fb]">
       {/* HEADER */}
       <div className="bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>
-        <p className="text-xs text-gray-500">Quản lý khóa học và môn học trong hệ thống</p>
+        <h2 className="text-xl font-semibold text-black">Quản lý giao dịch</h2>
+        <p className="text-xs text-gray-500">Quản lý các giao dịch trong hệ thống</p>
       </div>
 
       {/* STATS */}
@@ -36,12 +43,16 @@ export default function CoursesLayout() {
         <Tabs value={currentTab}>
           <div className="flex items-center justify-between">
             <TabsList>
-              <TabsTrigger value="courses" onClick={() => navigate('/manager/courses')}>
-                KHÓA HỌC
+              <TabsTrigger value="transactions" onClick={() => navigate('/manager/transactions')}>
+                TẤT CẢ GIAO DỊCH
               </TabsTrigger>
 
-              <TabsTrigger value="subjects" onClick={() => navigate('/manager/courses/subjects')}>
-                MÔN HỌC
+              
+              <TabsTrigger value="contribution" onClick={() => navigate('/manager/transactions/contribution')}>
+                ĐÃ ĐÓNG GÓP
+              </TabsTrigger>
+              <TabsTrigger value="expenditure" onClick={() => navigate('/manager/transactions/expenditure')}>
+                ĐÃ CHI TRẢ
               </TabsTrigger>
             </TabsList>
 
