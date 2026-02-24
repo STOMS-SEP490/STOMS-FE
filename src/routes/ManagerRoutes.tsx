@@ -7,6 +7,7 @@ import SubjectsManagement from '@/pages/Manager/SubjectsManagement';
 import EquipmentsManagement from '@/pages/Manager/EquipmentsManagement';
 import CategoriesManagement from '@/pages/Manager/CategoriesManagement';
 import EquipmentsManagementLayout from '@/layouts/EquipmentsManagementLayout';
+import EquipmentsHistory from '@/pages/Manager/EquipmentsHistory';
 
 const ManagerRoutes = [
   { path: 'dashboard', element: <ManagerDashboard /> },
@@ -26,6 +27,8 @@ const ManagerRoutes = [
     children: [
       { index: true, element: <EquipmentsManagement /> },
       { path: 'categories', element: <CategoriesManagement /> },
+      { path: 'history', element: <EquipmentsHistory /> },
+
     ],
   }, 
 

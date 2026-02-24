@@ -7,9 +7,13 @@ export default function EquipmentsLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const currentTab = location.pathname.includes("categories")
-    ? "categories"
-    : "equipments"
+ let currentTab = "equipments"
+
+if (location.pathname.includes("categories")) {
+  currentTab = "categories"
+} else if (location.pathname.includes("history")) {
+  currentTab = "history"
+}
 
   return (
     <div className="h-screen overflow-hidden p-6 space-y-6 bg-[#f6f8fb]">
@@ -38,6 +42,14 @@ export default function EquipmentsLayout() {
            <div className="flex items-center justify-between">
             
             <TabsList>
+
+                 <TabsTrigger
+                value="categories"
+                onClick={() => navigate("/manager/equipments/categories")}
+              >
+                LOẠI THIẾT BỊ
+              </TabsTrigger>
+
               <TabsTrigger
                 value="equipments"
                 onClick={() => navigate("/manager/equipments")}
@@ -46,11 +58,12 @@ export default function EquipmentsLayout() {
               </TabsTrigger>
 
               <TabsTrigger
-                value="categories"
-                onClick={() => navigate("/manager/equipments/categories")}
+                value="history"
+                onClick={() => navigate("/manager/equipments/history")}
               >
-                LOẠI THIẾT BỊ
+                LỊCH SỬ MƯỢN
               </TabsTrigger>
+
             </TabsList>
 
             <Outlet context={{ position: "toolbar" }} />
