@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search } from 'lucide-react';
 
 export default function RequestSidebar() {
   const navigate = useNavigate();
@@ -36,28 +34,19 @@ export default function RequestSidebar() {
   );
 
   return (
-    <div className="h-full flex flex-col">
+
+    <div> 
+      
+      
+      <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b">
-        <div className="flex justify-between mb-4">
+        <div className="flex justify-between  p-4 border-b">
           <h2 className="font-semibold text-lg">Danh sách yêu cầu</h2>
           <span className="text-sm font-medium text-primary">{requestList.length}</span>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Tìm kiếm..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-      </div>
-
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
         {filtered.map((item) => {
           const isActive = id === item.id;
 
@@ -80,6 +69,8 @@ export default function RequestSidebar() {
         })}
       </div>
     </div>
+    </div>
+   
   );
 }
 

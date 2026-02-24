@@ -152,7 +152,7 @@ export default function TopicsManagement() {
   return (
     <div className="h-screen overflow-hidden p-6 space-y-6  ">
       {/* HEADER */}
-      <div className="flex justify-between bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm items-center">
+      <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
           <h2 className="text-xl font-semibold text-black">Quản lý chủ đề</h2>
           <p className="text-xs text-gray-500">Quản lý các chủ đề trong hệ thống</p>
@@ -167,7 +167,7 @@ export default function TopicsManagement() {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-3">
+      <div className="grid grid-cols-4 gap-4 mb-2">
         <StatCard
           icon={<GraduationCap />}
           label="Tổng người dùng"
@@ -189,7 +189,7 @@ export default function TopicsManagement() {
         />
         <StatCard icon={<Clock />} label="Tổng buổi học" value="1,248" sub="Buổi học" />
       </div>
-      <div className="flex mb-3 justify-end">
+      <div className="flex mb-2 justify-end">
         {' '}
         <HoverSearch />
       </div>

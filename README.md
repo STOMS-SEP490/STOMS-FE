@@ -1,7 +1,5 @@
 # STOMS-FE
 
-Minimal React + TypeScript + Vite + Tailwind starter configured for a large API-driven project.
-
 Quick start:
 
 1. Copy environment :
