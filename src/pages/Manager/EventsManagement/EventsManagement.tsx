@@ -152,7 +152,7 @@ export default function EventsManagement() {
   return (
     <div className=" p-6 space-y-6 ">
       {/* HEADER */}
-      <div className="flex justify-between bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm items-center">
+      <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
           <h2 className="text-xl font-semibold text-black">Quản lý sự kiện</h2>
           <p className="text-xs text-gray-500">
@@ -169,7 +169,7 @@ export default function EventsManagement() {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-3">
+      <div className="grid grid-cols-4 gap-4 mb-2">
         <StatCard
           icon={<GraduationCap />}
           label="Tổng người dùng"
@@ -193,7 +193,7 @@ export default function EventsManagement() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex justify-end gap-3 mb-3">
+      <div className="flex justify-end gap-3 mb-2">
         <HoverSearch />
         <div className="flex items-center gap-3">
           {/* Group Filter */}

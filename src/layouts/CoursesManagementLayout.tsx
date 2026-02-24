@@ -10,15 +10,15 @@ export default function CoursesLayout() {
   const currentTab = location.pathname.includes('subjects') ? 'subjects' : 'courses';
 
   return (
-    <div className="h-screen overflow-hidden p-6 space-y-6 bg-[#f6f8fb]">
+    <div className="h-screen overflow-hidden p-6 space-y-6 bg-[#f3f4f6]">
       {/* HEADER */}
-      <div className="bg-white px-6 py-4 mb-3 rounded-xl border shadow-sm">
+      <div className="bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>
         <p className="text-xs text-gray-500">Quản lý khóa học và môn học trong hệ thống</p>
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4  mb-2">
+      <div className="grid grid-cols-4 gap-4  mb-0">
         <StatCard icon={<GraduationCap />} label="Tổng khóa học" value="48" sub="Khóa học" />
         <StatCard
           icon={<CheckCircle />}
@@ -32,7 +32,7 @@ export default function CoursesLayout() {
       </div>
 
       {/* TABS */}
-      <div className=" px-6 py-2 mb-2">
+      <div className=" px-6 py-2 mb-1">
         <Tabs value={currentTab}>
           <div className="flex items-center justify-between">
             <TabsList>
