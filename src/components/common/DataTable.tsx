@@ -1,14 +1,4 @@
-import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  useReactTable,
-  type ColumnDef,
-  type ColumnFiltersState,
-  type SortingState,
-} from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,80 +10,64 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-import { ArrowUp, ArrowDown, ArrowDownUp } from 'lucide-react';
-import React from 'react';
-
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+
+  onPageChange: (page: number) => void;
 }
 
-export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = React.useState('');
+export function DataTable<TData, TValue>({
+  columns,
+  data,
+  pageNumber,
+  pageSize,
+  totalItems,
+  onPageChange,
+}: DataTableProps<TData, TValue>) {
+  const totalPages = Math.ceil(totalItems / pageSize);
 
   const table = useReactTable({
     data,
     columns,
     state: {
-      sorting,
-      columnFilters,
-      globalFilter,
+      pagination: {
+        pageIndex: pageNumber - 1,
+        pageSize,
+      },
     },
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
+    manualPagination: true,
+    pageCount: totalPages,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   });
 
   return (
-    <div className="space-y-2 ">
-      {/* Table */}
+    <div className="space-y-4">
+      {/* TABLE */}
       <div className="rounded-md border bg-white">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const isSorted = header.column.getIsSorted();
-
-                  return (
-                    <TableHead
-                      key={header.id}
-                      onClick={
-                        header.column.getCanSort()
-                          ? header.column.getToggleSortingHandler()
-                          : undefined
-                      }
-                      className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
-                    >
-                      <div className="flex items-center gap-1">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() && (
-                          <>
-                            {!isSorted && <ArrowDownUp size={14} />}
-                            {isSorted === 'asc' && <ArrowUp size={14} />}
-                            {isSorted === 'desc' && <ArrowDown size={14} />}
-                          </>
-                        )}
-                      </div>
-                    </TableHead>
-                  );
-                })}
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {data.length > 0 ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell className="text-gray-700" key={cell.id}>
+                    <TableCell key={cell.id} className="text-gray-700">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -110,28 +84,33 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         </Table>
       </div>
 
-      {/* Pagination */}
+      {/* PAGINATION */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Trang {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+          Hiển thị {(pageNumber - 1) * pageSize + 1}
+          {' - '}
+          {Math.min(pageNumber * pageSize, totalItems)} trên {totalItems} bản ghi
         </div>
 
         <div className="flex gap-2">
           <Button
             variant="secondary"
             size="sm"
-            className="text-black"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            onClick={() => onPageChange(pageNumber - 1)}
+            disabled={pageNumber <= 1}
           >
             Trước
           </Button>
 
+          <div className="px-3 py-1 text-sm">
+            {pageNumber} / {totalPages || 1}
+          </div>
+
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
+            onClick={() => onPageChange(pageNumber + 1)}
+            disabled={pageNumber >= totalPages}
           >
             Sau
           </Button>

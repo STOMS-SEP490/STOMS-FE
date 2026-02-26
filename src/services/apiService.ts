@@ -9,6 +9,7 @@ export const exampleService = {
     const { data } = await http.get(`/items/${id}`);
     return data;
   },
+  
 };
 
 export default exampleService;

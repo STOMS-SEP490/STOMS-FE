@@ -1,3 +1,4 @@
+import PCLayout from '@/layouts/PCLayout';
 import AuthLayout from '../layouts/AuthLayout';
 import MainLayout from '../layouts/MainLayout';
 import AuthPageRoutes from './AuthPageRoutes';
@@ -13,7 +14,7 @@ const routes = [
 
   {
     path: '/pc',
-    element: <MainLayout />,
+    element: <PCLayout />,
     children: [...ProgramCoordinatorRoutes],
   },
 

@@ -34,43 +34,39 @@ export default function RequestSidebar() {
   );
 
   return (
-
-    <div> 
-      
-      
+    <div>
       <div className="h-full flex flex-col">
-      {/* Header */}
+        {/* Header */}
         <div className="flex justify-between  p-4 border-b">
           <h2 className="font-semibold text-lg">Danh sách yêu cầu</h2>
           <span className="text-sm font-medium text-primary">{requestList.length}</span>
         </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
-        {filtered.map((item) => {
-          const isActive = id === item.id;
+        {/* List */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
+          {filtered.map((item) => {
+            const isActive = id === item.id;
 
-          return (
-            <div
-              key={item.id}
-              onClick={() => navigate(`/manager/requests/${item.id}`)}
-              className={`cursor-pointer rounded-xl border p-4 transition
+            return (
+              <div
+                key={item.id}
+                onClick={() => navigate(`/manager/requests/${item.id}`)}
+                className={`cursor-pointer rounded-xl border p-4 transition
                 ${isActive ? 'bg-blue-50 border-blue-500' : 'bg-white hover:shadow-sm'}`}
-            >
-              <div className="flex justify-between items-start">
-                <div className="text-sm font-medium">{item.title}</div>
+              >
+                <div className="flex justify-between items-start">
+                  <div className="text-sm font-medium">{item.title}</div>
 
-                <StatusBadge status={item.status} />
+                  <StatusBadge status={item.status} />
+                </div>
+
+                <div className="text-xs text-gray-500 mt-2">{item.createdBy}</div>
               </div>
-
-              <div className="text-xs text-gray-500 mt-2">{item.createdBy}</div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
-    </div>
-   
   );
 }
 

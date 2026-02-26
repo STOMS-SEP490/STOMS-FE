@@ -14,14 +14,11 @@ import {
   Tag,
   PieChart,
   Menu,
-  LogOut,
 } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import authService from '@/services/authService';
+import { NavLink } from 'react-router-dom';
 
-export default function Sidebar() {
+export default function PCSidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const navigate = useNavigate();
 
   const menus = useMemo(
     () => [
@@ -42,26 +39,6 @@ export default function Sidebar() {
     ],
     []
   );
-
-  const handleLogout = async () => {
-    try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      const user = localStorage.getItem('user');
-      const deviceUid = user ? JSON.parse(user).deviceUid : null;
-
-      if (refreshToken && deviceUid) {
-        await authService.logout({
-          refreshToken,
-          deviceUid,
-        });
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.clear();
-      navigate('/login');
-    }
-  };
 
   return (
     <aside
@@ -87,6 +64,9 @@ export default function Sidebar() {
         </div>
       )}
 
+      {/* Top */}
+
+      {/* Avatar */}
       {!collapsed && (
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg ring-4 ring-white">
@@ -98,9 +78,7 @@ export default function Sidebar() {
           </div>
           <div className="mt-4 text-center">
             <div className="font-medium text-slate-700">Xin chào Phương</div>
-            <div className="text-sm text-slate-400">
-              {JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
-            </div>
+            <div className="text-sm text-slate-400">phuonglhk@fpt.edu.vn</div>
           </div>
         </div>
       )}
@@ -108,13 +86,13 @@ export default function Sidebar() {
       {collapsed && (
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="rounded-md hover:bg-gray-200 transition mb-4"
+          className="rounded-md hover:bg-gray-200 transition"
         >
           <Menu size={20} color="black" />
         </button>
       )}
-
-      <div className="overflow-y-auto no-scrollbar relative">
+      {/* Scrollable Grid */}
+      <div className=" overflow-y-auto no-scrollbar relative ">
         <div
           className={`
             grid border border-gray-200 rounded-xl 
@@ -127,7 +105,8 @@ export default function Sidebar() {
             return (
               <NavLink key={m.path} to={m.path}>
                 {({ isActive }) => (
-                  <div className={`relative group ${collapsed ? 'h-15' : 'h-20'}`}>
+                  <div className={`relative group  ${collapsed ? 'h-15' : 'h-20'}`}>
+                    {/* Default */}
                     <div
                       className={` 
                         h-full rounded-xl 
@@ -138,17 +117,16 @@ export default function Sidebar() {
                     >
                       <Icon size={20} className="text-gray-400" />
                       {!collapsed && (
-                        <div className="text-xs mt-2 text-center text-gray-400">
-                          {m.label}
-                        </div>
+                        <div className="text-xs mt-2 text-center text-gray-400">{m.label}</div>
                       )}
                     </div>
 
+                    {/* Floating active/hover */}
                     <div
                       className={`
                         absolute inset-0 rounded-xl
                         flex flex-col items-center justify-center
-                        transition-all duration-300
+                         transition-all duration-300
                         ${
                           isActive
                             ? 'bg-[#0F6A9E] text-white scale-100'
@@ -158,12 +136,11 @@ export default function Sidebar() {
                     >
                       <Icon size={22} />
                       {!collapsed && (
-                        <div className="text-xs mt-2 font-medium text-center px-1">
-                          {m.label}
-                        </div>
+                        <div className="text-xs mt-2 font-medium text-center px-1 ">{m.label}</div>
                       )}
                     </div>
 
+                    {/* Tooltip khi collapsed */}
                     {collapsed && (
                       <div
                         className="
@@ -186,19 +163,6 @@ export default function Sidebar() {
             );
           })}
         </div>
-      </div>
-
-      {/* Logout */}
-      <div className="mt-auto pt-4">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 
-                     py-3 rounded-xl text-red-600 
-                     hover:bg-red-50 transition"
-        >
-          <LogOut size={18} />
-          {!collapsed && <span>Đăng xuất</span>}
-        </button>
       </div>
     </aside>
   );

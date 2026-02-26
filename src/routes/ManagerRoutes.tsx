@@ -18,6 +18,9 @@ import AuditLogs from '@/pages/Manager/AuditLog/AuditLogs';
 import UserManagement from '@/pages/Manager/UsersManagement/UsersManagement';
 import RequestLayout from '@/layouts/RequestLayout';
 import RequestDetail from '@/pages/Manager/RequestManagement/RequestDetail';
+import SkillsManagement from '@/pages/Manager/SkillsManagement/SkillMangagement';
+import MembersManagement from '@/pages/Manager/UsersManagement/MembersManagement';
+import TeamLayout from '@/layouts/TeamLayout';
 
 const ManagerRoutes = [
   { path: 'dashboard', element: <ManagerDashboard /> },
@@ -31,9 +34,11 @@ const ManagerRoutes = [
     ],
   },
   { path: 'users', element: <UserManagement /> },
-  { path: 'teams', element: <TeamsManagement /> },
+  // { path: 'teams', element: <TeamsManagement /> },
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'topics', element: <TopicsManagement /> },
+  { path: 'skills', element: <SkillsManagement /> },
+
   { path: 'logs', element: <AuditLogs /> },
   {
     path: 'requests',
@@ -59,6 +64,14 @@ const ManagerRoutes = [
       { index: true, element: <Transactions /> },
       { path: 'expenditure', element: <ExpenditureFund /> },
       { path: 'contribution', element: <ContributionFund /> },
+    ],
+  },
+  {
+    path: 'teams',
+    element: <TeamLayout />,
+    children: [
+      { index: true, element: <TeamsManagement /> },
+      { path: 'members', element: <MembersManagement /> },
     ],
   },
 ];

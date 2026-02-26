@@ -1,3 +1,4 @@
+import authService from '@/services/authService';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useOutletContext } from 'react-router-dom';
@@ -8,18 +9,22 @@ type AuthContextType = {
 
 export default function ForgotPassword() {
   const { setImage } = useOutletContext<AuthContextType>();
+  const navigate = useNavigate();
+
+  const [step, setStep] = useState(1);
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setImage('/img/ForgotPassword.png');
   }, []);
 
-  const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-
   type FormValues = {
     password: string;
     confirmPassword: string;
   };
+
   const {
     register,
     handleSubmit,
@@ -29,9 +34,46 @@ export default function ForgotPassword() {
 
   const password = watch('password');
 
-  const onSubmit = (data: FormValues) => {
-    console.log('Form data:', data);
-    navigate('/login');
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      await authService.requestForgotPasswordOtp(email);
+      setStep(2);
+    } catch (error) {
+      console.error(error);
+      alert('Gửi OTP thất bại');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmOtp = () => {
+    if (!otp) {
+      alert('Vui lòng nhập OTP');
+      return;
+    }
+    setStep(3);
+  };
+
+  const onSubmit = async (data: FormValues) => {
+    try {
+      setLoading(true);
+      await authService.confirmForgotPassword({
+        email,
+        otp,
+        newPassword: data.password,
+        confirmPassword: data.confirmPassword,
+      });
+
+      alert('Đổi mật khẩu thành công');
+      navigate('/login');
+    } catch (error) {
+      console.error(error);
+      alert('Đổi mật khẩu thất bại');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -43,25 +85,26 @@ export default function ForgotPassword() {
             Hãy nhập địa chỉ email của bạn để khôi phục mật khẩu.
           </p>
 
-          <form className="space-y-8">
-            {/* Email */}
+          <form onSubmit={handleRequestOtp} className="space-y-8">
             <input
               type="email"
               placeholder="abc@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
               className="w-full px-4 py-3 rounded-lg 
-                                bg-[#6e8ebd] placeholder-white/70
-                                focus:outline-none focus:ring-2 focus:ring-blue-950"
+                bg-[#6e8ebd] placeholder-white/70
+                focus:outline-none focus:ring-2 focus:ring-blue-950"
             />
 
-            {/* Button */}
             <button
-              onClick={() => setStep(2)}
               type="submit"
+              disabled={loading}
               className="w-full py-3 rounded-lg 
-                                bg-[#193350]
-                                hover:opacity-90 transition"
+                bg-[#193350]
+                hover:opacity-90 transition"
             >
-              Gửi Yêu Cầu
+              {loading ? 'Đang gửi...' : 'Gửi Yêu Cầu'}
             </button>
           </form>
         </>
@@ -78,11 +121,16 @@ export default function ForgotPassword() {
           <input
             type="text"
             placeholder="Mã OTP"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
             className="w-full px-4 py-3 rounded-lg bg-[#6e8ebd] placeholder-white/70
-                                focus:outline-none focus:ring-2 focus:ring-blue-950"
+              focus:outline-none focus:ring-2 focus:ring-blue-950"
           />
 
-          <button onClick={() => setStep(3)} className="w-full py-3 mt-6 rounded-lg bg-[#193350]">
+          <button
+            onClick={handleConfirmOtp}
+            className="w-full py-3 mt-6 rounded-lg bg-[#193350]"
+          >
             Xác Nhận Mã
           </button>
         </>
@@ -91,42 +139,47 @@ export default function ForgotPassword() {
       {step === 3 && (
         <>
           <h2 className="text-5xl font-bold">Đặt Lại Mật Khẩu</h2>
-          <p className="text-sm text-white/80 mt-2 mb-8">Vui lòng nhập mật khẩu mới của bạn.</p>
+          <p className="text-sm text-white/80 mt-2 mb-8">
+            Vui lòng nhập mật khẩu mới của bạn.
+          </p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Password */}
             <input
               type="password"
               placeholder="Mật khẩu mới"
-              {...register('password')}
+              {...register('password', { required: 'Bắt buộc nhập mật khẩu' })}
               className="w-full px-4 py-3 rounded-lg bg-[#6e8ebd] placeholder-white/70
-                                            focus:outline-none focus:ring-2 focus:ring-blue-950"
+                focus:outline-none focus:ring-2 focus:ring-blue-950"
             />
 
-            {/* Confirm Password */}
             <input
               type="password"
               placeholder="Xác nhận mật khẩu"
               {...register('confirmPassword', {
-                validate: (value) => value === password || 'Mật khẩu không khớp',
+                validate: (value) =>
+                  value === password || 'Mật khẩu không khớp',
               })}
               className="w-full px-4 py-3 rounded-lg bg-[#6e8ebd] placeholder-white/70
-                                            focus:outline-none focus:ring-2 focus:ring-blue-950"
+                focus:outline-none focus:ring-2 focus:ring-blue-950"
             />
+
             {errors.confirmPassword && (
-              <p className="text-red-800 text-sm -mt-6">{errors.confirmPassword.message}</p>
+              <p className="text-red-800 text-sm -mt-4">
+                {errors.confirmPassword.message}
+              </p>
             )}
 
-            {/* Button */}
             <button
               type="submit"
-              disabled={!isValid}
+              disabled={!isValid || loading}
               className={`w-full py-3 rounded-lg transition
-                    ${
-                      isValid ? 'bg-[#193350] hover:opacity-90' : 'bg-gray-500 cursor-not-allowed'
-                    }`}
+                ${
+                  isValid
+                    ? 'bg-[#193350] hover:opacity-90'
+                    : 'bg-gray-500 cursor-not-allowed'
+                }`}
             >
-              Cập Nhật Mật Khẩu
+              {loading ? 'Đang cập nhật...' : 'Cập Nhật Mật Khẩu'}
             </button>
           </form>
         </>
@@ -134,31 +187,3 @@ export default function ForgotPassword() {
     </>
   );
 }
-
-<>
-  <h2 className="text-5xl font-bold">QUÊN MẬT KHẨU</h2>
-  <p className="text-sm text-white/80 mt-2 mb-8">
-    Hãy nhập địa chỉ email của bạn để khôi phục mật khẩu.
-  </p>
-
-  <form className="space-y-8">
-    {/* Email */}
-    <input
-      type="email"
-      placeholder="abc@gmail.com"
-      className="w-full px-4 py-3 rounded-lg 
-                      bg-[#6e8ebd] placeholder-white/70
-                      focus:outline-none focus:ring-2 focus:ring-blue-950"
-    />
-
-    {/* Button */}
-    <button
-      type="submit"
-      className="w-full py-3 rounded-lg 
-                      bg-[#193350]
-                      hover:opacity-90 transition"
-    >
-      Gửi Yêu Cầu
-    </button>
-  </form>
-</>;
