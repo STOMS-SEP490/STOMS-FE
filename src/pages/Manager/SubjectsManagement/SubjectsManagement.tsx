@@ -1,130 +1,136 @@
+import { useEffect, useMemo, useState } from 'react';
 import { DataTable } from '@/components/common/DataTable';
 import HoverSearch from '@/components/ui/search';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
+import dayjs from 'dayjs';
+import subjectService from '@/services/subjectService';
+import type { SubjectListItem } from '@/types/subject';
 
-type Subject = {
-  id: string;
-  name: string;
-  topic: string;
-  status: 'active' | 'draft' | 'inactive';
-  sessions: number;
-  created: string;
-};
-
-const data: Subject[] = [
-  {
-    id: 'SUB-2024-001',
-    name: 'Introduction to Neural Networks',
-    topic: 'TOPIC-001',
-    status: 'active',
-    sessions: 12,
-    created: '15/01/2024',
-  },
-  {
-    id: 'SUB-2024-002',
-    name: 'Arduino Basics',
-    topic: 'TOPIC-002',
-    status: 'active',
-    sessions: 8,
-    created: '16/01/2024',
-  },
-  {
-    id: 'SUB-2024-003',
-    name: 'Python Data Structures',
-    topic: 'TOPIC-003',
-    status: 'active',
-    sessions: 10,
-    created: '17/01/2024',
-  },
-  {
-    id: 'SUB-2024-004',
-    name: 'Computer Vision Fundamentals',
-    topic: 'TOPIC-001',
-    status: 'draft',
-    sessions: 15,
-    created: '18/01/2024',
-  },
-  {
-    id: 'SUB-2024-005',
-    name: 'IoT Sensor Networks',
-    topic: 'TOPIC-004',
-    status: 'active',
-    sessions: 9,
-    created: '19/01/2024',
-  },
-];
-const columns: ColumnDef<Subject>[] = [
-  {
-    accessorKey: 'id',
-    header: 'MÃ MÔN HỌC',
-    cell: ({ row }) => <div className="text-sm font-medium">{row.original.id}</div>,
-  },
-  {
-    accessorKey: 'name',
-    header: 'TÊN MÔN HỌC',
-  },
-  {
-    accessorKey: 'topic',
-    header: 'CHỦ ĐỀ',
-  },
-  {
-    accessorKey: 'status',
-    header: 'TRẠNG THÁI',
-    cell: ({ row }) => {
-      const status = row.original.status;
-
-      const statusMap = {
-        active: 'Hoạt động',
-        draft: 'Nháp',
-        inactive: 'Không hoạt động',
-      };
-
-      const colorMap = {
-        active: 'bg-green-100 text-green-700',
-        draft: 'bg-orange-100 text-orange-600',
-        inactive: 'bg-red-100 text-red-600',
-      };
-
-      return (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${colorMap[status]}`}>
-          {statusMap[status]}
-        </span>
-      );
-    },
-  },
-
-  {
-    accessorKey: 'sessions',
-    header: 'SỐ BUỔI HỌC',
-    cell: ({ row }) => `${row.original.sessions} buổi`,
-  },
-  {
-    accessorKey: 'created',
-    header: 'NGÀY TẠO',
-  },
-  {
-    id: 'actions',
-    header: 'HÀNH ĐỘNG',
-    enableSorting: false,
-    cell: () => (
-      <div className="flex gap-3">
-        <Eye size={16} className="text-gray-600 cursor-pointer" />
-        <Pencil size={16} className="text-gray-600 cursor-pointer" />
-      </div>
-    ),
-  },
-];
 export default function SubjectsManagement() {
   const context = useOutletContext<{ position: string }>();
+
+  const [data, setData] = useState<SubjectListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const [search, setSearch] = useState('');
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const fetchSubjects = async () => {
+    try {
+      setLoading(true);
+
+      const res = await subjectService.getSubjects({
+        pageNumber,
+        pageSize,
+        SubjectName: search || undefined,
+      });
+
+      setData(res.items);
+      setTotalItems(res.totalItems);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubjects();
+  }, [pageNumber, search]);
+
+  const columns = useMemo<ColumnDef<SubjectListItem>[]>(
+    () => [
+      {
+        accessorKey: 'subjectCode',
+        header: 'MÃ MÔN HỌC',
+        cell: ({ row }) => (
+          <div className="text-sm font-medium">
+            {row.original.subjectCode}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'subjectName',
+        header: 'TÊN MÔN HỌC',
+      },
+      {
+        accessorKey: 'topicId',
+        header: 'CHỦ ĐỀ',
+        cell: ({ row }) => `TOPIC-${row.original.topicId}`,
+      },
+      {
+        accessorKey: 'isActive',
+        header: 'TRẠNG THÁI',
+        cell: ({ row }) => {
+          const active = row.original.isActive;
+
+          return active ? (
+            <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+              Hoạt động
+            </span>
+          ) : (
+            <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">
+              Không hoạt động
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'numberOfSession',
+        header: 'SỐ BUỔI HỌC',
+        cell: ({ row }) =>
+          `${row.original.numberOfSession ?? 0} buổi`,
+      },
+      {
+        accessorKey: 'createdAt',
+        header: 'NGÀY TẠO',
+        cell: ({ row }) =>
+          dayjs(row.original.createdAt).format('DD/MM/YYYY'),
+      },
+      {
+        id: 'actions',
+        header: 'HÀNH ĐỘNG',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="flex gap-3">
+            <Eye
+              size={16}
+              className="text-gray-600 cursor-pointer hover:text-blue-600"
+              onClick={() => console.log('view', row.original.subjectId)}
+            />
+            <Pencil
+              size={16}
+              className="text-gray-600 cursor-pointer hover:text-blue-600"
+              onClick={() => console.log('edit', row.original.subjectId)}
+            />
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   if (context.position === 'toolbar') {
     return (
       <div className="flex gap-3">
-        <HoverSearch placeholder="Tìm môn học..." />{' '}
+        <HoverSearch
+          placeholder="Tìm môn học..."
+          
+        />
       </div>
     );
   }
-  return <DataTable columns={columns} data={data} />;
+
+  return (
+    <DataTable
+      columns={columns}
+      data={data}
+      pageNumber={pageNumber}
+      pageSize={pageSize}
+      totalItems={totalItems}
+      onPageChange={(page) => setPageNumber(page)}
+    />
+  );
 }

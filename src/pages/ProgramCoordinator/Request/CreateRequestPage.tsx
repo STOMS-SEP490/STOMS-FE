@@ -11,11 +11,11 @@ import {
   Card,
   Divider,
 } from 'antd';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { requestService } from '@/services/requestService';
 import { Button } from '@/components/ui/button';
+import requestService from '@/services/requestService';
 
 export default function CreateRequestPage() {
   const [form] = Form.useForm();
@@ -24,17 +24,51 @@ export default function CreateRequestPage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const subjects = [
-    { id: 1, name: 'Lập trình Drone' },
-    { id: 2, name: 'Lập trình Web nâng cao' },
-  ];
+  const [contentType, setContentType] = useState<string>();
+  const [contentOptions, setContentOptions] = useState<any[]>([]);
+  const [contentLoading, setContentLoading] = useState(false);
 
-  const courses = [
-    { id: 10, name: 'ReactJS Master' },
-    { id: 11, name: 'Unity Game 2D' },
-  ];
+  /* ================= LOAD CONTENT BY TYPE ================= */
 
-  const events = [{ id: 100, name: 'Hội thảo Công nghệ 2026' }];
+  // const fetchContentByType = async (type: string) => {
+  //   try {
+  //     setContentLoading(true);
+  //     let res;
+
+  //     if (type === 'subject') {
+  //       res = await subjectService.getAll();
+  //     }
+
+  //     if (type === 'course') {
+  //       res = await courseService.getAll();
+  //     }
+
+  //     if (type === 'event') {
+  //       res = await eventService.getAll();
+  //     }
+
+  //     // ⚠️ chỉnh lại nếu api bạn trả về res.data.items
+  //     setContentOptions(res?.data ?? []);
+  //   } catch (err) {
+  //     console.error(err);
+  //     setContentOptions([]);
+  //   } finally {
+  //     setContentLoading(false);
+  //   }
+  // };
+
+  /* ================= HANDLE CONTENT TYPE CHANGE ================= */
+
+  const handleContentTypeChange = async (value: string) => {
+    setContentType(value);
+
+    // reset selectedId khi đổi loại
+    form.setFieldsValue({ selectedId: undefined });
+
+    // await fetchContentByType(value);
+  };
+
+  /* ================= GENERATE SESSIONS ================= */
 
   const generateSessions = (count: number, startDate: any) => {
     const base = startDate || dayjs();
@@ -54,6 +88,8 @@ export default function CreateRequestPage() {
     setSessions(newSessions);
   };
 
+  /* ================= NEXT STEP ================= */
+
   const handleNext = async () => {
     try {
       const values = await form.validateFields([
@@ -66,12 +102,11 @@ export default function CreateRequestPage() {
       ]);
 
       generateSessions(values.sessionsRequired, values.startDate);
-
       setStep(1);
-    } catch {
-      // validate fail → không chuyển step
-    }
+    } catch {}
   };
+
+  /* ================= UPDATE SESSION ================= */
 
   const updateSession = (index: number, key: string, value: any) => {
     const updated = [...sessions];
@@ -79,91 +114,73 @@ export default function CreateRequestPage() {
     setSessions(updated);
   };
 
-  const handleFinish = async () => {
-  const values = await form.validateFields();
+  /* ================= SUBMIT ================= */
 
-  const payload = {
-    programCoordinatorId: 3, // đổi theo user login nếu có
+  // const handleFinish = async () => {
+  //   const values = await form.validateFields();
 
-    subjectId: values.contentType === 'subject' ? values.selectedId : null,
-    courseId: values.contentType === 'course' ? values.selectedId : null,
-    eventId: values.contentType === 'event' ? values.selectedId : null,
+  //   const payload = {
+  //     programCoordinatorId: 3,
 
-    startDate: values.startDate.format('YYYY-MM-DD'),
-    requestName: values.requestName,
-    customerName: values.customerName,
-    note: values.note,
+  //     subjectId: values.contentType === 'subject' ? values.selectedId : null,
+  //     courseId: values.contentType === 'course' ? values.selectedId : null,
+  //     eventId: values.contentType === 'event' ? values.selectedId : null,
 
-    sessions: sessions.map((s, index) => ({
-      sessionNo: index + 1,
-      startAt: dayjs(
-        `${s.date.format('YYYY-MM-DD')} ${s.startTime.format('HH:mm')}`
-      ).format('YYYY-MM-DDTHH:mm:ss'),
+  //     startDate: values.startDate.format('YYYY-MM-DD'),
+  //     requestName: values.requestName,
+  //     customerName: values.customerName,
+  //     note: values.note,
 
-      endAt: dayjs(
-        `${s.date.format('YYYY-MM-DD')} ${s.endTime.format('HH:mm')}`
-      ).format('YYYY-MM-DDTHH:mm:ss'),
+  //     sessions: sessions.map((s, index) => ({
+  //       sessionNo: index + 1,
+  //       startAt: dayjs(
+  //         `${s.date.format('YYYY-MM-DD')} ${s.startTime.format('HH:mm')}`
+  //       ).format('YYYY-MM-DDTHH:mm:ss'),
 
-      notes: s.notes || '',
+  //       endAt: dayjs(
+  //         `${s.date.format('YYYY-MM-DD')} ${s.endTime.format('HH:mm')}`
+  //       ).format('YYYY-MM-DDTHH:mm:ss'),
 
-      subjectSessionId:
-        values.contentType === 'subject' ? s.subjectSessionId ?? null : null,
+  //       notes: s.notes || '',
+  //       teachersRequired: s.teachersRequired ?? 0,
+  //       tasRequired: s.tasRequired ?? 0,
+  //       location: s.location ?? '',
+  //       isOnline: s.isOnline ?? false,
+  //       borrowingId: null,
+  //       reservationId: null,
+  //     })),
 
-      eventSessionId:
-        values.contentType === 'event' ? s.eventSessionId ?? null : null,
+  //     attachments: [],
+  //   };
 
-      teachersRequired: s.teachersRequired ?? 0,
-      tasRequired: s.tasRequired ?? 0,
-      location: s.location ?? '',
-      isOnline: s.isOnline ?? false,
+  //   try {
+  //     setLoading(true);
+  //     const res = await requestService.create(payload);
+  //     navigate(`/requests/${res.requestId}`);
+  //   } catch (err) {
+  //     console.error(err);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-      borrowingId: null,
-      reservationId: null,
-    })),
-
-    attachments: [
-      {
-        fileName: 'ke_hoach_python_ai.pdf',
-        fileUrl: 'https://example.com/files/ke_hoach_python_ai.pdf',
-        uploadedByMemberId: 3,
-      },
-    ],
-  };
-
-  try {
-    setLoading(true);
-    const res = await requestService.create(payload);
-    navigate(`/requests/${res.id}`);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-};
+  /* ================= UI ================= */
 
   return (
     <div className="p-6">
       <div className="bg-white p-6 rounded-xl border shadow-sm">
         <Row gutter={32}>
-          {/* STEP BÊN TRÁI */}
           <Col span={6}>
             <Steps
               direction="vertical"
               current={step}
               items={[
-                {
-                  title: 'Thông tin chung',
-                  status: step > 0 ? 'finish' : 'process',
-                },
-                {
-                  title: 'Cấu hình Sessions',
-                  status: step === 1 ? 'process' : 'wait',
-                },
+                { title: 'Thông tin chung' },
+                { title: 'Cấu hình Sessions' },
               ]}
             />
           </Col>
 
-          {/* FORM BÊN PHẢI */}
           <Col span={18}>
             <Form layout="vertical" form={form}>
               {step === 0 && (
@@ -184,7 +201,10 @@ export default function CreateRequestPage() {
                       label="Loại nội dung"
                       rules={[{ required: true }]}
                     >
-                      <Select size="large">
+                      <Select
+                        size="large"
+                        onChange={handleContentTypeChange}
+                      >
                         <Select.Option value="subject">
                           Môn học
                         </Select.Option>
@@ -204,10 +224,17 @@ export default function CreateRequestPage() {
                       label="Chọn nội dung"
                       rules={[{ required: true }]}
                     >
-                      <Select size="large">
-                        {[...subjects, ...courses, ...events].map((i) => (
-                          <Select.Option key={i.id} value={i.id}>
-                            {i.name}
+                      <Select
+                        size="large"
+                        loading={contentLoading}
+                        disabled={!contentType}
+                      >
+                        {contentOptions.map((item: any) => (
+                          <Select.Option
+                            key={item.id}
+                            value={item.id}
+                          >
+                            {item.name}
                           </Select.Option>
                         ))}
                       </Select>
@@ -244,14 +271,10 @@ export default function CreateRequestPage() {
                     </Form.Item>
                   </Col>
 
-                  <Col span={24}>
-                    <Form.Item name="note" label="Ghi chú">
-                      <Input.TextArea rows={3} />
-                    </Form.Item>
-                  </Col>
-
                   <Col span={24} className="text-right">
-                    <Button onClick={handleNext}>Tiếp theo</Button>
+                    <Button onClick={handleNext}>
+                      Tiếp theo
+                    </Button>
                   </Col>
                 </Row>
               )}
@@ -292,48 +315,22 @@ export default function CreateRequestPage() {
                             }
                           />
                         </Col>
-
-                        <Col span={4}>
-                          <InputNumber
-                            min={0}
-                            value={s.teachersRequired}
-                            className="w-full"
-                            onChange={(v) =>
-                              updateSession(
-                                index,
-                                'teachersRequired',
-                                v
-                              )
-                            }
-                            placeholder="Teachers"
-                          />
-                        </Col>
-
-                        <Col span={4}>
-                          <InputNumber
-                            min={0}
-                            value={s.tasRequired}
-                            className="w-full"
-                            onChange={(v) =>
-                              updateSession(index, 'tasRequired', v)
-                            }
-                            placeholder="TAs"
-                          />
-                        </Col>
                       </Row>
                     </Card>
                   ))}
 
                   <Divider />
 
-                  <div className="flex justify-between">
+                  {/* <div className="flex justify-between">
                     <Button onClick={() => setStep(0)}>
                       Quay lại
                     </Button>
-                    <Button onClick={handleFinish}>
+                    <Button
+                      onClick={handleFinish}
+                    >
                       Tạo Request
                     </Button>
-                  </div>
+                  </div> */}
                 </>
               )}
             </Form>

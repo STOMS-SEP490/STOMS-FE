@@ -39,3 +39,14 @@ export type CreateRequestPayload = {
   sessions: CreateRequestSession[];
   attachments: CreateRequestAttachment[];
 };
+
+export type RequestListItem = {
+  requestId: number;
+  requestCode: string;
+  requestName: string;
+  customerName: string;
+  startDate: string;
+  sessionsRequired: number;
+  status: string;
+  createdAt: string;
+}

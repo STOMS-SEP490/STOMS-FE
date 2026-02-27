@@ -1,29 +1,44 @@
-import axiosInstance from '@/lib/axios';
-import type { CreateRequestPayload } from '@/types/request';
+import axiosClient from '@/lib/axios';
+import type { PaginationResponse } from '@/types/api';
+import type { CreateRequestPayload, RequestListItem } from '@/types/request';
 
+export type RequestFilterParams = {
+  pageNumber?: number;
+  pageSize?: number;
+  requestId?: number;
+  status?: string;
+};
 
-export const requestService = {
-  create: async (payload: CreateRequestPayload) => {
-    const res = await axiosInstance.post(
-      '/api/requests',
-      payload
-    );
-    return res.data;
+const requestService = {
+  // GET /requests/filter
+  getRequests: async (
+    params: RequestFilterParams
+  ): Promise<PaginationResponse<RequestListItem>> => {
+    return axiosClient.get('/requests/filter', { params });
   },
 
-  getById: async (id: number) => {
-    const res = await axiosInstance.get(`/requests/${id}`);
-    return res.data;
+  // GET /requests/{id}
+  getById: async (id: number): Promise<RequestListItem> => {
+    return axiosClient.get(`/requests/${id}`);
   },
 
-  filter: async (params?: {
-    pageNumber?: number;
-    pageSize?: number;
-    search?: string;
-  }) => {
-    const res = await axiosInstance.get('/requests/filter', {
-      params,
-    });
-    return res.data;
+  // POST /requests
+  create: async (payload: CreateRequestPayload): Promise<RequestListItem> => {
+    return axiosClient.post('/requests', payload);
+  },
+
+  // PUT /requests/{id}
+  update: async (
+    id: number,
+    payload: Partial<CreateRequestPayload>
+  ): Promise<Request> => {
+    return axiosClient.put(`/requests/${id}`, payload);
+  },
+
+  // DELETE /requests/{id}
+  delete: async (id: number): Promise<void> => {
+    return axiosClient.delete(`/requests/${id}`);
   },
 };
+
+export default requestService;
