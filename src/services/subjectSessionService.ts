@@ -1,5 +1,5 @@
-import axiosInstance from '@/lib/axios';
-import type { SubjectSessionFilterParams } from '@/types/subjectSession';
+import axiosInstance from '@/shared/lib/axios';
+import type { SubjectSessionFilterParams } from '@/shared/types/subjectSession';
 
 
 

@@ -1,0 +1,76 @@
+import CoursesManagement from '../../modules/course/pages/CoursesManagement';
+import TopicsManagement from '@/modules/topic/pages/TopicsManagement';
+import CoursesLayout from '@/app/layouts/CoursesManagementLayout';
+import SubjectsManagement from '@/modules/subject/pages/SubjectsManagement';
+import EquipmentsManagement from '@/modules/equipment/pages/EquipmentsManagement';
+import CategoriesManagement from '@/modules/category/pages/CategoriesManagement';
+import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout';
+import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory';
+import TeamsManagement from '@/modules/team/pages/TeamsManagement';
+import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
+import EventsManagement from '@/modules/event/pages/EventsManagement';
+import TransactionLayout from '@/app/layouts/TransactionsLayout';
+import Transactions from '@/modules/transaction/pages/Transaction';
+import ExpenditureFund from '@/modules/transaction/pages/ExpenditureFund';
+import ContributionFund from '@/modules/transaction/pages/ContributionFund';
+import AuditLogs from '@/modules/auditLog/pages/AuditLogs';
+import SkillsManagement from '@/modules/skill/pages/SkillMangagement';
+import TeamLayout from '@/app/layouts/TeamLayout';
+import UserManagement from '@/modules/user/pages/UsersManagement';
+import RequestLayout from '../layouts/RequestLayout';
+
+const ManagerRoutes = [
+  // { path: 'dashboard', element: <ManagerDashboard /> },
+  { path: 'events', element: <EventsManagement /> },
+  {
+    path: 'courses',
+    element: <CoursesLayout />,
+    children: [
+      { index: true, element: <CoursesManagement /> },
+      { path: 'subjects', element: <SubjectsManagement /> },
+    ],
+  },
+  { path: 'users', element: <UserManagement /> },
+  // { path: 'teams', element: <TeamsManagement /> },
+  { path: 'contracts', element: <ContractsManagement /> },
+  { path: 'topics', element: <TopicsManagement /> },
+  { path: 'skills', element: <SkillsManagement /> },
+
+  { path: 'logs', element: <AuditLogs /> },
+  {
+    path: 'requests',
+    element: <RequestLayout />,
+    // children: [
+    //   { index: true, element: <RequestDetail /> },
+    //   { path: ':id', element: <RequestDetail /> },
+    // ],
+  },
+  {
+    path: 'equipments',
+    element: <EquipmentsManagementLayout />,
+    children: [
+      { index: true, element: <EquipmentsManagement /> },
+      { path: 'categories', element: <CategoriesManagement /> },
+      { path: 'history', element: <EquipmentsHistory /> },
+    ],
+  },
+  {
+    path: 'transactions',
+    element: <TransactionLayout />,
+    children: [
+      { index: true, element: <Transactions /> },
+      { path: 'expenditure', element: <ExpenditureFund /> },
+      { path: 'contribution', element: <ContributionFund /> },
+    ],
+  },
+  {
+    path: 'teams',
+    element: <TeamLayout />,
+    children: [
+      { index: true, element: <TeamsManagement /> },
+      // { path: 'members', element: <MembersManagement /> },
+    ],
+  },
+];
+
+export default ManagerRoutes;
