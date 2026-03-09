@@ -1,25 +1,85 @@
-import { RotateCcw, Eye, Pencil, Ban, Plus } from 'lucide-react';
+import { RotateCcw, Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import { message } from 'antd';
 import CreateTeamModal from './CreateTeamModal';
+import EditTeamModal from './EditTeamModal';
+import TeamDetailSidebar from './TeamDetailSidebar';
+import teamService from '../services/teamService';
 import type { Team } from '../team';
 import { useTeams } from '../hooks/useTeams';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import { DataTable } from '@/shared/components/common/DataTable';
+import { Dialog } from '@/shared/components/ui/dialog';
 
 export default function TeamsManagement() {
   const [pageNumber, setPageNumber] = useState(1);
   const pageSize = 10;
   const [search, setSearch] = useState('');
   const [openCreateModal, setOpenCreateModal] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTeam, setDetailTeam] = useState<Team | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTeam, setEditTeam] = useState<Team | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data, totalItems } = useTeams(pageNumber, pageSize, search);
+  const { data, totalItems, loading } = useTeams(
+    pageNumber,
+    pageSize,
+    search,
+    refreshKey
+  );
+
+  const handleView = async (team: Team) => {
+    try {
+      const full = await teamService.getTeamById(team.teamId);
+      setDetailTeam(full);
+      setDetailOpen(true);
+    } catch {
+      message.error('Không tải được thông tin nhóm');
+    }
+  };
+
+  const handleEdit = (team: Team) => {
+    setEditTeam(team);
+    setEditOpen(true);
+  };
+
+  const handleDeleteClick = (team: Team) => {
+    setTeamToDelete(team);
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!teamToDelete) return;
+    try {
+      await teamService.deleteTeam(teamToDelete.teamId);
+      message.success('Đã xóa nhóm');
+      setDeleteOpen(false);
+      setTeamToDelete(null);
+      setRefreshKey((k) => k + 1);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : null;
+      message.error(msg || 'Xóa nhóm thất bại');
+    }
+  };
 
   const columns: ColumnDef<Team>[] = [
     { accessorKey: 'teamId', header: 'Team ID' },
     { accessorKey: 'teamName', header: 'Tên đội' },
-    { accessorKey: 'leaderMemberId', header: 'Leader' },
+    {
+      id: 'leader',
+      header: 'Trưởng nhóm',
+      cell: ({ row }) =>
+        row.original.leaderMemberName ?? row.original.leaderMemberId ?? '—',
+    },
     {
       id: 'topics',
       header: 'Số topic',
@@ -28,19 +88,46 @@ export default function TeamsManagement() {
     {
       accessorKey: 'createdAt',
       header: 'Ngày tạo',
-      cell: ({ row }) => new Date(row.original.createdAt).toLocaleString(),
+      cell: ({ row }) =>
+        row.original.createdAt
+          ? new Date(row.original.createdAt).toLocaleString('vi-VN')
+          : '—',
     },
     {
       id: 'actions',
       header: 'Thao tác',
       enableSorting: false,
-      cell: ({ row }) => (
-        <div className="flex gap-3">
-          <Ban size={16} className="text-red-500 cursor-pointer" />
-          <Eye size={16} className="text-blue-600 cursor-pointer" />
-          <Pencil size={16} className="text-blue-600 cursor-pointer" />
-        </div>
-      ),
+      cell: ({ row }) => {
+        const team = row.original;
+        return (
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => handleDeleteClick(team)}
+              className="text-red-500 hover:text-red-700"
+              title="Xóa"
+            >
+              <Trash2 size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleView(team)}
+              className="text-blue-600 hover:text-blue-800"
+              title="Xem"
+            >
+              <Eye size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleEdit(team)}
+              className="text-blue-600 hover:text-blue-800"
+              title="Sửa"
+            >
+              <Pencil size={16} />
+            </button>
+          </div>
+        );
+      },
     },
   ];
 

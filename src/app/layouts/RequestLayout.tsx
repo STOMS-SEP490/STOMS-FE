@@ -1,10 +1,9 @@
-
 import RequestSidebar from '@/shared/components/request/RequestSideBar';
 import HoverSearch from '@/shared/components/ui/search';
+import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Switch } from '@/shared/components/ui/switch';
-import { Button } from 'antd/es/radio';
-import { RotateCcw, X } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 
@@ -65,12 +64,16 @@ export default function RequestLayout() {
           </Select>
 
           {/* Reset Button */}
-          <Button className="bg-white">
-            <RotateCcw />
+          <Button variant="outline" size="icon" className="shrink-0 bg-white border-gray-200 text-gray-600 hover:bg-gray-50">
+            <RotateCcw size={16} />
           </Button>
 
           <div className="flex items-center space-x-2 ">
-            <Switch className=" !rounded-[15px] " />
+            <Switch
+              className="!rounded-[15px]"
+              checked={onlyPending}
+              onCheckedChange={setOnlyPending}
+            />
             <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
           </div>
         </div>
@@ -78,7 +81,7 @@ export default function RequestLayout() {
       <div className="flex bg-gray-100">
         {/* Sidebar */}
         <div className="w-[320px] bg-white border-r overflow-y-auto">
-          <RequestSidebar search={search} />
+          <RequestSidebar search={search} onlyPending={onlyPending} />
         </div>
 
         {/* Content */}

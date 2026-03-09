@@ -15,9 +15,10 @@ export type TeamTopic = {
 export type Team = {
   teamId: number;
   teamName: string;
-  createdAt: string;
-  updatedAt: string;
-  leaderMemberId: number;
-  teamSessions: TeamSession[];
-  teamTopics: TeamTopic[];
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  leaderMemberId?: number | null;
+  leaderMemberName?: string | null;
+  teamSessions?: TeamSession[];
+  teamTopics?: TeamTopic[];
 };

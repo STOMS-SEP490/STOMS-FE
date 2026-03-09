@@ -1,38 +1,80 @@
 import axios, {
   type AxiosError,
   type InternalAxiosRequestConfig,
-} from 'axios'
+} from 'axios';
+import authService from '@/modules/auth/api/authApi';
+import { updateTokensInStorage } from '@/modules/auth/authStorage';
 
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-})
+});
 
 axiosClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('accessToken')
+    const token = localStorage.getItem('accessToken');
 
     if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
-    return config
+    return config;
   },
   (error: AxiosError) => Promise.reject(error)
-)
+);
 
 axiosClient.interceptors.response.use(
   (response) => response.data,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('accessToken')
-      window.location.href = '/login'
+  async (error: AxiosError) => {
+    const originalRequest = error.config as (InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    }) | undefined;
+
+    const status = error.response?.status;
+    const isAuthEndpoint =
+      originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/refresh');
+
+    if (status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        const rawUser = localStorage.getItem('user');
+        const deviceUid = rawUser ? JSON.parse(rawUser).deviceUid : null;
+
+        if (!refreshToken || !deviceUid) {
+          throw new Error('Missing refresh token or deviceUid');
+        }
+
+        const tokens = await authService.refresh({
+          refreshToken,
+          deviceUid,
+        });
+
+        updateTokensInStorage(tokens);
+
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
+        }
+
+        return axiosClient(originalRequest);
+      } catch {
+        localStorage.clear();
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
     }
 
-    return Promise.reject(error.response?.data || error)
-  }
-)
+    if (status === 401) {
+      localStorage.clear();
+      window.location.href = '/login';
+    }
 
-export default axiosClient
+    return Promise.reject(error.response?.data || error);
+  }
+);
+
+export default axiosClient;
