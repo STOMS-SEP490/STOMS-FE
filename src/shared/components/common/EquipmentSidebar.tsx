@@ -1,50 +1,23 @@
-import { useMemo, useState } from 'react';
-import {
-  BarChart3,
-  FileText,
-  BookOpen,
-  CalendarDays,
-  ClipboardList,
-  Laptop,
-  Wallet,
-  Users,
-  Clock,
-  CheckCircle,
-  Bookmark,
-  Tag,
-  PieChart,
-  Menu,
-  LogOut,
-} from 'lucide-react';
-import { NavLink } from 'react-router-dom';
-import { logout } from '@/modules/auth/pages/Logout';
+import { useMemo, useState } from 'react'
+import { BarChart3, Laptop, Menu, LogOut } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
+import { logout } from '@/modules/auth/pages/Logout'
 
-export default function PCSidebar() {
-  const [collapsed, setCollapsed] = useState(true);
+// Sidebar riêng cho Equipment Manager nhưng UI giống hệt Sidebar manager
+export default function EquipmentSidebar() {
+  const [collapsed, setCollapsed] = useState(true)
 
   const menus = useMemo(
     () => [
-      { label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
-      { label: 'Người dùng', icon: Users, path: '/manager/users' },
-      { label: 'Nhóm', icon: Users, path: '/manager/teams' },
-      { label: 'Sự kiện', icon: CalendarDays, path: '/manager/events' },
-      { label: 'Giáo trình', icon: BookOpen, path: '/manager/courses' },
-      { label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
-      { label: 'Thiết bị', icon: Laptop, path: '/manager/equipments' },
-      { label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
-      { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
-      { label: 'Quỹ / Thu chi', icon: Wallet, path: '/manager/transactions' },
-      { label: 'Thời khóa biểu', icon: Clock, path: '/manager/timetable' },
-      { label: 'Trung tâm duyệt', icon: CheckCircle, path: '/manager/requests' },
-      { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
-      { label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
+      { label: 'Dashboard', icon: BarChart3, path: '/em/dashboard' },
+      { label: 'Thiết bị', icon: Laptop, path: '/em/equipments' },
     ],
     []
-  );
+  )
 
   const handleLogout = async () => {
-    await logout();
-  };
+    await logout()
+  }
 
   return (
     <aside
@@ -70,9 +43,6 @@ export default function PCSidebar() {
         </div>
       )}
 
-      {/* Top */}
-
-      {/* Avatar */}
       {!collapsed && (
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg ring-4 ring-white">
@@ -83,8 +53,10 @@ export default function PCSidebar() {
             />
           </div>
           <div className="mt-4 text-center">
-            <div className="font-medium text-slate-700">Xin chào Phương</div>
-            <div className="text-sm text-slate-400">phuonglhk@fpt.edu.vn</div>
+            <div className="font-medium text-slate-700">Equipment Manager</div>
+            <div className="text-sm text-slate-400">
+              {JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
+            </div>
           </div>
         </div>
       )}
@@ -92,13 +64,13 @@ export default function PCSidebar() {
       {collapsed && (
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="rounded-md hover:bg-gray-200 transition"
+          className="rounded-md hover:bg-gray-200 transition mb-4"
         >
           <Menu size={20} color="black" />
         </button>
       )}
-      {/* Scrollable Grid */}
-      <div className=" overflow-y-auto no-scrollbar relative ">
+
+      <div className="overflow-y-auto no-scrollbar relative">
         <div
           className={`
             grid border border-gray-200 rounded-xl 
@@ -106,13 +78,12 @@ export default function PCSidebar() {
           `}
         >
           {menus.map((m) => {
-            const Icon = m.icon;
+            const Icon = m.icon
 
             return (
               <NavLink key={m.path} to={m.path}>
                 {({ isActive }) => (
-                  <div className={`relative group  ${collapsed ? 'h-15' : 'h-20'}`}>
-                    {/* Default */}
+                  <div className={`relative group ${collapsed ? 'h-15' : 'h-20'}`}>
                     <div
                       className={` 
                         h-full rounded-xl 
@@ -123,11 +94,12 @@ export default function PCSidebar() {
                     >
                       <Icon size={20} className="text-gray-400" />
                       {!collapsed && (
-                        <div className="text-xs mt-2 text-center text-gray-400">{m.label}</div>
+                        <div className="text-xs mt-2 text-center text-gray-400">
+                          {m.label}
+                        </div>
                       )}
                     </div>
 
-                    {/* Floating active/hover */}
                     <div
                       className={`
                         absolute inset-0 rounded-xl
@@ -142,11 +114,12 @@ export default function PCSidebar() {
                     >
                       <Icon size={22} />
                       {!collapsed && (
-                        <div className="text-xs mt-2 font-medium text-center px-1 ">{m.label}</div>
+                        <div className="text-xs mt-2 font-medium text-center px-1">
+                          {m.label}
+                        </div>
                       )}
                     </div>
 
-                    {/* Tooltip khi collapsed */}
                     {collapsed && (
                       <div
                         className="
@@ -166,7 +139,7 @@ export default function PCSidebar() {
                   </div>
                 )}
               </NavLink>
-            );
+            )
           })}
         </div>
       </div>
@@ -184,5 +157,5 @@ export default function PCSidebar() {
         </button>
       </div>
     </aside>
-  );
+  )
 }

@@ -53,3 +53,13 @@ export type BorrowingListItem = {
   lentByMember?: MemberBorrowing | null
   borrowingEquipmentDetail?: BorrowingEquipmentDetail[] | null
 }
+
+export type BorrowingCreatePayload = {
+  description?: string
+  note?: string
+  borrowedByMemberId: number
+  lentByMemberId: number
+  returnedDueDate: string // ISO string
+  equipmentIds: number[]
+  sessionIds?: number[]
+}

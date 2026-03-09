@@ -18,11 +18,33 @@ export type LoginResponse = {
   refreshTokenExpiresAt: string;
 };
 
+export type AuthTokensResponse = {
+  accessToken: string;
+  accessTokenExpiresAt: string;
+  refreshToken: string;
+  refreshTokenExpiresAt: string;
+};
+
+export const updateTokensInStorage = (tokens: AuthTokensResponse) => {
+  localStorage.setItem('accessToken', tokens.accessToken);
+  localStorage.setItem('refreshToken', tokens.refreshToken);
+  localStorage.setItem(
+    'accessTokenExpiresAt',
+    tokens.accessTokenExpiresAt
+  );
+  localStorage.setItem(
+    'refreshTokenExpiresAt',
+    tokens.refreshTokenExpiresAt
+  );
+};
+
 export const saveAuthToStorage = (data: LoginResponse) => {
-  localStorage.setItem('accessToken', data.accessToken);
-  localStorage.setItem('refreshToken', data.refreshToken);
-  localStorage.setItem('accessTokenExpiresAt', data.accessTokenExpiresAt);
-  localStorage.setItem('refreshTokenExpiresAt', data.refreshTokenExpiresAt);
+  updateTokensInStorage({
+    accessToken: data.accessToken,
+    accessTokenExpiresAt: data.accessTokenExpiresAt,
+    refreshToken: data.refreshToken,
+    refreshTokenExpiresAt: data.refreshTokenExpiresAt,
+  });
 
   localStorage.setItem(
     'user',

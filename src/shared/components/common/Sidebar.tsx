@@ -18,6 +18,8 @@ import {
   LogOut,
   Key,
 } from 'lucide-react';
+import { logout } from '@/modules/auth/pages/Logout';
+
 import { NavLink, useNavigate } from 'react-router-dom';
 import authService from '@/modules/auth/api/authApi';
 import memberApi from '@/modules/member/api/memberApi';
@@ -81,23 +83,7 @@ export default function Sidebar() {
   );
 
   const handleLogout = async () => {
-    try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      const user = localStorage.getItem('user');
-      const deviceUid = user ? JSON.parse(user).deviceUid : null;
-
-      if (refreshToken && deviceUid) {
-        await authService.logout({
-          refreshToken,
-          deviceUid,
-        });
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.clear();
-      navigate('/login');
-    }
+    await logout();
   };
 
   return (
