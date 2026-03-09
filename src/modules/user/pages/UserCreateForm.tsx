@@ -42,7 +42,7 @@ function generateRandomEmail() {
 export default function UserCreateForm({ open, onClose, onCreated }: Props) {
   const [roleId, setRoleId] = useState<number>(4);
   const [quantity, setQuantity] = useState(1);
-  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
+  const [mode, setMode] = useState<'manual'>('manual');
   const [emailsText, setEmailsText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -51,17 +51,13 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
     e.preventDefault();
     setError('');
     let emails: string[] = [];
-    if (mode === 'auto') {
-      emails = Array.from({ length: quantity }, () => generateRandomEmail());
-    } else {
-      emails = emailsText
-        .split('\n')
-        .map((e) => e.trim())
-        .filter(Boolean);
-      if (emails.length !== quantity) {
-        setError(`Số email (${emails.length}) phải bằng số lượng (${quantity})`);
-        return;
-      }
+    emails = emailsText
+      .split('\n')
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (emails.length !== quantity) {
+      setError(`Số email (${emails.length}) phải bằng số lượng (${quantity})`);
+      return;
     }
     try {
       setLoading(true);
@@ -73,7 +69,7 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
       message.success('Tạo tài khoản thành công');
       setQuantity(1);
       setEmailsText('');
-      setMode('auto');
+      setMode('manual');
       onClose();
       onCreated?.();
     } catch (err) {
@@ -87,7 +83,7 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
   const handleClose = () => {
     setQuantity(1);
     setEmailsText('');
-    setMode('auto');
+    setMode('manual');
     setError('');
     onClose();
   };
@@ -132,50 +128,23 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
             className="h-9 text-black border-gray-200"
           />
         </div>
-        <div className="space-y-2">
-          <Label className="text-black font-medium">Chế độ tạo</Label>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="mode"
-                checked={mode === 'auto'}
-                onChange={() => setMode('auto')}
-                className="text-[#2197C0] focus:ring-[#2197C0]"
-              />
-              <span className="text-black text-sm">Tự động random</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="mode"
-                checked={mode === 'manual'}
-                onChange={() => setMode('manual')}
-                className="text-[#2197C0] focus:ring-[#2197C0]"
-              />
-              <span className="text-black text-sm">Nhập thủ công</span>
-            </label>
-          </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="emails" className="text-black font-medium">
+            Danh sách email <span className="text-red-500">*</span>
+          </Label>
+          <textarea
+            id="emails"
+            value={emailsText}
+            onChange={(e) => setEmailsText(e.target.value)}
+            placeholder="abc@stom.fpt&#10;xyz@stom.fpt"
+            rows={5}
+            className={cn(
+              'flex w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-black',
+              'placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 resize-none'
+            )}
+          />
+          <p className="text-xs text-black/70">Mỗi email một dòng. Số dòng phải bằng số lượng.</p>
         </div>
-        {mode === 'manual' && (
-          <div className="space-y-1.5">
-            <Label htmlFor="emails" className="text-black font-medium">
-              Danh sách email <span className="text-red-500">*</span>
-            </Label>
-            <textarea
-              id="emails"
-              value={emailsText}
-              onChange={(e) => setEmailsText(e.target.value)}
-              placeholder="abc@stom.fpt&#10;xyz@stom.fpt"
-              rows={5}
-              className={cn(
-                'flex w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-black',
-                'placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 resize-none'
-              )}
-            />
-            <p className="text-xs text-black/70">Mỗi email một dòng. Số dòng phải bằng số lượng.</p>
-          </div>
-        )}
         <div className="rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2 text-sm text-black/90">
           <span className="font-medium">Lưu ý:</span> Số lượng phải bằng số email khi nhập thủ công.
         </div>

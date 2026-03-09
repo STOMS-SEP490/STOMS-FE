@@ -1,7 +1,7 @@
 
 
-import userService from '@/modules/user/api/userApi';
-import type { Member, MemberDetail } from '@/modules/user/user';
+import type { Member } from '@/modules/user/user';
+import { useMembers } from '@/modules/user/hooks/useMembers';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -9,7 +9,7 @@ import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Ban, Eye, Pencil, Plus, RotateCcw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import RightSidebarUserDetail from './UserDetail';
 import CreateMemberModal from './CreateMemberModal';
@@ -23,34 +23,23 @@ type OutletContext = {
 export default function MembersManagement() {
   const context = useOutletContext<OutletContext>();
 
-  const [open, setOpen] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [selectedMember, setSelectedMember] = useState<MemberDetail | null>(null);
+  const {
+    members,
+    pageNumber,
+    pageSize,
+    totalItems,
+    setPageNumber,
+    selectedMember,
+    openDetail,
+    setOpenDetail,
+    handleViewMember,
+    refetch: refetchMembers,
+  } = useMembers();
+
   const [openCreateLocal, setOpenCreateLocal] = useState(false);
 
   const openCreate = context?.createMemberOpen ?? openCreateLocal;
   const setOpenCreate = context?.setCreateMemberOpen ?? setOpenCreateLocal;
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize] = useState(10);
-  const [totalItems, setTotalItems] = useState(0);
-
-  const fetchMembers = async () => {
-    try {
-      const res = await userService.getMembers({
-        pageNumber,
-        pageSize,
-      });
-
-      setMembers(res.items ?? []);
-      setTotalItems(res.totalItems ?? 0);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    fetchMembers();
-  }, [pageNumber]);
 
   const columns: ColumnDef<Member>[] = [
     {
@@ -117,20 +106,14 @@ export default function MembersManagement() {
       header: 'Thao tác',
       enableSorting: false,
       cell: ({ row }) => {
-        const handleView = async () => {
-          try {
-            const res = await userService.getMemberById(row.original.memberId);
-            setSelectedMember(res);
-            setOpen(true);
-          } catch (err) {
-            console.error(err);
-          }
-        };
-
         return (
           <div className="flex gap-3">
             <Ban size={16} className="text-red-500 cursor-pointer" />
-            <Eye size={16} className="text-blue-600 cursor-pointer" onClick={handleView} />
+            <Eye
+              size={16}
+              className="text-blue-600 cursor-pointer"
+              onClick={() => handleViewMember(row.original.memberId)}
+            />
             <Pencil size={16} className="text-blue-600 cursor-pointer" />
           </div>
         );
@@ -215,12 +198,16 @@ export default function MembersManagement() {
         onPageChange={(page) => setPageNumber(page)}
       />
 
-      <RightSidebarUserDetail open={open} onClose={() => setOpen(false)} member={selectedMember} />
+      <RightSidebarUserDetail
+        open={openDetail}
+        onClose={() => setOpenDetail(false)}
+        member={selectedMember}
+      />
 
       <CreateMemberModal
         open={openCreate}
         onClose={() => setOpenCreate(false)}
-        onCreated={fetchMembers}
+        onCreated={refetchMembers}
       />
     </div>
   );

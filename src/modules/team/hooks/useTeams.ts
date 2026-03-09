@@ -19,7 +19,6 @@ export const useTeams = (
         const res = await teamService.getTeams({
           pageNumber,
           pageSize,
-          search,
         });
 
         setData(res.items ?? []);

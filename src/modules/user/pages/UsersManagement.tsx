@@ -197,10 +197,7 @@ export default function UserManagement() {
           <Button variant="secondary" className="bg-white">
             <RotateCcw size={16} />
           </Button>
-          {/* Reset Button */}
-          <Button variant="secondary" className="bg-white">
-            <RotateCcw />
-          </Button>
+         
         </div>
       </div>
 
