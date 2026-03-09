@@ -11,13 +11,18 @@ import {
 import type { BorrowingListItem } from '@/modules/equipment/borrowing';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, RotateCcw } from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
+import { useLocation, useOutletContext } from 'react-router-dom';
 import { useBorrowings } from '../hooks/useBorrowings';
 import {
   BORROWING_STATUS_OPTIONS,
   getBorrowingStatusDisplay,
   getBorrowingStatusColor,
 } from '@/constants/borrowing';
+import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import borrowingApi from '../api/borrowingApi';
+import CreateBorrowingModal from './CreateBorrowingModal';
+import BorrowingDetailSidebar from './BorrowingDetailSidebar';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
@@ -25,7 +30,9 @@ function formatDate(dateStr: string | null): string {
   return d.toLocaleDateString('vi-VN');
 }
 
-const columns: ColumnDef<BorrowingListItem>[] = [
+const columns = (
+  onView: (item: BorrowingListItem) => void
+): ColumnDef<BorrowingListItem>[] => [
   {
     accessorKey: 'borrowingId',
     header: 'Mã phiếu',
@@ -107,12 +114,24 @@ const columns: ColumnDef<BorrowingListItem>[] = [
     id: 'actions',
     header: 'Thao tác',
     enableSorting: false,
-    cell: () => <Eye className="w-4 h-4 text-blue-600 cursor-pointer" />,
+    cell: ({ row }) => (
+      <Eye
+        className="w-4 h-4 text-blue-600 cursor-pointer"
+        onClick={() => onView(row.original)}
+      />
+    ),
   },
 ];
 
+type OutletContext = {
+  position?: string;
+  createBorrowingOpen?: boolean;
+  setCreateBorrowingOpen?: (open: boolean) => void;
+};
+
 export default function EquipmentsHistory() {
-  const context = useOutletContext<{ position?: string }>();
+  const context = useOutletContext<OutletContext>();
+  const location = useLocation();
   const {
     data,
     loading,
@@ -125,10 +144,43 @@ export default function EquipmentsHistory() {
     pageSize,
     totalItems,
     setPageNumber,
+    refetch,
   } = useBorrowings();
+  const [createOpenLocal, setCreateOpenLocal] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailBorrowing, setDetailBorrowing] = useState<BorrowingListItem | null>(
+    null
+  );
+
+  const openCreate = context?.createBorrowingOpen ?? createOpenLocal;
+  const setOpenCreate =
+    context?.setCreateBorrowingOpen ?? setCreateOpenLocal;
+
+  const handleView = async (item: BorrowingListItem) => {
+    try {
+      const full = await borrowingApi.getById(item.borrowingId);
+      setDetailBorrowing(full);
+      setDetailOpen(true);
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('get borrowing detail error');
+    }
+  };
+
+  const isEquipmentManager = location.pathname.startsWith('/em/');
 
   if (context?.position === 'header') {
-    return null;
+    if (!isEquipmentManager) return null;
+    return (
+      <Button
+        className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+        type="button"
+        onClick={() => setOpenCreate(true)}
+      >
+        <Plus size={16} />
+        Tạo phiếu mượn
+      </Button>
+    );
   }
   if (context?.position === 'toolbar') {
     return (
@@ -140,7 +192,7 @@ export default function EquipmentsHistory() {
         />
         <Select
           value={status ?? 'all'}
-          onValueChange={(v) => setStatus(v === 'all' ? undefined : v)}
+          onValueChange={(v: string) => setStatus(v === 'all' ? undefined : v)}
         >
           <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
             <SelectValue placeholder="Trạng thái" />
@@ -161,20 +213,35 @@ export default function EquipmentsHistory() {
     );
   }
   return (
-    <div className="relative">
-      {loading && (
-        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
-          <span className="text-sm text-muted-foreground">Đang tải...</span>
-        </div>
-      )}
-      <DataTable
-        columns={columns}
-        data={data}
-        pageNumber={pageNumber}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={(page) => setPageNumber(page)}
+    <>
+      <BorrowingDetailSidebar
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        borrowing={detailBorrowing}
       />
-    </div>
+      <CreateBorrowingModal
+        open={openCreate}
+        onClose={() => setOpenCreate(false)}
+        onCreated={() => {
+          setOpenCreate(false);
+          refetch();
+        }}
+      />
+      <div className="relative">
+        {loading && (
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
+            <span className="text-sm text-muted-foreground">Đang tải...</span>
+          </div>
+        )}
+        <DataTable
+          columns={columns(handleView)}
+          data={data}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={(page) => setPageNumber(page)}
+        />
+      </div>
+    </>
   );
 }

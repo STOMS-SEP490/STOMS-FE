@@ -30,6 +30,7 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
   const [handoverMinute, setHandoverMinute] = useState('');
   const [status, setStatus] = useState('AVAILABLE');
   const [description, setDescription] = useState('');
+  const [imgLink, setImgLink] = useState('');
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryListItem[]>([]);
   const [error, setError] = useState('');
@@ -45,6 +46,7 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
     setError('');
     const name = equipmentName.trim();
     const code = equipmentCode.trim();
+    const sponsor = sponsoredBy.trim();
     if (!name) {
       setError('Vui lòng nhập tên thiết bị');
       return;
@@ -57,15 +59,20 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
       setError('Vui lòng chọn danh mục');
       return;
     }
+    if (!sponsor) {
+      setError('Vui lòng nhập bên cung cấp');
+      return;
+    }
     try {
       setLoading(true);
       await equipmentApi.create({
         categoryId: Number(categoryId),
         equipmentName: name,
         equipmentCode: code,
-        sponsoredBy: sponsoredBy.trim(),
+        sponsoredBy: sponsor,
         handoverMinute: handoverMinute.trim(),
         description: description.trim(),
+        imgLink: imgLink.trim() || null,
       });
       message.success('Tạo thiết bị thành công');
       resetForm();
@@ -90,6 +97,7 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
     setHandoverMinute('');
     setStatus('AVAILABLE');
     setDescription('');
+    setImgLink('');
     setError('');
   };
 
@@ -154,17 +162,18 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
             id="sponsoredBy"
             value={sponsoredBy}
             onChange={(e) => setSponsoredBy(e.target.value)}
-            placeholder="Tùy chọn"
+            placeholder="Ví dụ: Intel / Samsung /..."
             className="h-9 text-black placeholder:text-gray-500 border-gray-200"
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="handoverMinute" className="text-black font-medium">Biên bản bàn giao</Label>
+          <Label htmlFor="handoverMinute" className="text-black font-medium">Biên bản bàn giao (link)</Label>
           <Input
             id="handoverMinute"
             value={handoverMinute}
             onChange={(e) => setHandoverMinute(e.target.value)}
-            placeholder="Mã/số biên bản"
+            placeholder="https://..."
+            type="url"
             className="h-9 text-black placeholder:text-gray-500 border-gray-200"
           />
         </div>
@@ -178,6 +187,16 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
             placeholder="Mô tả (tùy chọn)"
             rows={2}
             className="flex w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 resize-none"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="imgLink" className="text-black font-medium">Hình ảnh (link)</Label>
+          <Input
+            id="imgLink"
+            value={imgLink}
+            onChange={(e) => setImgLink(e.target.value)}
+            placeholder="https://..."
+            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
           />
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}

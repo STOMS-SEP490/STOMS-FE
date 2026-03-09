@@ -20,7 +20,7 @@ import { NavLink } from 'react-router-dom';
 import { logout } from '@/modules/auth/pages/Logout';
 
 export default function PCSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   const menus = useMemo(
     () => [

@@ -1,50 +1,23 @@
-import { useMemo, useState } from 'react';
-import {
-  BarChart3,
-  FileText,
-  BookOpen,
-  CalendarDays,
-  ClipboardList,
-  Laptop,
-  Wallet,
-  Users,
-  Clock,
-  CheckCircle,
-  Bookmark,
-  Tag,
-  PieChart,
-  Menu,
-  LogOut,
-} from 'lucide-react';
-import { NavLink } from 'react-router-dom';
-import { logout } from '@/modules/auth/pages/Logout';
+import { useMemo, useState } from 'react'
+import { BarChart3, Laptop, Menu, LogOut } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
+import { logout } from '@/modules/auth/pages/Logout'
 
-export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(true);
+// Sidebar riêng cho Equipment Manager nhưng UI giống hệt Sidebar manager
+export default function EquipmentSidebar() {
+  const [collapsed, setCollapsed] = useState(true)
 
   const menus = useMemo(
     () => [
-      { label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
-      { label: 'Người dùng', icon: Users, path: '/manager/users' },
-      { label: 'Nhóm', icon: Users, path: '/manager/teams' },
-      { label: 'Sự kiện', icon: CalendarDays, path: '/manager/events' },
-      { label: 'Giáo trình', icon: BookOpen, path: '/manager/courses' },
-      { label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
-      { label: 'Thiết bị', icon: Laptop, path: '/manager/equipments' },
-      { label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
-      { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
-      { label: 'Quỹ / Thu chi', icon: Wallet, path: '/manager/transactions' },
-      { label: 'Thời khóa biểu', icon: Clock, path: '/manager/timetable' },
-      { label: 'Trung tâm duyệt', icon: CheckCircle, path: '/manager/requests' },
-      { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
-      { label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
+      { label: 'Dashboard', icon: BarChart3, path: '/em/dashboard' },
+      { label: 'Thiết bị', icon: Laptop, path: '/em/equipments' },
     ],
     []
-  );
+  )
 
   const handleLogout = async () => {
-    await logout();
-  };
+    await logout()
+  }
 
   return (
     <aside
@@ -80,7 +53,7 @@ export default function Sidebar() {
             />
           </div>
           <div className="mt-4 text-center">
-            <div className="font-medium text-slate-700">Xin chào Phương</div>
+            <div className="font-medium text-slate-700">Equipment Manager</div>
             <div className="text-sm text-slate-400">
               {JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
             </div>
@@ -105,7 +78,7 @@ export default function Sidebar() {
           `}
         >
           {menus.map((m) => {
-            const Icon = m.icon;
+            const Icon = m.icon
 
             return (
               <NavLink key={m.path} to={m.path}>
@@ -166,7 +139,7 @@ export default function Sidebar() {
                   </div>
                 )}
               </NavLink>
-            );
+            )
           })}
         </div>
       </div>
@@ -184,5 +157,5 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
-  );
+  )
 }

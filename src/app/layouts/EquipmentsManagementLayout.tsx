@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { GraduationCap, CheckCircle, BookOpen, Clock } from 'lucide-react';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
@@ -6,8 +7,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 export default function EquipmentsLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [createBorrowingOpen, setCreateBorrowingOpen] = useState(false);
 
   let currentTab = 'equipments';
+
+  const isEquipmentManager = location.pathname.startsWith('/em/');
+  const basePath = isEquipmentManager ? '/em/equipments' : '/manager/equipments';
 
   if (location.pathname.includes('categories')) {
     currentTab = 'categories';
@@ -16,7 +21,7 @@ export default function EquipmentsLayout() {
   }
 
   return (
-    <div className="h-screen overflow-hidden p-6 space-y-6 bg-[#f3f4f6]">
+    <div className="min-h-screen p-6 space-y-6 bg-[#f3f4f6]">
       {/* HEADER */}
       <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <div>
@@ -24,7 +29,13 @@ export default function EquipmentsLayout() {
           <p className="text-xs text-gray-500">Quản lý thiết bị và loại thiết bị trong hệ thống</p>
         </div>
         <div className="flex gap-3 items-center">
-          <Outlet context={{ position: 'header' }} />
+          <Outlet
+            context={{
+              position: 'header',
+              createBorrowingOpen,
+              setCreateBorrowingOpen,
+            }}
+          />
         </div>
       </div>
 
@@ -54,26 +65,38 @@ export default function EquipmentsLayout() {
             <TabsList>
               <TabsTrigger
                 value="categories"
-                onClick={() => navigate('/manager/equipments/categories')}
+                onClick={() => navigate(`${basePath}/categories`)}
               >
                 DANH MỤC
               </TabsTrigger>
 
-              <TabsTrigger value="equipments" onClick={() => navigate('/manager/equipments')}>
+              <TabsTrigger value="equipments" onClick={() => navigate(basePath)}>
                 TẤT CẢ THIẾT BỊ
               </TabsTrigger>
 
-              <TabsTrigger value="history" onClick={() => navigate('/manager/equipments/history')}>
+              <TabsTrigger value="history" onClick={() => navigate(`${basePath}/history`)}>
                 LỊCH SỬ MƯỢN
               </TabsTrigger>
             </TabsList>
 
-            <Outlet context={{ position: 'toolbar' }} />
+            <Outlet
+              context={{
+                position: 'toolbar',
+                createBorrowingOpen,
+                setCreateBorrowingOpen,
+              }}
+            />
           </div>
         </Tabs>
       </div>
       <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
-        <Outlet context={{ position: 'content' }} />
+        <Outlet
+          context={{
+            position: 'content',
+            createBorrowingOpen,
+            setCreateBorrowingOpen,
+          }}
+        />
       </div>
     </div>
   );
