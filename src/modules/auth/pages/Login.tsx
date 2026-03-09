@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import authService from '@/modules/auth/api/authApi';
+import { useAuth } from '@/app/providers/AuthProvider';
 
 type AuthContextType = {
   setImage: (src: string) => void;
@@ -9,6 +10,7 @@ type AuthContextType = {
 export default function Login() {
   const { setImage } = useOutletContext<AuthContextType>();
   const navigate = useNavigate();
+  const { login: setCurrentUser } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,10 +47,10 @@ export default function Login() {
         fcmToken: '',
       });
 
-      // clear token cũ
+      // clear token/user cũ
       localStorage.clear();
 
-      // lưu token mới
+      // lưu token + user cho các phần khác (giữ cấu trúc cũ)
       localStorage.setItem('accessToken', res.accessToken);
       localStorage.setItem('refreshToken', res.refreshToken);
       localStorage.setItem('accessTokenExpiresAt', res.accessTokenExpiresAt);
@@ -64,6 +66,15 @@ export default function Login() {
           deviceUid: res.deviceUid,
         })
       );
+
+      // đồng bộ với AuthProvider (currentUser) để useAuth() nhận biết đã login
+      setCurrentUser({
+        id: res.userId,
+        email: res.email,
+        fullName: res.email,
+        role: String(res.roleId),
+        token: res.accessToken,
+      });
 
       navigate('/manager/dashboard');
     } catch (error: any) {

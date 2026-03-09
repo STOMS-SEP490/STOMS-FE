@@ -42,8 +42,9 @@ const userService = {
     passwordHash: string;
     isActive: boolean;
     roleId: number;
-  }) => {
-    return axiosClient.post('/users', payload);
+  }): Promise<{ userId: number }> => {
+    const { data } = await axiosClient.post<{ userId: number }>('/users', payload);
+    return data;
   },
 
   createUsersBulk: async (payload: { quantity: number; roleId: number; emails: string[] }) => {
@@ -53,10 +54,27 @@ const userService = {
   createMember: async (payload: {
     userId: number;
     fullName: string;
-    teamId?: number;
+    teamId: number;
     avatarUrl?: string;
+    phone?: string;
+    address?: string;
+    cin?: string;
+    bankCode?: string;
+    bankName?: string;
+    taxNumber?: string;
   }) => {
-    return axiosClient.post('/members', payload);
+    return axiosClient.post('/members', {
+      userId: payload.userId,
+      fullName: payload.fullName,
+      teamId: payload.teamId,
+      avatarUrl: payload.avatarUrl ?? undefined,
+      phone: payload.phone ?? '',
+      address: payload.address ?? '',
+      cin: payload.cin ?? '',
+      bankCode: payload.bankCode ?? '',
+      bankName: payload.bankName ?? '',
+      taxNumber: payload.taxNumber ?? '',
+    });
   },
 };
 

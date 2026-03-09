@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { SubjectListItem } from '../subject'
-import subjectService from '../services/subjectService'
+import subjectApi from '../api/subjectApi'
 
 export const useSubjects = () => {
   const [data, setData] = useState<SubjectListItem[]>([])
@@ -15,14 +15,14 @@ export const useSubjects = () => {
     try {
       setLoading(true)
 
-      const res = await subjectService.filterSubjects({
+      const res = await subjectApi.getSubjects({
         pageNumber,
         pageSize,
-        search,
+        subjectName: search || undefined,
       })
 
-      setData(res.items)
-      setTotalItems(res.totalItems)
+      setData(res.items ?? [])
+      setTotalItems(res.totalItems ?? 0)
     } finally {
       setLoading(false)
     }

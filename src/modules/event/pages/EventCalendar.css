@@ -1,0 +1,115 @@
+/* EventCalendar: nền trắng toàn bộ */
+
+.rbc-calendar {
+  font-family: inherit;
+  background: #fff;
+}
+
+.rbc-time-view {
+  border: none;
+  background: #fff;
+}
+
+.rbc-time-content {
+  background: #fff;
+}
+
+.rbc-day-slot {
+  background: #fff;
+}
+
+.rbc-time-header-content {
+  background: #fff;
+}
+
+.rbc-time-gutter {
+  background: #fff;
+}
+
+.rbc-time-header-content {
+  border-left: 1px solid var(--rbc-border, #e5e7eb);
+}
+
+.rbc-time-content {
+  border-top: 1px solid var(--rbc-border, #e5e7eb);
+}
+
+.rbc-time-slot {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.rbc-day-slot .rbc-time-slot {
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Current time indicator - orange line */
+.rbc-current-time-indicator {
+  background-color: #ea580c;
+  height: 2px;
+  z-index: 3;
+}
+
+.rbc-current-time-indicator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ea580c;
+}
+
+/* Toolbar: use custom layout */
+.rbc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Day headers: Thứ Hai, Thứ Ba, ... */
+.rbc-header {
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.rbc-row-segment {
+  padding: 0 2px;
+}
+
+.rbc-event {
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.rbc-event:focus {
+  outline: none;
+}
+
+/* Time gutter (8-20) */
+.rbc-time-gutter {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.rbc-timeslot-group {
+  min-height: 48px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.rbc-label {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.rbc-allday-cell {
+  display: none;
+}

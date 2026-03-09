@@ -14,11 +14,14 @@ import {
   Tag,
   PieChart,
   Menu,
+  LogOut,
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import authService from '@/modules/auth/api/authApi';
 
 export default function PCSidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
 
   const menus = useMemo(
     () => [
@@ -39,6 +42,26 @@ export default function PCSidebar() {
     ],
     []
   );
+
+  const handleLogout = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      const user = localStorage.getItem('user');
+      const deviceUid = user ? JSON.parse(user).deviceUid : null;
+
+      if (refreshToken && deviceUid) {
+        await authService.logout({
+          refreshToken,
+          deviceUid,
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.clear();
+      navigate('/login');
+    }
+  };
 
   return (
     <aside
@@ -126,11 +149,11 @@ export default function PCSidebar() {
                       className={`
                         absolute inset-0 rounded-xl
                         flex flex-col items-center justify-center
-                         transition-all duration-300
+                        transition-all duration-300
                         ${
                           isActive
-                            ? 'bg-[#0F6A9E] text-white scale-100'
-                            : 'bg-[#0F6A9E] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
+                            ? 'bg-[#208aae] text-white scale-100'
+                            : 'bg-[#208aae] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
                         }
                       `}
                     >
@@ -163,6 +186,19 @@ export default function PCSidebar() {
             );
           })}
         </div>
+      </div>
+
+      {/* Logout */}
+      <div className="mt-auto pt-4">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 
+                     py-3 rounded-xl text-red-600 
+                     hover:bg-red-50 transition"
+        >
+          <LogOut size={18} />
+          {!collapsed && <span>Đăng xuất</span>}
+        </button>
       </div>
     </aside>
   );

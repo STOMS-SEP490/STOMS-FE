@@ -10,9 +10,10 @@ import { Outlet } from 'react-router-dom';
 
 export default function RequestLayout() {
   const [onlyPending, setOnlyPending] = useState(false);
+  const [search, setSearch] = useState('');
 
   return (
-    <div className="h-screen overflow-hidden p-6 space-y-6 bg-[#f3f4f6]">
+    <div className="min-h-screen p-6 space-y-6 bg-[#f3f4f6]">
       {/* HEADER */}
 
       <div className="bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm ">
@@ -21,7 +22,7 @@ export default function RequestLayout() {
       </div>
 
       <div className="flex justify-start gap-3 mb-2">
-        <HoverSearch />
+        <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo tên yêu cầu, khách hàng..." />
         <div className="flex items-center gap-3">
           {/* Role Filter */}
           <Select>
@@ -74,14 +75,14 @@ export default function RequestLayout() {
           </div>
         </div>
       </div>
-      <div className="flex h-screen bg-gray-100 overflow-hidden">
+      <div className="flex bg-gray-100">
         {/* Sidebar */}
         <div className="w-[320px] bg-white border-r overflow-y-auto">
-          <RequestSidebar />
+          <RequestSidebar search={search} />
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto px-6">
           <Outlet />
         </div>
       </div>

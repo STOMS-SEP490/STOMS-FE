@@ -96,11 +96,7 @@ export default function UserManagement() {
       header: 'Ngày tạo',
       cell: ({ row }) => new Date(row.original.createdAt).toLocaleString(),
     },
-    {
-      accessorKey: 'updatedAt',
-      header: 'Cập nhật',
-      cell: ({ row }) => new Date(row.original.updatedAt).toLocaleString(),
-    },
+  
 
     {
       id: 'actions',

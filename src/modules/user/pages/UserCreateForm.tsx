@@ -1,9 +1,19 @@
-import { Modal, Form, Select, Button, Alert, InputNumber, Input, Radio, message } from 'antd';
 import { useState } from 'react';
+import { message } from 'antd';
 import userService from '@/modules/user/api/userApi';
-
-const { Option } = Select;
-const { TextArea } = Input;
+import { ROLE_MAP } from '@/constants/role';
+import { Dialog } from '@/shared/components/ui/dialog';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
+import { cn } from '@/shared/lib/utils';
 
 type Props = {
   open: boolean;
@@ -11,53 +21,58 @@ type Props = {
   onCreated?: () => void;
 };
 
+const ROLE_OPTIONS = [
+  { value: 1, label: ROLE_MAP[1] ?? 'Admin' },
+  { value: 2, label: ROLE_MAP[2] ?? 'Quản lý' },
+  { value: 3, label: ROLE_MAP[3] ?? 'Tuyển sinh' },
+  { value: 4, label: ROLE_MAP[4] ?? 'Giảng viên' },
+  { value: 5, label: ROLE_MAP[5] ?? 'Trợ giảng' },
+];
+
+function generateRandomEmail() {
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  let prefix = '';
+  for (let i = 0; i < 3; i++) {
+    prefix += letters.charAt(Math.floor(Math.random() * letters.length));
+  }
+  const number = Math.floor(100 + Math.random() * 900);
+  return `${prefix}${number}@stom.fpt`;
+}
+
 export default function UserCreateForm({ open, onClose, onCreated }: Props) {
-  const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
+  const [roleId, setRoleId] = useState<number>(4);
+  const [quantity, setQuantity] = useState(1);
   const [mode, setMode] = useState<'auto' | 'manual'>('auto');
+  const [emailsText, setEmailsText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const generateRandomEmail = () => {
-    const letters = 'abcdefghijklmnopqrstuvwxyz';
-    let prefix = '';
-
-    for (let i = 0; i < 3; i++) {
-      prefix += letters.charAt(Math.floor(Math.random() * letters.length));
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    let emails: string[] = [];
+    if (mode === 'auto') {
+      emails = Array.from({ length: quantity }, () => generateRandomEmail());
+    } else {
+      emails = emailsText
+        .split('\n')
+        .map((e) => e.trim())
+        .filter(Boolean);
+      if (emails.length !== quantity) {
+        setError(`Số email (${emails.length}) phải bằng số lượng (${quantity})`);
+        return;
+      }
     }
-
-    const number = Math.floor(100 + Math.random() * 900);
-    return `${prefix}${number}@stom.fpt`;
-  };
-
-  const handleFinish = async (values: any) => {
     try {
       setLoading(true);
-
-      let emails: string[] = [];
-
-      if (mode === 'auto') {
-        emails = Array.from({ length: values.quantity }).map(() => generateRandomEmail());
-      } else {
-        emails = values.emails
-          ?.split('\n')
-          .map((e: string) => e.trim())
-          .filter((e: string) => e);
-
-        if (emails.length !== values.quantity) {
-          message.error(`Số email (${emails.length}) phải bằng số lượng (${values.quantity})`);
-          setLoading(false);
-          return;
-        }
-      }
-
       await userService.createUsersBulk({
         quantity: emails.length,
-        roleId: values.roleId,
+        roleId,
         emails,
       });
-
       message.success('Tạo tài khoản thành công');
-
-      form.resetFields();
+      setQuantity(1);
+      setEmailsText('');
       setMode('auto');
       onClose();
       onCreated?.();
@@ -69,79 +84,115 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
     }
   };
 
+  const handleClose = () => {
+    setQuantity(1);
+    setEmailsText('');
+    setMode('auto');
+    setError('');
+    onClose();
+  };
+
   return (
-    <Modal
+    <Dialog
       open={open}
-      onCancel={onClose}
-      footer={null}
-      centered
-      width={520}
-      destroyOnClose
+      onClose={handleClose}
       title="Tạo tài khoản"
+      description="Tạo nhiều tài khoản theo vai trò"
+      className="max-w-md"
     >
-      <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ quantity: 1 }}>
-        {/* Role */}
-        <Form.Item
-          label="Vai trò"
-          name="roleId"
-          rules={[{ required: true, message: 'Vui lòng chọn vai trò' }]}
-        >
-          <Select placeholder="Chọn vai trò">
-            <Option value={1}>Trưởng nhóm</Option>
-            <Option value={2}>Giảng viên</Option>
-            <Option value={3}>Trợ giảng</Option>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="text-black font-medium">
+            Vai trò <span className="text-red-500">*</span>
+          </Label>
+          <Select value={String(roleId)} onValueChange={(v) => setRoleId(Number(v))}>
+            <SelectTrigger className="h-9 w-full text-black border-gray-200">
+              <SelectValue placeholder="Chọn vai trò" />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={String(o.value)} className="text-black">
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        </Form.Item>
-
-        {/* Quantity luôn có */}
-        <Form.Item
-          label="Số lượng tài khoản"
-          name="quantity"
-          rules={[
-            { required: true, message: 'Vui lòng nhập số lượng' },
-            { type: 'number', min: 1, message: 'Tối thiểu 1 tài khoản' },
-          ]}
-        >
-          <InputNumber min={1} max={500} style={{ width: '100%' }} />
-        </Form.Item>
-
-        {/* Mode */}
-        <Form.Item label="Chế độ tạo">
-          <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
-            <Radio value="auto">Tự động random</Radio>
-            <Radio value="manual">Nhập thủ công</Radio>
-          </Radio.Group>
-        </Form.Item>
-
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="quantity" className="text-black font-medium">
+            Số lượng tài khoản <span className="text-red-500">*</span>
+          </Label>
+          <Input
+            id="quantity"
+            type="number"
+            min={1}
+            max={500}
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value) || 1)}
+            className="h-9 text-black border-gray-200"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-black font-medium">Chế độ tạo</Label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="mode"
+                checked={mode === 'auto'}
+                onChange={() => setMode('auto')}
+                className="text-[#2197C0] focus:ring-[#2197C0]"
+              />
+              <span className="text-black text-sm">Tự động random</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="mode"
+                checked={mode === 'manual'}
+                onChange={() => setMode('manual')}
+                className="text-[#2197C0] focus:ring-[#2197C0]"
+              />
+              <span className="text-black text-sm">Nhập thủ công</span>
+            </label>
+          </div>
+        </div>
         {mode === 'manual' && (
-          <Form.Item
-            label="Danh sách email"
-            name="emails"
-            rules={[{ required: true, message: 'Vui lòng nhập email' }]}
-            extra="Mỗi email một dòng. Phải đúng bằng số lượng."
-          >
-            <TextArea
-              rows={6}
+          <div className="space-y-1.5">
+            <Label htmlFor="emails" className="text-black font-medium">
+              Danh sách email <span className="text-red-500">*</span>
+            </Label>
+            <textarea
+              id="emails"
+              value={emailsText}
+              onChange={(e) => setEmailsText(e.target.value)}
               placeholder="abc@stom.fpt&#10;xyz@stom.fpt"
+              rows={5}
+              className={cn(
+                'flex w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-black',
+                'placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 resize-none'
+              )}
             />
-          </Form.Item>
+            <p className="text-xs text-black/70">Mỗi email một dòng. Số dòng phải bằng số lượng.</p>
+          </div>
         )}
-
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 20 }}
-          message="Lưu ý"
-          description="Quantity phải bằng số email truyền lên backend."
-        />
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          <Button onClick={onClose}>Hủy</Button>
-          <Button type="primary" htmlType="submit" loading={loading}>
-            Tạo tài khoản
+        <div className="rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2 text-sm text-black/90">
+          <span className="font-medium">Lưu ý:</span> Số lượng phải bằng số email khi nhập thủ công.
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex gap-3 pt-1">
+          <Button type="button" variant="outline" className="flex-1" onClick={handleClose}>
+            Hủy
+          </Button>
+          <Button
+            type="submit"
+            className="flex-1 bg-[#2197C0] hover:bg-[#208AAE] text-white"
+            disabled={loading}
+          >
+            {loading ? 'Đang tạo...' : 'Tạo tài khoản'}
           </Button>
         </div>
-      </Form>
-    </Modal>
+      </form>
+    </Dialog>
   );
 }

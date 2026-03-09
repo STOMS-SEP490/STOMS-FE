@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
@@ -6,8 +7,10 @@ import { GraduationCap, CheckCircle, BookOpen, Clock } from 'lucide-react';
 export default function TeamLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [createMemberOpen, setCreateMemberOpen] = useState(false);
 
   const currentTab = location.pathname.includes('members') ? 'members' : 'teams';
+  const sharedContext = { createMemberOpen, setCreateMemberOpen };
 
   return (
     <div className="h-screen p-6 space-y-6 bg-[#f3f4f6]">
@@ -20,7 +23,7 @@ export default function TeamLayout() {
 
         {/* Button từ page con */}
         <div className="flex gap-3 items-center">
-          <Outlet context={{ position: 'header' }} />
+          <Outlet context={{ ...sharedContext, position: 'header' }} />
         </div>
       </div>
 
@@ -58,14 +61,14 @@ export default function TeamLayout() {
             </TabsList>
 
             {/* Search / Filter từ page con */}
-            <Outlet context={{ position: 'toolbar' }} />
+            <Outlet context={{ ...sharedContext, position: 'toolbar' }} />
           </div>
         </Tabs>
       </div>
 
       {/* CONTENT */}
       <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
-        <Outlet context={{ position: 'content' }} />
+        <Outlet context={{ ...sharedContext, position: 'content' }} />
       </div>
     </div>
   );

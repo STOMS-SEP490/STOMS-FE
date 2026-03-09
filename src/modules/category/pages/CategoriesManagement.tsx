@@ -1,84 +1,21 @@
-
 import { DataTable } from '@/shared/components/common/DataTable';
-import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
+import type { CategoryListItem } from '@/modules/category/category';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-type Category = {
-  id: string;
-  name: string;
-  description: string;
-  totalDevices: number;
-  borrowing: number;
-  createdAt: string;
-};
-const data: Category[] = [
+import { useCategories } from '../hooks/useCategories';
+import CreateCategoryModal from './CreateCategoryModal';
+
+const columns: ColumnDef<CategoryListItem>[] = [
   {
-    id: 'CAT-001',
-    name: 'Laptop',
-    description: 'Máy tính xách tay phục vụ giảng dạy và học tập',
-    totalDevices: 45,
-    borrowing: 12,
-    createdAt: '15/01/2024',
-  },
-  {
-    id: 'CAT-002',
-    name: 'Màn hình',
-    description: 'Màn hình rời cho phòng lab và văn phòng',
-    totalDevices: 32,
-    borrowing: 8,
-    createdAt: '18/01/2024',
-  },
-  {
-    id: 'CAT-003',
-    name: 'Bàn phím',
-    description: 'Bàn phím cơ và bàn phím văn phòng',
-    totalDevices: 28,
-    borrowing: 5,
-    createdAt: '20/01/2024',
-  },
-  {
-    id: 'CAT-004',
-    name: 'Chuột máy tính',
-    description: 'Chuột quang và chuột gaming',
-    totalDevices: 35,
-    borrowing: 7,
-    createdAt: '22/01/2024',
-  },
-  {
-    id: 'CAT-005',
-    name: 'Máy chiếu',
-    description: 'Thiết bị trình chiếu cho lớp học',
-    totalDevices: 8,
-    borrowing: 3,
-    createdAt: '25/01/2024',
-  },
-  {
-    id: 'CAT-006',
-    name: 'Máy in',
-    description: 'Máy in tài liệu cho phòng hành chính',
-    totalDevices: 12,
-    borrowing: 2,
-    createdAt: '28/01/2024',
-  },
-  {
-    id: 'CAT-007',
-    name: 'Tai nghe',
-    description: 'Tai nghe học ngoại ngữ và multimedia',
-    totalDevices: 22,
-    borrowing: 6,
-    createdAt: '01/02/2024',
-  },
-];
-const columns: ColumnDef<Category>[] = [
-  {
-    accessorKey: 'name',
+    accessorKey: 'categoryName',
     header: 'Tên danh mục',
     cell: ({ row }) => (
       <div>
-        <div className="font-medium">{row.original.name}</div>
-        <div className="text-xs text-muted-foreground">{row.original.id}</div>
+        <div className="font-medium">{row.original.categoryName}</div>
       </div>
     ),
   },
@@ -87,18 +24,22 @@ const columns: ColumnDef<Category>[] = [
     header: 'Mô tả',
   },
   {
-    accessorKey: 'totalDevices',
+    id: 'totalDevices',
     header: 'Số thiết bị',
-    cell: ({ row }) => <span className="font-semibold">{row.getValue('totalDevices')}</span>,
+    cell: ({ row }) => (
+      <span className="font-semibold">
+        {row.original.equipment?.length ?? 0}
+      </span>
+    ),
   },
-  {
-    accessorKey: 'borrowing',
-    header: 'Đang mượn',
-    cell: ({ row }) => <Badge variant="secondary">{row.getValue('borrowing')}</Badge>,
-  },
+ 
   {
     accessorKey: 'createdAt',
     header: 'Ngày tạo',
+    cell: ({ row }) =>
+      row.original.createdAt
+        ? new Date(row.original.createdAt).toLocaleDateString('vi-VN')
+        : '—',
   },
   {
     id: 'actions',
@@ -113,19 +54,71 @@ const columns: ColumnDef<Category>[] = [
     ),
   },
 ];
-export default function CategoriesManagement() {
-  const context = useOutletContext<{ position: string }>();
 
-  if (context.position === 'toolbar') {
+export default function CategoriesManagement() {
+  const context = useOutletContext<{ position?: string }>();
+  const [openCreateModal, setOpenCreateModal] = useState(false);
+  const {
+    data,
+    loading,
+    search,
+    setSearch,
+    pageNumber,
+    pageSize,
+    totalItems,
+    setPageNumber,
+    refetch,
+  } = useCategories();
+
+  if (context?.position === 'header') {
+    return (
+      <>
+        <Button
+          onClick={() => setOpenCreateModal(true)}
+          className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
+        >
+          <Plus size={16} />
+          Tạo danh mục thiết bị
+        </Button>
+        <CreateCategoryModal
+          open={openCreateModal}
+          onClose={() => setOpenCreateModal(false)}
+          onCreated={() => {
+            refetch();
+            setOpenCreateModal(false);
+          }}
+        />
+      </>
+    );
+  }
+
+  if (context?.position === 'toolbar') {
     return (
       <div className="flex gap-3">
-        <HoverSearch placeholder="Tìm tên danh mục..." />{' '}
+        <HoverSearch
+          placeholder="Tìm tên danh mục..."
+          value={search}
+          onChange={(value) => setSearch(value)}
+        />
       </div>
     );
   }
+
   return (
-    <div>
-      <DataTable columns={columns} data={data} />
-    </div>
+    <div className="relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
+          <span className="text-sm text-muted-foreground">Đang tải...</span>
+        </div>
+      )}
+      <DataTable
+        columns={columns}
+        data={data}
+        pageNumber={pageNumber}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        onPageChange={(page) => setPageNumber(page)}
+      />
+      </div>
   );
 }

@@ -18,3 +18,13 @@ export type EventFilterParams = {
   isActive?: boolean;
   eventId?: number;
 };
+
+/** Sự kiện hiển thị trên lịch (có thời gian bắt đầu/kết thúc) */
+export type CalendarEvent = {
+  id: string | number;
+  title: string;
+  start: Date;
+  end: Date;
+  resource?: string;
+  color?: string;
+};

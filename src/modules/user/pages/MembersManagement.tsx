@@ -12,15 +12,24 @@ import { Ban, Eye, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import RightSidebarUserDetail from './UserDetail';
-import UserCreateForm from './UserCreateForm';
+import CreateMemberModal from './CreateMemberModal';
 
-export default function UserManagement() {
-  const context = useOutletContext<{ position: string }>();
+type OutletContext = {
+  position?: string;
+  createMemberOpen?: boolean;
+  setCreateMemberOpen?: (open: boolean) => void;
+};
+
+export default function MembersManagement() {
+  const context = useOutletContext<OutletContext>();
 
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedMember, setSelectedMember] = useState<MemberDetail | null>(null);
-  const [openCreate, setOpenCreate] = useState(false);
+  const [openCreateLocal, setOpenCreateLocal] = useState(false);
+
+  const openCreate = context?.createMemberOpen ?? openCreateLocal;
+  const setOpenCreate = context?.setCreateMemberOpen ?? setOpenCreateLocal;
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
@@ -130,7 +139,7 @@ export default function UserManagement() {
   ];
 
   /* ================= HEADER ================= */
-  if (context.position === 'header') {
+  if (context?.position === 'header') {
     return (
       <Button
         onClick={() => setOpenCreate(true)}
@@ -143,7 +152,7 @@ export default function UserManagement() {
   }
 
   /* ================= TOOLBAR ================= */
-  if (context.position === 'toolbar') {
+  if (context?.position === 'toolbar') {
     return (
       <div className="flex gap-3">
         <HoverSearch placeholder="Tìm tên nhóm..." />
@@ -208,7 +217,7 @@ export default function UserManagement() {
 
       <RightSidebarUserDetail open={open} onClose={() => setOpen(false)} member={selectedMember} />
 
-      <UserCreateForm
+      <CreateMemberModal
         open={openCreate}
         onClose={() => setOpenCreate(false)}
         onCreated={fetchMembers}

@@ -9,6 +9,7 @@ import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory';
 import TeamsManagement from '@/modules/team/pages/TeamsManagement';
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
+import EventCalendar from '@/modules/event/pages/EventCalendar';
 import TransactionLayout from '@/app/layouts/TransactionsLayout';
 import Transactions from '@/modules/transaction/pages/Transaction';
 import ExpenditureFund from '@/modules/transaction/pages/ExpenditureFund';
@@ -18,10 +19,19 @@ import SkillsManagement from '@/modules/skill/pages/SkillMangagement';
 import TeamLayout from '@/app/layouts/TeamLayout';
 import UserManagement from '@/modules/user/pages/UsersManagement';
 import RequestLayout from '../layouts/RequestLayout';
+import RequestDetail from '@/modules/request/pages/RequestDetail';
+import MembersManagement from '@/modules/user/pages/MembersManagement';
+
+const RequestPlaceholder = () => (
+  <div className="p-6 text-sm text-gray-500">
+    Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
+  </div>
+);
 
 const ManagerRoutes = [
   // { path: 'dashboard', element: <ManagerDashboard /> },
   { path: 'events', element: <EventsManagement /> },
+  { path: 'timetable', element: <EventCalendar /> },
   {
     path: 'courses',
     element: <CoursesLayout />,
@@ -40,10 +50,10 @@ const ManagerRoutes = [
   {
     path: 'requests',
     element: <RequestLayout />,
-    // children: [
-    //   { index: true, element: <RequestDetail /> },
-    //   { path: ':id', element: <RequestDetail /> },
-    // ],
+    children: [
+      { index: true, element: <RequestPlaceholder /> },
+      { path: ':id', element: <RequestDetail /> },
+    ],
   },
   {
     path: 'equipments',
@@ -68,7 +78,7 @@ const ManagerRoutes = [
     element: <TeamLayout />,
     children: [
       { index: true, element: <TeamsManagement /> },
-      // { path: 'members', element: <MembersManagement /> },
+      { path: 'members', element: <MembersManagement /> },
     ],
   },
 ];

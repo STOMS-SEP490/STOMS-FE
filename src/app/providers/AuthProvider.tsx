@@ -14,19 +14,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    // Chỉ dùng duy nhất key 'user' + 'accessToken' trong localStorage
+    try {
+      const raw = localStorage.getItem('user');
+      const token = localStorage.getItem('accessToken');
+
+      if (raw && token) {
+        const parsed = JSON.parse(raw) as {
+          userId?: number;
+          email?: string;
+          roleId?: number | string;
+        };
+
+        if (parsed.userId && parsed.email) {
+          const current: CurrentUser = {
+            id: parsed.userId,
+            email: parsed.email,
+            fullName: parsed.email,
+            role: String(parsed.roleId ?? ''),
+            token,
+          };
+
+          setUser(current);
+        }
+      }
+    } catch {
+      // ignore parse errors
     }
   }, []);
 
   const login = (userData: CurrentUser) => {
-    localStorage.setItem('currentUser', JSON.stringify(userData));
     setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem('currentUser');
     setUser(null);
   };
 

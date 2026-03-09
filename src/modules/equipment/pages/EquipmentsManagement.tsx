@@ -1,156 +1,78 @@
 import { DataTable } from '@/shared/components/common/DataTable';
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
+import type { EquipmentListItem } from '@/modules/equipment/equipment';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, RotateCcw, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-type Device = {
-  id: string;
-  name: string;
-  category: string;
-  supplier: string;
-  handoverCode: string;
-  status: 'Sẵn sàng' | 'Đang mượn' | 'Bảo trì' | 'Hỏng hóc';
-  createdAt: string;
-};
+import { useEquipments } from '../hooks/useEquipments';
+import CreateEquipmentModal from './CreateEquipmentModal';
+import { useCategories } from '@/modules/category/hooks/useCategories';
+import {
+  EQUIPMENT_STATUS_OPTIONS,
+  getEquipmentStatusDisplay,
+  getEquipmentStatusColor,
+} from '@/constants/equipment';
 
-const data: Device[] = [
+const columns: ColumnDef<EquipmentListItem>[] = [
+ 
   {
-    id: 'EQP-2024-001',
-    name: 'Dell Latitude 5420',
-    category: 'Máy tính',
-    supplier: 'Công ty TNHH ABC',
-    handoverCode: 'BB-2024-056',
-    status: 'Sẵn sàng',
-    createdAt: '15/01/2024',
-  },
-  {
-    id: 'EQP-2024-002',
-    name: 'Arduino Uno R3 Kit',
-    category: 'Arduino',
-    supplier: 'Quỹ phát triển giáo dục',
-    handoverCode: 'BB-2024-057',
-    status: 'Đang mượn',
-    createdAt: '16/01/2024',
-  },
-  {
-    id: 'EQP-2024-003',
-    name: 'Lego Mindstorms EV3',
-    category: 'Robot',
-    supplier: 'Nhà tài trợ XYZ',
-    handoverCode: 'BB-2024-058',
-    status: 'Sẵn sàng',
-    createdAt: '18/01/2024',
-  },
-  {
-    id: 'EQP-2024-004',
-    name: 'Creality Ender 3 V2',
-    category: 'Máy in 3D',
-    supplier: 'Học viện STEM',
-    handoverCode: 'BB-2024-059',
-    status: 'Bảo trì',
-    createdAt: '20/01/2024',
-  },
-  {
-    id: 'EQP-2024-005',
-    name: 'HP ProBook 450 G8',
-    category: 'Máy tính',
-    supplier: 'Công ty TNHH DEF',
-    handoverCode: 'BB-2024-060',
-    status: 'Sẵn sàng',
-    createdAt: '22/01/2024',
-  },
-  {
-    id: 'EQP-2024-006',
-    name: 'Bộ cảm biến đa năng',
-    category: 'Linh kiện',
-    supplier: 'Quỹ phát triển STEM',
-    handoverCode: 'BB-2024-061',
-    status: 'Đang mượn',
-    createdAt: '25/01/2024',
-  },
-  {
-    id: 'EQP-2024-007',
-    name: 'Raspberry Pi 4 Model B',
-    category: 'Arduino',
-    supplier: 'Nhà tài trợ GHI',
-    handoverCode: 'BB-2024-062',
-    status: 'Sẵn sàng',
-    createdAt: '26/01/2024',
-  },
-  {
-    id: 'EQP-2024-008',
-    name: 'Lenovo ThinkPad E15',
-    category: 'Máy tính',
-    supplier: 'Công ty TNHH JKL',
-    handoverCode: 'BB-2024-063',
-    status: 'Hỏng hóc',
-    createdAt: '28/01/2024',
-  },
-  {
-    id: 'EQP-2024-009',
-    name: 'mBot Ranger Robot Kit',
-    category: 'Robot',
-    supplier: 'Học viện AI & Robotics',
-    handoverCode: 'BB-2024-064',
-    status: 'Đang mượn',
-    createdAt: '29/01/2024',
-  },
-];
-
-const columns: ColumnDef<Device>[] = [
-  {
-    accessorKey: 'id',
-    header: 'Mã thiết bị',
-  },
-  {
-    accessorKey: 'name',
+    accessorKey: 'equipmentName',
     header: 'Tên thiết bị',
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.equipmentName}</span>
+    ),
   },
   {
-    accessorKey: 'category',
+    accessorKey: 'categoryId',
     header: 'Danh mục',
-    cell: ({ row }) => {
-      const value = row.getValue('category') as string;
-      return <Badge variant="secondary">{value}</Badge>;
-    },
+    cell: ({ row }) => (
+      <Badge variant="secondary"> {row.original.categoryId}</Badge>
+    ),
   },
   {
-    accessorKey: 'supplier',
+    accessorKey: 'sponsoredBy',
     header: 'Bên cung cấp',
   },
   {
-    accessorKey: 'handoverCode',
+    accessorKey: 'handoverMinute',
     header: 'Biên bản bàn giao',
-    cell: ({ row }) => {
-      const value = row.getValue('handoverCode') as string;
-      return <span className="text-blue-600 hover:underline cursor-pointer">{value}</span>;
-    },
+    cell: ({ row }) => (
+      <span className="text-blue-600 hover:underline cursor-pointer">
+        {row.original.handoverMinute || '—'}
+      </span>
+    ),
   },
   {
     accessorKey: 'status',
     header: 'Trạng thái',
     cell: ({ row }) => {
-      const status = row.getValue('status') as Device['status'];
-
-      const statusColor = {
-        'Sẵn sàng': 'bg-green-100 text-green-700',
-        'Đang mượn': 'bg-orange-100 text-orange-700',
-        'Bảo trì': 'bg-red-100 text-red-700',
-        'Hỏng hóc': 'bg-red-500 text-white',
-      };
-
+      const status = row.original.status
       return (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[status]}`}>
-          {status}
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-medium ${getEquipmentStatusColor(status)}`}
+        >
+          {getEquipmentStatusDisplay(status)}
         </span>
-      );
+      )
     },
   },
   {
     accessorKey: 'createdAt',
     header: 'Ngày tạo',
+    cell: ({ row }) =>
+      row.original.createdAt
+        ? new Date(row.original.createdAt).toLocaleDateString('vi-VN')
+        : '—',
   },
   {
     id: 'actions',
@@ -164,53 +86,125 @@ const columns: ColumnDef<Device>[] = [
       </div>
     ),
   },
-];
+]
+
 export default function EquipmentsManagement() {
-  const context = useOutletContext<{ position: string }>();
+  const context = useOutletContext<{ position?: string }>()
+  const [openCreateModal, setOpenCreateModal] = useState(false)
+  const {
+    data,
+    loading,
+    search,
+    setSearch,
+    status,
+    categoryId,
+    setFiltersAndResetPage,
+    resetFilters,
+    pageNumber,
+    pageSize,
+    totalItems,
+    setPageNumber,
+    refetch,
+  } = useEquipments()
+  const { data: categories } = useCategories()
 
-  if (context.position === 'toolbar') {
+  if (context?.position === 'header') {
     return (
-      <div className="flex gap-3">
-        <HoverSearch placeholder="Tìm tên thiết bị..." />
-
-        <div className="flex items-center gap-3">
-          <Select>
-            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white ">
-              <SelectValue placeholder="Danh mục" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="manager">Manager</SelectItem>
-              <SelectItem value="coordinator">Program Coordinator</SelectItem>
-              <SelectItem value="teacher">Teacher</SelectItem>
-              <SelectItem value="ta">Teaching Assistant</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Status Filter */}
-          <Select>
-            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Reset Button */}
-          <Button variant="secondary" className="bg-white">
-            <RotateCcw />
-          </Button>
-        </div>
-      </div>
-    );
+      <>
+        <Button
+          onClick={() => setOpenCreateModal(true)}
+          className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
+        >
+          <Plus size={16} />
+          Tạo thiết bị
+        </Button>
+        <CreateEquipmentModal
+          open={openCreateModal}
+          onClose={() => setOpenCreateModal(false)}
+          onCreated={() => {
+            refetch()
+            setOpenCreateModal(false)
+          }}
+        />
+      </>
+    )
   }
+
+  if (context?.position === 'toolbar') {
+    return (
+      <div className="flex gap-3 items-center">
+        <HoverSearch
+          placeholder="Tìm tên thiết bị..."
+          value={search}
+          onChange={(value) => setSearch(value)}
+        />
+        <Select
+          value={categoryId?.toString() ?? 'all'}
+          onValueChange={(v) =>
+            setFiltersAndResetPage({
+              categoryId: v === 'all' ? undefined : Number(v),
+            })
+          }
+        >
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+            <SelectValue placeholder="Danh mục" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c.categoryId} value={String(c.categoryId)}>
+                {c.categoryName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={status ?? 'all'}
+          onValueChange={(v) =>
+            setFiltersAndResetPage({
+              status: v === 'all' ? undefined : v,
+            })
+          }
+        >
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
+            <SelectValue placeholder="Trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="secondary"
+          className="bg-white"
+          onClick={resetFilters}
+          type="button"
+        >
+          <RotateCcw className="w-4 h-4" />
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <div>
-      <DataTable columns={columns} data={data} />
+    <div className="relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
+          <span className="text-sm text-muted-foreground">Đang tải...</span>
+        </div>
+      )}
+      <DataTable
+        columns={columns}
+        data={data}
+        pageNumber={pageNumber}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        onPageChange={(page) => setPageNumber(page)}
+      />
     </div>
-  );
+  )
 }

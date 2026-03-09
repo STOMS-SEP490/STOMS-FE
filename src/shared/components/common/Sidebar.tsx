@@ -151,8 +151,8 @@ export default function Sidebar() {
                         transition-all duration-300
                         ${
                           isActive
-                            ? 'bg-[#0F6A9E] text-white scale-100'
-                            : 'bg-[#0F6A9E] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
+                            ? 'bg-[#208aae] text-white scale-100'
+                            : 'bg-[#208aae] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
                         }
                       `}
                     >

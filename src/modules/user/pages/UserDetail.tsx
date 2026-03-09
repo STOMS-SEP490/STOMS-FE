@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import type { MemberDetail } from '@/modules/user/user';
 import { ROLE_MAP } from '@/constants/role';
+import { Badge } from '@/shared/components/ui/badge';
 
 type Props = {
   open: boolean;

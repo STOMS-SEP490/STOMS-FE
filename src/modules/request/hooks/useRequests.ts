@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import requestService from '../services/requestService';
+import { requestApi } from '../api/requestApi';
 import type { RequestListItem } from '../request';
 
 export const useRequests = (
@@ -15,7 +15,7 @@ export const useRequests = (
       try {
         setLoading(true);
 
-        const res = await requestService.getRequests({
+        const res = await requestApi.getRequests({
           pageNumber,
           pageSize,
         });

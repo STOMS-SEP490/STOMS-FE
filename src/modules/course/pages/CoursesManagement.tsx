@@ -4,8 +4,8 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Eye } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import dayjs from 'dayjs';
-import courseService from '@/modules/course/api/courseApi';
-import type { CourseListItem } from '@/modules/course/course';
+import courseApi from '@/modules/course/api/courseApi';
+import type { CourseListItem } from '../courseType';
 import { Badge } from '@/shared/components/ui/badge';
 import HoverSearch from '@/shared/components/ui/search';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -25,7 +25,7 @@ export default function CoursesManagement() {
     try {
       setLoading(true);
 
-      const res = await courseService.getCourses({
+      const res = await courseApi.getCourses({
         pageNumber,
         pageSize,
         CourseName: search || undefined,

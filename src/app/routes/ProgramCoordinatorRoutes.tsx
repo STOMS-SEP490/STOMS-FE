@@ -1,5 +1,5 @@
+import CreateRequestPage from '@/modules/request/pages/CreateRequestPage';
 import RequestsManagement from '@/modules/request/pages/RequestsManagement';
-// import CreateRequestPage from '@/modules/request/pages/CreateRequestPage';
 
 const ProgramCoordinatorRoutes = [
   // { path: 'dashboard', element: <PCDashboard /> },
@@ -7,7 +7,7 @@ const ProgramCoordinatorRoutes = [
   path: 'requests',
   children: [
     { index: true, element: <RequestsManagement /> },
-    // { path: 'create', element: <CreateRequestPage /> },
+    { path: 'create', element: <CreateRequestPage /> },
   ],
 }
 

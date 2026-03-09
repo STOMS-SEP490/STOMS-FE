@@ -18,9 +18,14 @@ export default function EquipmentsLayout() {
   return (
     <div className="h-screen overflow-hidden p-6 space-y-6 bg-[#f3f4f6]">
       {/* HEADER */}
-      <div className="bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Quản lý thiết bị</h2>
-        <p className="text-xs text-gray-500">Quản lý thiết bị và loại thiết bị trong hệ thống</p>
+      <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
+        <div>
+          <h2 className="text-xl font-semibold text-black">Quản lý thiết bị</h2>
+          <p className="text-xs text-gray-500">Quản lý thiết bị và loại thiết bị trong hệ thống</p>
+        </div>
+        <div className="flex gap-3 items-center">
+          <Outlet context={{ position: 'header' }} />
+        </div>
       </div>
 
       {/* STATS */}
