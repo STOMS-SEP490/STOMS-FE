@@ -8,6 +8,13 @@ export type SubjectFilterParams = {
   isActive?: boolean;
 };
 
+export type SubjectUpsertPayload = {
+  subjectCode: string;
+  subjectName: string;
+  description: string;
+  topicId?: number | null;
+};
+
 type SessionTemplateForm = {
   sessionNo: number;
   title: string;
@@ -23,11 +30,12 @@ export type SubjectListItem = {
   subjectId: number;
   subjectCode: string;
   subjectName: string;
+  isActive: boolean;
   description: string;
-  topicId: number;
+  topicId: number | null;
   numberOfSession: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | null;
+  updatedAt: string | null;
 
   subjectSessions?: SessionTemplateForm[] | null;
 };

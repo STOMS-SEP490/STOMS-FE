@@ -14,10 +14,16 @@ export type TopicListItem = {
   topicId: number
   topicName: string
   description: string
-  createdAt: string
+  isActive: boolean
+  createdAt: string | null
   eventSessionTopics?: TopicEventSessionItem[] | null
   subjects?: SubjectListItem[] | null
   teamTopics?: TopicTeamItem[] | null
+}
+
+export type TopicUpsertPayload = {
+  topicName: string
+  description: string
 }
 
 export type TopicFilterParams = {

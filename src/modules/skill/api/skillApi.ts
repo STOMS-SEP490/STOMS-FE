@@ -3,6 +3,7 @@ import type { PaginationResponse } from '@/shared/types/api'
 import type {
   SkillFilterParams,
   SkillListItem,
+  SkillUpsertPayload,
 } from '../skill'
 
 const skillApi = {
@@ -17,14 +18,14 @@ const skillApi = {
     axiosClient.get(`/skills/${id}`),
 
   // CREATE
-  create: (data: Partial<SkillListItem>): Promise<void> =>
+  create: (data: SkillUpsertPayload): Promise<SkillListItem> =>
     axiosClient.post('/skills', data),
 
   // UPDATE
   update: (
     id: number,
-    data: Partial<SkillListItem>
-  ): Promise<void> =>
+    data: SkillUpsertPayload
+  ): Promise<SkillListItem> =>
     axiosClient.put(`/skills/${id}`, data),
 
   // ACTIVATE / DEACTIVATE

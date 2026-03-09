@@ -22,35 +22,79 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { message, Modal } from 'antd';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 import UserCreateForm from './UserCreateForm';
-
+import UserDetailDrawer from './UserDetailDrawer';
+import UserEditModal from './UserEditModal';
+import ResetPasswordModal from './ResetPasswordModal';
 
 export default function UserManagement() {
-  const [open, setOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [openCreate, setOpenCreate] = useState(false);
+  const [openDetail, setOpenDetail] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [openResetPassword, setOpenResetPassword] = useState(false);
+  const [filterEmail, setFilterEmail] = useState('');
+  const [filterRoleId, setFilterRoleId] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
   const fetchUsers = async () => {
     try {
-      const res = await userService.getUsers({
-        pageNumber,
-        pageSize,
-      });
+      const params: Record<string, unknown> = { pageNumber, pageSize };
+      if (filterEmail.trim()) params.Email = filterEmail.trim();
+      if (filterRoleId !== 'all') params.RoleId = Number(filterRoleId);
+      if (filterStatus === 'active') params.IsActive = true;
+      if (filterStatus === 'inactive') params.IsActive = false;
+      const res = await userService.getUsers(params);
 
-      setUsers(res.items);
-      setTotalItems(res.totalItems);
+      setUsers(res.items ?? []);
+      setTotalItems(res.totalItems ?? 0);
     } catch (err) {
-      console.error(err);
+      message.error(getErrorMessage(err));
     }
   };
 
   useEffect(() => {
     fetchUsers();
-  }, [pageNumber]);
+  }, [pageNumber, filterEmail, filterRoleId, filterStatus]);
+
+  const handleResetFilters = () => {
+    setFilterEmail('');
+    setFilterRoleId('all');
+    setFilterStatus('all');
+    setPageNumber(1);
+  };
+
+  const handleBan = (user: User) => {
+    const isActive = user.isActive;
+    Modal.confirm({
+      title: isActive ? 'Vô hiệu hóa tài khoản?' : 'Kích hoạt lại tài khoản?',
+      content: isActive
+        ? `Tài khoản ${user.email} sẽ không thể đăng nhập. Bạn có chắc?`
+        : `Kích hoạt lại tài khoản ${user.email}?`,
+      okText: 'Xác nhận',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          if (isActive) {
+            await userService.deactivateUser(user.userId);
+            message.success('Đã vô hiệu hóa tài khoản');
+          } else {
+            await userService.activateUser(user.userId);
+            message.success('Đã kích hoạt tài khoản');
+          }
+          fetchUsers();
+        } catch (err) {
+          message.error(getErrorMessage(err));
+        }
+      },
+    });
+  };
 
   const columns: ColumnDef<User>[] = [
     {
@@ -103,18 +147,42 @@ export default function UserManagement() {
       header: 'Thao tác',
       enableSorting: false,
       cell: ({ row }) => {
-        const handleView = async () => {
-          // const user = await userService.getUserById(row.original.userId);
-          // setSelectedUser(user);
-          setOpen(true);
-        };
-
+        const u = row.original;
         return (
           <div className="flex gap-3">
-            <Key size={16} className="text-yellow-600 cursor-pointer" />
-            <Ban size={16} className="text-red-500 cursor-pointer" />
-            <Eye size={16} className="text-blue-600 cursor-pointer" onClick={handleView} />
-            <Pencil size={16} className="text-blue-600 cursor-pointer" />
+            <Key
+              size={16}
+              className="text-yellow-600 cursor-pointer"
+              onClick={() => {
+                setSelectedUser(u);
+                setOpenResetPassword(true);
+              }}
+              title="Đặt lại mật khẩu"
+            />
+            <Ban
+              size={16}
+              className="text-red-500 cursor-pointer"
+              onClick={() => handleBan(u)}
+              title={u.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
+            />
+            <Eye
+              size={16}
+              className="text-blue-600 cursor-pointer"
+              onClick={() => {
+                setSelectedUser(u);
+                setOpenDetail(true);
+              }}
+              title="Xem chi tiết"
+            />
+            <Pencil
+              size={16}
+              className="text-blue-600 cursor-pointer"
+              onClick={() => {
+                setSelectedUser(u);
+                setOpenEdit(true);
+              }}
+              title="Chỉnh sửa"
+            />
           </div>
         );
       },
@@ -167,10 +235,14 @@ export default function UserManagement() {
 
       {/* Filter Bar */}
       <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch />
+        <HoverSearch
+          placeholder="Tìm theo email..."
+          value={filterEmail}
+          onChange={setFilterEmail}
+        />
         <div className="flex items-center gap-3">
-          <Select>
-            <SelectTrigger className="text-sm bg-white">
+          <Select value={filterRoleId} onValueChange={setFilterRoleId}>
+            <SelectTrigger className="text-sm bg-white w-[140px]">
               <SelectValue placeholder="Vai trò" />
             </SelectTrigger>
             <SelectContent>
@@ -183,8 +255,8 @@ export default function UserManagement() {
             </SelectContent>
           </Select>
 
-          <Select>
-            <SelectTrigger className="text-sm bg-white">
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="text-sm bg-white w-[140px]">
               <SelectValue placeholder="Trạng thái" />
             </SelectTrigger>
             <SelectContent>
@@ -194,10 +266,9 @@ export default function UserManagement() {
             </SelectContent>
           </Select>
 
-          <Button variant="secondary" className="bg-white">
+          <Button variant="secondary" className="bg-white" onClick={handleResetFilters} title="Đặt lại bộ lọc">
             <RotateCcw size={16} />
           </Button>
-         
         </div>
       </div>
 
@@ -216,6 +287,32 @@ export default function UserManagement() {
         onCreated={() => {
           fetchUsers();
           setOpenCreate(false);
+        }}
+      />
+
+      <UserDetailDrawer
+        open={openDetail}
+        onClose={() => setOpenDetail(false)}
+        user={selectedUser}
+      />
+
+      <UserEditModal
+        open={openEdit}
+        onClose={() => setOpenEdit(false)}
+        user={selectedUser}
+        onUpdated={() => {
+          fetchUsers();
+          setOpenEdit(false);
+        }}
+      />
+
+      <ResetPasswordModal
+        open={openResetPassword}
+        onClose={() => setOpenResetPassword(false)}
+        user={selectedUser}
+        onSuccess={() => {
+          setOpenResetPassword(false);
+          setSelectedUser(null);
         }}
       />
     </div>
