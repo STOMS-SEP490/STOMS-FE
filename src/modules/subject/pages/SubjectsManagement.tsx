@@ -42,6 +42,7 @@ export default function SubjectsManagement() {
   } = useSubjects()
 
   const [openEdit, setOpenEdit] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [editingSubject, setEditingSubject] = useState<SubjectListItem | null>(null)
 
@@ -67,6 +68,7 @@ export default function SubjectsManagement() {
   }, [])
 
   const openEditModal = async (s: SubjectListItem) => {
+    setIsCreating(false)
     try {
       // luôn lấy bản chi tiết mới nhất để có đủ subjectSkills
       const detail = await subjectApi.getById(s.subjectId)
@@ -116,6 +118,19 @@ export default function SubjectsManagement() {
     setOpenEdit(false)
   }
 
+  const openCreateModal = () => {
+    setIsCreating(true)
+    setEditingSubject(null)
+    setSubjectCode('')
+    setSubjectName('')
+    setDescription('')
+    setSelectedSkillIds([])
+    setCurrentSubjectSkillIds([])
+    setSessions([])
+    setSessionsToDelete([])
+    setOpenEdit(true)
+  }
+
   const handleRemoveSessionLocal = (sessionId?: number, sessionNo?: number) => {
     if (!sessionId && !sessionNo) return
     if (sessionId) {
@@ -146,22 +161,56 @@ export default function SubjectsManagement() {
   }
 
   const handleSubmitEdit = async () => {
-    if (!editingSubject) return
-    const payload: SubjectUpsertPayload = {
+    const payloadBase: SubjectUpsertPayload = {
       subjectCode: subjectCode.trim(),
       subjectName: subjectName.trim(),
       description: description.trim(),
-      topicId: editingSubject.topicId ?? null,
+      topicId: isCreating ? null : editingSubject?.topicId ?? null,
     }
 
-    if (!payload.subjectCode || !payload.subjectName) {
+    if (!payloadBase.subjectCode || !payloadBase.subjectName) {
       message.warning('Vui lòng nhập đầy đủ mã và tên môn học')
       return
     }
 
     try {
       setSubmitting(true)
-      await subjectApi.update(editingSubject.subjectId, payload)
+
+      if (isCreating) {
+        if (sessions.length === 0) {
+          message.warning('Vui lòng thêm ít nhất 1 buổi học cho môn.')
+          return
+        }
+
+        const subjectSessions = sessions.map((s) => {
+          const durationForApi =
+            typeof s.duration === 'string' && /^\d{1,2}:\d{2}:\d{2}$/.test(s.duration)
+              ? s.duration
+              : '01:00:00'
+
+          return {
+            title: s.title || `Buổi ${s.sessionNo}`,
+            description: s.description ?? '',
+            sessionNo: s.sessionNo,
+            duration: durationForApi,
+          }
+        })
+
+        const payload: SubjectUpsertPayload = {
+          ...payloadBase,
+          subjectSessions,
+        }
+
+        await subjectApi.create(payload)
+        message.success('Tạo môn học thành công')
+        setOpenEdit(false)
+        await refetch()
+        return
+      }
+
+      if (!editingSubject) return
+
+      await subjectApi.update(editingSubject.subjectId, payloadBase)
 
       // cập nhật lại skills cho môn học, giống member
       const toAdd = selectedSkillIds.filter((id) => !currentSubjectSkillIds.includes(id))
@@ -395,6 +444,12 @@ export default function SubjectsManagement() {
           <h2 className="text-lg font-semibold text-black">Quản lý môn học</h2>
           <p className="text-xs text-gray-500">Danh sách môn học trong hệ thống</p>
         </div>
+        <Button
+          className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+          onClick={openCreateModal}
+        >
+          Thêm môn học
+        </Button>
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-4">
@@ -412,8 +467,12 @@ export default function SubjectsManagement() {
       <Dialog
         open={openEdit}
         onClose={closeEditModal}
-        title="Cập nhật môn học"
-        description="Chỉnh sửa thông tin cơ bản của môn học."
+        title={isCreating ? 'Tạo môn học' : 'Cập nhật môn học'}
+        description={
+          isCreating
+            ? 'Tạo mới một môn học trong hệ thống.'
+            : 'Chỉnh sửa thông tin cơ bản của môn học.'
+        }
         className="max-w-[520px]"
       >
         <div className="space-y-4">
@@ -434,37 +493,43 @@ export default function SubjectsManagement() {
               placeholder="Mô tả ngắn về môn học"
             />
           </div>
-          <div className="space-y-2">
-            <Label>Kỹ năng của môn học</Label>
-            <div className="max-h-40 overflow-y-auto rounded-md border p-3">
-              {allSkills.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Đang tải kỹ năng...</p>
-              ) : (
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                  {allSkills.map((skill) => (
-                    <label
-                      key={skill.skillId}
-                      className="flex cursor-pointer items-center gap-2 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSkillIds.includes(skill.skillId)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedSkillIds((prev) => [...prev, skill.skillId])
-                          } else {
-                            setSelectedSkillIds((prev) => prev.filter((id) => id !== skill.skillId))
-                          }
-                        }}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                      <span>{skill.skillName}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+
+          {!isCreating && (
+            <div className="space-y-2">
+              <Label>Kỹ năng của môn học</Label>
+              <div className="max-h-40 overflow-y-auto rounded-md border p-3">
+                {allSkills.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Đang tải kỹ năng...</p>
+                ) : (
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {allSkills.map((skill) => (
+                      <label
+                        key={skill.skillId}
+                        className="flex cursor-pointer items-center gap-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSkillIds.includes(skill.skillId)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedSkillIds((prev) => [...prev, skill.skillId])
+                            } else {
+                              setSelectedSkillIds((prev) =>
+                                prev.filter((id) => id !== skill.skillId),
+                              )
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <span>{skill.skillName}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
           <div className="space-y-2">
             <Label>Các buổi học trong môn</Label>
             <div className="max-h-56 overflow-y-auto rounded-md border p-3 space-y-2">
@@ -497,7 +562,9 @@ export default function SubjectsManagement() {
                         />
                         <div className="flex gap-2">
                           <div className="flex-1">
-                            <Label className="text-xs text-gray-500">Thời lượng (hh:mm:ss)</Label>
+                            <Label className="text-xs text-gray-500">
+                              Thời lượng (hh:mm:ss)
+                            </Label>
                             <Input
                               value={s.duration}
                               onChange={(e) =>
@@ -564,7 +631,7 @@ export default function SubjectsManagement() {
             onClick={handleSubmitEdit}
             disabled={submitting}
           >
-            {submitting ? 'Đang lưu...' : 'Lưu'}
+            {submitting ? (isCreating ? 'Đang tạo...' : 'Đang lưu...') : isCreating ? 'Tạo' : 'Lưu'}
           </Button>
         </div>
       </Dialog>

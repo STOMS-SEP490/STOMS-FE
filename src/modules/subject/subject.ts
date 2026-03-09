@@ -13,6 +13,12 @@ export type SubjectUpsertPayload = {
   subjectName: string;
   description: string;
   topicId?: number | null;
+  subjectSessions?: {
+    title: string;
+    description: string;
+    sessionNo: number;
+    duration: string;
+  }[];
 };
 
 type SessionTemplateForm = {
