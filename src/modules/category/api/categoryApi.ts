@@ -26,6 +26,10 @@ const categoryApi = {
     data: Partial<CategoryListItem>
   ): Promise<void> =>
     axiosClient.put(`/categories/${id}`, data),
+
+  // DELETE
+  remove: (id: number): Promise<void> =>
+    axiosClient.delete(`/categories/${id}`),
 }
 
 export default categoryApi

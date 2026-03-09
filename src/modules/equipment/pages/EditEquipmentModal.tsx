@@ -4,7 +4,12 @@ import equipmentApi from '../api/equipmentApi'
 import categoryApi from '@/modules/category/api/categoryApi'
 import type { CategoryListItem } from '@/modules/category/category'
 import type { EquipmentListItem } from '../equipment'
-import { EQUIPMENT_STATUS, EQUIPMENT_STATUS_OPTIONS, getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/equipment'
+import {
+  EQUIPMENT_STATUS,
+  EQUIPMENT_STATUS_OPTIONS,
+  getEquipmentStatusColor,
+  getEquipmentStatusDisplay,
+} from '@/constants/equipment'
 import { Dialog } from '@/shared/components/ui/dialog'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
@@ -42,10 +47,32 @@ export default function EditEquipmentModal({
   const [categories, setCategories] = useState<CategoryListItem[]>([])
   const [error, setError] = useState('')
 
+  // Chuẩn hóa status từ API (có thể là số 1-5 hoặc chuỗi) về enum dùng cho Select
+  const normalizeStatusValue = (rawStatus: string | number | null | undefined): string => {
+    const s = String(rawStatus ?? '').trim()
+    if (!s) return EQUIPMENT_STATUS.AVAILABLE
+    if (s === '1') return EQUIPMENT_STATUS.AVAILABLE
+    if (s === '2') return EQUIPMENT_STATUS.BORROWED
+    if (s === '3') return EQUIPMENT_STATUS.DAMAGED
+    if (s === '4') return EQUIPMENT_STATUS.LOST
+    if (s === '5') return EQUIPMENT_STATUS.UNAVAILABLE
+    const upper = s.toUpperCase()
+    if (
+      upper === EQUIPMENT_STATUS.AVAILABLE ||
+      upper === EQUIPMENT_STATUS.BORROWED ||
+      upper === EQUIPMENT_STATUS.DAMAGED ||
+      upper === EQUIPMENT_STATUS.LOST ||
+      upper === EQUIPMENT_STATUS.UNAVAILABLE
+    ) {
+      return upper
+    }
+    return EQUIPMENT_STATUS.AVAILABLE
+  }
+
   useEffect(() => {
     if (open) {
       categoryApi
-        .getCategories({ pageSize: 500 })
+        .getCategories({ pageNumber: 1, pageSize: 500 })
         .then((res) => setCategories(res.items ?? []))
     }
   }, [open])
@@ -57,7 +84,7 @@ export default function EditEquipmentModal({
       setCategoryId(String(equipment.categoryId ?? ''))
       setSponsoredBy(equipment.sponsoredBy ?? '')
       setHandoverMinute(equipment.handoverMinute ?? '')
-      setStatus(equipment.status ?? 'AVAILABLE')
+      setStatus(normalizeStatusValue(equipment.status ?? EQUIPMENT_STATUS.AVAILABLE))
       setDescription(equipment.description ?? '')
       setImgLink(equipment.imgLink ?? '')
       setError('')
@@ -73,11 +100,12 @@ export default function EditEquipmentModal({
     const name = equipmentName.trim()
     const code = equipmentCode.trim()
     const sponsor = sponsoredBy.trim()
-    const catId = Number(categoryId)
+    const effectiveCategoryId = categoryId || String(equipment.categoryId ?? '')
+    const catId = Number(effectiveCategoryId)
 
     if (!name) return setError('Vui lòng nhập tên thiết bị')
     if (!code) return setError('Vui lòng nhập mã thiết bị')
-    if (!categoryId || !catId) return setError('Vui lòng chọn danh mục')
+    if (!effectiveCategoryId || !catId) return setError('Vui lòng chọn danh mục')
     if (!sponsor) return setError('Vui lòng nhập bên cung cấp')
 
     try {
@@ -93,8 +121,13 @@ export default function EditEquipmentModal({
         imgLink: imgLink.trim() || null,
       })
 
-      if (status && status !== equipment.status) {
-        await equipmentApi.updateStatus(equipment.equipmentId, { status })
+      const originalStatus = normalizeStatusValue(
+        equipment.status ?? EQUIPMENT_STATUS.AVAILABLE
+      )
+      const nextStatus = normalizeStatusValue(status)
+      // Chỉ khóa khi đang Đang mượn; Không khả dụng vẫn cho đổi qua modal
+      if (originalStatus !== EQUIPMENT_STATUS.BORROWED && nextStatus && nextStatus !== originalStatus) {
+        await equipmentApi.updateStatus(equipment.equipmentId, { status: nextStatus })
       }
 
       message.success('Cập nhật thiết bị thành công')
@@ -118,9 +151,12 @@ export default function EditEquipmentModal({
   }
 
   if (!equipment) return null
-  const statusValue = String(status ?? '').toUpperCase()
+  const statusValue = normalizeStatusValue(
+    status || equipment.status || EQUIPMENT_STATUS.AVAILABLE
+  )
   const isBorrowed = statusValue === EQUIPMENT_STATUS.BORROWED
   const isUnavailable = statusValue === EQUIPMENT_STATUS.UNAVAILABLE
+  const categoryValue = categoryId || String(equipment.categoryId ?? '')
 
   return (
     <Dialog
@@ -159,7 +195,10 @@ export default function EditEquipmentModal({
           <Label className="text-black font-medium">
             Danh mục <span className="text-red-500">*</span>
           </Label>
-          <Select value={categoryId || undefined} onValueChange={setCategoryId}>
+          <Select
+            value={categoryValue || undefined}
+            onValueChange={setCategoryId}
+          >
             <SelectTrigger className="h-9 w-full text-black border-gray-200">
               <SelectValue placeholder="Chọn danh mục" />
             </SelectTrigger>
@@ -208,29 +247,36 @@ export default function EditEquipmentModal({
           {isBorrowed ? (
             <>
               <div
-                className={`inline-flex items-center justify-center h-9 w-full px-3 rounded-md text-sm font-medium ${getEquipmentStatusColor(status)}`}
+                className={`inline-flex items-center justify-center h-9 w-full px-3 rounded-md text-sm font-medium ${getEquipmentStatusColor(
+                  statusValue
+                )}`}
                 title="Thiết bị đang được mượn (chỉ thay đổi qua phiếu mượn)"
               >
-                {getEquipmentStatusDisplay(status)}
+                {getEquipmentStatusDisplay(statusValue)}
               </div>
               <p className="text-xs text-gray-500">
-                Thiết bị đang được mượn. Thay đổi trạng thái “Đang mượn”/kết thúc mượn vui lòng thao tác qua phiếu mượn.
+                Thiết bị đang được mượn. Thay đổi trạng thái “Đang mượn”/kết thúc mượn vui
+                lòng thao tác qua phiếu mượn.
               </p>
             </>
           ) : (
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={statusValue} onValueChange={setStatus}>
               <SelectTrigger
-                className={`relative h-9 w-full text-black border-gray-200 pr-8 ${
+                className={`relative h-9 w-full border-0 pr-8 text-sm font-medium rounded-md ${
                   isUnavailable
                     ? 'justify-start text-left [&>span]:text-left [&>span]:justify-start'
                     : 'justify-center text-center [&>span]:text-center'
-                } [&>span]:w-full [&>svg]:absolute [&>svg]:right-3 [&>svg]:top-1/2 [&>svg]:-translate-y-1/2`}
+                } [&>span]:w-full [&>svg]:absolute [&>svg]:right-3 [&>svg]:top-1/2 [&>svg]:-translate-y-1/2 ${getEquipmentStatusColor(
+                  statusValue
+                )}`}
               >
                 <SelectValue placeholder="Chọn trạng thái" />
               </SelectTrigger>
               <SelectContent>
                 {EQUIPMENT_STATUS_OPTIONS.filter(
-                  (opt) => opt.value !== EQUIPMENT_STATUS.BORROWED
+                  (opt) =>
+                    // Không cho chọn Đang mượn (chỉ qua phiếu mượn)
+                    opt.value !== EQUIPMENT_STATUS.BORROWED
                 ).map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}

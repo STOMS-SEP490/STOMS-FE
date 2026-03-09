@@ -115,10 +115,13 @@ const columns = (
     header: 'Thao tác',
     enableSorting: false,
     cell: ({ row }) => (
-      <Eye
-        className="w-4 h-4 text-blue-600 cursor-pointer"
-        onClick={() => onView(row.original)}
-      />
+      <div className="flex items-center gap-3">
+        <Eye
+          size={16}
+          className="text-blue-600 cursor-pointer"
+          onClick={() => onView(row.original)}
+        />
+      </div>
     ),
   },
 ];

@@ -70,14 +70,10 @@ export default function EquipmentsManagement() {
     }
   }
 
-  const handleEdit = async (item: EquipmentListItem) => {
-    try {
-      const full = await equipmentApi.getById(item.equipmentId)
-      setEditEquipment(full)
-      setEditOpen(true)
-    } catch {
-      message.error('Không tải được thông tin thiết bị')
-    }
+  const handleEdit = (item: EquipmentListItem) => {
+    // Dùng luôn dữ liệu của hàng hiện tại để fill form (đã có đủ categoryId, status, ...).
+    setEditEquipment(item)
+    setEditOpen(true)
   }
 
   const handleDisableClick = (item: EquipmentListItem) => {
@@ -115,7 +111,17 @@ export default function EquipmentsManagement() {
     if (s === '3') return EQUIPMENT_STATUS.DAMAGED
     if (s === '4') return EQUIPMENT_STATUS.LOST
     if (s === '5') return EQUIPMENT_STATUS.UNAVAILABLE
-    return s.toUpperCase()
+    const upper = s.toUpperCase()
+    if (
+      upper === EQUIPMENT_STATUS.AVAILABLE ||
+      upper === EQUIPMENT_STATUS.BORROWED ||
+      upper === EQUIPMENT_STATUS.DAMAGED ||
+      upper === EQUIPMENT_STATUS.LOST ||
+      upper === EQUIPMENT_STATUS.UNAVAILABLE
+    ) {
+      return upper
+    }
+    return EQUIPMENT_STATUS.AVAILABLE
   }
 
   const handleInlineStatusChange = async (
@@ -123,7 +129,15 @@ export default function EquipmentsManagement() {
     nextStatus: string
   ) => {
     const current = normalizeStatusValue(item.status)
-    if (!nextStatus || nextStatus === current) return
+    // Không cho đổi nếu đang Đang mượn hoặc Không khả dụng
+    if (
+      !nextStatus ||
+      nextStatus === current ||
+      current === EQUIPMENT_STATUS.BORROWED ||
+      current === EQUIPMENT_STATUS.UNAVAILABLE
+    ) {
+      return
+    }
 
     try {
       setUpdatingStatusId(item.equipmentId)
@@ -178,11 +192,15 @@ export default function EquipmentsManagement() {
         const isBorrowed = statusValue === EQUIPMENT_STATUS.BORROWED
         const isUnavailable = statusValue === EQUIPMENT_STATUS.UNAVAILABLE
         const isUpdating = updatingStatusId === row.original.equipmentId
-        if (isBorrowed) {
+        if (isBorrowed || isUnavailable) {
           return (
             <span
               className={`inline-flex items-center justify-center h-6 w-[120px] px-2 rounded-full text-[11px] font-medium ${getEquipmentStatusColor(status)}`}
-              title="Thiết bị đang được mượn (chỉ thay đổi qua phiếu mượn)"
+              title={
+                isBorrowed
+                  ? 'Thiết bị đang được mượn (chỉ thay đổi qua phiếu mượn)'
+                  : 'Thiết bị đang ở trạng thái Không khả dụng (chỉ thay đổi qua nút ngừng sử dụng)'
+              }
             >
               {getEquipmentStatusDisplay(status)}
             </span>
@@ -208,12 +226,11 @@ export default function EquipmentsManagement() {
             </SelectTrigger>
             <SelectContent>
               {EQUIPMENT_STATUS_OPTIONS.filter(
-                (opt) => opt.value !== EQUIPMENT_STATUS.BORROWED
+                (opt) =>
+                  opt.value !== EQUIPMENT_STATUS.BORROWED &&
+                  opt.value !== EQUIPMENT_STATUS.UNAVAILABLE
               ).map((opt) => (
-                <SelectItem
-                  key={opt.value}
-                  value={opt.value}
-                >
+                <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </SelectItem>
               ))}
@@ -259,7 +276,7 @@ export default function EquipmentsManagement() {
       header: 'Thao tác',
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="flex gap-3 justify-center">
+        <div className="flex items-center gap-3">
           <Eye
             size={16}
             className="text-blue-600 cursor-pointer"
@@ -274,7 +291,7 @@ export default function EquipmentsManagement() {
           />
           <Trash2
             size={16}
-            className="text-red-600 cursor-pointer"
+            className="text-red-500 cursor-pointer"
             title="Ngừng sử dụng"
             onClick={() => handleDisableClick(row.original)}
           />

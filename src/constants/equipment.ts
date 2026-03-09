@@ -24,7 +24,7 @@ export const EQUIPMENT_STATUS_MAP: Record<
 > = {
   // String enum từ API
   [EQUIPMENT_STATUS.AVAILABLE]: {
-    label: 'Sẵn sàng',
+    label: 'Khả dụng',
     className: 'bg-green-100 text-green-700',
   },
   [EQUIPMENT_STATUS.BORROWED]: {
@@ -33,7 +33,7 @@ export const EQUIPMENT_STATUS_MAP: Record<
   },
   [EQUIPMENT_STATUS.DAMAGED]: {
     label: 'Hỏng hóc',
-    className: 'bg-amber-100 text-amber-700',
+    className: 'bg-yellow-100 text-yellow-700',
   },
   [EQUIPMENT_STATUS.LOST]: {
     label: 'Mất',
@@ -44,16 +44,16 @@ export const EQUIPMENT_STATUS_MAP: Record<
     className: 'bg-gray-100 text-gray-700',
   },
   // Numeric từ API (1-5)
-  '1': { label: 'Sẵn sàng', className: 'bg-green-100 text-green-700' },
+  '1': { label: 'Khả dụng', className: 'bg-green-100 text-green-700' },
   '2': { label: 'Đang mượn', className: 'bg-orange-100 text-orange-700' },
-  '3': { label: 'Hỏng hóc', className: 'bg-amber-100 text-amber-700' },
+  '3': { label: 'Hỏng hóc', className: 'bg-yellow-100 text-yellow-700' },
   '4': { label: 'Mất', className: 'bg-red-100 text-red-700' },
   '5': { label: 'Không khả dụng', className: 'bg-gray-100 text-gray-700' },
 }
 
 /** Options cho Select filter (value gửi lên API) */
 export const EQUIPMENT_STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: EQUIPMENT_STATUS.AVAILABLE, label: 'Sẵn sàng' },
+  { value: EQUIPMENT_STATUS.AVAILABLE, label: 'Khả dụng' },
   { value: EQUIPMENT_STATUS.BORROWED, label: 'Đang mượn' },
   { value: EQUIPMENT_STATUS.DAMAGED, label: 'Hỏng hóc' },
   { value: EQUIPMENT_STATUS.LOST, label: 'Mất' },
