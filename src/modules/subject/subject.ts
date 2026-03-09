@@ -13,6 +13,12 @@ export type SubjectUpsertPayload = {
   subjectName: string;
   description: string;
   topicId?: number | null;
+  subjectSessions?: {
+    title: string;
+    description: string;
+    sessionNo: number;
+    duration: string;
+  }[];
 };
 
 type SessionTemplateForm = {
@@ -20,6 +26,8 @@ type SessionTemplateForm = {
   title: string;
   duration: string;
   subjectSessionId: number;
+
+  description?: string;
 
   teachersRequired?: number;
   tasRequired?: number;
@@ -38,4 +46,22 @@ export type SubjectListItem = {
   updatedAt: string | null;
 
   subjectSessions?: SessionTemplateForm[] | null;
+
+  courseSubjects?: {
+    courseId: number;
+    subjectId: number;
+    createdAt: string | null;
+  }[] | null;
+
+  subjectSkills?: {
+    subjectId: number;
+    skillId: number;
+    createdAt: string | null;
+    skill?: {
+      skillId: number;
+      skillName: string;
+      description: string;
+      isActive: boolean;
+    } | null;
+  }[] | null;
 };
