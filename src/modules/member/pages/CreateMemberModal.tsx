@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { message } from 'antd';
-import userService from '@/modules/user/api/userApi';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
+import memberApi from '@/modules/member/api/memberApi';
 import { teamApi } from '@/modules/team/api/teamApi';
 import type { Team } from '@/modules/team/team';
-import type { Member } from '@/modules/user/user';
+import type { Member } from '@/modules/member/member';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Label } from '@/shared/components/ui/label';
@@ -36,7 +37,7 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
   useEffect(() => {
     if (open) {
       teamApi.getTeams({ pageSize: 500 }).then((res) => setTeams(res.items ?? []));
-      userService.getMembers({ pageSize: 500 }).then((res) => setMembers(res.items ?? []));
+      memberApi.getMembers({ pageSize: 500 }).then((res) => setMembers(res.items ?? []));
     }
   }, [open]);
 
@@ -73,11 +74,7 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
       onClose();
       onCreated?.();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : null;
-      message.error(msg || 'Thêm thành viên vào nhóm thất bại');
+      message.error(getErrorMessage(err) || 'Thêm thành viên vào nhóm thất bại');
     } finally {
       setLoading(false);
     }
@@ -96,14 +93,11 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
   };
 
   const allFilteredSelected =
-    filteredMembers.length > 0 &&
-    filteredMembers.every((m) => selectedMemberIds.includes(m.memberId));
+    filteredMembers.length > 0 && filteredMembers.every((m) => selectedMemberIds.includes(m.memberId));
 
   const toggleSelectAll = () => {
     if (allFilteredSelected) {
-      setSelectedMemberIds((prev) =>
-        prev.filter((id) => !filteredMembers.some((m) => m.memberId === id))
-      );
+      setSelectedMemberIds((prev) => prev.filter((id) => !filteredMembers.some((m) => m.memberId === id)));
     } else {
       setSelectedMemberIds((prev) => {
         const add = filteredMembers.map((m) => m.memberId).filter((id) => !prev.includes(id));
@@ -189,9 +183,7 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
                       )}
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm text-black truncate">{m.fullName}</span>
-                        <span className="text-xs text-gray-500 truncate">
-                          {m.user?.email}
-                        </span>
+                        <span className="text-xs text-gray-500 truncate">{m.user?.email}</span>
                       </div>
                     </button>
                   );
@@ -200,9 +192,7 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
             )}
           </div>
           {selectedMemberIds.length > 0 && (
-            <p className="text-xs text-gray-500">
-              Đã chọn {selectedMemberIds.length} thành viên
-            </p>
+            <p className="text-xs text-gray-500">Đã chọn {selectedMemberIds.length} thành viên</p>
           )}
         </div>
 

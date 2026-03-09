@@ -42,3 +42,6 @@ dist-ssr
 
 .env
 
+# Cursor AI local skills (do not commit)
+.cursor/skills/
+

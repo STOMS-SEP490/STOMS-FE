@@ -1,132 +1,190 @@
 import { DataTable } from '@/shared/components/common/DataTable';
-import { StatCard } from '@/shared/components/common/StatCard';
 import { Button } from '@/shared/components/ui/button';
+import { Dialog } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
 import HoverSearch from '@/shared/components/ui/search';
+import { message, Modal } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
-import { BookOpen, CheckCircle, Clock, Eye, GraduationCap, Pencil, Plus } from 'lucide-react';
+import { Eye, Pencil, Plus, Power, PowerOff } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import topicApi from '../api/topicApi';
+import { useTopics } from '../hooks/useTopics';
+import type { TopicListItem, TopicUpsertPayload } from '../topic';
 
 export default function TopicsManagement() {
-  const data = [
-    {
-      id: 1,
-      name: 'Lập trình web',
-      description: 'Các công nghệ và kỹ thuật phát triển ứng dụng web',
-      subjects: 12,
-      events: 8,
-      groups: 5,
-      createdAt: '15/01/2024',
-    },
-    {
-      id: 2,
-      name: 'Trí tuệ nhân tạo',
-      description: 'Machine Learning, Deep Learning và ứng dụng',
-      subjects: 9,
-      events: 6,
-      groups: 4,
-      createdAt: '10/01/2024',
-    },
-    {
-      id: 3,
-      name: 'Cơ sở dữ liệu',
-      description: 'Thiết kế, quản lý và tối ưu hóa cơ sở dữ liệu',
-      subjects: 7,
-      events: 4,
-      groups: 3,
-      createdAt: '08/01/2024',
-    },
-    {
-      id: 4,
-      name: 'An ninh mạng',
-      description: 'Bảo mật hệ thống, mạng và ứng dụng',
-      subjects: 6,
-      events: 5,
-      groups: 2,
-      createdAt: '05/01/2024',
-    },
-    {
-      id: 5,
-      name: 'Phát triển mobile',
-      description: 'Lập trình ứng dụng di động iOS và Android',
-      subjects: 5,
-      events: 3,
-      groups: 2,
-      createdAt: '02/01/2024',
-    },
-    {
-      id: 6,
-      name: 'DevOps',
-      description: 'CI/CD, containerization và tự động hóa',
-      subjects: 0,
-      events: 0,
-      groups: 0,
-      createdAt: '28/12/2023',
-    },
-    {
-      id: 7,
-      name: 'UX/UI Design',
-      description: 'Thiết kế trải nghiệm người dùng và giao diện',
-      subjects: 4,
-      events: 2,
-      groups: 1,
-      createdAt: '20/12/2023',
-    },
-    {
-      id: 8,
-      name: 'Cloud Computing',
-      description: 'AWS, Azure, Google Cloud và kiến trúc đám mây',
-      subjects: 3,
-      events: 2,
-      groups: 1,
-      createdAt: '15/12/2023',
-    },
-  ];
+  const { data, loading, search, setSearch, pageNumber, pageSize, totalItems, setPageNumber, refetch } =
+    useTopics();
 
-  const columns: ColumnDef<any>[] = [
+  const [openUpsert, setOpenUpsert] = useState(false);
+  const [mode, setMode] = useState<'create' | 'edit'>('create');
+  const [submitting, setSubmitting] = useState(false);
+  const [editingTopic, setEditingTopic] = useState<TopicListItem | null>(null);
+
+  const [topicName, setTopicName] = useState('');
+  const [description, setDescription] = useState('');
+
+  const openCreate = () => {
+    setMode('create');
+    setEditingTopic(null);
+    setTopicName('');
+    setDescription('');
+    setOpenUpsert(true);
+  };
+
+  const openEdit = (t: TopicListItem) => {
+    setMode('edit');
+    setEditingTopic(t);
+    setTopicName(t.topicName ?? '');
+    setDescription(t.description ?? '');
+    setOpenUpsert(true);
+  };
+
+  const closeUpsert = () => {
+    if (submitting) return;
+    setOpenUpsert(false);
+  };
+
+  const handleSubmit = async () => {
+    const payload: TopicUpsertPayload = {
+      topicName: topicName.trim(),
+      description: description.trim(),
+    };
+
+    if (!payload.topicName) {
+      message.warning('Vui lòng nhập tên chủ đề');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      if (mode === 'create') {
+        await topicApi.create(payload);
+        message.success('Tạo chủ đề thành công');
+      } else {
+        if (!editingTopic?.topicId) return;
+        await topicApi.update(editingTopic.topicId, payload);
+        message.success('Cập nhật chủ đề thành công');
+      }
+      setOpenUpsert(false);
+      await refetch();
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra';
+      message.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleActive = async (t: TopicListItem) => {
+    Modal.confirm({
+      title: t.isActive ? 'Vô hiệu hóa chủ đề?' : 'Kích hoạt chủ đề?',
+      content: t.isActive
+        ? 'Chủ đề sẽ bị vô hiệu hóa và các liên kết liên quan có thể bị vô hiệu theo.'
+        : 'Chủ đề sẽ được kích hoạt lại.',
+      okText: t.isActive ? 'Vô hiệu hóa' : 'Kích hoạt',
+      cancelText: 'Hủy',
+      okButtonProps: { danger: t.isActive },
+      onOk: async () => {
+        try {
+          if (t.isActive) await topicApi.deactivate(t.topicId);
+          else await topicApi.activate(t.topicId);
+          message.success('Cập nhật trạng thái thành công');
+          await refetch();
+        } catch (e: any) {
+          const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra';
+          message.error(msg);
+        }
+      },
+    });
+  };
+
+  const handleView = (t: TopicListItem) => {
+    const subjectsCount = t.subjects?.length ?? 0;
+    const eventsCount = t.eventSessionTopics?.length ?? 0;
+    const groupsCount = t.teamTopics?.length ?? 0;
+    Modal.info({
+      title: `Chủ đề #${t.topicId}`,
+      content: (
+        <div className="space-y-2">
+          <div>
+            <div className="text-xs text-gray-500">Tên chủ đề</div>
+            <div className="text-sm font-medium">{t.topicName || '—'}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">Mô tả</div>
+            <div className="text-sm">{t.description || '—'}</div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 pt-2">
+            <div className="rounded-md border p-2">
+              <div className="text-xs text-gray-500">Môn học</div>
+              <div className="text-sm font-medium">{subjectsCount}</div>
+            </div>
+            <div className="rounded-md border p-2">
+              <div className="text-xs text-gray-500">Sự kiện</div>
+              <div className="text-sm font-medium">{eventsCount}</div>
+            </div>
+            <div className="rounded-md border p-2">
+              <div className="text-xs text-gray-500">Nhóm</div>
+              <div className="text-sm font-medium">{groupsCount}</div>
+            </div>
+          </div>
+          <div className="pt-2">
+            <div className="text-xs text-gray-500">Trạng thái</div>
+            <div className="text-sm">{t.isActive ? 'Đang hoạt động' : 'Vô hiệu hóa'}</div>
+          </div>
+        </div>
+      ),
+      okText: 'Đóng',
+    });
+  };
+
+  const stats = useMemo(() => {
+    const active = data.filter((x) => x.isActive).length;
+    const inactive = data.length - active;
+    return { active, inactive };
+  }, [data]);
+
+  const columns: ColumnDef<TopicListItem>[] = [
     {
-      accessorKey: 'id',
+      accessorKey: 'topicId',
       header: 'MÃ CHỦ ĐỀ',
-      cell: ({ row }) => <div className="text-sm font-medium">{row.original.id}</div>,
+      cell: ({ row }) => <div className="text-sm font-medium">{row.original.topicId}</div>,
     },
     {
-      accessorKey: 'name',
+      accessorKey: 'topicName',
       header: 'TÊN CHỦ ĐỀ',
-      cell: ({ row }) => <div className="text-sm font-medium">{row.original.name}</div>,
+      cell: ({ row }) => <div className="text-sm font-medium">{row.original.topicName}</div>,
     },
     {
-      accessorKey: 'description',
-      header: 'MÔ TẢ',
-      cell: ({ row }) => <div>{row.original.description}</div>,
-    },
-    {
-      accessorKey: 'subjects',
+      id: 'subjects',
       header: 'MÔN HỌC',
-      cell: ({ row }) => (
-        <div className="flex justify-center">
-          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600">
-            {row.original.subjects}
-          </span>
-        </div>
-      ),
+      cell: ({ row }) => <div className="text-sm text-center">{row.original.subjects?.length ?? 0}</div>,
     },
     {
-      accessorKey: 'events',
+      id: 'events',
       header: 'SỰ KIỆN',
-      cell: ({ row }) => (
-        <div className="flex justify-center">
-          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-600">
-            {row.original.events}
-          </span>
-        </div>
-      ),
+      cell: ({ row }) => <div className="text-sm text-center">{row.original.eventSessionTopics?.length ?? 0}</div>,
     },
     {
-      accessorKey: 'groups',
+      id: 'groups',
       header: 'NHÓM',
+      cell: ({ row }) => <div className="text-sm text-center">{row.original.teamTopics?.length ?? 0}</div>,
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'TRẠNG THÁI',
       cell: ({ row }) => (
-        <div className="flex justify-center">
-          <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-600">
-            {row.original.groups}
-          </span>
+        <div className="text-sm">
+          {row.original.isActive ? (
+            <span className="inline-flex items-center rounded-full bg-green-50 text-green-700 px-2 py-0.5 border border-green-100">
+              Đang hoạt động
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 px-2 py-0.5 border border-gray-200">
+              Vô hiệu hóa
+            </span>
+          )}
         </div>
       ),
     },
@@ -137,20 +195,28 @@ export default function TopicsManagement() {
     {
       id: 'actions',
       header: 'THAO TÁC',
-      cell: () => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={() => handleView(row.original)} title="Xem">
             <Eye className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={() => openEdit(row.original)} title="Sửa">
             <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleToggleActive(row.original)}
+            title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
+          >
+            {row.original.isActive ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
           </Button>
         </div>
       ),
     },
   ];
   return (
-    <div className="h-screen overflow-hidden p-6 space-y-6  ">
+    <div className="p-6 space-y-6">
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
@@ -159,7 +225,10 @@ export default function TopicsManagement() {
         </div>
 
         <div className="flex gap-3 items-center">
-          <Button className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md">
+          <Button
+            className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+            onClick={openCreate}
+          >
             <Plus size={16} />
             Thêm chủ đề
           </Button>
@@ -167,36 +236,72 @@ export default function TopicsManagement() {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-2">
-        <StatCard
-          icon={<GraduationCap />}
-          label="Tổng người dùng"
-          value="186"
-          sub="tài khoản đang hoạt động"
-        />
-        <StatCard
-          icon={<CheckCircle />}
-          label="Tổng giảng viên"
-          value="42"
-          sub="giảng viên và trợ giảng"
-          variant="green"
-        />
-        <StatCard
-          icon={<BookOpen />}
-          label="Vô hiệu hóa"
-          value="156"
-          sub="người dùng đã bị vô hiệu hóa"
-        />
-        <StatCard icon={<Clock />} label="Tổng buổi học" value="1,248" sub="Buổi học" />
+      <div className="grid grid-cols-3 gap-4 mb-2">
+        <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="text-xs text-gray-500">Tổng chủ đề</div>
+          <div className="text-2xl font-semibold text-slate-900">{totalItems}</div>
+        </div>
+        <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="text-xs text-gray-500">Đang hoạt động (trang hiện tại)</div>
+          <div className="text-2xl font-semibold text-green-700">{stats.active}</div>
+        </div>
+        <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="text-xs text-gray-500">Vô hiệu hóa (trang hiện tại)</div>
+          <div className="text-2xl font-semibold text-slate-900">{stats.inactive}</div>
+        </div>
       </div>
       <div className="flex mb-2 justify-end">
-        {' '}
-        <HoverSearch />
+        <HoverSearch value={search} onChange={setSearch} />
       </div>
       {/* TABLE CARD */}
       <div className="bg-white rounded-xl border shadow-sm p-6">
-        <DataTable columns={columns} data={data} />
+        {loading && <div className="text-sm text-gray-500 mb-3">Đang tải...</div>}
+        <DataTable
+          columns={columns}
+          data={data}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setPageNumber}
+        />
       </div>
+
+      <Dialog
+        open={openUpsert}
+        onClose={closeUpsert}
+        title={mode === 'create' ? 'Thêm chủ đề' : 'Cập nhật chủ đề'}
+        description="Nhập tên chủ đề và mô tả."
+        className="max-w-[520px]"
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Tên chủ đề</Label>
+            <Input value={topicName} onChange={(e) => setTopicName(e.target.value)} placeholder="VD: Lập trình web" />
+          </div>
+          <div className="space-y-2">
+            <Label>Mô tả</Label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              placeholder="Mô tả ngắn về chủ đề"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="outline" onClick={closeUpsert} disabled={submitting}>
+            Hủy
+          </Button>
+          <Button
+            className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? 'Đang lưu...' : 'Lưu'}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

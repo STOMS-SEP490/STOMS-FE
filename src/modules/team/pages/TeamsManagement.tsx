@@ -15,8 +15,6 @@ import { DataTable } from '@/shared/components/common/DataTable';
 import { Dialog } from '@/shared/components/ui/dialog';
 
 export default function TeamsManagement() {
-  const context = useOutletContext<{ position: string }>();
-
   const [pageNumber, setPageNumber] = useState(1);
   const pageSize = 10;
   const [search, setSearch] = useState('');
@@ -133,10 +131,14 @@ export default function TeamsManagement() {
     },
   ];
 
-  /* HEADER */
-  if (context.position === 'header') {
-    return (
-      <>
+  return (
+    <div className="space-y-4">
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold text-black">Danh sách nhóm</h3>
+          <p className="text-xs text-gray-500">Quản lý các nhóm trong hệ thống</p>
+        </div>
         <Button
           onClick={() => setOpenCreateModal(true)}
           className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
@@ -144,26 +146,15 @@ export default function TeamsManagement() {
           <Plus size={16} />
           Thêm nhóm mới
         </Button>
+      </div>
 
-        <CreateTeamModal
-          open={openCreateModal}
-          onClose={() => setOpenCreateModal(false)}
-          onCreated={() => setPageNumber(1)}
-        />
-      </>
-    );
-  }
-
-  /* TOOLBAR */
-  if (context.position === 'toolbar') {
-    return (
-      <div className="flex gap-3 items-center">
+      {/* TOOLBAR */}
+      <div className="flex gap-3 items-center justify-end">
         <HoverSearch
           placeholder="Tìm tên nhóm..."
           value={search}
           onChange={setSearch}
         />
-
         <Button
           variant="secondary"
           className="bg-white"
@@ -175,53 +166,8 @@ export default function TeamsManagement() {
           <RotateCcw size={16} />
         </Button>
       </div>
-    );
-  }
 
-  /* CONTENT */
-  return (
-    <>
-      <TeamDetailSidebar
-        open={detailOpen}
-        onClose={() => setDetailOpen(false)}
-        team={detailTeam}
-      />
-      <EditTeamModal
-        open={editOpen}
-        onClose={() => {
-          setEditOpen(false);
-          setEditTeam(null);
-        }}
-        team={editTeam}
-        onUpdated={() => setRefreshKey((k) => k + 1)}
-      />
-      <Dialog
-        open={deleteOpen}
-        onClose={() => {
-          setDeleteOpen(false);
-          setTeamToDelete(null);
-        }}
-        title="Xác nhận xóa nhóm"
-        description={`Bạn có chắc muốn xóa nhóm "${teamToDelete?.teamName}"? Hành động này không thể hoàn tác.`}
-      >
-        <div className="flex gap-3 justify-end pt-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setDeleteOpen(false);
-              setTeamToDelete(null);
-            }}
-          >
-            Hủy
-          </Button>
-          <Button
-            className="bg-red-600 hover:bg-red-700 text-white"
-            onClick={handleDeleteConfirm}
-          >
-            Xóa nhóm
-          </Button>
-        </div>
-      </Dialog>
+      {/* TABLE */}
       <DataTable
         columns={columns}
         data={data}
@@ -230,6 +176,12 @@ export default function TeamsManagement() {
         totalItems={totalItems}
         onPageChange={(page) => setPageNumber(page)}
       />
-    </>
+
+      <CreateTeamModal
+        open={openCreateModal}
+        onClose={() => setOpenCreateModal(false)}
+        onCreated={() => setPageNumber(1)}
+      />
+    </div>
   );
 }

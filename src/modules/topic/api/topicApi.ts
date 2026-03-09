@@ -3,6 +3,7 @@ import type { PaginationResponse } from '@/shared/types/api'
 import type {
   TopicFilterParams,
   TopicListItem,
+  TopicUpsertPayload,
 } from '../topic'
 
 const topicApi = {
@@ -17,14 +18,14 @@ const topicApi = {
     axiosClient.get(`/topics/${id}`),
 
   // CREATE
-  create: (data: Partial<TopicListItem>): Promise<void> =>
+  create: (data: TopicUpsertPayload): Promise<TopicListItem> =>
     axiosClient.post('/topics', data),
 
   // UPDATE
   update: (
     id: number,
-    data: Partial<TopicListItem>
-  ): Promise<void> =>
+    data: TopicUpsertPayload
+  ): Promise<TopicListItem> =>
     axiosClient.put(`/topics/${id}`, data),
 
   // ACTIVATE / DEACTIVATE

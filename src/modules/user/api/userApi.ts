@@ -1,40 +1,40 @@
 import axiosClient from '@/shared/lib/axios';
 import type { PaginationResponse } from '@/shared/types/api';
-import type { Member, MemberDetail, UpdateUserPayload, User } from '@/modules/user/user';
+import type { UpdateUserPayload, User } from '@/modules/user/user';
 
-export type MemberFilterParams = {
+export type UserFilterParams = {
   pageNumber?: number;
   pageSize?: number;
-  MemberId?: number;
-  TeamId?: number;
-  FullName?: string;
+  UserId?: number;
+  Email?: string;
+  IsActive?: boolean;
+  RoleId?: number;
 };
 
 const userService = {
-  getUsers: async (params: MemberFilterParams): Promise<PaginationResponse<User>> => {
+  getUsers: async (params: UserFilterParams): Promise<PaginationResponse<User>> => {
     return axiosClient.get('/users/filter', { params });
   },
 
-  getMembers: async (params: MemberFilterParams): Promise<PaginationResponse<Member>> => {
-    return axiosClient.get('/members/filter', { params });
+  getUserById: async (id: number): Promise<User> => {
+    return axiosClient.get(`/users/${id}`);
   },
 
-  getMemberById: async (id: number): Promise<MemberDetail> => {
-    return await axiosClient.get(`/members/${id}`);
+  activateUser: async (userId: number) => {
+    return axiosClient.put(`/users/${userId}/activate`);
+  },
+
+  deactivateUser: async (userId: number) => {
+    return axiosClient.put(`/users/${userId}/deactivate`);
   },
 
   updateUser: async (userId: number, payload: UpdateUserPayload) => {
     return axiosClient.put(`/users/${userId}`, payload);
   },
 
-  updateMemberExtra: async (
-    memberId: number,
-    data: {
-      teamId?: number;
-      skills?: string[];
-    }
-  ) => {
-    return axiosClient.put(`/members/${memberId}`, data);
+  /** Đặt lại mật khẩu user (admin). PUT api/users/{id}/change-password */
+  changePassword: async (userId: number, newPassword: string) => {
+    return axiosClient.put(`/users/${userId}/change-password`, { newPassword });
   },
 
   createUser: async (payload: {
@@ -43,38 +43,11 @@ const userService = {
     isActive: boolean;
     roleId: number;
   }): Promise<{ userId: number }> => {
-    const { data } = await axiosClient.post<{ userId: number }>('/users', payload);
-    return data;
+    return axiosClient.post('/users', payload);
   },
 
   createUsersBulk: async (payload: { quantity: number; roleId: number; emails: string[] }) => {
     return axiosClient.post('/users/bulk', payload);
-  },
-
-  createMember: async (payload: {
-    userId: number;
-    fullName: string;
-    teamId: number;
-    avatarUrl?: string;
-    phone?: string;
-    address?: string;
-    cin?: string;
-    bankCode?: string;
-    bankName?: string;
-    taxNumber?: string;
-  }) => {
-    return axiosClient.post('/members', {
-      userId: payload.userId,
-      fullName: payload.fullName,
-      teamId: payload.teamId,
-      avatarUrl: payload.avatarUrl ?? undefined,
-      phone: payload.phone ?? '',
-      address: payload.address ?? '',
-      cin: payload.cin ?? '',
-      bankCode: payload.bankCode ?? '',
-      bankName: payload.bankName ?? '',
-      taxNumber: payload.taxNumber ?? '',
-    });
   },
 };
 

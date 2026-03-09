@@ -3,6 +3,7 @@ import type { PaginationResponse } from '@/shared/types/api'
 import type {
   SubjectFilterParams,
   SubjectListItem,
+  SubjectUpsertPayload,
 } from '../subject'
 
 const subjectApi = {
@@ -19,17 +20,24 @@ const subjectApi = {
   },
 
   // CREATE
-  create: (data: Partial<SubjectListItem>): Promise<void> => {
+  create: (data: SubjectUpsertPayload): Promise<SubjectListItem> => {
     return axiosClient.post('/subjects', data)
   },
 
   // UPDATE
   update: (
     id: number,
-    data: Partial<SubjectListItem>
-  ): Promise<void> => {
+    data: SubjectUpsertPayload
+  ): Promise<SubjectListItem> => {
     return axiosClient.put(`/subjects/${id}`, data)
   },
+
+  // ACTIVATE / DEACTIVATE
+  activate: (id: number): Promise<SubjectListItem> =>
+    axiosClient.put(`/subjects/${id}/activate`),
+
+  deactivate: (id: number): Promise<SubjectListItem> =>
+    axiosClient.put(`/subjects/${id}/deactivate`),
 
   // DELETE
   remove: (id: number): Promise<void> => {
