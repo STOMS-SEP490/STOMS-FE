@@ -41,5 +41,6 @@ export const useSubjects = () => {
     pageSize,
     totalItems,
     setPageNumber,
+    refetch: fetchSubjects,
   }
 }

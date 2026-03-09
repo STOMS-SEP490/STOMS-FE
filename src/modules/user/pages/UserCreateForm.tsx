@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { message } from 'antd';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 import userService from '@/modules/user/api/userApi';
 import { ROLE_MAP } from '@/constants/role';
 import { Dialog } from '@/shared/components/ui/dialog';
@@ -73,8 +74,7 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
       onClose();
       onCreated?.();
     } catch (err) {
-      console.error(err);
-      message.error('Có lỗi xảy ra');
+      message.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

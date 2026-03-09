@@ -18,9 +18,11 @@ import AuditLogs from '@/modules/auditLog/pages/AuditLogs';
 import SkillsManagement from '@/modules/skill/pages/SkillMangagement';
 import TeamLayout from '@/app/layouts/TeamLayout';
 import UserManagement from '@/modules/user/pages/UsersManagement';
+import RolesManagement from '@/modules/role/pages/RolesManagement';
 import RequestLayout from '../layouts/RequestLayout';
 import RequestDetail from '@/modules/request/pages/RequestDetail';
-import MembersManagement from '@/modules/user/pages/MembersManagement';
+import MembersManagement from '@/modules/member/pages/MembersManagement';
+import UserProfile from '@/modules/user/pages/UserProfile';
 
 const RequestPlaceholder = () => (
   <div className="p-6 text-sm text-gray-500">
@@ -40,7 +42,10 @@ const ManagerRoutes = [
       { path: 'subjects', element: <SubjectsManagement /> },
     ],
   },
+  { path: 'profile', element: <UserProfile /> },
   { path: 'users', element: <UserManagement /> },
+  { path: 'members', element: <MembersManagement /> },
+  { path: 'roles', element: <RolesManagement /> },
   // { path: 'teams', element: <TeamsManagement /> },
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'topics', element: <TopicsManagement /> },
@@ -76,10 +81,7 @@ const ManagerRoutes = [
   {
     path: 'teams',
     element: <TeamLayout />,
-    children: [
-      { index: true, element: <TeamsManagement /> },
-      { path: 'members', element: <MembersManagement /> },
-    ],
+    children: [{ index: true, element: <TeamsManagement /> }],
   },
 ];
 

@@ -1,0 +1,84 @@
+import axiosClient from '@/shared/lib/axios';
+import type { PaginationResponse } from '@/shared/types/api';
+import type { Member, MemberDetail } from '@/modules/member/member';
+
+export type MemberFilterParams = {
+  pageNumber?: number;
+  pageSize?: number;
+  MemberId?: number;
+  TeamId?: number;
+  FullName?: string;
+};
+
+const memberApi = {
+  getMembers: async (params: MemberFilterParams): Promise<PaginationResponse<Member>> => {
+    return axiosClient.get('/members/filter', { params });
+  },
+
+  getMemberById: async (id: number): Promise<MemberDetail> => {
+    return axiosClient.get(`/members/${id}`);
+  },
+
+  uploadAvatar: async (memberId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return axiosClient.put(`/members/${memberId}/avatar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  updateMember: async (
+    memberId: number,
+    data: {
+      teamId: number;
+      fullName: string;
+      phone: string;
+      address: string;
+      cin: string;
+      bankCode: string;
+      bankName: string;
+      taxNumber: string;
+      avatarUrl?: string;
+    }
+  ) => {
+    return axiosClient.put(`/members/${memberId}`, data);
+  },
+
+  updateMemberExtra: async (
+    memberId: number,
+    data: {
+      teamId?: number;
+      skills?: string[];
+    }
+  ) => {
+    return axiosClient.put(`/members/${memberId}`, data);
+  },
+
+  createMember: async (payload: {
+    userId: number;
+    fullName: string;
+    teamId: number;
+    avatarUrl?: string;
+    phone?: string;
+    address?: string;
+    cin?: string;
+    bankCode?: string;
+    bankName?: string;
+    taxNumber?: string;
+  }) => {
+    return axiosClient.post('/members', {
+      userId: payload.userId,
+      fullName: payload.fullName,
+      teamId: payload.teamId,
+      avatarUrl: payload.avatarUrl ?? undefined,
+      phone: payload.phone ?? '',
+      address: payload.address ?? '',
+      cin: payload.cin ?? '',
+      bankCode: payload.bankCode ?? '',
+      bankName: payload.bankName ?? '',
+      taxNumber: payload.taxNumber ?? '',
+    });
+  },
+};
+
+export default memberApi;

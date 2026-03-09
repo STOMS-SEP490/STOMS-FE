@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   FileText,
@@ -8,6 +8,7 @@ import {
   Laptop,
   Wallet,
   Users,
+  UserCircle,
   Clock,
   CheckCircle,
   Bookmark,
@@ -15,18 +16,54 @@ import {
   PieChart,
   Menu,
   LogOut,
+  Key,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import authService from '@/modules/auth/api/authApi';
+import memberApi from '@/modules/member/api/memberApi';
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
+    const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
+    return avatarUrl.trim() ? avatarUrl : '/img/avatar.png';
+  });
+  const [memberName, setMemberName] = useState(() => localStorage.getItem('memberFullName') || '');
+
+  useEffect(() => {
+    const raw = localStorage.getItem('user');
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as { memberId?: number };
+      if (!parsed.memberId) return;
+
+      memberApi
+        .getMemberById(parsed.memberId)
+        .then((m) => {
+          if (m?.fullName) {
+            setMemberName(m.fullName);
+            localStorage.setItem('memberFullName', m.fullName);
+          }
+          const avatarUrl = m?.avatarUrl ?? '';
+          if (avatarUrl && String(avatarUrl).trim()) {
+            setSidebarAvatarSrc(String(avatarUrl));
+            localStorage.setItem('memberAvatarUrl', String(avatarUrl));
+          }
+        })
+        .catch(() => {});
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
 
   const menus = useMemo(
     () => [
       { label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
-      { label: 'Người dùng', icon: Users, path: '/manager/users' },
+      { label: 'Quản lý tài khoản', icon: UserCircle, path: '/manager/users' },
+      { label: 'Quản lý thành viên', icon: Users, path: '/manager/members' },
+      { label: 'Vai trò', icon: Key, path: '/manager/roles' },
       { label: 'Nhóm', icon: Users, path: '/manager/teams' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/manager/events' },
       { label: 'Giáo trình', icon: BookOpen, path: '/manager/courses' },
@@ -88,21 +125,33 @@ export default function Sidebar() {
       )}
 
       {!collapsed && (
-        <div className="flex flex-col items-center mb-8">
+        <button
+          type="button"
+          onClick={() => navigate('/manager/profile')}
+          className="flex flex-col items-center mb-8 w-full focus:outline-none"
+          title="Xem hồ sơ"
+        >
           <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg ring-4 ring-white">
             <img
-              src="/img/avatar.png"
+              src={sidebarAvatarSrc}
               alt="avatar"
               className="w-16 h-16 rounded-full object-cover"
+              onError={(e) => {
+                const img = e.currentTarget;
+                img.onerror = null;
+                img.src = '/img/avatar.png';
+              }}
             />
           </div>
           <div className="mt-4 text-center">
-            <div className="font-medium text-slate-700">Xin chào Phương</div>
+            <div className="font-medium text-slate-700">
+              Xin chào {memberName || JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
+            </div>
             <div className="text-sm text-slate-400">
               {JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
             </div>
           </div>
-        </div>
+        </button>
       )}
 
       {collapsed && (
