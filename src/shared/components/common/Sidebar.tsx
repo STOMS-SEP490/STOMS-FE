@@ -16,12 +16,11 @@ import {
   Menu,
   LogOut,
 } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import authService from '@/modules/auth/api/authApi';
+import { NavLink } from 'react-router-dom';
+import { logout } from '@/modules/auth/pages/Logout';
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const navigate = useNavigate();
 
   const menus = useMemo(
     () => [
@@ -44,23 +43,7 @@ export default function Sidebar() {
   );
 
   const handleLogout = async () => {
-    try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      const user = localStorage.getItem('user');
-      const deviceUid = user ? JSON.parse(user).deviceUid : null;
-
-      if (refreshToken && deviceUid) {
-        await authService.logout({
-          refreshToken,
-          deviceUid,
-        });
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.clear();
-      navigate('/login');
-    }
+    await logout();
   };
 
   return (

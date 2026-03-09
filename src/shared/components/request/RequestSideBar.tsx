@@ -3,25 +3,31 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 
-type RequestSidebarProps = {
+function isPendingStatus(status: string | undefined): boolean {
+  const s = (status ?? '').toLowerCase();
+  return s === 'pending' || s.includes('chờ') || s.includes('pending');
+}
+
+export type RequestSidebarProps = {
   search?: string;
+  onlyPending?: boolean;
 };
 
-export default function RequestSidebar({ search = '' }: RequestSidebarProps) {
+export default function RequestSidebar({ search = '', onlyPending = false }: RequestSidebarProps) {
   const navigate = useNavigate();
   const { id } = useParams();
 
   const { data: requestList, totalItems, loading } = useRequests(1, 50);
 
-  const filtered = requestList.filter(
-    (item) =>
-      (item.requestName ?? '')
-        .toLowerCase()
-        .includes(search.toLowerCase()) ||
-      (item.customerName ?? '')
-        .toLowerCase()
-        .includes(search.toLowerCase())
-  );
+  const filtered = requestList
+    .filter((item) => {
+      const matchSearch =
+        (item.requestName ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (item.customerName ?? '').toLowerCase().includes(search.toLowerCase());
+      if (!matchSearch) return false;
+      if (onlyPending) return isPendingStatus(item.status);
+      return true;
+    });
 
   return (
     <div className="text-black">
@@ -29,7 +35,7 @@ export default function RequestSidebar({ search = '' }: RequestSidebarProps) {
         {/* Header */}
         <div className="flex justify-between p-4 border-b">
           <h2 className="font-semibold text-lg text-black">Danh sách yêu cầu</h2>
-          <span className="text-sm font-medium text-primary">{totalItems}</span>
+          <span className="text-sm font-medium text-primary">{filtered.length}</span>
         </div>
 
         {/* List */}

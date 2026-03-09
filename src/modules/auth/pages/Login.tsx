@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import authService from '@/modules/auth/api/authApi';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { saveAuthToStorage } from '@/modules/auth/authStorage';
 
 type AuthContextType = {
   setImage: (src: string) => void;
@@ -50,22 +51,8 @@ export default function Login() {
       // clear token/user cũ
       localStorage.clear();
 
-      // lưu token + user cho các phần khác (giữ cấu trúc cũ)
-      localStorage.setItem('accessToken', res.accessToken);
-      localStorage.setItem('refreshToken', res.refreshToken);
-      localStorage.setItem('accessTokenExpiresAt', res.accessTokenExpiresAt);
-      localStorage.setItem('refreshTokenExpiresAt', res.refreshTokenExpiresAt);
-
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          userId: res.userId,
-          memberId: res.memberId,
-          email: res.email,
-          roleId: res.roleId,
-          deviceUid: res.deviceUid,
-        })
-      );
+      // lưu token + user (dùng helper chung)
+      saveAuthToStorage(res);
 
       // đồng bộ với AuthProvider (currentUser) để useAuth() nhận biết đã login
       setCurrentUser({

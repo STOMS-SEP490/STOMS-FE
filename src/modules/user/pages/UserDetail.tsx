@@ -133,10 +133,6 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-/* ======================== */
-/* ===== Format Utils ===== */
-/* ======================== */
-
 function formatDate(date?: string | null) {
   if (!date) return '—';
   return new Date(date).toLocaleDateString('vi-VN');

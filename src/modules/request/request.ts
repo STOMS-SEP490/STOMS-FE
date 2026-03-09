@@ -44,6 +44,8 @@ export type RequestSessionSummary = {
   startAt: string;
   endAt: string;
   status: string;
+  teachersRequired?: number | null;
+  tasRequired?: number | null;
 };
 
 export type RequestListItem = {
