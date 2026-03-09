@@ -22,7 +22,7 @@ export default function Login() {
     // nếu đã login thì redirect
     const token = localStorage.getItem('accessToken');
     if (token) {
-      navigate('/manager/dashboard');
+      navigate('/manager');
     }
   }, []);
 
@@ -76,7 +76,7 @@ export default function Login() {
         token: res.accessToken,
       });
 
-      navigate('/manager/dashboard');
+      navigate('/manager');
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
