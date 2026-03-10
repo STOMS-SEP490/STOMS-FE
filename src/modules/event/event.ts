@@ -1,3 +1,23 @@
+/** Một slot lịch cụ thể (từ EventSession.Sessions của BE) */
+export type EventSessionSlot = {
+  sessionId?: number;
+  startAt?: string | null;
+  endAt?: string | null;
+  location?: string | null;
+};
+
+/** Buổi trong sự kiện (EventSession từ BE: Title, SessionNo, Duration; lịch trong Sessions) */
+export type EventSession = {
+  eventSessionId?: number;
+  title?: string;
+  description?: string | null;
+  eventId?: number | null;
+  duration?: string | null;
+  sessionNo?: number | null;
+  /** Lịch cụ thể (StartAt, EndAt, Location) từ BE SessionResponse */
+  sessions?: EventSessionSlot[] | null;
+};
+
 export type EventListItem = {
   eventId: number;
   eventCode: string;
@@ -8,7 +28,15 @@ export type EventListItem = {
   numberOfSession: number;
   createdAt: string;
   updatedAt: string;
-  eventSessions: [] | null;
+  eventSessions: EventSession[] | null;
+};
+
+export type EventUpsertPayload = {
+  eventCode: string;
+  eventName: string;
+  description?: string;
+  duration?: string;
+  numberOfSession?: number;
 };
 
 export type EventFilterParams = {
