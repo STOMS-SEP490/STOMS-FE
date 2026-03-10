@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import type { Team } from '../team';
 import { Badge } from '@/shared/components/ui/badge';
+import type { Member } from '@/modules/member/member';
+import memberApi from '@/modules/member/api/memberApi';
 
 type Props = {
   open: boolean;
@@ -14,6 +17,29 @@ function formatDateTime(date?: string | null) {
 }
 
 export default function TeamDetailSidebar({ open, onClose, team }: Props) {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (!open || !team) {
+        setMembers([]);
+        return;
+      }
+      try {
+        setLoadingMembers(true);
+        const res = await memberApi.getMembers({ TeamId: team.teamId, pageSize: 100 });
+        setMembers(res.items ?? []);
+      } catch {
+        setMembers([]);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    fetchMembers();
+  }, [open, team]);
+
   if (!team) return null;
 
   return (
@@ -71,29 +97,34 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
             </div>
           </div>
 
-          <Section title="Phiên làm việc">
-            {team.teamSessions && team.teamSessions.length > 0 ? (
+          <Section title="Thành viên trong nhóm">
+            {loadingMembers ? (
+              <p className="text-sm text-gray-500">Đang tải thành viên...</p>
+            ) : members.length > 0 ? (
               <ul className="space-y-2 text-sm">
-                {team.teamSessions.map((ts, i) => (
-                  <li key={i} className="flex justify-between bg-gray-50 rounded-md px-3 py-2">
-                    <span>Session #{ts.sessionId}</span>
-                    <span className="text-gray-500">
-                      GV: {ts.teachersRequired ?? 0}, TA: {ts.tasRequired ?? 0}
-                    </span>
+                {members.map((m) => (
+                  <li key={m.memberId} className="flex justify-between items-center bg-white rounded-md px-3 py-2 border border-gray-100">
+                    <div>
+                      <p className="font-medium text-gray-900">{m.fullName}</p>
+                      <p className="text-xs text-gray-500">{m.user?.email}</p>
+                    </div>
+                    <span className="text-xs text-gray-400">#{m.memberId}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-500">Chưa có phiên nào</p>
+              <p className="text-sm text-gray-500">Chưa có thành viên nào trong nhóm.</p>
             )}
           </Section>
 
-          <Section title="Topic">
+          <Section title="Chủ đề">
             {team.teamTopics && team.teamTopics.length > 0 ? (
               <ul className="space-y-2 text-sm">
                 {team.teamTopics.map((tt, i) => (
                   <li key={i} className="bg-gray-50 rounded-md px-3 py-2">
-                    Topic #{tt.topicId}
+                    <span className="font-medium">
+                      {tt.topicName ?? `Topic #${tt.topicId}`}
+                    </span>
                     {tt.createdAt && (
                       <span className="text-gray-500 text-xs ml-2">
                         ({formatDateTime(tt.createdAt)})

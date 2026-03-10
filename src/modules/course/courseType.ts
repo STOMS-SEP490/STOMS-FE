@@ -22,7 +22,10 @@ export type CourseListItem = {
   courseName: string;
   isActive: boolean;
   updatedAt: string;
-
+  /** API trả về: NumberOfSubject (camelCase: numberOfSubject) */
+  numberOfSubject?: number | null;
+  /** API trả về: NumberOfSession (camelCase: numberOfSession) */
+  numberOfSession?: number | null;
   courseSubjects?: CourseSubjectSummary[] | null;
   requests?: CourseRequestSummary[] | null;
 };

@@ -101,30 +101,51 @@ export default function EventDetailSidebar({ open, onClose, event }: Props) {
                           {es.duration ? ` · ${es.duration}` : ''}
                         </span>
                       </div>
-                      {es.sessions && es.sessions.length > 0 ? (
-                        <ul className="divide-y divide-gray-100">
-                          {es.sessions.map((slot, i) => (
-                            <li
-                              key={slot.sessionId ?? i}
-                              className="px-3 py-2 flex items-center justify-between gap-3"
-                            >
-                              <div className="min-w-0 text-xs text-gray-600">
-                                {slot.startAt ? formatDateTime(slot.startAt) : '—'}
-                                {slot.endAt && ` → ${formatDateTime(slot.endAt)}`}
+                      <div className="px-3 py-2 space-y-2">
+                        {/* Skills + Topics */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium mb-1">Kỹ năng</div>
+                            {es.eventSessionSkills && es.eventSessionSkills.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {es.eventSessionSkills
+                                  .filter((x) => x?.isActive !== false)
+                                  .map((x, i) => (
+                                    <span
+                                      key={`${x.eventSessionId}-${x.skillId}-${i}`}
+                                      className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs border border-blue-100"
+                                    >
+                                      {x.skillName ?? `Kỹ năng #${x.skillId}`}
+                                    </span>
+                                  ))}
                               </div>
-                              {slot.location && (
-                                <span className="text-xs text-gray-500 whitespace-nowrap truncate max-w-[180px]">
-                                  {slot.location}
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div className="px-3 py-2 text-xs text-gray-500">
-                          Chưa có lịch cụ thể
+                            ) : (
+                              <div className="text-xs text-gray-500">—</div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium mb-1">Chủ đề</div>
+                            {es.eventSessionTopics && es.eventSessionTopics.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {es.eventSessionTopics
+                                  .filter((x) => x?.isActive !== false)
+                                  .map((x, i) => (
+                                    <span
+                                      key={`${x.eventSessionId}-${x.topicId}-${i}`}
+                                      className="inline-flex items-center rounded-full bg-purple-50 text-purple-700 px-2 py-0.5 text-xs border border-purple-100"
+                                    >
+                                      {x.topicName ?? `Chủ đề #${x.topicId}`}
+                                    </span>
+                                  ))}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-gray-500">—</div>
+                            )}
+                          </div>
                         </div>
-                      )}
+
+                       
+                      </div>
                     </li>
                   ))}
                 </ul>

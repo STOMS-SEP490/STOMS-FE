@@ -43,6 +43,11 @@ const subjectApi = {
   remove: (id: number): Promise<void> => {
     return axiosClient.delete(`/subjects/${id}`)
   },
+
+  /** Gán chủ đề cho môn học (PUT api/subjects/{id}/topic). topicId = null để gỡ chủ đề. */
+  assignTopic: (id: number, topicId: number | null): Promise<SubjectListItem> => {
+    return axiosClient.put(`/subjects/${id}/topic`, { topicId })
+  },
 }
 
 export default subjectApi

@@ -5,7 +5,8 @@ import type {
   EventListItem,
   EventSession,
   EventSessionSlot,
-  EventUpsertPayload,
+  EventCreatePayload,
+  EventUpdatePayload,
 } from '@/modules/event/event';
 
 // ===== Helpers: BE PascalCase ↔ FE camelCase =====
@@ -24,6 +25,8 @@ function mapEventSessionFromApi(raw: Record<string, unknown>): EventSession {
   const sessions: EventSessionSlot[] | null = sessionsRaw?.length
     ? sessionsRaw.map((s) => mapSessionSlotFromApi((s ?? {}) as Record<string, unknown>))
     : null;
+  const skillsRaw = (raw['eventSessionSkills'] ?? raw['EventSessionSkills']) as unknown[] | undefined;
+  const topicsRaw = (raw['eventSessionTopics'] ?? raw['EventSessionTopics']) as unknown[] | undefined;
   return {
     eventSessionId: raw['eventSessionId'] != null ? Number(raw['eventSessionId']) : raw['EventSessionId'] != null ? Number(raw['EventSessionId']) : undefined,
     title: (raw['title'] ?? raw['Title'] ?? '') as string,
@@ -32,6 +35,28 @@ function mapEventSessionFromApi(raw: Record<string, unknown>): EventSession {
     duration: (raw['duration'] ?? raw['Duration'] ?? null) as string | null,
     sessionNo: raw['sessionNo'] != null ? Number(raw['sessionNo']) : raw['SessionNo'] != null ? Number(raw['SessionNo']) : undefined,
     sessions: sessions ?? undefined,
+    eventSessionSkills: skillsRaw?.length
+      ? skillsRaw.map((x) => {
+          const o = (x ?? {}) as Record<string, unknown>;
+          return {
+            eventSessionId: Number(o['eventSessionId'] ?? o['EventSessionId']),
+            skillId: Number(o['skillId'] ?? o['SkillId']),
+            isActive: Boolean(o['isActive'] ?? o['IsActive'] ?? true),
+            skillName: (o['skillName'] ?? o['SkillName'] ?? null) as string | null,
+          };
+        })
+      : null,
+    eventSessionTopics: topicsRaw?.length
+      ? topicsRaw.map((x) => {
+          const o = (x ?? {}) as Record<string, unknown>;
+          return {
+            eventSessionId: Number(o['eventSessionId'] ?? o['EventSessionId']),
+            topicId: Number(o['topicId'] ?? o['TopicId']),
+            isActive: Boolean(o['isActive'] ?? o['IsActive'] ?? true),
+            topicName: (o['topicName'] ?? o['TopicName'] ?? null) as string | null,
+          };
+        })
+      : null,
   };
 }
 
@@ -84,13 +109,13 @@ const eventApi = {
   },
 
   // CREATE
-  create: async (data: EventUpsertPayload): Promise<EventListItem> => {
+  create: async (data: EventCreatePayload): Promise<EventListItem> => {
     const res = await axiosClient.post<Record<string, unknown>>('/events', data);
     return mapEventFromApi((res ?? {}) as Record<string, unknown>);
   },
 
   // UPDATE
-  update: async (id: number, data: EventUpsertPayload): Promise<EventListItem> => {
+  update: async (id: number, data: EventUpdatePayload): Promise<EventListItem> => {
     const res = await axiosClient.put<Record<string, unknown>>(`/events/${id}`, data);
     return mapEventFromApi((res ?? {}) as Record<string, unknown>);
   },

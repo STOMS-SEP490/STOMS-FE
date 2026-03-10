@@ -9,6 +9,7 @@ export type TeamSession = {
 export type TeamTopic = {
   teamId: number;
   topicId: number;
+  topicName?: string | null;
   createdAt: string;
 };
 

@@ -34,6 +34,7 @@ function mapTeamTopicFromApi(raw: Record<string, unknown>): TeamTopic {
   return {
     teamId: Number(raw['teamId'] ?? raw['TeamId']),
     topicId: Number(raw['topicId'] ?? raw['TopicId']),
+    topicName: (raw['topicName'] ?? raw['TopicName'] ?? null) as string | null,
     createdAt: raw['createdAt'] != null || raw['CreatedAt'] != null
       ? String(raw['createdAt'] ?? raw['CreatedAt'])
       : '',
@@ -111,5 +112,10 @@ export const teamApi = {
   /** POST api/team-members - BE: TeamMemberAddRequest { TeamId, MemberIds } */
   addMembers: async (teamId: number, memberIds: number[]): Promise<void> => {
     await axiosClient.post('/team-members', { TeamId: teamId, MemberIds: memberIds });
+  },
+
+  /** DELETE api/team-members - BE: TeamMemberRemoveRequest { MemberIds } */
+  removeMembers: async (memberIds: number[]): Promise<void> => {
+    await axiosClient.delete('/team-members', { data: { MemberIds: memberIds } });
   },
 };
