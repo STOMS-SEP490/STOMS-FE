@@ -37,6 +37,10 @@ const teamService = {
   async addMembers(teamId: number, memberIds: number[]): Promise<void> {
     return teamApi.addMembers(teamId, memberIds);
   },
+
+  async removeMembers(memberIds: number[]): Promise<void> {
+    return teamApi.removeMembers(memberIds);
+  },
 };
 
 export default teamService;

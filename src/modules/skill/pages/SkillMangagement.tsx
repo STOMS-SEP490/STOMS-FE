@@ -9,6 +9,7 @@ import { message, Modal } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus, Power, PowerOff } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import dayjs from 'dayjs';
 import skillApi from '../api/skillApi';
 import type { SkillListItem, SkillUpsertPayload } from '../skill';
 import { useSkills } from '../hooks/useSkills';
@@ -165,6 +166,10 @@ export default function SkillsManagement() {
     {
       accessorKey: 'createdAt',
       header: 'NGÀY TẠO',
+      cell: ({ row }) =>
+        row.original.createdAt
+          ? dayjs(row.original.createdAt).format('DD/MM/YYYY HH:mm')
+          : '—',
     },
     {
       id: 'actions',
@@ -172,10 +177,10 @@ export default function SkillsManagement() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => handleView(row.original)} title="Xem">
-            <Eye className="w-4 h-4" />
+            <Eye className="w-4 h-4 text-gray-800" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => openEdit(row.original)} title="Sửa">
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-4 h-4 text-blue-600" />
           </Button>
           <Button
             variant="ghost"
@@ -183,7 +188,11 @@ export default function SkillsManagement() {
             onClick={() => handleToggleActive(row.original)}
             title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
           >
-            {row.original.isActive ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+            {row.original.isActive ? (
+              <PowerOff className="w-4 h-4 text-red-500" />
+            ) : (
+              <Power className="w-4 h-4 text-green-600" />
+            )}
           </Button>
         </div>
       ),

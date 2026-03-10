@@ -7,7 +7,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Badge } from '@/shared/components/ui/badge';
 import { StatCard } from '@/shared/components/common/StatCard';
-import type { EventListItem, EventUpsertPayload } from '@/modules/event/event';
+import type { EventCreatePayload, EventListItem, EventUpdatePayload } from '@/modules/event/event';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   BookOpen,
@@ -17,14 +17,33 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  Power,
   PowerOff,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { message, Modal, TimePicker, InputNumber } from 'antd';
-import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
+import { message, Modal } from 'antd';
 import eventApi from '@/modules/event/api/eventApi';
+import eventSessionApi from '@/modules/event/api/eventSessionApi';
 import EventDetailSidebar from './EventDetailSidebar';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
+import type { SkillListItem } from '@/modules/skill/skill';
+import skillApi from '@/modules/skill/api/skillApi';
+import type { TopicListItem } from '@/modules/topic/topic';
+import topicApi from '@/modules/topic/api/topicApi';
+import eventSessionSkillApi from '@/modules/event/api/eventSessionSkillApi';
+import eventSessionTopicApi from '@/modules/event/api/eventSessionTopicApi';
+
+type EditableEventSession = {
+  eventSessionId?: number;
+  sessionNo: number;
+  title: string;
+  description: string;
+  duration: string; // "HH:mm:ss"
+  selectedSkillIds: number[];
+  currentSkillIds: number[];
+  selectedTopicIds: number[];
+  currentTopicIds: number[];
+};
 
 export default function EventsManagement() {
   const [events, setEvents] = useState<EventListItem[]>([]);
@@ -42,8 +61,24 @@ export default function EventsManagement() {
   const [eventCode, setEventCode] = useState('');
   const [eventName, setEventName] = useState('');
   const [description, setDescription] = useState('');
-  const [durationTime, setDurationTime] = useState<Dayjs | null>(null);
-  const [numberOfSession, setNumberOfSession] = useState<number | null>(null);
+  const [sessions, setSessions] = useState<EditableEventSession[]>([]);
+  const [sessionsToDelete, setSessionsToDelete] = useState<number[]>([]);
+  const [allSkills, setAllSkills] = useState<SkillListItem[]>([]);
+  const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
+
+  useEffect(() => {
+    skillApi
+      .getSkills({ pageSize: 500 })
+      .then((res) => setAllSkills(res.items ?? []))
+      .catch(() => setAllSkills([]));
+  }, []);
+
+  useEffect(() => {
+    topicApi
+      .getTopics({ pageNumber: 1, pageSize: 500 })
+      .then((res) => setAllTopics(res.items ?? []))
+      .catch(() => setAllTopics([]));
+  }, []);
 
   const fetchEvents = async () => {
     try {
@@ -89,28 +124,95 @@ export default function EventsManagement() {
     setEventCode('');
     setEventName('');
     setDescription('');
-    setDurationTime(null);
-    setNumberOfSession(null);
+    setSessions([
+      {
+        eventSessionId: undefined,
+        sessionNo: 1,
+        title: 'Buổi 1',
+        description: '',
+        duration: '01:00:00',
+        selectedSkillIds: [],
+        currentSkillIds: [],
+        selectedTopicIds: [],
+        currentTopicIds: [],
+      },
+    ]);
+    setSessionsToDelete([]);
     setOpenUpsert(true);
   };
 
-  /** Parse duration từ BE (vd "01:30:00") sang Dayjs cho TimePicker */
-  const parseDurationToDayjs = (d: string | undefined): Dayjs | null => {
-    if (!d?.trim()) return null;
-    const match = String(d).trim().match(/^(\d+):(\d{2})(?::\d{2})?/);
-    if (!match) return null;
-    return dayjs().hour(Number(match[1])).minute(Number(match[2])).second(0).millisecond(0);
-  };
-
-  const openEdit = (e: EventListItem) => {
+  const openEdit = async (e: EventListItem) => {
     setMode('edit');
-    setEditingEvent(e);
-    setEventCode(e.eventCode ?? '');
-    setEventName(e.eventName ?? '');
-    setDescription(e.description ?? '');
-    setDurationTime(parseDurationToDayjs(e.duration));
-    setNumberOfSession(e.numberOfSession ?? null);
-    setOpenUpsert(true);
+    try {
+      const detail = await eventApi.getById(e.eventId);
+      setEditingEvent(detail);
+      setEventCode(detail.eventCode ?? '');
+      setEventName(detail.eventName ?? '');
+      setDescription(detail.description ?? '');
+
+      const mapped: EditableEventSession[] =
+        detail.eventSessions?.map((s) => {
+          const skillIds =
+            (s.eventSessionSkills ?? [])
+              .filter((x) => x?.isActive !== false)
+              .map((x) => x.skillId) ?? [];
+          const topicIds =
+            (s.eventSessionTopics ?? [])
+              .filter((x) => x?.isActive !== false)
+              .map((x) => x.topicId) ?? [];
+          return {
+            eventSessionId: s.eventSessionId,
+            sessionNo: Number(s.sessionNo ?? 0) || 1,
+            title: s.title ?? `Buổi ${s.sessionNo ?? ''}`,
+            description: (s.description ?? '') as string,
+            duration: (s.duration ?? '01:00:00') as string,
+            selectedSkillIds: skillIds,
+            currentSkillIds: skillIds,
+            selectedTopicIds: topicIds,
+            currentTopicIds: topicIds,
+          };
+        }) ?? [];
+      setSessions(mapped.length > 0 ? mapped : [
+        { eventSessionId: undefined, sessionNo: 1, title: 'Buổi 1', description: '', duration: '01:00:00', selectedSkillIds: [], currentSkillIds: [], selectedTopicIds: [], currentTopicIds: [] },
+      ]);
+      setSessionsToDelete([]);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Không tải được chi tiết sự kiện';
+      message.error(msg);
+      // fallback: vẫn cho sửa theo dữ liệu list
+      setEditingEvent(e);
+      setEventCode(e.eventCode ?? '');
+      setEventName(e.eventName ?? '');
+      setDescription(e.description ?? '');
+      const mapped: EditableEventSession[] =
+        e.eventSessions?.map((s) => {
+          const skillIds =
+            (s.eventSessionSkills ?? [])
+              .filter((x) => x?.isActive !== false)
+              .map((x) => x.skillId) ?? [];
+          const topicIds =
+            (s.eventSessionTopics ?? [])
+              .filter((x) => x?.isActive !== false)
+              .map((x) => x.topicId) ?? [];
+          return {
+            eventSessionId: s.eventSessionId,
+            sessionNo: Number(s.sessionNo ?? 0) || 1,
+            title: s.title ?? `Buổi ${s.sessionNo ?? ''}`,
+            description: (s.description ?? '') as string,
+            duration: (s.duration ?? '01:00:00') as string,
+            selectedSkillIds: skillIds,
+            currentSkillIds: skillIds,
+            selectedTopicIds: topicIds,
+            currentTopicIds: topicIds,
+          };
+        }) ?? [];
+      setSessions(mapped.length > 0 ? mapped : [
+        { eventSessionId: undefined, sessionNo: 1, title: 'Buổi 1', description: '', duration: '01:00:00', selectedSkillIds: [], currentSkillIds: [], selectedTopicIds: [], currentTopicIds: [] },
+      ]);
+      setSessionsToDelete([]);
+    } finally {
+      setOpenUpsert(true);
+    }
   };
 
   const closeUpsert = () => {
@@ -118,41 +220,154 @@ export default function EventsManagement() {
     setOpenUpsert(false);
   };
 
+  const handleAddSessionLocal = () => {
+    const nextNo =
+      sessions.length > 0 ? Math.max(...sessions.map((s) => s.sessionNo)) + 1 : 1;
+    setSessions((prev) => [
+      ...prev,
+      {
+        eventSessionId: undefined,
+        sessionNo: nextNo,
+        title: `Buổi ${nextNo}`,
+        description: '',
+        duration: '01:00:00',
+        selectedSkillIds: [],
+        currentSkillIds: [],
+        selectedTopicIds: [],
+        currentTopicIds: [],
+      },
+    ]);
+  };
+
+  const handleRemoveSessionLocal = (eventSessionId?: number, sessionNo?: number) => {
+    if (!eventSessionId && !sessionNo) return;
+    if (eventSessionId) {
+      setSessionsToDelete((prev) =>
+        prev.includes(eventSessionId) ? prev : [...prev, eventSessionId],
+      );
+    }
+    setSessions((prev) =>
+      prev.filter((s) =>
+        eventSessionId ? s.eventSessionId !== eventSessionId : s.sessionNo !== sessionNo,
+      ),
+    );
+  };
+
   const handleSubmit = async () => {
-    const durationForApi = durationTime ? durationTime.format('HH:mm:ss') : undefined;
-    const payload: EventUpsertPayload = {
+    const base = {
       eventCode: eventCode.trim(),
       eventName: eventName.trim(),
-      description: description.trim() || undefined,
-      duration: durationForApi,
-      numberOfSession: numberOfSession ?? undefined,
+      description: description.trim(),
     };
 
-    if (!payload.eventCode) {
+    if (!base.eventCode) {
       message.warning('Vui lòng nhập mã sự kiện');
       return;
     }
-    if (!payload.eventName) {
+    if (!base.eventName) {
       message.warning('Vui lòng nhập tên sự kiện');
+      return;
+    }
+    if (!base.description) {
+      message.warning('Vui lòng nhập mô tả');
       return;
     }
 
     try {
       setSubmitting(true);
       if (mode === 'create') {
+        if (sessions.length === 0) {
+          message.warning('Vui lòng thêm ít nhất 1 buổi cho sự kiện.');
+          return;
+        }
+
+        const eventSessions = sessions
+          .slice()
+          .sort((a, b) => a.sessionNo - b.sessionNo)
+          .map((s) => ({
+            title: s.title || `Buổi ${s.sessionNo}`,
+            description: s.description ?? '',
+            duration:
+              typeof s.duration === 'string' && /^\d{1,2}:\d{2}:\d{2}$/.test(s.duration)
+                ? s.duration
+                : '01:00:00',
+            sessionNo: s.sessionNo,
+          }));
+
+        const payload: EventCreatePayload = {
+          ...base,
+          eventSessions,
+        };
+
         await eventApi.create(payload);
         message.success('Tạo sự kiện thành công');
       } else {
         if (!editingEvent?.eventId) return;
+
+        const payload: EventUpdatePayload = { ...base };
         await eventApi.update(editingEvent.eventId, payload);
+
+        // 1) delete removed sessions
+        for (const id of sessionsToDelete) {
+          await eventSessionApi.remove(id);
+        }
+
+        // 2) update existing sessions (title/description only - BE update request chỉ có 2 field)
+        const existing = sessions.filter((s) => s.eventSessionId);
+        for (const s of existing) {
+          await eventSessionApi.update(s.eventSessionId!, {
+            title: s.title || `Buổi ${s.sessionNo}`,
+            description: s.description ?? '',
+          });
+        }
+
+        // 3) create new sessions
+        const newOnes = sessions.filter((s) => !s.eventSessionId);
+        for (const s of newOnes) {
+          const durationForApi =
+            typeof s.duration === 'string' && /^\d{1,2}:\d{2}:\d{2}$/.test(s.duration)
+              ? s.duration
+              : '01:00:00';
+          const created: any = await eventSessionApi.create({
+            title: s.title || `Buổi ${s.sessionNo}`,
+            description: s.description ?? '',
+            eventId: editingEvent.eventId,
+            duration: durationForApi,
+            sessionNo: s.sessionNo,
+          });
+
+          const newId = Number(created?.eventSessionId ?? created?.EventSessionId);
+          if (newId) {
+            // sync topics/skills for this new session using selected ids
+            for (const skillId of s.selectedSkillIds) {
+              await eventSessionSkillApi.assign(newId, skillId);
+            }
+            for (const topicId of s.selectedTopicIds) {
+              await eventSessionTopicApi.assign(newId, topicId);
+            }
+          }
+        }
+
+        // 4) sync skills/topics for existing sessions
+        for (const s of sessions.filter((x) => x.eventSessionId)) {
+          const esId = s.eventSessionId!;
+          const toAddSkills = s.selectedSkillIds.filter((id) => !s.currentSkillIds.includes(id));
+          const toRemoveSkills = s.currentSkillIds.filter((id) => !s.selectedSkillIds.includes(id));
+          for (const id of toRemoveSkills) await eventSessionSkillApi.remove(esId, id);
+          for (const id of toAddSkills) await eventSessionSkillApi.assign(esId, id);
+
+          const toAddTopics = s.selectedTopicIds.filter((id) => !s.currentTopicIds.includes(id));
+          const toRemoveTopics = s.currentTopicIds.filter((id) => !s.selectedTopicIds.includes(id));
+          for (const id of toRemoveTopics) await eventSessionTopicApi.remove(esId, id);
+          for (const id of toAddTopics) await eventSessionTopicApi.assign(esId, id);
+        }
         message.success('Cập nhật sự kiện thành công');
       }
       setOpenUpsert(false);
       setPageNumber(1);
       await fetchEvents();
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra';
-      message.error(msg);
+      message.error(getErrorMessage(e));
     } finally {
       setSubmitting(false);
     }
@@ -174,8 +389,7 @@ export default function EventsManagement() {
           message.success('Cập nhật trạng thái thành công');
           await fetchEvents();
         } catch (err: any) {
-          const msg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra';
-          message.error(msg);
+          message.error(getErrorMessage(err));
         }
       },
     });
@@ -205,10 +419,6 @@ export default function EventsManagement() {
         ),
     },
     {
-      accessorKey: 'duration',
-      header: 'Thời lượng',
-    },
-    {
       accessorKey: 'numberOfSession',
       header: 'Số buổi',
       cell: ({ row }) => (
@@ -235,11 +445,23 @@ export default function EventsManagement() {
               className="text-blue-600 cursor-pointer"
               onClick={() => openEdit(ev)}
             />
-            <PowerOff
-              size={16}
-              className="text-red-500 cursor-pointer"
-              onClick={() => handleToggleActive(ev)}
-            />
+            {ev.isActive ? (
+              <span title="Ngừng hoạt động">
+                <PowerOff
+                  size={16}
+                  className="text-red-500 cursor-pointer"
+                  onClick={() => handleToggleActive(ev)}
+                />
+              </span>
+            ) : (
+              <span title="Kích hoạt">
+                <Power
+                  size={16}
+                  className="text-green-600 cursor-pointer"
+                  onClick={() => handleToggleActive(ev)}
+                />
+              </span>
+            )}
           </div>
         );
       },
@@ -383,44 +605,8 @@ export default function EventsManagement() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-2">
-              <Label className="block">Thời lượng</Label>
-              <TimePicker
-                value={durationTime}
-                onChange={setDurationTime}
-                format="HH:mm"
-                needConfirm={false}
-                className="w-full event-time-picker"
-                placeholder="Chọn giờ : phút"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label className="block">Số buổi</Label>
-              <div className="block w-full">
-                <InputNumber
-                  min={1}
-                  max={999}
-                  value={numberOfSession}
-                  onChange={(v) => setNumberOfSession(v ?? null)}
-                  placeholder="1"
-                  className="w-full event-number-input"
-                />
-              </div>
-            </div>
-          </div>
-          <style>{`
-            .event-number-input,
-            .event-time-picker {
-              border: 1px solid var(--input) !important;
-              box-shadow: none !important;
-            }
-            .event-number-input:focus-within,
-            .event-time-picker:focus-within {
-              border-color: var(--ring) !important;
-              box-shadow: 0 0 0 1px var(--ring) !important;
-            }
-          `}</style>
+          {/* BE không cho update numberOfSession/duration trực tiếp.
+              Số buổi được quản lý bằng danh sách EventSessions bên dưới. */}
           <div className="space-y-2">
             <Label>Mô tả</Label>
             <textarea
@@ -430,6 +616,198 @@ export default function EventsManagement() {
               placeholder="Mô tả ngắn về sự kiện"
             />
           </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Các buổi trong sự kiện</Label>
+                <Button type="button" variant="outline" onClick={handleAddSessionLocal}>
+                  Thêm buổi
+                </Button>
+              </div>
+              <div className="stoms-scrollbar max-h-72 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2 space-y-2">
+                {sessions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Chưa có buổi nào. Nhấn "Thêm buổi" để tạo.
+                  </p>
+                ) : (
+                  sessions
+                    .slice()
+                    .sort((a, b) => a.sessionNo - b.sessionNo)
+                    .map((s) => (
+                      <div
+                        key={s.eventSessionId ?? `new-${s.sessionNo}`}
+                        className="flex items-start justify-between gap-3 border rounded-md px-3 py-2"
+                      >
+                        <div className="flex-1 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs text-gray-500">Buổi thứ</Label>
+                              <Input
+                                value={String(s.sessionNo)}
+                                disabled={Boolean(s.eventSessionId)}
+                                onChange={(e) => {
+                                  const value = Number(e.target.value);
+                                  setSessions((prev) =>
+                                    prev.map((it) =>
+                                      it === s ? { ...it, sessionNo: Number.isFinite(value) ? value : it.sessionNo } : it,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-500">Thời lượng (HH:mm:ss)</Label>
+                              <Input
+                                value={s.duration}
+                                disabled={Boolean(s.eventSessionId)}
+                                onChange={(e) =>
+                                  setSessions((prev) =>
+                                    prev.map((it) =>
+                                      it === s ? { ...it, duration: e.target.value } : it,
+                                    ),
+                                  )
+                                }
+                                placeholder="01:00:00"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label className="text-xs text-gray-500">Tiêu đề</Label>
+                            <Input
+                              value={s.title}
+                              onChange={(e) =>
+                                setSessions((prev) =>
+                                  prev.map((it) =>
+                                    it === s ? { ...it, title: e.target.value } : it,
+                                  ),
+                                )
+                              }
+                              placeholder={`Buổi ${s.sessionNo}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="rounded-md border p-2">
+                              <div className="text-xs text-gray-500 mb-1">Kỹ năng</div>
+                              {allSkills.length === 0 ? (
+                                <div className="text-xs text-gray-500">Đang tải skill...</div>
+                              ) : (
+                                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                  {allSkills.map((sk) => (
+                                    <label
+                                      key={sk.skillId}
+                                      className="flex cursor-pointer items-center gap-2 text-xs"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={s.selectedSkillIds.includes(sk.skillId)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSessions((prev) =>
+                                              prev.map((it) =>
+                                                it === s
+                                                  ? { ...it, selectedSkillIds: [...it.selectedSkillIds, sk.skillId] }
+                                                  : it,
+                                              ),
+                                            )
+                                          } else {
+                                            setSessions((prev) =>
+                                              prev.map((it) =>
+                                                it === s
+                                                  ? { ...it, selectedSkillIds: it.selectedSkillIds.filter((id) => id !== sk.skillId) }
+                                                  : it,
+                                              ),
+                                            )
+                                          }
+                                        }}
+                                        className="h-3.5 w-3.5 rounded border-gray-300"
+                                      />
+                                      <span>{sk.skillName}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="rounded-md border p-2">
+                              <div className="text-xs text-gray-500 mb-1">Chủ đề</div>
+                              {allTopics.length === 0 ? (
+                                <div className="text-xs text-gray-500">Đang tải topic...</div>
+                              ) : (
+                                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                  {allTopics.map((tp) => (
+                                    <label
+                                      key={tp.topicId}
+                                      className="flex cursor-pointer items-center gap-2 text-xs"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={s.selectedTopicIds.includes(tp.topicId)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSessions((prev) =>
+                                              prev.map((it) =>
+                                                it === s
+                                                  ? { ...it, selectedTopicIds: [...it.selectedTopicIds, tp.topicId] }
+                                                  : it,
+                                              ),
+                                            )
+                                          } else {
+                                            setSessions((prev) =>
+                                              prev.map((it) =>
+                                                it === s
+                                                  ? { ...it, selectedTopicIds: it.selectedTopicIds.filter((id) => id !== tp.topicId) }
+                                                  : it,
+                                              ),
+                                            )
+                                          }
+                                        }}
+                                        className="h-3.5 w-3.5 rounded border-gray-300"
+                                      />
+                                      <span>{tp.topicName}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label className="text-xs text-gray-500">Mô tả</Label>
+                            <textarea
+                              value={s.description}
+                              onChange={(e) =>
+                                setSessions((prev) =>
+                                  prev.map((it) =>
+                                    it === s ? { ...it, description: e.target.value } : it,
+                                  ),
+                                )
+                              }
+                              className="w-full min-h-16 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              placeholder="Mô tả buổi"
+                            />
+                          </div>
+
+                          {s.eventSessionId && (
+                            <div className="text-xs text-gray-500">
+                              Lưu ý: buổi đã tồn tại chỉ cập nhật được <b>tiêu đề</b> và <b>mô tả</b>.
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => handleRemoveSessionLocal(s.eventSessionId, s.sessionNo)}
+                        >
+                          Xóa
+                        </Button>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

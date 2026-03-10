@@ -16,6 +16,18 @@ export type EventSession = {
   sessionNo?: number | null;
   /** Lịch cụ thể (StartAt, EndAt, Location) từ BE SessionResponse */
   sessions?: EventSessionSlot[] | null;
+  eventSessionSkills?: {
+    eventSessionId: number;
+    skillId: number;
+    isActive: boolean;
+    skillName?: string | null;
+  }[] | null;
+  eventSessionTopics?: {
+    eventSessionId: number;
+    topicId: number;
+    isActive: boolean;
+    topicName?: string | null;
+  }[] | null;
 };
 
 export type EventListItem = {
@@ -31,12 +43,25 @@ export type EventListItem = {
   eventSessions: EventSession[] | null;
 };
 
-export type EventUpsertPayload = {
+export type EventSessionUpsertItem = {
+  title: string;
+  description: string;
+  duration?: string; // "HH:mm:ss"
+  sessionNo?: number;
+};
+
+export type EventCreatePayload = {
   eventCode: string;
   eventName: string;
-  description?: string;
-  duration?: string;
-  numberOfSession?: number;
+  description: string;
+  /** BE yêu cầu tối thiểu 1 buổi */
+  eventSessions: EventSessionUpsertItem[];
+};
+
+export type EventUpdatePayload = {
+  eventCode: string;
+  eventName: string;
+  description: string;
 };
 
 export type EventFilterParams = {
