@@ -314,7 +314,7 @@ export default function CoursesManagement() {
               onClick={() => handleView(row.original)}
               title="Xem chi tiết"
             >
-              <Eye size={16} />
+              <Eye size={16} className="text-gray-800" />
             </Button>
             <Button
               variant="ghost"
@@ -322,7 +322,7 @@ export default function CoursesManagement() {
               onClick={() => openEditModal(row.original)}
               title="Sửa"
             >
-              <Pencil size={16} />
+              <Pencil size={16} className="text-blue-600" />
             </Button>
             <Button
               variant="ghost"
@@ -330,7 +330,11 @@ export default function CoursesManagement() {
               onClick={() => handleToggleActive(row.original)}
               title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
             >
-              {row.original.isActive ? <PowerOff size={16} /> : <Power size={16} />}
+              {row.original.isActive ? (
+                <PowerOff size={16} className="text-red-500" />
+              ) : (
+                <Power size={16} className="text-green-600" />
+              )}
             </Button>
           </div>
         ),

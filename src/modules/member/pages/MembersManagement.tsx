@@ -9,7 +9,7 @@ import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Ban, Eye, Pencil, Plus, RotateCcw } from 'lucide-react';
+import { Eye, Pencil, Plus, Power, PowerOff, RotateCcw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { message, Modal } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
@@ -131,11 +131,17 @@ export default function MembersManagement() {
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex gap-3">
-          <button type="button" onClick={() => handleBan(row.original)} title={row.original.user?.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}>
-            <Ban size={16} className="text-red-500 cursor-pointer" />
-          </button>
+          {row.original.user?.isActive ? (
+            <button type="button" onClick={() => handleBan(row.original)} title="Vô hiệu hóa">
+              <PowerOff size={16} className="text-red-500 cursor-pointer" />
+            </button>
+          ) : (
+            <button type="button" onClick={() => handleBan(row.original)} title="Kích hoạt">
+              <Power size={16} className="text-green-600 cursor-pointer" />
+            </button>
+          )}
           <button type="button" onClick={() => handleViewMember(row.original.memberId)} title="Xem chi tiết">
-            <Eye size={16} className="text-blue-600 cursor-pointer" />
+            <Eye size={16} className="text-gray-800 cursor-pointer" />
           </button>
           <button type="button" onClick={() => setEditMemberId(row.original.memberId)} title="Chỉnh sửa">
             <Pencil size={16} className="text-blue-600 cursor-pointer" />

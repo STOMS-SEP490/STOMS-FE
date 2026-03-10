@@ -240,7 +240,7 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
           </div>
           <div className="space-y-2 border-t pt-4">
             <Label>Kỹ năng</Label>
-            <div className="max-h-40 overflow-y-auto rounded-md border p-3">
+            <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
               {allSkills.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Đang tải kỹ năng...</p>
               ) : (

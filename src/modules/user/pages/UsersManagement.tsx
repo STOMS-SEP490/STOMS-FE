@@ -10,7 +10,6 @@ import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  Ban,
   BookOpen,
   CheckCircle,
   Clock,
@@ -19,6 +18,8 @@ import {
   Key,
   Pencil,
   Plus,
+  Power,
+  PowerOff,
   RotateCcw,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -150,39 +151,53 @@ export default function UserManagement() {
         const u = row.original;
         return (
           <div className="flex gap-3">
-            <Key
-              size={16}
-              className="text-yellow-600 cursor-pointer"
-              onClick={() => {
-                setSelectedUser(u);
-                setOpenResetPassword(true);
-              }}
-              title="Đặt lại mật khẩu"
-            />
-            <Ban
-              size={16}
-              className="text-red-500 cursor-pointer"
-              onClick={() => handleBan(u)}
-              title={u.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
-            />
-            <Eye
-              size={16}
-              className="text-blue-600 cursor-pointer"
-              onClick={() => {
-                setSelectedUser(u);
-                setOpenDetail(true);
-              }}
-              title="Xem chi tiết"
-            />
-            <Pencil
-              size={16}
-              className="text-blue-600 cursor-pointer"
-              onClick={() => {
-                setSelectedUser(u);
-                setOpenEdit(true);
-              }}
-              title="Chỉnh sửa"
-            />
+            <span title="Xem chi tiết">
+              <Eye
+                size={16}
+                className="text-gray-800 cursor-pointer"
+                onClick={() => {
+                  setSelectedUser(u);
+                  setOpenDetail(true);
+                }}
+              />
+            </span>
+            <span title="Chỉnh sửa">
+              <Pencil
+                size={16}
+                className="text-blue-600 cursor-pointer"
+                onClick={() => {
+                  setSelectedUser(u);
+                  setOpenEdit(true);
+                }}
+              />
+            </span>
+            {u.isActive ? (
+              <span title="Vô hiệu hóa">
+                <PowerOff
+                  size={16}
+                  className="text-red-500 cursor-pointer"
+                  onClick={() => handleBan(u)}
+                />
+              </span>
+            ) : (
+              <span title="Kích hoạt">
+                <Power
+                  size={16}
+                  className="text-green-600 cursor-pointer"
+                  onClick={() => handleBan(u)}
+                />
+              </span>
+            )}
+            <span title="Đặt lại mật khẩu">
+              <Key
+                size={16}
+                className="text-yellow-600 cursor-pointer"
+                onClick={() => {
+                  setSelectedUser(u);
+                  setOpenResetPassword(true);
+                }}
+              />
+            </span>
           </div>
         );
       },

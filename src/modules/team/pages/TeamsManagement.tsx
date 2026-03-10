@@ -1,7 +1,6 @@
 import { RotateCcw, Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
 import { message } from 'antd';
 import CreateTeamModal from './CreateTeamModal';
 import EditTeamModal from './EditTeamModal';
@@ -27,7 +26,7 @@ export default function TeamsManagement() {
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data, totalItems, loading } = useTeams(
+  const { data, totalItems, loading, refetch } = useTeams(
     pageNumber,
     pageSize,
     search,
@@ -44,9 +43,14 @@ export default function TeamsManagement() {
     }
   };
 
-  const handleEdit = (team: Team) => {
-    setEditTeam(team);
-    setEditOpen(true);
+  const handleEdit = async (team: Team) => {
+    try {
+      const full = await teamService.getTeamById(team.teamId);
+      setEditTeam(full);
+      setEditOpen(true);
+    } catch {
+      message.error('Không tải được thông tin nhóm để sửa');
+    }
   };
 
   const handleDeleteClick = (team: Team) => {
@@ -103,16 +107,8 @@ export default function TeamsManagement() {
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => handleDeleteClick(team)}
-              className="text-red-500 hover:text-red-700"
-              title="Xóa"
-            >
-              <Trash2 size={16} />
-            </button>
-            <button
-              type="button"
               onClick={() => handleView(team)}
-              className="text-blue-600 hover:text-blue-800"
+              className="text-gray-800 hover:text-gray-950"
               title="Xem"
             >
               <Eye size={16} />
@@ -124,6 +120,14 @@ export default function TeamsManagement() {
               title="Sửa"
             >
               <Pencil size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDeleteClick(team)}
+              className="text-red-500 hover:text-red-700"
+              title="Xóa"
+            >
+              <Trash2 size={16} />
             </button>
           </div>
         );
@@ -180,8 +184,64 @@ export default function TeamsManagement() {
       <CreateTeamModal
         open={openCreateModal}
         onClose={() => setOpenCreateModal(false)}
-        onCreated={() => setPageNumber(1)}
+        onCreated={async () => {
+          setPageNumber(1);
+          await refetch();
+        }}
       />
+
+      <EditTeamModal
+        open={editOpen}
+        onClose={() => {
+          setEditOpen(false);
+          setEditTeam(null);
+        }}
+        team={editTeam}
+        onUpdated={async () => {
+          setEditOpen(false);
+          setEditTeam(null);
+          await refetch();
+        }}
+      />
+
+      <TeamDetailSidebar
+        open={detailOpen}
+        onClose={() => {
+          setDetailOpen(false);
+          setDetailTeam(null);
+        }}
+        team={detailTeam}
+      />
+
+      <Dialog
+        open={deleteOpen}
+        onClose={() => {
+          setDeleteOpen(false);
+          setTeamToDelete(null);
+        }}
+        title="Xóa nhóm"
+        description={
+          teamToDelete
+            ? `Bạn có chắc muốn xóa nhóm "${teamToDelete.teamName}" (ID ${teamToDelete.teamId})?`
+            : 'Bạn có chắc muốn xóa nhóm này?'
+        }
+      >
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setDeleteOpen(false);
+              setTeamToDelete(null);
+            }}
+          >
+            Hủy
+          </Button>
+          <Button type="button" className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDeleteConfirm}>
+            Xóa
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

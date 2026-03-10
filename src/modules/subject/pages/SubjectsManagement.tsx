@@ -302,7 +302,7 @@ export default function SubjectsManagement() {
         title: `Môn học ${detail.subjectCode}`,
         width: 720,
         content: (
-          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
+          <div className="stoms-scrollbar space-y-3 max-h-[70vh] overflow-y-auto pr-2">
             <div>
               <div className="text-xs text-gray-500">Tên môn học</div>
               <div className="text-sm font-medium">{detail.subjectName || '—'}</div>
@@ -422,10 +422,10 @@ export default function SubjectsManagement() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => handleView(row.original)} title="Xem">
-            <Eye className="w-4 h-4" />
+            <Eye className="w-4 h-4 text-gray-800" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => openEditModal(row.original)} title="Sửa">
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-4 h-4 text-blue-600" />
           </Button>
           <Button
             variant="ghost"
@@ -433,7 +433,11 @@ export default function SubjectsManagement() {
             onClick={() => handleToggleActive(row.original)}
             title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
           >
-            {row.original.isActive ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+            {row.original.isActive ? (
+              <PowerOff className="w-4 h-4 text-red-500" />
+            ) : (
+              <Power className="w-4 h-4 text-green-600" />
+            )}
           </Button>
         </div>
       ),
@@ -453,7 +457,7 @@ export default function SubjectsManagement() {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-4">
+    <div className="stoms-scrollbar h-full overflow-y-auto p-6 space-y-4">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-lg font-semibold text-black">Quản lý môn học</h2>
@@ -532,7 +536,7 @@ export default function SubjectsManagement() {
           {!isCreating && (
             <div className="space-y-2">
               <Label>Kỹ năng của môn học</Label>
-              <div className="max-h-40 overflow-y-auto rounded-md border p-3">
+              <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
                 {allSkills.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Đang tải kỹ năng...</p>
                 ) : (
@@ -567,7 +571,7 @@ export default function SubjectsManagement() {
 
           <div className="space-y-2">
             <Label>Các buổi học trong môn</Label>
-            <div className="max-h-56 overflow-y-auto rounded-md border p-3 space-y-2">
+            <div className="stoms-scrollbar max-h-56 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2 space-y-2">
               {sessions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Chưa có buổi học nào. Nhấn "Thêm buổi" để tạo.
