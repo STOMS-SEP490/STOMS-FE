@@ -1,9 +1,6 @@
 import axiosClient from '@/shared/lib/axios';
 import type { PaginationResponse } from '@/shared/types/api';
-import type {
-  CourseFilterParams,
-  CourseListItem,
-} from '../courseType';
+import type { CourseFilterParams, CourseListItem } from '../courseType';
 
 const courseApi = {
   // GET PAGED + FILTER
@@ -19,17 +16,31 @@ const courseApi = {
   },
 
   // CREATE
-  create: (data: Partial<CourseListItem>): Promise<void> => {
-    return axiosClient.post('/courses', data);
+  create: (data: { courseCode: string; courseName: string }): Promise<CourseListItem> => {
+    return axiosClient.post('/courses', {
+      courseCode: data.courseCode,
+      courseName: data.courseName,
+    });
   },
 
-  // UPDATE
+  // UPDATE (basic fields)
   update: (
     id: number,
-    data: Partial<CourseListItem>
+    data: { courseCode: string; courseName: string; description?: string }
   ): Promise<void> => {
-    return axiosClient.put(`/courses/${id}`, data);
+    return axiosClient.put(`/courses/${id}`, {
+      courseCode: data.courseCode,
+      courseName: data.courseName,
+      description: data.description ?? '',
+    });
   },
+
+  // ACTIVATE / DEACTIVATE
+  activate: (id: number): Promise<CourseListItem> =>
+    axiosClient.put(`/courses/${id}/activate`),
+
+  deactivate: (id: number): Promise<CourseListItem> =>
+    axiosClient.put(`/courses/${id}/deactivate`),
 
   // DELETE
   remove: (id: number): Promise<void> => {

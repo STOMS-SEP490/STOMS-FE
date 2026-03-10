@@ -12,6 +12,8 @@ import { Label } from '@/shared/components/ui/label'
 import { message, Modal } from 'antd'
 import type { SkillListItem } from '@/modules/skill/skill'
 import skillApi from '@/modules/skill/api/skillApi'
+import type { TopicListItem } from '@/modules/topic/topic'
+import topicApi from '@/modules/topic/api/topicApi'
 import type { SubjectListItem, SubjectUpsertPayload } from '../subject'
 import { useSubjects } from '../hooks/useSubjects'
 import subjectApi from '../api/subjectApi'
@@ -54,17 +56,21 @@ export default function SubjectsManagement() {
   const [currentSubjectSkillIds, setCurrentSubjectSkillIds] = useState<number[]>([])
   const [sessions, setSessions] = useState<EditableSession[]>([])
   const [sessionsToDelete, setSessionsToDelete] = useState<number[]>([])
+  const [allTopics, setAllTopics] = useState<TopicListItem[]>([])
+  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null)
 
   useEffect(() => {
-    // load danh sách skill dùng chung khi mở trang
     skillApi
       .getSkills({ pageSize: 500 })
-      .then((res) => {
-        setAllSkills(res.items ?? [])
-      })
-      .catch(() => {
-        setAllSkills([])
-      })
+      .then((res) => setAllSkills(res.items ?? []))
+      .catch(() => setAllSkills([]))
+  }, [])
+
+  useEffect(() => {
+    topicApi
+      .getTopics({ pageNumber: 1, pageSize: 500 })
+      .then((res) => setAllTopics(res.items ?? []))
+      .catch(() => setAllTopics([]))
   }, [])
 
   const openEditModal = async (s: SubjectListItem) => {
@@ -77,6 +83,7 @@ export default function SubjectsManagement() {
       setSubjectCode(detail.subjectCode ?? '')
       setSubjectName(detail.subjectName ?? '')
       setDescription(detail.description ?? '')
+      setSelectedTopicId(detail.topicId ?? null)
 
       const ids = (detail.subjectSkills ?? []).map((x) => x.skillId)
       setCurrentSubjectSkillIds(ids)
@@ -102,6 +109,7 @@ export default function SubjectsManagement() {
       setSubjectCode(s.subjectCode ?? '')
       setSubjectName(s.subjectName ?? '')
       setDescription(s.description ?? '')
+      setSelectedTopicId(s.topicId ?? null)
 
       const ids = (s.subjectSkills ?? []).map((x) => x.skillId)
       setCurrentSubjectSkillIds(ids)
@@ -124,6 +132,7 @@ export default function SubjectsManagement() {
     setSubjectCode('')
     setSubjectName('')
     setDescription('')
+    setSelectedTopicId(null)
     setSelectedSkillIds([])
     setCurrentSubjectSkillIds([])
     setSessions([])
@@ -153,7 +162,7 @@ export default function SubjectsManagement() {
       {
         subjectSessionId: undefined,
         sessionNo: nextNo,
-        title: `Buổi ${nextNo}`,
+        title: `Tiêu đề buổi ${nextNo}`,
         duration: '01:00:00', // mặc định 1 giờ
         description: '',
       },
@@ -165,7 +174,7 @@ export default function SubjectsManagement() {
       subjectCode: subjectCode.trim(),
       subjectName: subjectName.trim(),
       description: description.trim(),
-      topicId: isCreating ? null : editingSubject?.topicId ?? null,
+      topicId: isCreating ? null : selectedTopicId,
     }
 
     if (!payloadBase.subjectCode || !payloadBase.subjectName) {
@@ -221,6 +230,12 @@ export default function SubjectsManagement() {
       }
       if (toAdd.length > 0) {
         await subjectSkillApi.assignBulk(editingSubject.subjectId, toAdd)
+      }
+
+      // Gán chủ đề (nếu đổi) dùng API assign topic
+      const currentTopicId = editingSubject.topicId ?? null
+      if (selectedTopicId !== currentTopicId) {
+        await subjectApi.assignTopic(editingSubject.subjectId, selectedTopicId)
       }
 
       // xoá các subjectSession đã uncheck
@@ -299,7 +314,7 @@ export default function SubjectsManagement() {
             <div className="grid grid-cols-2 gap-3 pt-2">
               <div className="rounded-md border p-2">
                 <div className="text-xs text-gray-500">Chủ đề</div>
-                <div className="text-sm font-medium">{detail.topicId ?? '—'}</div>
+                <div className="text-sm font-medium">{detail.topicName ?? detail.topicId ?? '—'}</div>
               </div>
               <div className="rounded-md border p-2">
                 <div className="text-xs text-gray-500">Số buổi</div>
@@ -496,6 +511,26 @@ export default function SubjectsManagement() {
 
           {!isCreating && (
             <div className="space-y-2">
+              <Label>Chủ đề</Label>
+              <select
+                value={selectedTopicId ?? ''}
+                onChange={(e) =>
+                  setSelectedTopicId(e.target.value === '' ? null : Number(e.target.value))
+                }
+                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">— Không chọn chủ đề —</option>
+                {allTopics.map((t) => (
+                  <option key={t.topicId} value={t.topicId}>
+                    {t.topicName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {!isCreating && (
+            <div className="space-y-2">
               <Label>Kỹ năng của môn học</Label>
               <div className="max-h-40 overflow-y-auto rounded-md border p-3">
                 {allSkills.length === 0 ? (
@@ -563,7 +598,7 @@ export default function SubjectsManagement() {
                         <div className="flex gap-2">
                           <div className="flex-1">
                             <Label className="text-xs text-gray-500">
-                              Thời lượng (hh:mm:ss)
+                              Thời lượng 
                             </Label>
                             <Input
                               value={s.duration}

@@ -41,6 +41,8 @@ export type SubjectListItem = {
   isActive: boolean;
   description: string;
   topicId: number | null;
+  /** Tên chủ đề (API GetById trả về khi có include Topic). */
+  topicName?: string | null;
   numberOfSession: number;
   createdAt: string | null;
   updatedAt: string | null;
