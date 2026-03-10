@@ -21,6 +21,13 @@ export type ContractSessionItem = {
   status: string
   location: string
   isOnline: boolean | null
+  title?: string
+}
+
+export type ContractRequestItem = {
+  requestId: number
+  requestCode: string
+  requestName: string
 }
 
 export type ContractListItem = {
@@ -34,6 +41,7 @@ export type ContractListItem = {
   updatedAt: string | null
   createdByUser: ContractUserItem
   session: ContractSessionItem
+  request?: ContractRequestItem | null
 }
 
 export type ContractFilterParams = {
@@ -41,5 +49,6 @@ export type ContractFilterParams = {
   pageSize?: number
   contractId?: number
   isPaid?: boolean
+  createdByMemberId?: number
 }
 
