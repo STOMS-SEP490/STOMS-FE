@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { message } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Button } from '@/shared/components/ui/button';
@@ -23,7 +23,6 @@ export default function CategoriesManagement() {
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryListItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCategory, setDetailCategory] = useState<CategoryListItem | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
 
   const {
     data,
@@ -44,20 +43,12 @@ export default function CategoriesManagement() {
 
   const handleView = async (category: CategoryListItem) => {
     try {
-      setDetailLoading(true);
       const full = await categoryApi.getById(category.categoryId);
       setDetailCategory(full);
       setDetailOpen(true);
     } catch {
       message.error('Không tải được thông tin danh mục');
-    } finally {
-      setDetailLoading(false);
     }
-  };
-
-  const handleDeleteClick = (category: CategoryListItem) => {
-    setCategoryToDelete(category);
-    setDeleteOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
@@ -117,11 +108,6 @@ export default function CategoriesManagement() {
         const category = row.original;
         return (
           <div className="flex items-center gap-3">
-            <Trash2
-              size={16}
-              className="text-red-500 cursor-pointer"
-              onClick={() => handleDeleteClick(category)}
-            />
             <Pencil
               size={16}
               className="text-blue-600 cursor-pointer"
@@ -129,7 +115,7 @@ export default function CategoriesManagement() {
             />
             <Eye
               size={16}
-              className="text-blue-600 cursor-pointer"
+              className="text-gray-800 cursor-pointer"
               onClick={() => handleView(category)}
             />
           </div>
