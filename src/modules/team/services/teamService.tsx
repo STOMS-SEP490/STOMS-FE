@@ -41,6 +41,22 @@ const teamService = {
   async removeMembers(memberIds: number[]): Promise<void> {
     return teamApi.removeMembers(memberIds);
   },
+
+  async addTopicsBulk(teamId: number, topicIds: number[]): Promise<void> {
+    return teamApi.addTopicsBulk(teamId, topicIds);
+  },
+
+  async removeTopicsBulk(teamId: number, topicIds: number[]): Promise<void> {
+    return teamApi.removeTopicsBulk(teamId, topicIds);
+  },
+
+  async activateTopicsMany(teamId: number, topicIds: number[]): Promise<void> {
+    return teamApi.activateTopicsMany(teamId, topicIds);
+  },
+
+  async deactivateTopicsMany(teamId: number, topicIds: number[]): Promise<void> {
+    return teamApi.deactivateTopicsMany(teamId, topicIds);
+  },
 };
 
 export default teamService;

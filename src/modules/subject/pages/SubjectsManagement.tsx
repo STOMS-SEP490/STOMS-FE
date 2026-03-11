@@ -9,6 +9,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Dialog } from '@/shared/components/ui/dialog'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
+import { Switch } from '@/shared/components/ui/switch'
 import { message, Modal } from 'antd'
 import type { SkillListItem } from '@/modules/skill/skill'
 import skillApi from '@/modules/skill/api/skillApi'
@@ -17,7 +18,7 @@ import topicApi from '@/modules/topic/api/topicApi'
 import type { SubjectListItem, SubjectUpsertPayload } from '../subject'
 import { useSubjects } from '../hooks/useSubjects'
 import subjectApi from '../api/subjectApi'
-import subjectSkillApi from '../api/subjectSkillApi'
+import subjectSkillApi, { type SubjectSkillItem } from '../api/subjectSkillApi'
 import subjectSessionApi from '../api/subjectSessionApi'
 
 type EditableSession = {
@@ -52,8 +53,11 @@ export default function SubjectsManagement() {
   const [subjectName, setSubjectName] = useState('')
   const [description, setDescription] = useState('')
   const [allSkills, setAllSkills] = useState<SkillListItem[]>([])
-  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([])
-  const [currentSubjectSkillIds, setCurrentSubjectSkillIds] = useState<number[]>([])
+  const [subjectSkills, setSubjectSkills] = useState<SubjectSkillItem[]>([])
+  const [initialSubjectSkills, setInitialSubjectSkills] = useState<SubjectSkillItem[]>([])
+  const [showAddSkill, setShowAddSkill] = useState(false)
+  /** Kỹ năng chọn thêm (chưa gọi API); chỉ gọi assignBulk khi bấm Lưu */
+  const [pendingSkillIdsToAdd, setPendingSkillIdsToAdd] = useState<number[]>([])
   const [sessions, setSessions] = useState<EditableSession[]>([])
   const [sessionsToDelete, setSessionsToDelete] = useState<number[]>([])
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([])
@@ -85,9 +89,19 @@ export default function SubjectsManagement() {
       setDescription(detail.description ?? '')
       setSelectedTopicId(detail.topicId ?? null)
 
-      const ids = (detail.subjectSkills ?? []).map((x) => x.skillId)
-      setCurrentSubjectSkillIds(ids)
-      setSelectedSkillIds(ids)
+      // Lấy danh sách subject-skill chi tiết (kèm isActive) từ API filter
+      const ssItems = await subjectSkillApi.getBySubject(detail.subjectId)
+      // gắn thêm tên kỹ năng để tiện hiển thị
+      const withName: SubjectSkillItem[] = ssItems.map((it) => {
+        const skill = (detail.subjectSkills ?? []).find((s) => s.skillId === it.skillId)
+        return {
+          ...it,
+          skillName: skill?.skill?.skillName ?? `Skill #${it.skillId}`,
+        }
+      })
+      setSubjectSkills(withName)
+      setInitialSubjectSkills(withName)
+      setPendingSkillIdsToAdd([])
 
       const mappedSessions: EditableSession[] =
         detail.subjectSessions?.map((s) => ({
@@ -111,9 +125,9 @@ export default function SubjectsManagement() {
       setDescription(s.description ?? '')
       setSelectedTopicId(s.topicId ?? null)
 
-      const ids = (s.subjectSkills ?? []).map((x) => x.skillId)
-      setCurrentSubjectSkillIds(ids)
-      setSelectedSkillIds(ids)
+      setSubjectSkills([])
+      setInitialSubjectSkills([])
+      setPendingSkillIdsToAdd([])
       setSessions([])
       setSessionsToDelete([])
     } finally {
@@ -133,8 +147,8 @@ export default function SubjectsManagement() {
     setSubjectName('')
     setDescription('')
     setSelectedTopicId(null)
-    setSelectedSkillIds([])
-    setCurrentSubjectSkillIds([])
+    setSubjectSkills([])
+    setPendingSkillIdsToAdd([])
     setSessions([])
     setSessionsToDelete([])
     setOpenEdit(true)
@@ -218,18 +232,62 @@ export default function SubjectsManagement() {
       }
 
       if (!editingSubject) return
-
       await subjectApi.update(editingSubject.subjectId, payloadBase)
 
-      // cập nhật lại skills cho môn học, giống member
-      const toAdd = selectedSkillIds.filter((id) => !currentSubjectSkillIds.includes(id))
-      const toRemove = currentSubjectSkillIds.filter((id) => !selectedSkillIds.includes(id))
-
-      if (toRemove.length > 0) {
-        await subjectSkillApi.removeMany(editingSubject.subjectId, toRemove)
+      // Gán hàng loạt kỹ năng mới (chỉ khi bấm Lưu)
+      const toAddSkillIds = Array.from(
+        new Set(
+          pendingSkillIdsToAdd.filter(
+            (id) => !subjectSkills.some((ss) => ss.skillId === id),
+          ),
+        ),
+      )
+      if (toAddSkillIds.length > 0) {
+        await subjectSkillApi.assignBulk(editingSubject.subjectId, toAddSkillIds)
+        const ssItems = await subjectSkillApi.getBySubject(editingSubject.subjectId)
+        const withName: SubjectSkillItem[] = ssItems.map((it) => {
+          const s = allSkills.find((x) => x.skillId === it.skillId)
+          return {
+            ...it,
+            skillName: s?.skillName ?? `Skill #${it.skillId}`,
+          }
+        })
+        setSubjectSkills(withName)
+        setPendingSkillIdsToAdd([])
       }
-      if (toAdd.length > 0) {
-        await subjectSkillApi.assignBulk(editingSubject.subjectId, toAdd)
+
+      // Cập nhật trạng thái IsActive cho các kỹ năng của môn bằng bulk API
+      if (subjectSkills.length > 0 || initialSubjectSkills.length > 0) {
+        const originalMap = new Map<number, boolean>(
+          initialSubjectSkills.map((ss) => [ss.skillId, ss.isActive ?? true]),
+        )
+        const currentMap = new Map<number, boolean>(
+          subjectSkills.map((ss) => [ss.skillId, ss.isActive ?? true]),
+        )
+
+        const allSkillIds = new Set<number>([
+          ...Array.from(originalMap.keys()),
+          ...Array.from(currentMap.keys()),
+        ])
+
+        const toDeactivate: number[] = []
+        const toActivate: number[] = []
+
+        allSkillIds.forEach((id) => {
+          // chỉ xét các skill đã tồn tại lúc mở modal; skill mới thêm đã được assignBulk riêng
+          if (!originalMap.has(id)) return
+          const orig = originalMap.get(id) ?? true
+          const cur = currentMap.get(id) ?? orig
+          if (orig && !cur) toDeactivate.push(id)
+          else if (!orig && cur) toActivate.push(id)
+        })
+
+        if (toDeactivate.length > 0) {
+          await subjectSkillApi.deactivateMany(editingSubject.subjectId, toDeactivate)
+        }
+        if (toActivate.length > 0) {
+          await subjectSkillApi.activateMany(editingSubject.subjectId, toActivate)
+        }
       }
 
       // Gán chủ đề (nếu đổi) dùng API assign topic
@@ -297,6 +355,10 @@ export default function SubjectsManagement() {
   const handleView = async (s: SubjectListItem) => {
     try {
       const detail = await subjectApi.getById(s.subjectId)
+      const activeSubjectSkills =
+        (detail.subjectSkills ?? []).filter((ss: any) =>
+          ss?.isActive === undefined ? true : ss.isActive === true,
+        )
 
       Modal.info({
         title: `Môn học ${detail.subjectCode}`,
@@ -333,11 +395,11 @@ export default function SubjectsManagement() {
                   {detail.courseSubjects ? detail.courseSubjects.length : 0}
                 </div>
               </div>
-              {detail.subjectSkills && detail.subjectSkills.length > 0 && (
+              {activeSubjectSkills.length > 0 && (
                 <div className="rounded-md border p-2">
                   <div className="text-xs text-gray-500 mb-1">Kỹ năng liên quan</div>
                   <div className="flex flex-wrap gap-1">
-                    {detail.subjectSkills.map((ss) => (
+                    {activeSubjectSkills.map((ss) => (
                       <span
                         key={`${ss.subjectId}-${ss.skillId}`}
                         className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs border border-blue-100"
@@ -533,39 +595,139 @@ export default function SubjectsManagement() {
             </div>
           )}
 
-          {!isCreating && (
+          {!isCreating && editingSubject && (
             <div className="space-y-2">
-              <Label>Kỹ năng của môn học</Label>
+              <div className="flex items-center justify-between">
+                <Label>Kỹ năng của môn học</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => setShowAddSkill(true)}
+                  disabled={allSkills.length === 0}
+                >
+                  <Plus className="w-4 h-4" />
+                  Thêm kỹ năng
+                </Button>
+              </div>
+              <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
+                {subjectSkills.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Môn học chưa có kỹ năng nào. Nhấn &quot;Thêm kỹ năng&quot; để gán.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {subjectSkills.map((ss) => {
+                      const skillName =
+                        ss.skillName ??
+                        allSkills.find((s) => s.skillId === ss.skillId)?.skillName ??
+                        `Skill #${ss.skillId}`;
+                      const isActive = ss.isActive ?? true;
+                      return (
+                        <div
+                          key={`${ss.subjectId}-${ss.skillId}`}
+                          className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-black">{skillName}</span>
+                            <span className="text-xs text-gray-500">ID: {ss.skillId}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">
+                              {isActive ? 'Đang dùng' : 'Đang tắt'}
+                            </span>
+                            <Switch
+                              checked={isActive}
+                              onCheckedChange={(checked) => {
+                                setSubjectSkills((prev) =>
+                                  prev.map((item) =>
+                                    item.subjectId === ss.subjectId && item.skillId === ss.skillId
+                                      ? { ...item, isActive: checked }
+                                      : item,
+                                  ),
+                                );
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Popup thêm kỹ năng: chọn nhiều, bấm Lưu mới gọi assignBulk */}
+          {!isCreating && editingSubject && showAddSkill && (
+            <div className="space-y-2 rounded-md border bg-white p-3">
+              <div className="flex items-center justify-between">
+                <Label>Thêm kỹ năng cho môn</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowAddSkill(false);
+                    setPendingSkillIdsToAdd([]);
+                  }}
+                >
+                  Đóng
+                </Button>
+              </div>
+              <div className="text-xs text-gray-500 mb-1">
+                Chọn một hoặc nhiều kỹ năng chưa gán; bấm <strong>Lưu</strong> để gán hàng loạt.
+              </div>
               <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
                 {allSkills.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Đang tải kỹ năng...</p>
                 ) : (
-                  <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {allSkills.map((skill) => (
-                      <label
-                        key={skill.skillId}
-                        className="flex cursor-pointer items-center gap-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedSkillIds.includes(skill.skillId)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedSkillIds((prev) => [...prev, skill.skillId])
-                            } else {
-                              setSelectedSkillIds((prev) =>
-                                prev.filter((id) => id !== skill.skillId),
-                              )
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <span>{skill.skillName}</span>
-                      </label>
-                    ))}
+                  <div className="space-y-2">
+                    {allSkills
+                      .filter(
+                        (skill) =>
+                          !subjectSkills.some((ss) => ss.skillId === skill.skillId),
+                      )
+                      .map((skill) => {
+                        const checked = pendingSkillIdsToAdd.includes(skill.skillId);
+                        return (
+                          <label
+                            key={skill.skillId}
+                            className="flex w-full cursor-pointer items-center gap-3 rounded-md border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300"
+                              checked={checked}
+                              onChange={(e) => {
+                                setPendingSkillIdsToAdd((prev) =>
+                                  e.target.checked
+                                    ? [...prev, skill.skillId]
+                                    : prev.filter((id) => id !== skill.skillId),
+                                );
+                              }}
+                            />
+                            <span className="flex-1">{skill.skillName}</span>
+                            <span className="text-xs text-gray-400">#{skill.skillId}</span>
+                          </label>
+                        );
+                      })}
+                    {allSkills.filter(
+                      (skill) => !subjectSkills.some((ss) => ss.skillId === skill.skillId),
+                    ).length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        Tất cả kỹ năng đã được gán cho môn này.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
+              {pendingSkillIdsToAdd.length > 0 && (
+                <p className="text-xs text-[#2197C0]">
+                  Đã chọn {pendingSkillIdsToAdd.length} kỹ năng — sẽ gán khi bấm Lưu.
+                </p>
+              )}
             </div>
           )}
 

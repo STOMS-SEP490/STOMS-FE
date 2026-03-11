@@ -5,6 +5,7 @@ export type SubjectSkillItem = {
   skillId: number
   isActive?: boolean
   createdAt?: string | null
+  skillName?: string
 }
 
 const subjectSkillApi = {
@@ -28,6 +29,30 @@ const subjectSkillApi = {
       data: { skillIds },
     })
   },
+
+  /** Vô hiệu hóa 1 skill của môn học (PUT api/subject-skills/subject/{subjectId}/skill/{skillId}/deactivate) */
+  deactivate: async (subjectId: number, skillId: number) => {
+    return axiosClient.put(`/subject-skills/subject/${subjectId}/skill/${skillId}/deactivate`)
+  },
+
+  /** Kích hoạt 1 skill của môn học (PUT api/subject-skills/subject/{subjectId}/skill/{skillId}/activate) */
+  activate: async (subjectId: number, skillId: number) => {
+    return axiosClient.put(`/subject-skills/subject/${subjectId}/skill/${skillId}/activate`)
+  },
+
+   /** Vô hiệu hóa nhiều skill của môn học (PUT api/subject-skills/subject/{subjectId}/skills/deactivate) */
+   deactivateMany: async (subjectId: number, skillIds: number[]) => {
+     return axiosClient.put(`/subject-skills/subject/${subjectId}/skills/deactivate`, {
+       skillIds,
+     })
+   },
+
+   /** Kích hoạt nhiều skill của môn học (PUT api/subject-skills/subject/{subjectId}/skills/activate) */
+   activateMany: async (subjectId: number, skillIds: number[]) => {
+     return axiosClient.put(`/subject-skills/subject/${subjectId}/skills/activate`, {
+       skillIds,
+     })
+   },
 }
 
 export default subjectSkillApi

@@ -10,6 +10,7 @@ export type TeamTopic = {
   teamId: number;
   topicId: number;
   topicName?: string | null;
+  isActive?: boolean;
   createdAt: string;
 };
 

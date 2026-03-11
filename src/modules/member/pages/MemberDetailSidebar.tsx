@@ -27,7 +27,9 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
       .then(([memberSkills, skillsRes]) => {
         if (cancelled) return;
         const allSkills = (skillsRes as PaginationResponse<SkillListItem>).items ?? [];
-        const ids = new Set(memberSkills.map((s) => s.skillId));
+        // Chỉ hiện MemberSkill đang bật; isActive === false thì ẩn; undefined coi như true (API cũ)
+        const activeOnly = memberSkills.filter((s) => s.isActive !== false);
+        const ids = new Set(activeOnly.map((s) => s.skillId));
         const names = allSkills.filter((s) => ids.has(s.skillId)).map((s) => s.skillName);
         setSkillNames(names);
       })

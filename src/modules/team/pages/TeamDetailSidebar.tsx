@@ -118,9 +118,9 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
           </Section>
 
           <Section title="Chủ đề">
-            {team.teamTopics && team.teamTopics.length > 0 ? (
+            {team.teamTopics && team.teamTopics.filter((tt) => tt.isActive !== false).length > 0 ? (
               <ul className="space-y-2 text-sm">
-                {team.teamTopics.map((tt, i) => (
+                {team.teamTopics.filter((tt) => tt.isActive !== false).map((tt, i) => (
                   <li key={i} className="bg-gray-50 rounded-md px-3 py-2">
                     <span className="font-medium">
                       {tt.topicName ?? `Topic #${tt.topicId}`}
