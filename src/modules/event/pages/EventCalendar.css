@@ -85,12 +85,17 @@
 }
 
 .rbc-event {
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 0;
+  border-radius: 12px;
 }
 
 .rbc-event:focus {
   outline: none;
+}
+
+/* Ẩn label giờ mặc định để tránh trùng với giờ custom trong event */
+.rbc-event-label {
+  display: none;
 }
 
 /* Time gutter (8-20) */

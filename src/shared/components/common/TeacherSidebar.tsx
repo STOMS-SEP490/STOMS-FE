@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Clock, FileText, LogOut, Menu, UserCircle } from 'lucide-react';
+import { CalendarDays, Clock, FileText, LogOut, Menu, UserCircle, ClipboardList } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
 import { logout } from '@/modules/auth/pages/Logout';
@@ -45,6 +45,7 @@ export default function TeacherSidebar() {
       { label: 'Hồ sơ', icon: UserCircle, path: '/teacher/profile' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/teacher/events' },
       { label: 'Thời khóa biểu', icon: Clock, path: '/teacher/timetable' },
+      { label: 'Phân công', icon: ClipboardList, path: '/teacher/assignments' },
       { label: 'Hợp đồng', icon: FileText, path: '/teacher/contracts' },
     ],
     []
