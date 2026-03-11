@@ -103,7 +103,8 @@ export default function UserProfile() {
       .then(([memberSkills, skillsRes]) => {
         if (cancelled) return;
         const allSkills = (skillsRes as PaginationResponse<SkillListItem>).items ?? [];
-        const ids = new Set(memberSkills.map((s) => s.skillId));
+        const activeOnly = memberSkills.filter((s) => s.isActive !== false);
+        const ids = new Set(activeOnly.map((s) => s.skillId));
         const names = allSkills.filter((s) => ids.has(s.skillId)).map((s) => s.skillName);
         setSkillNames(names);
       })

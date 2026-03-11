@@ -2,7 +2,6 @@ import { DataTable } from '@/shared/components/common/DataTable';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Dialog } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Badge } from '@/shared/components/ui/badge';
@@ -14,6 +13,7 @@ import {
   CheckCircle,
   Clock,
   Eye,
+  X,
   Pencil,
   Plus,
   RotateCcw,
@@ -32,6 +32,7 @@ import type { TopicListItem } from '@/modules/topic/topic';
 import topicApi from '@/modules/topic/api/topicApi';
 import eventSessionSkillApi from '@/modules/event/api/eventSessionSkillApi';
 import eventSessionTopicApi from '@/modules/event/api/eventSessionTopicApi';
+import { Switch } from '@/shared/components/ui/switch';
 
 type EditableEventSession = {
   eventSessionId?: number;
@@ -39,10 +40,16 @@ type EditableEventSession = {
   title: string;
   description: string;
   duration: string; // "HH:mm:ss"
-  selectedSkillIds: number[];
-  currentSkillIds: number[];
-  selectedTopicIds: number[];
-  currentTopicIds: number[];
+  /** skills đã gán (kể cả inactive) — bật/tắt bằng Switch */
+  skills: { skillId: number; skillName?: string | null; isActive?: boolean }[];
+  initialSkills: { skillId: number; skillName?: string | null; isActive?: boolean }[];
+  pendingSkillIdsToAdd: number[];
+  showAddSkill: boolean;
+  /** topics đã gán (kể cả inactive) — bật/tắt bằng Switch */
+  topics: { topicId: number; topicName?: string | null; isActive?: boolean }[];
+  initialTopics: { topicId: number; topicName?: string | null; isActive?: boolean }[];
+  pendingTopicIdsToAdd: number[];
+  showAddTopic: boolean;
 };
 
 export default function EventsManagement() {
@@ -131,10 +138,14 @@ export default function EventsManagement() {
         title: 'Buổi 1',
         description: '',
         duration: '01:00:00',
-        selectedSkillIds: [],
-        currentSkillIds: [],
-        selectedTopicIds: [],
-        currentTopicIds: [],
+          skills: [],
+          initialSkills: [],
+          pendingSkillIdsToAdd: [],
+          showAddSkill: false,
+          topics: [],
+          initialTopics: [],
+          pendingTopicIdsToAdd: [],
+          showAddTopic: false,
       },
     ]);
     setSessionsToDelete([]);
@@ -152,28 +163,36 @@ export default function EventsManagement() {
 
       const mapped: EditableEventSession[] =
         detail.eventSessions?.map((s) => {
-          const skillIds =
-            (s.eventSessionSkills ?? [])
-              .filter((x) => x?.isActive !== false)
-              .map((x) => x.skillId) ?? [];
-          const topicIds =
-            (s.eventSessionTopics ?? [])
-              .filter((x) => x?.isActive !== false)
-              .map((x) => x.topicId) ?? [];
+          const skills =
+            (s.eventSessionSkills ?? []).map((x) => ({
+              skillId: x.skillId,
+              skillName: x.skillName ?? null,
+              isActive: x.isActive ?? true,
+            })) ?? [];
+          const topics =
+            (s.eventSessionTopics ?? []).map((x) => ({
+              topicId: x.topicId,
+              topicName: x.topicName ?? null,
+              isActive: x.isActive ?? true,
+            })) ?? [];
           return {
             eventSessionId: s.eventSessionId,
             sessionNo: Number(s.sessionNo ?? 0) || 1,
             title: s.title ?? `Buổi ${s.sessionNo ?? ''}`,
             description: (s.description ?? '') as string,
             duration: (s.duration ?? '01:00:00') as string,
-            selectedSkillIds: skillIds,
-            currentSkillIds: skillIds,
-            selectedTopicIds: topicIds,
-            currentTopicIds: topicIds,
+            skills,
+            initialSkills: skills.map((x) => ({ ...x })),
+            pendingSkillIdsToAdd: [],
+            showAddSkill: false,
+            topics,
+            initialTopics: topics.map((x) => ({ ...x })),
+            pendingTopicIdsToAdd: [],
+            showAddTopic: false,
           };
         }) ?? [];
       setSessions(mapped.length > 0 ? mapped : [
-        { eventSessionId: undefined, sessionNo: 1, title: 'Buổi 1', description: '', duration: '01:00:00', selectedSkillIds: [], currentSkillIds: [], selectedTopicIds: [], currentTopicIds: [] },
+        { eventSessionId: undefined, sessionNo: 1, title: 'Buổi 1', description: '', duration: '01:00:00', skills: [], initialSkills: [], pendingSkillIdsToAdd: [], showAddSkill: false, topics: [], initialTopics: [], pendingTopicIdsToAdd: [], showAddTopic: false },
       ]);
       setSessionsToDelete([]);
     } catch (err: any) {
@@ -186,28 +205,36 @@ export default function EventsManagement() {
       setDescription(e.description ?? '');
       const mapped: EditableEventSession[] =
         e.eventSessions?.map((s) => {
-          const skillIds =
-            (s.eventSessionSkills ?? [])
-              .filter((x) => x?.isActive !== false)
-              .map((x) => x.skillId) ?? [];
-          const topicIds =
-            (s.eventSessionTopics ?? [])
-              .filter((x) => x?.isActive !== false)
-              .map((x) => x.topicId) ?? [];
+          const skills =
+            (s.eventSessionSkills ?? []).map((x) => ({
+              skillId: x.skillId,
+              skillName: x.skillName ?? null,
+              isActive: x.isActive ?? true,
+            })) ?? [];
+          const topics =
+            (s.eventSessionTopics ?? []).map((x) => ({
+              topicId: x.topicId,
+              topicName: x.topicName ?? null,
+              isActive: x.isActive ?? true,
+            })) ?? [];
           return {
             eventSessionId: s.eventSessionId,
             sessionNo: Number(s.sessionNo ?? 0) || 1,
             title: s.title ?? `Buổi ${s.sessionNo ?? ''}`,
             description: (s.description ?? '') as string,
             duration: (s.duration ?? '01:00:00') as string,
-            selectedSkillIds: skillIds,
-            currentSkillIds: skillIds,
-            selectedTopicIds: topicIds,
-            currentTopicIds: topicIds,
+            skills,
+            initialSkills: skills.map((x) => ({ ...x })),
+            pendingSkillIdsToAdd: [],
+            showAddSkill: false,
+            topics,
+            initialTopics: topics.map((x) => ({ ...x })),
+            pendingTopicIdsToAdd: [],
+            showAddTopic: false,
           };
         }) ?? [];
       setSessions(mapped.length > 0 ? mapped : [
-        { eventSessionId: undefined, sessionNo: 1, title: 'Buổi 1', description: '', duration: '01:00:00', selectedSkillIds: [], currentSkillIds: [], selectedTopicIds: [], currentTopicIds: [] },
+        { eventSessionId: undefined, sessionNo: 1, title: 'Buổi 1', description: '', duration: '01:00:00', skills: [], initialSkills: [], pendingSkillIdsToAdd: [], showAddSkill: false, topics: [], initialTopics: [], pendingTopicIdsToAdd: [], showAddTopic: false },
       ]);
       setSessionsToDelete([]);
     } finally {
@@ -231,10 +258,14 @@ export default function EventsManagement() {
         title: `Buổi ${nextNo}`,
         description: '',
         duration: '01:00:00',
-        selectedSkillIds: [],
-        currentSkillIds: [],
-        selectedTopicIds: [],
-        currentTopicIds: [],
+        skills: [],
+        initialSkills: [],
+        pendingSkillIdsToAdd: [],
+        showAddSkill: false,
+        topics: [],
+        initialTopics: [],
+        pendingTopicIdsToAdd: [],
+        showAddTopic: false,
       },
     ]);
   };
@@ -338,28 +369,59 @@ export default function EventsManagement() {
 
           const newId = Number(created?.eventSessionId ?? created?.EventSessionId);
           if (newId) {
-            // sync topics/skills for this new session using selected ids
-            for (const skillId of s.selectedSkillIds) {
-              await eventSessionSkillApi.assign(newId, skillId);
-            }
-            for (const topicId of s.selectedTopicIds) {
-              await eventSessionTopicApi.assign(newId, topicId);
-            }
+            const toAddSkillIds = Array.from(new Set(s.pendingSkillIdsToAdd ?? []));
+            const toAddTopicIds = Array.from(new Set(s.pendingTopicIdsToAdd ?? []));
+
+            if (toAddSkillIds.length > 0) await eventSessionSkillApi.assignBulk(newId, toAddSkillIds);
+            if (toAddTopicIds.length > 0) await eventSessionTopicApi.assignBulk(newId, toAddTopicIds);
           }
         }
 
         // 4) sync skills/topics for existing sessions
         for (const s of sessions.filter((x) => x.eventSessionId)) {
           const esId = s.eventSessionId!;
-          const toAddSkills = s.selectedSkillIds.filter((id) => !s.currentSkillIds.includes(id));
-          const toRemoveSkills = s.currentSkillIds.filter((id) => !s.selectedSkillIds.includes(id));
-          for (const id of toRemoveSkills) await eventSessionSkillApi.remove(esId, id);
-          for (const id of toAddSkills) await eventSessionSkillApi.assign(esId, id);
+          const originalSkillMap = new Map<number, boolean>(
+            (s.initialSkills ?? []).map((x) => [x.skillId, x.isActive ?? true]),
+          );
+          const currentSkillMap = new Map<number, boolean>(
+            (s.skills ?? []).map((x) => [x.skillId, x.isActive ?? true]),
+          );
+          const toDeactivateSkills: number[] = [];
+          const toActivateSkills: number[] = [];
+          originalSkillMap.forEach((orig, id) => {
+            if (!currentSkillMap.has(id)) return;
+            const cur = currentSkillMap.get(id) ?? orig;
+            if (orig && !cur) toDeactivateSkills.push(id);
+            else if (!orig && cur) toActivateSkills.push(id);
+          });
+          if (toDeactivateSkills.length > 0) await eventSessionSkillApi.deactivateMany(esId, toDeactivateSkills);
+          if (toActivateSkills.length > 0) await eventSessionSkillApi.activateMany(esId, toActivateSkills);
 
-          const toAddTopics = s.selectedTopicIds.filter((id) => !s.currentTopicIds.includes(id));
-          const toRemoveTopics = s.currentTopicIds.filter((id) => !s.selectedTopicIds.includes(id));
-          for (const id of toRemoveTopics) await eventSessionTopicApi.remove(esId, id);
-          for (const id of toAddTopics) await eventSessionTopicApi.assign(esId, id);
+          const originalTopicMap = new Map<number, boolean>(
+            (s.initialTopics ?? []).map((x) => [x.topicId, x.isActive ?? true]),
+          );
+          const currentTopicMap = new Map<number, boolean>(
+            (s.topics ?? []).map((x) => [x.topicId, x.isActive ?? true]),
+          );
+          const toDeactivateTopics: number[] = [];
+          const toActivateTopics: number[] = [];
+          originalTopicMap.forEach((orig, id) => {
+            if (!currentTopicMap.has(id)) return;
+            const cur = currentTopicMap.get(id) ?? orig;
+            if (orig && !cur) toDeactivateTopics.push(id);
+            else if (!orig && cur) toActivateTopics.push(id);
+          });
+          if (toDeactivateTopics.length > 0) await eventSessionTopicApi.deactivateMany(esId, toDeactivateTopics);
+          if (toActivateTopics.length > 0) await eventSessionTopicApi.activateMany(esId, toActivateTopics);
+
+          const toAddSkillIds = Array.from(
+            new Set((s.pendingSkillIdsToAdd ?? []).filter((id) => !(s.skills ?? []).some((x) => x.skillId === id))),
+          );
+          const toAddTopicIds = Array.from(
+            new Set((s.pendingTopicIdsToAdd ?? []).filter((id) => !(s.topics ?? []).some((x) => x.topicId === id))),
+          );
+          if (toAddSkillIds.length > 0) await eventSessionSkillApi.assignBulk(esId, toAddSkillIds);
+          if (toAddTopicIds.length > 0) await eventSessionTopicApi.assignBulk(esId, toAddTopicIds);
         }
         message.success('Cập nhật sự kiện thành công');
       }
@@ -579,43 +641,68 @@ export default function EventsManagement() {
         event={detailEvent}
       />
 
-      <Dialog
-        open={openUpsert}
-        onClose={closeUpsert}
-        title={mode === 'create' ? 'Thêm sự kiện' : 'Cập nhật sự kiện'}
-        description="Nhập thông tin sự kiện."
-        className="max-w-[520px]"
+      {openUpsert && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 h-full"
+          onClick={closeUpsert}
+          aria-hidden
+        />
+      )}
+
+      <div
+        className={`fixed top-0 right-0 h-full w-[820px] max-w-[95vw] bg-[#f3f4f6] z-50
+        transition-transform duration-300
+        ${openUpsert ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Mã sự kiện *</Label>
-              <Input
-                value={eventCode}
-                onChange={(e) => setEventCode(e.target.value)}
-                placeholder="VD: EV-001"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tên sự kiện *</Label>
-              <Input
-                value={eventName}
-                onChange={(e) => setEventName(e.target.value)}
-                placeholder="VD: Triển lãm mùa xuân"
-              />
+        <div className="flex flex-col h-full overflow-y-auto no-scrollbar text-gray-700">
+          <div className="px-6 py-5 bg-[#f3f4f6] border-b">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-lg font-semibold text-black">
+                  {mode === 'create' ? 'Thêm sự kiện' : 'Cập nhật sự kiện'}
+                </h2>
+                <p className="text-sm text-gray-500">Nhập thông tin sự kiện.</p>
+              </div>
+              <button
+                onClick={closeUpsert}
+                className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                aria-label="Đóng"
+              >
+                <X size={20} />
+              </button>
             </div>
           </div>
-          {/* BE không cho update numberOfSession/duration trực tiếp.
-              Số buổi được quản lý bằng danh sách EventSessions bên dưới. */}
-          <div className="space-y-2">
-            <Label>Mô tả</Label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder="Mô tả ngắn về sự kiện"
-            />
-          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Mã sự kiện *</Label>
+                <Input
+                  value={eventCode}
+                  onChange={(e) => setEventCode(e.target.value)}
+                  placeholder="VD: EV-001"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tên sự kiện *</Label>
+                <Input
+                  value={eventName}
+                  onChange={(e) => setEventName(e.target.value)}
+                  placeholder="VD: Triển lãm mùa xuân"
+                />
+              </div>
+            </div>
+            {/* BE không cho update numberOfSession/duration trực tiếp.
+                Số buổi được quản lý bằng danh sách EventSessions bên dưới. */}
+            <div className="space-y-2">
+              <Label>Mô tả</Label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="Mô tả ngắn về sự kiện"
+              />
+            </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
@@ -624,7 +711,7 @@ export default function EventsManagement() {
                   Thêm buổi
                 </Button>
               </div>
-              <div className="stoms-scrollbar max-h-72 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2 space-y-2">
+              <div className="stoms-scrollbar max-h-[55vh] overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2 space-y-2">
                 {sessions.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Chưa có buổi nào. Nhấn "Thêm buổi" để tạo.
@@ -690,84 +777,178 @@ export default function EventsManagement() {
                           <div className="grid grid-cols-2 gap-2">
                             <div className="rounded-md border p-2">
                               <div className="text-xs text-gray-500 mb-1">Kỹ năng</div>
-                              {allSkills.length === 0 ? (
-                                <div className="text-xs text-gray-500">Đang tải skill...</div>
+                              {s.skills.length === 0 ? (
+                                <div className="text-xs text-gray-500">Chưa gán skill.</div>
                               ) : (
-                                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                  {allSkills.map((sk) => (
-                                    <label
-                                      key={sk.skillId}
-                                      className="flex cursor-pointer items-center gap-2 text-xs"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={s.selectedSkillIds.includes(sk.skillId)}
-                                        onChange={(e) => {
-                                          if (e.target.checked) {
+                                <div className="space-y-1">
+                                  {s.skills.map((item) => {
+                                    const isActive = item.isActive ?? true;
+                                    const name =
+                                      item.skillName ??
+                                      allSkills.find((x) => x.skillId === item.skillId)?.skillName ??
+                                      `Skill #${item.skillId}`;
+                                    return (
+                                      <div key={item.skillId} className="flex items-center justify-between gap-2">
+                                        <span className="text-xs truncate">{name}</span>
+                                        <Switch
+                                          checked={isActive}
+                                          onCheckedChange={(checked) => {
                                             setSessions((prev) =>
                                               prev.map((it) =>
                                                 it === s
-                                                  ? { ...it, selectedSkillIds: [...it.selectedSkillIds, sk.skillId] }
+                                                  ? {
+                                                      ...it,
+                                                      skills: it.skills.map((x) =>
+                                                        x.skillId === item.skillId ? { ...x, isActive: checked } : x,
+                                                      ),
+                                                    }
                                                   : it,
                                               ),
-                                            )
-                                          } else {
-                                            setSessions((prev) =>
-                                              prev.map((it) =>
-                                                it === s
-                                                  ? { ...it, selectedSkillIds: it.selectedSkillIds.filter((id) => id !== sk.skillId) }
-                                                  : it,
-                                              ),
-                                            )
-                                          }
-                                        }}
-                                        className="h-3.5 w-3.5 rounded border-gray-300"
-                                      />
-                                      <span>{sk.skillName}</span>
-                                    </label>
-                                  ))}
+                                            );
+                                          }}
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              <div className="mt-2 flex justify-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    setSessions((prev) =>
+                                      prev.map((it) => (it === s ? { ...it, showAddSkill: !it.showAddSkill } : it)),
+                                    )
+                                  }
+                                  disabled={allSkills.length === 0}
+                                >
+                                  Thêm
+                                </Button>
+                              </div>
+
+                              {s.showAddSkill && (
+                                <div className="mt-2 max-h-32 overflow-y-auto stoms-scrollbar space-y-1 pr-1">
+                                  {allSkills
+                                    .filter((sk) => !s.skills.some((x) => x.skillId === sk.skillId))
+                                    .map((sk) => {
+                                      const checked = s.pendingSkillIdsToAdd.includes(sk.skillId);
+                                      return (
+                                        <label key={sk.skillId} className="flex items-center gap-2 text-xs">
+                                          <input
+                                            type="checkbox"
+                                            className="h-3.5 w-3.5 rounded border-gray-300"
+                                            checked={checked}
+                                            onChange={(e) => {
+                                              setSessions((prev) =>
+                                                prev.map((it) =>
+                                                  it === s
+                                                    ? {
+                                                        ...it,
+                                                        pendingSkillIdsToAdd: e.target.checked
+                                                          ? [...it.pendingSkillIdsToAdd, sk.skillId]
+                                                          : it.pendingSkillIdsToAdd.filter((id) => id !== sk.skillId),
+                                                      }
+                                                    : it,
+                                                ),
+                                              );
+                                            }}
+                                          />
+                                          <span className="truncate">{sk.skillName}</span>
+                                        </label>
+                                      );
+                                    })}
                                 </div>
                               )}
                             </div>
 
                             <div className="rounded-md border p-2">
                               <div className="text-xs text-gray-500 mb-1">Chủ đề</div>
-                              {allTopics.length === 0 ? (
-                                <div className="text-xs text-gray-500">Đang tải topic...</div>
+                              {s.topics.length === 0 ? (
+                                <div className="text-xs text-gray-500">Chưa gán topic.</div>
                               ) : (
-                                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                  {allTopics.map((tp) => (
-                                    <label
-                                      key={tp.topicId}
-                                      className="flex cursor-pointer items-center gap-2 text-xs"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={s.selectedTopicIds.includes(tp.topicId)}
-                                        onChange={(e) => {
-                                          if (e.target.checked) {
+                                <div className="space-y-1">
+                                  {s.topics.map((item) => {
+                                    const isActive = item.isActive ?? true;
+                                    const name =
+                                      item.topicName ??
+                                      allTopics.find((x) => x.topicId === item.topicId)?.topicName ??
+                                      `Topic #${item.topicId}`;
+                                    return (
+                                      <div key={item.topicId} className="flex items-center justify-between gap-2">
+                                        <span className="text-xs truncate">{name}</span>
+                                        <Switch
+                                          checked={isActive}
+                                          onCheckedChange={(checked) => {
                                             setSessions((prev) =>
                                               prev.map((it) =>
                                                 it === s
-                                                  ? { ...it, selectedTopicIds: [...it.selectedTopicIds, tp.topicId] }
+                                                  ? {
+                                                      ...it,
+                                                      topics: it.topics.map((x) =>
+                                                        x.topicId === item.topicId ? { ...x, isActive: checked } : x,
+                                                      ),
+                                                    }
                                                   : it,
                                               ),
-                                            )
-                                          } else {
-                                            setSessions((prev) =>
-                                              prev.map((it) =>
-                                                it === s
-                                                  ? { ...it, selectedTopicIds: it.selectedTopicIds.filter((id) => id !== tp.topicId) }
-                                                  : it,
-                                              ),
-                                            )
-                                          }
-                                        }}
-                                        className="h-3.5 w-3.5 rounded border-gray-300"
-                                      />
-                                      <span>{tp.topicName}</span>
-                                    </label>
-                                  ))}
+                                            );
+                                          }}
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              <div className="mt-2 flex justify-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    setSessions((prev) =>
+                                      prev.map((it) => (it === s ? { ...it, showAddTopic: !it.showAddTopic } : it)),
+                                    )
+                                  }
+                                  disabled={allTopics.length === 0}
+                                >
+                                  Thêm
+                                </Button>
+                              </div>
+
+                              {s.showAddTopic && (
+                                <div className="mt-2 max-h-32 overflow-y-auto stoms-scrollbar space-y-1 pr-1">
+                                  {allTopics
+                                    .filter((tp) => !s.topics.some((x) => x.topicId === tp.topicId))
+                                    .map((tp) => {
+                                      const checked = s.pendingTopicIdsToAdd.includes(tp.topicId);
+                                      return (
+                                        <label key={tp.topicId} className="flex items-center gap-2 text-xs">
+                                          <input
+                                            type="checkbox"
+                                            className="h-3.5 w-3.5 rounded border-gray-300"
+                                            checked={checked}
+                                            onChange={(e) => {
+                                              setSessions((prev) =>
+                                                prev.map((it) =>
+                                                  it === s
+                                                    ? {
+                                                        ...it,
+                                                        pendingTopicIdsToAdd: e.target.checked
+                                                          ? [...it.pendingTopicIdsToAdd, tp.topicId]
+                                                          : it.pendingTopicIdsToAdd.filter((id) => id !== tp.topicId),
+                                                      }
+                                                    : it,
+                                                ),
+                                              );
+                                            }}
+                                          />
+                                          <span className="truncate">{tp.topicName}</span>
+                                        </label>
+                                      );
+                                    })}
                                 </div>
                               )}
                             </div>
@@ -808,21 +989,24 @@ export default function EventsManagement() {
                 )}
               </div>
             </div>
-        </div>
+          </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={closeUpsert} disabled={submitting}>
-            Hủy
-          </Button>
-          <Button
-            className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-            onClick={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting ? 'Đang lưu...' : 'Lưu'}
-          </Button>
+          <div className="mt-auto border-t bg-white p-4">
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeUpsert} disabled={submitting}>
+                Hủy
+              </Button>
+              <Button
+                className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? 'Đang lưu...' : 'Lưu'}
+              </Button>
+            </div>
+          </div>
         </div>
-      </Dialog>
+      </div>
     </div>
   );
 }
