@@ -1,30 +1,28 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Check, Plus, Search, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { message } from 'antd';
 import RequestHeader from '@/shared/components/request/RequestHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Switch } from '@/shared/components/ui/switch';
 import type { RequestListItem, RequestSessionSummary } from '../request';
 import { requestApi } from '../api/requestApi';
-import { reservationApi } from '../api/reservationApi';
-import type { EquipmentListItem } from '@/modules/equipment/equipment';
 import { useProgramCoordinatorId } from '../hooks/useProgramCoordinatorId';
-import type { Team } from '@/modules/team/team';
-import { sessionApi } from '../api/sessionApi';
+import RequestDetailTeamPanel from './RequestDetailTeamPanel';
+import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
+import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 
 type SessionWithFlags = RequestSessionSummary & {
+  reservationId?: number | null;
   teamAssigned?: boolean;
   equipmentReserved?: boolean;
 };
 
 type RightPanelState =
   | { mode: 'team'; session: SessionWithFlags }
+  | { mode: 'detail'; session: SessionWithFlags }
   | { mode: 'equipment' }
   | null;
 
@@ -34,34 +32,7 @@ export default function RequestDetail() {
   const [sessions, setSessions] = useState<SessionWithFlags[]>([]);
   const [rightPanel, setRightPanel] = useState<RightPanelState>(null);
   const [loading, setLoading] = useState(false);
-  // Đặt thiết bị: chọn phiên (nhiều) + chọn thiết bị từ danh sách khả dụng
-  const [selectedSessionIds, setSelectedSessionIds] = useState<number[]>([]);
-  const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<number[]>([]);
-  const [availabilityItems, setAvailabilityItems] = useState<EquipmentListItem[]>([]);
-  const [availabilityLoading, setAvailabilityLoading] = useState(false);
-  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
-  const [availabilitySearch, setAvailabilitySearch] = useState('');
-  const [availabilityPage, setAvailabilityPage] = useState(1);
-  const [availabilityTotal, setAvailabilityTotal] = useState(0);
-  const [reserveSubmitLoading, setReserveSubmitLoading] = useState(false);
-  const [reserveSubmitError, setReserveSubmitError] = useState<string | null>(null);
-  const pageSize = 10;
   const createdByMemberId = useProgramCoordinatorId();
-
-  const [suggestedTeams, setSuggestedTeams] = useState<Team[]>([]);
-  const [suggestTeamsLoading, setSuggestTeamsLoading] = useState(false);
-  const [suggestTeamsError, setSuggestTeamsError] = useState<string | null>(null);
-  const [teamSearch, setTeamSearch] = useState('');
-  /** Đội đã chọn cho phiên (bấm vào card = thêm/bỏ, 1 session có thể nhiều đội) */
-  const [addedTeamIds, setAddedTeamIds] = useState<number[]>([]);
-  /** Popup chi tiết đội khi hover 2s */
-  const [teamDetailPopup, setTeamDetailPopup] = useState<{
-    team: Team;
-    left: number;
-    top: number;
-  } | null>(null);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closePopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -72,12 +43,16 @@ export default function RequestDetail() {
         setRequest(detail);
 
         const mappedSessions: SessionWithFlags[] =
-          detail.sessions?.map((s) => ({
-            ...s,
-            // Tạm thời suy luận flag từ status; sau có thể thay bằng field thực tế
-            teamAssigned: s.status?.toLowerCase() === 'approved',
-            equipmentReserved: false,
-          })) ?? [];
+          detail.sessions?.map((s) => {
+            const anyS = s as RequestSessionSummary & { reservationId?: number | null };
+            const reservationId = anyS.reservationId ?? null;
+            return {
+              ...s,
+              reservationId,
+              teamAssigned: s.status?.toLowerCase() === 'approved',
+              equipmentReserved: reservationId != null,
+            };
+          }) ?? [];
         setSessions(mappedSessions);
       } finally {
         setLoading(false);
@@ -87,232 +62,33 @@ export default function RequestDetail() {
     void fetchData();
   }, [id]);
 
-  // Reset khi mở panel đặt thiết bị
-  useEffect(() => {
-    if (rightPanel?.mode === 'equipment') {
-      setSelectedSessionIds([]);
-      setSelectedEquipmentIds([]);
-      setAvailabilitySearch('');
-      setAvailabilityPage(1);
-      setAvailabilityError(null);
-      setReserveSubmitError(null);
-    }
-  }, [rightPanel?.mode]);
-
-  // Đóng popup chi tiết đội khi đóng panel hoặc đổi mode
-  useEffect(() => {
-    if (!rightPanel || rightPanel.mode !== 'team') {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      if (closePopupTimerRef.current) clearTimeout(closePopupTimerRef.current);
-      setTeamDetailPopup(null);
-    }
-  }, [rightPanel]);
-
-  // Gợi ý đội cho phiên khi mở panel gán đội
-  useEffect(() => {
-    if (!rightPanel || rightPanel.mode !== 'team') return;
-
-    const sessionId = rightPanel.session.sessionId;
-    if (!sessionId) return;
-
-    const fetchSuggestedTeams = async () => {
-      setSuggestTeamsLoading(true);
-      setSuggestTeamsError(null);
-      setAddedTeamIds([]);
-      try {
-        const teams = await sessionApi.suggestTeams(sessionId);
-        setSuggestedTeams(teams);
-      } catch (err: unknown) {
-        const msg =
-          err && typeof err === 'object' && 'message' in err
-            ? String((err as { message: unknown }).message)
-            : 'Không tải được danh sách đội gợi ý.';
-        setSuggestedTeams([]);
-        setSuggestTeamsError(msg);
-      } finally {
-        setSuggestTeamsLoading(false);
-      }
-    };
-
-    void fetchSuggestedTeams();
-  }, [rightPanel]);
-
-  const filteredTeams = useMemo(() => {
-    const keyword = teamSearch.trim().toLowerCase();
-    if (!keyword) return suggestedTeams;
-    return suggestedTeams.filter((t) =>
-      t.teamName.toLowerCase().includes(keyword)
-    );
-  }, [suggestedTeams, teamSearch]);
-
-  const assignAllChecked = useMemo(
-    () => sessions.length > 0 && sessions.every((s) => s.teamAssigned),
-    [sessions]
-  );
-
-  const handleAssignAllSwitch = useCallback(
-    (checked: boolean) => {
-      if (checked) {
-        if (addedTeamIds.length === 0 || sessions.length === 0) return;
-        setSessions((prev) =>
-          prev.map((s) => ({ ...s, teamAssigned: true }))
-        );
-        message.success('Đã gán đội (giả lập) cho tất cả các phiên trên UI.');
-      } else {
-        setSessions((prev) =>
-          prev.map((s) => ({ ...s, teamAssigned: false }))
-        );
-        message.info('Đã bỏ gán đội cho tất cả phiên (chỉ UI).');
-      }
-    },
-    [addedTeamIds.length, sessions]
-  );
-
-  const toggleTeamAdded = useCallback((teamId: number) => {
-    setAddedTeamIds((prev) =>
-      prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId]
-    );
-  }, []);
-
-  const removeAddedTeam = useCallback((teamId: number) => {
-    setAddedTeamIds((prev) => prev.filter((id) => id !== teamId));
-  }, []);
-
-  const POPUP_WIDTH = 288; // w-72
-  const handleTeamCardMouseEnter = useCallback(
-    (team: Team, e: React.MouseEvent<HTMLDivElement>) => {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      const target = e.currentTarget;
-      hoverTimerRef.current = setTimeout(() => {
-        const rect = target.getBoundingClientRect();
-        setTeamDetailPopup({
-          team,
-          left: Math.max(8, rect.left - POPUP_WIDTH - 8),
-          top: rect.top,
-        });
-      }, 1200);
-    },
-    []
-  );
-
-  const clearPopup = useCallback(() => {
-    setTeamDetailPopup(null);
-  }, []);
-
-  const handleTeamCardMouseLeave = useCallback(() => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
-    if (closePopupTimerRef.current) clearTimeout(closePopupTimerRef.current);
-    closePopupTimerRef.current = setTimeout(clearPopup, 150);
-  }, [clearPopup]);
-
-  const handlePopupMouseEnter = useCallback(() => {
-    if (closePopupTimerRef.current) {
-      clearTimeout(closePopupTimerRef.current);
-      closePopupTimerRef.current = null;
+  const handleAssignToAll = useCallback((teamIds: number[]) => {
+    if (teamIds.length > 0) {
+      setSessions((prev) => prev.map((s) => ({ ...s, teamAssigned: true })));
+      message.success('Đã gán đội (giả lập) cho tất cả các phiên trên UI.');
+    } else {
+      setSessions((prev) => prev.map((s) => ({ ...s, teamAssigned: false })));
+      message.info('Đã bỏ gán đội cho tất cả phiên (chỉ UI).');
     }
   }, []);
 
-  const handlePopupMouseLeave = useCallback(() => {
-    clearPopup();
-  }, [clearPopup]);
-
-  // Khung giờ tham chiếu để load thiết bị khả dụng (phiên đầu tiên được chọn)
-  const referenceSession = useMemo(() => {
-    if (selectedSessionIds.length === 0) return null;
-    return sessions.find((s) => s.sessionId === selectedSessionIds[0]) ?? null;
-  }, [sessions, selectedSessionIds]);
-
-  // Gọi GET /reservations/availability theo khung giờ phiên tham chiếu
-  useEffect(() => {
-    if (!rightPanel || rightPanel.mode !== 'equipment' || !referenceSession) return;
-    const { startAt, endAt } = referenceSession;
-
-    const fetchAvailability = async () => {
-      setAvailabilityLoading(true);
-      setAvailabilityError(null);
-      try {
-        const res = await reservationApi.getAvailability({
-          startAt,
-          endAt,
-          search: availabilitySearch.trim() || undefined,
-          pageNumber: availabilityPage,
-          pageSize,
-        });
-        setAvailabilityItems(res.items);
-        setAvailabilityTotal(res.totalItems);
-      } catch (err: unknown) {
-        const message =
-          err && typeof err === 'object' && 'message' in err
-            ? String((err as { message: unknown }).message)
-            : 'Không tải được danh sách thiết bị khả dụng.';
-        setAvailabilityError(message);
-        setAvailabilityItems([]);
-        setAvailabilityTotal(0);
-      } finally {
-        setAvailabilityLoading(false);
-      }
-    };
-
-    void fetchAvailability();
-  }, [rightPanel?.mode, referenceSession?.sessionId, referenceSession?.startAt, referenceSession?.endAt, availabilitySearch, availabilityPage]);
-
-  const toggleSessionSelection = useCallback((sessionId: number) => {
-    setSelectedSessionIds((prev) =>
-      prev.includes(sessionId) ? prev.filter((id) => id !== sessionId) : [...prev, sessionId]
-    );
-  }, []);
-
-  const toggleEquipmentSelection = useCallback((equipmentId: number) => {
-    setSelectedEquipmentIds((prev) =>
-      prev.includes(equipmentId) ? prev.filter((id) => id !== equipmentId) : [...prev, equipmentId]
-    );
-  }, []);
-
-  const handleReserveSubmit = useCallback(async () => {
-    if (selectedSessionIds.length === 0 || selectedEquipmentIds.length === 0 || !request) return;
-    if (createdByMemberId <= 0) {
-      setReserveSubmitError('Vui lòng đăng nhập để đặt thiết bị.');
-      return;
-    }
-    setReserveSubmitLoading(true);
-    setReserveSubmitError(null);
-    try {
-      const equipmentPayload = selectedEquipmentIds.map((equipmentId) => ({ equipmentId }));
-      for (const sessionId of selectedSessionIds) {
-        const session = sessions.find((s) => s.sessionId === sessionId);
-        if (!session) continue;
-        await reservationApi.create({
-          createdByMemberId,
-          sessionId,
-          startAt: session.startAt,
-          endAt: session.endAt,
-          equipment: equipmentPayload,
-        });
-      }
-      message.success('Đặt trước thiết bị thành công.');
-      setRightPanel(null);
-      const detail = await requestApi.getById(Number(request.requestId));
-      setRequest(detail);
-      const mappedSessions: SessionWithFlags[] =
-        detail.sessions?.map((s) => ({
+  const handleEquipmentSuccess = useCallback(async () => {
+    if (!request) return;
+    const detail = await requestApi.getById(Number(request.requestId));
+    setRequest(detail);
+    const mapped: SessionWithFlags[] =
+      detail.sessions?.map((s) => {
+        const anyS = s as RequestSessionSummary & { reservationId?: number | null; status?: string };
+        const reservationId = anyS.reservationId ?? null;
+        return {
           ...s,
-          teamAssigned: s.status?.toLowerCase() === 'approved',
-          equipmentReserved: false,
-        })) ?? [];
-      setSessions(mappedSessions);
-    } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Đặt trước thiết bị thất bại.';
-      setReserveSubmitError(message);
-    } finally {
-      setReserveSubmitLoading(false);
-    }
-  }, [selectedSessionIds, selectedEquipmentIds, request, sessions, createdByMemberId]);
+          reservationId,
+          teamAssigned: anyS.status?.toLowerCase() === 'approved',
+          equipmentReserved: reservationId != null,
+        };
+      }) ?? [];
+    setSessions(mapped);
+  }, [request]);
 
   const assignedCount = useMemo(
     () => sessions.filter((s) => s.teamAssigned).length,
@@ -424,9 +200,12 @@ export default function RequestDetail() {
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-sm font-semibold text-black">Danh sách phiên học</h3>
               <Button
-                onClick={() => sessions.length > 0 && setRightPanel({ mode: 'equipment' })}
-                disabled={sessions.length === 0}
-                className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                onClick={() =>
+                  sessions.some((s) => !s.equipmentReserved) &&
+                  setRightPanel({ mode: 'equipment' })
+                }
+                disabled={sessions.every((s) => s.equipmentReserved)}
+                className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50"
               >
                 <Plus size={16} />
                 Đặt trước thiết bị
@@ -474,10 +253,21 @@ export default function RequestDetail() {
                         </Badge>
                       </button>
 
+                      <Badge
+                        variant="outline"
+                        className={
+                          session.equipmentReserved
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700 text-[11px]'
+                            : 'border-gray-200 bg-gray-50 text-gray-500 text-[11px]'
+                        }
+                      >
+                        {session.equipmentReserved ? 'Đã đặt thiết bị' : 'Chưa đặt thiết bị'}
+                      </Badge>
+
                       <button
                         type="button"
                         onClick={() =>
-                          setRightPanel({ mode: 'team', session })
+                          setRightPanel({ mode: 'detail', session })
                         }
                         className="text-xs text-blue-600 underline"
                       >
@@ -515,14 +305,25 @@ export default function RequestDetail() {
           />
 
           {/* Panel */}
-          <div className="w-full max-w-md h-full bg-white text-black shadow-2xl border-l rounded-l-3xl flex flex-col overflow-hidden">
+          <div className="w-full max-w-2xl h-full bg-white text-black shadow-2xl border-l flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                  {rightPanel.mode === 'team' ? 'Đang gán đội' : 'Đặt trước thiết bị'}
+                  {rightPanel.mode === 'team'
+                    ? 'Đang gán đội'
+                    : rightPanel.mode === 'detail'
+                    ? 'Chi tiết phiên'
+                    : 'Đặt trước thiết bị'}
                 </p>
-                {rightPanel.mode === 'team' ? (
+                {rightPanel.mode === 'equipment' ? (
+                  <>
+                    <h2 className="text-base font-semibold text-black">Chọn phiên & thiết bị</h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Đặt thiết bị cho một hoặc nhiều phiên
+                    </p>
+                  </>
+                ) : (
                   <>
                     <h2 className="text-base font-semibold text-black">
                       Phiên {rightPanel.session.sessionNo}
@@ -530,15 +331,6 @@ export default function RequestDetail() {
                     <p className="text-xs text-gray-500 mt-1">
                       {dayjs(rightPanel.session.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
                       {dayjs(rightPanel.session.endAt).format('DD/MM/YYYY HH:mm')}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="text-base font-semibold text-black">
-                      Chọn phiên & thiết bị
-                    </h2>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Đặt thiết bị cho một hoặc nhiều phiên
                     </p>
                   </>
                 )}
@@ -552,424 +344,39 @@ export default function RequestDetail() {
               </button>
             </div>
 
-            {rightPanel.mode === 'team' && (
-              <div className="grid grid-cols-2 gap-3 text-xs text-gray-600 bg-gray-50 rounded-xl mx-6 mb-4 p-3">
-                <div>
-                  <p className="text-[11px] text-gray-400">Ngày</p>
-                  <p className="font-medium text-black">
-                    {dayjs(rightPanel.session.startAt).format('DD/MM/YYYY')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-gray-400">Thời gian</p>
-                  <p className="font-medium text-black">
-                    {dayjs(rightPanel.session.startAt).format('HH:mm')} -{' '}
-                    {dayjs(rightPanel.session.endAt).format('HH:mm')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-gray-400">Mã yêu cầu</p>
-                  <p className="font-medium text-black">{request.requestCode}</p>
-                </div>
+            {rightPanel.mode === 'detail' && request && (
+              <div className="mx-6 mb-4">
+                <RequestSessionDetailPanel
+                  session={rightPanel.session}
+                  requestCode={request.requestCode ?? ''}
+                />
               </div>
             )}
 
             <div className="flex-1 overflow-y-auto p-6 pt-0">
-              {rightPanel.mode === 'team' ? (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-black">
-                    Gán đội phụ trách
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Danh sách đội được hệ thống gợi ý dựa trên ràng buộc và lịch dạy.
-                  </p>
-
-                  <div className="relative mb-2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Tìm theo tên đội"
-                      value={teamSearch}
-                      onChange={(e) => setTeamSearch(e.target.value)}
-                      className="pl-9 text-xs text-black border-gray-200 bg-white"
-                    />
-                  </div>
-
-                  {suggestTeamsError && (
-                    <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-                      {suggestTeamsError}
-                    </p>
-                  )}
-
-                  {suggestTeamsLoading ? (
-                    <p className="text-xs text-gray-500">
-                      Đang tải danh sách đội gợi ý...
-                    </p>
-                  ) : filteredTeams.length === 0 ? (
-                    <p className="text-xs text-gray-500">
-                      Không có đội gợi ý phù hợp cho phiên này.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {filteredTeams.map((team) => {
-                        const isAdded = addedTeamIds.includes(team.teamId);
-                        return (
-                          <div
-                            key={team.teamId}
-                            role="button"
-                            tabIndex={0}
-                            className={`rounded-2xl border p-3 space-y-1 cursor-pointer transition relative ${
-                              isAdded
-                                ? 'bg-green-50 border-green-400'
-                                : 'bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
-                            }`}
-                            onClick={() => toggleTeamAdded(team.teamId)}
-                            onMouseEnter={(e) => handleTeamCardMouseEnter(team, e)}
-                            onMouseLeave={handleTeamCardMouseLeave}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-xs font-medium text-black">
-                                  {team.teamName}
-                                </p>
-                                <p className="text-[11px] text-gray-500">
-                                  ID đội: {team.teamId}
-                                </p>
-                              </div>
-                              {isAdded && (
-                                <span className="text-[10px] text-green-600 font-medium">
-                                  Đã chọn
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {teamDetailPopup &&
-                    createPortal(
-                      <div
-                        className="fixed z-[100] w-72 rounded-2xl bg-white shadow-xl ring-1 ring-black/5 overflow-hidden"
-                        style={{
-                          left: teamDetailPopup.left,
-                          top: teamDetailPopup.top,
-                        }}
-                        onMouseEnter={handlePopupMouseEnter}
-                        onMouseLeave={handlePopupMouseLeave}
-                      >
-                        <div className="bg-gradient-to-br from-[#208aae]/10 to-[#2197C0]/5 px-4 py-3 border-b border-gray-100">
-                          <p className="text-sm font-semibold text-gray-900 truncate">
-                            {teamDetailPopup.team.teamName}
-                          </p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">
-                            ID: {teamDetailPopup.team.teamId}
-                          </p>
-                        </div>
-                        <div className="p-4 space-y-3">
-                          {(teamDetailPopup.team as { leader?: { fullName?: string } }).leader && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-[11px] text-gray-400 shrink-0 w-20">Trưởng nhóm</span>
-                              <span className="text-xs text-gray-800">
-                                {(teamDetailPopup.team as { leader?: { fullName?: string } }).leader?.fullName ?? '—'}
-                              </span>
-                            </div>
-                          )}
-                          {(teamDetailPopup.team as { members?: unknown[] }).members != null && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-gray-400 shrink-0 w-20">Thành viên</span>
-                              <span className="text-xs text-gray-800">
-                                {(teamDetailPopup.team as { members?: unknown[] }).members?.length ?? 0} người
-                              </span>
-                            </div>
-                          )}
-                          {teamDetailPopup.team.createdAt && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-gray-400 shrink-0 w-20">Tạo lúc</span>
-                              <span className="text-xs text-gray-600">
-                                {dayjs(teamDetailPopup.team.createdAt).format('DD/MM/YYYY')}
-                              </span>
-                            </div>
-                          )}
-                          {((teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount != null ||
-                            (teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount != null) && (
-                            <div className="pt-2 border-t border-gray-100 space-y-1.5">
-                              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">
-                                Phù hợp phiên
-                              </p>
-                              <div className="flex gap-3">
-                                {(teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount != null && (
-                                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                                    GV: {(teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount}
-                                  </span>
-                                )}
-                                {(teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount != null && (
-                                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                                    TA: {(teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>,
-                      document.body
-                    )}
-
-                  {addedTeamIds.length > 0 && (
-                    <div className="rounded-xl border border-green-200 bg-green-50/50 p-3 space-y-2">
-                      <p className="text-xs font-medium text-black">
-                        Đã chọn ({addedTeamIds.length} đội)
-                      </p>
-                      <ul className="space-y-1.5">
-                        {addedTeamIds.map((tid) => {
-                          const t = suggestedTeams.find((x) => x.teamId === tid);
-                          return (
-                            <li
-                              key={tid}
-                              className="flex items-center justify-between text-xs"
-                            >
-                              <span className="text-black">
-                                {t?.teamName ?? `ID ${tid}`}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeAddedTeam(tid);
-                                }}
-                                className="p-1 rounded text-gray-500 hover:bg-red-100 hover:text-red-600"
-                              >
-                                <X size={14} />
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between gap-3 rounded-xl border bg-gray-50 p-3">
-                    <p className="text-xs font-medium text-black whitespace-nowrap">
-                      Gán đội đã chọn cho tất cả phiên
-                    </p>
-                    <Switch
-                      className="!rounded-[15px] shrink-0"
-                      checked={assignAllChecked}
-                      disabled={addedTeamIds.length === 0 || sessions.length === 0}
-                      onCheckedChange={handleAssignAllSwitch}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  {/* Bước 1: Chọn phiên */}
-                  <section>
-                    <h3 className="text-sm font-semibold text-black mb-2 flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-600 text-xs font-bold">
-                        1
-                      </span>
-                      Chọn phiên cần đặt thiết bị
-                    </h3>
-                    <p className="text-xs text-gray-500 mb-3">
-                      Có thể chọn nhiều phiên để đặt cùng một bộ thiết bị.
-                    </p>
-                    <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 max-h-40 overflow-y-auto">
-                      {sessions.map((session) => {
-                        const isSelected = selectedSessionIds.includes(session.sessionId);
-                        return (
-                          <button
-                            key={session.sessionId}
-                            type="button"
-                            onClick={() => toggleSessionSelection(session.sessionId)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition rounded-none first:rounded-t-xl last:rounded-b-xl ${
-                              isSelected
-                                ? 'bg-blue-50 border-l-2 border-l-blue-500'
-                                : 'hover:bg-gray-50'
-                            }`}
-                          >
-                            <span
-                              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                                isSelected
-                                  ? 'bg-blue-600 border-blue-600 text-white'
-                                  : 'border-gray-300 bg-white'
-                              }`}
-                            >
-                              {isSelected ? <Check size={12} strokeWidth={3} /> : null}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-black">
-                                Phiên {session.sessionNo}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {dayjs(session.startAt).format('DD/MM HH:mm')} -{' '}
-                                {dayjs(session.endAt).format('DD/MM HH:mm')}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {selectedSessionIds.length > 0 && (
-                      <p className="text-xs text-blue-600 mt-2">
-                        Đã chọn {selectedSessionIds.length} phiên. Thiết bị khả dụng theo khung giờ phiên đầu tiên.
-                      </p>
-                    )}
-                  </section>
-
-                  {/* Bước 2: Chọn thiết bị (chỉ khi đã chọn phiên) */}
-                  {referenceSession && (
-                    <section>
-                      <h3 className="text-sm font-semibold text-black mb-2 flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-600 text-xs font-bold">
-                          2
-                        </span>
-                        Chọn thiết bị khả dụng
-                      </h3>
-                      <p className="text-xs text-gray-500 mb-3">
-                        Khung giờ tham chiếu: Phiên {referenceSession.sessionNo} (
-                        {dayjs(referenceSession.startAt).format('DD/MM HH:mm')} -{' '}
-                        {dayjs(referenceSession.endAt).format('HH:mm')})
-                      </p>
-
-                      <div className="relative mb-3">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="Tìm theo tên hoặc mã thiết bị"
-                          value={availabilitySearch}
-                          onChange={(e) => {
-                            setAvailabilitySearch(e.target.value);
-                            setAvailabilityPage(1);
-                          }}
-                          className="pl-9 text-black border-gray-200 bg-white"
-                        />
-                      </div>
-
-                      {availabilityError && (
-                        <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg mb-3">
-                          {availabilityError}
-                        </p>
-                      )}
-
-                      <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 max-h-56 overflow-y-auto bg-white">
-                        {availabilityLoading ? (
-                          <div className="py-8 text-center text-xs text-gray-500">
-                            Đang tải danh sách...
-                          </div>
-                        ) : availabilityItems.length === 0 ? (
-                          <div className="py-8 text-center text-xs text-gray-500">
-                            {availabilitySearch.trim()
-                              ? 'Không có thiết bị nào trùng khớp.'
-                              : 'Không có thiết bị khả dụng trong khung giờ này.'}
-                          </div>
-                        ) : (
-                          availabilityItems.map((eq) => {
-                            const isSelected = selectedEquipmentIds.includes(eq.equipmentId);
-                            return (
-                              <button
-                                key={eq.equipmentId}
-                                type="button"
-                                onClick={() => toggleEquipmentSelection(eq.equipmentId)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
-                                  isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
-                                }`}
-                              >
-                                <span
-                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                                    isSelected
-                                      ? 'bg-blue-600 border-blue-600 text-white'
-                                      : 'border-gray-300 bg-white'
-                                  }`}
-                                >
-                                  {isSelected ? <Check size={12} strokeWidth={3} /> : null}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-black truncate">
-                                    {eq.equipmentName}
-                                  </p>
-                                  <p className="text-xs text-gray-500">{eq.equipmentCode}</p>
-                                </div>
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-
-                      {availabilityTotal > pageSize && (
-                        <div className="flex justify-center gap-2 text-xs mt-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={availabilityPage <= 1 || availabilityLoading}
-                            onClick={() => setAvailabilityPage((p) => Math.max(1, p - 1))}
-                            className="text-black"
-                          >
-                            Trước
-                          </Button>
-                          <span className="flex items-center text-gray-600">
-                            {availabilityPage} / {Math.ceil(availabilityTotal / pageSize)}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                              availabilityPage >= Math.ceil(availabilityTotal / pageSize) ||
-                              availabilityLoading
-                            }
-                            onClick={() => setAvailabilityPage((p) => p + 1)}
-                            className="text-black"
-                          >
-                            Sau
-                          </Button>
-                        </div>
-                      )}
-
-                      {selectedEquipmentIds.length > 0 && (
-                        <p className="text-xs text-blue-600 mt-2">
-                          Đã chọn {selectedEquipmentIds.length} thiết bị
-                        </p>
-                      )}
-                    </section>
-                  )}
-
-                  {reserveSubmitError && (
-                    <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-                      {reserveSubmitError}
-                    </p>
-                  )}
-                </div>
+              {rightPanel.mode === 'team' && (
+                <RequestDetailTeamPanel
+                  session={rightPanel.session}
+                  requestCode={request.requestCode ?? ''}
+                  sessionsCount={sessions.length}
+                  onClose={() => setRightPanel(null)}
+                  onAssignToAll={handleAssignToAll}
+                />
               )}
-            </div>
-
-            {/* Footer actions */}
-            <div className="p-6 pt-4 border-t border-gray-100 flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="border-gray-300 text-black bg-white"
-                onClick={() => setRightPanel(null)}
-              >
-                Hủy
-              </Button>
-              {rightPanel.mode === 'team' ? (
-                <Button className="bg-blue-600 text-white">
-                  Lưu thay đổi
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  className="bg-blue-600 text-white disabled:opacity-50"
-                  disabled={
-                    selectedSessionIds.length === 0 ||
-                    selectedEquipmentIds.length === 0 ||
-                    reserveSubmitLoading
-                  }
-                  onClick={() => void handleReserveSubmit()}
-                >
-                  {reserveSubmitLoading ? 'Đang xử lý...' : `Đặt trước (${selectedSessionIds.length} phiên · ${selectedEquipmentIds.length} thiết bị)`}
-                </Button>
+              {rightPanel.mode === 'equipment' && (
+                <RequestDetailEquipmentPanel
+                  sessions={sessions
+                    .filter((s) => !s.equipmentReserved)
+                    .map((s) => ({
+                      sessionId: s.sessionId,
+                      sessionNo: s.sessionNo,
+                      startAt: s.startAt,
+                      endAt: s.endAt,
+                    }))}
+                  createdByMemberId={createdByMemberId}
+                  onClose={() => setRightPanel(null)}
+                  onSuccess={handleEquipmentSuccess}
+                />
               )}
             </div>
           </div>
