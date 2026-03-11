@@ -23,7 +23,15 @@ export default function Login() {
     // nếu đã login thì redirect
     const token = localStorage.getItem('accessToken');
     if (token) {
-      navigate('/manager');
+      try {
+        const raw = localStorage.getItem('user');
+        const roleId = raw ? Number(JSON.parse(raw)?.roleId) : NaN;
+        if (roleId === 3) navigate('/pc');
+        else if (roleId === 4) navigate('/teacher');
+        else navigate('/manager');
+      } catch {
+        navigate('/manager');
+      }
     }
   }, []);
 
@@ -63,7 +71,9 @@ export default function Login() {
         token: res.accessToken,
       });
 
-      navigate('/manager');
+      if (res.roleId === 3) navigate('/pc');
+      else if (res.roleId === 4) navigate('/teacher');
+      else navigate('/manager');
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||

@@ -2,10 +2,12 @@ import PCLayout from '@/app/layouts/PCLayout';
 import EquipmentLayout from '@/app/layouts/EquipmentLayout';
 import AuthLayout from '../layouts/AuthLayout';
 import MainLayout from '../layouts/MainLayout';
+import TeacherLayout from '../layouts/TeacherLayout';
 import AuthPageRoutes from './AuthPageRoutes';
 import ManagerRoutes from './ManagerRoutes';
 import ProgramCoordinatorRoutes from './ProgramCoordinatorRoutes';
 import EquipmentManagerRoutes from './EquipmentManagerRoutes';
+import TeacherRoutes from './TeacherRoutes';
 
 const routes = [
   {
@@ -30,6 +32,12 @@ const routes = [
     path: '/manager',
     element: <MainLayout />,
     children: [...ManagerRoutes],
+  },
+
+  {
+    path: '/teacher',
+    element: <TeacherLayout />,
+    children: [...TeacherRoutes],
   },
 ];
 
