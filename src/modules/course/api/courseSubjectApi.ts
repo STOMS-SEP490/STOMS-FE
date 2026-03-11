@@ -21,6 +21,18 @@ const courseSubjectApi = {
       data: { subjectIds },
     })
   },
+
+  activateMany: async (courseId: number, subjectIds: number[]) => {
+    return axiosClient.put(`/course-subjects/course/${courseId}/subjects/activate`, {
+      subjectIds,
+    })
+  },
+
+  deactivateMany: async (courseId: number, subjectIds: number[]) => {
+    return axiosClient.put(`/course-subjects/course/${courseId}/subjects/deactivate`, {
+      subjectIds,
+    })
+  },
 }
 
 export default courseSubjectApi

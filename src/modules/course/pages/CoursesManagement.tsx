@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Power, PowerOff, Plus } from 'lucide-react';
+import { Eye, Pencil, Power, PowerOff, Plus, X } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Modal, message } from 'antd';
@@ -13,9 +13,9 @@ import { Badge } from '@/shared/components/ui/badge';
 import HoverSearch from '@/shared/components/ui/search';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Button } from '@/shared/components/ui/button';
-import { Dialog } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
+import { Switch } from '@/shared/components/ui/switch';
 
 export default function CoursesManagement() {
   const context = useOutletContext<{ position: string }>();
@@ -36,8 +36,15 @@ export default function CoursesManagement() {
   const [courseName, setCourseName] = useState('');
   const [description, setDescription] = useState('');
   const [allSubjects, setAllSubjects] = useState<SubjectListItem[]>([]);
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<number[]>([]);
-  const [currentCourseSubjectIds, setCurrentCourseSubjectIds] = useState<number[]>([]);
+  /** Danh sách course-subject đã gán (có isActive) — bật/tắt bằng Switch, Lưu mới gọi API */
+  const [courseSubjects, setCourseSubjects] = useState<
+    { subjectId: number; subjectName?: string; isActive?: boolean }[]
+  >([]);
+  const [initialCourseSubjects, setInitialCourseSubjects] = useState<
+    { subjectId: number; subjectName?: string; isActive?: boolean }[]
+  >([]);
+  const [pendingSubjectIdsToAdd, setPendingSubjectIdsToAdd] = useState<number[]>([]);
+  const [showAddSubject, setShowAddSubject] = useState(false);
 
   const fetchCourses = async () => {
     try {
@@ -73,8 +80,10 @@ export default function CoursesManagement() {
     setCourseCode('');
     setCourseName('');
     setDescription('');
-    setSelectedSubjectIds([]);
-    setCurrentCourseSubjectIds([]);
+    setCourseSubjects([]);
+    setInitialCourseSubjects([]);
+    setPendingSubjectIdsToAdd([]);
+    setShowAddSubject(false);
     setOpenEdit(true);
   };
 
@@ -86,9 +95,19 @@ export default function CoursesManagement() {
       setCourseCode(detail.courseCode ?? '');
       setCourseName(detail.courseName ?? '');
       setDescription((detail as any).description ?? '');
-      const subjectIds = (detail.courseSubjects ?? []).map((s) => s.subjectId);
-      setCurrentCourseSubjectIds(subjectIds);
-      setSelectedSubjectIds(subjectIds);
+      const list = ((detail.courseSubjects ?? []) as any[]).map((cs) => ({
+        subjectId: Number(cs.subjectId),
+        subjectName:
+          cs.subject?.subjectName ??
+          cs.subjectName ??
+          allSubjects.find((x) => x.subjectId === Number(cs.subjectId))?.subjectName ??
+          `Môn #${cs.subjectId}`,
+        isActive: cs.isActive === undefined ? true : Boolean(cs.isActive),
+      }));
+      setCourseSubjects(list);
+      setInitialCourseSubjects(list.map((x) => ({ ...x })));
+      setPendingSubjectIdsToAdd([]);
+      setShowAddSubject(false);
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'Không tải được chi tiết khóa học';
       message.error(msg);
@@ -96,9 +115,19 @@ export default function CoursesManagement() {
       setCourseCode(c.courseCode ?? '');
       setCourseName(c.courseName ?? '');
       setDescription('');
-      const subjectIds = (c.courseSubjects ?? []).map((s) => s.subjectId);
-      setCurrentCourseSubjectIds(subjectIds);
-      setSelectedSubjectIds(subjectIds);
+      const list = ((c.courseSubjects ?? []) as any[]).map((cs) => ({
+        subjectId: Number(cs.subjectId),
+        subjectName:
+          cs.subject?.subjectName ??
+          cs.subjectName ??
+          allSubjects.find((x) => x.subjectId === Number(cs.subjectId))?.subjectName ??
+          `Môn #${cs.subjectId}`,
+        isActive: cs.isActive === undefined ? true : Boolean(cs.isActive),
+      }));
+      setCourseSubjects(list);
+      setInitialCourseSubjects(list.map((x) => ({ ...x })));
+      setPendingSubjectIdsToAdd([]);
+      setShowAddSubject(false);
     } finally {
       setOpenEdit(true);
     }
@@ -130,8 +159,9 @@ export default function CoursesManagement() {
           courseName: payloadBase.courseName,
         });
 
-        if (selectedSubjectIds.length > 0) {
-          await courseSubjectApi.assignBulk(created.courseId, selectedSubjectIds);
+        const toAddIds = Array.from(new Set(pendingSubjectIdsToAdd));
+        if (toAddIds.length > 0) {
+          await courseSubjectApi.assignBulk(created.courseId, toAddIds);
         }
 
         message.success('Tạo khóa học thành công');
@@ -144,13 +174,34 @@ export default function CoursesManagement() {
 
       await courseApi.update(editingCourse.courseId, payloadBase);
 
-      const toAdd = selectedSubjectIds.filter((id) => !currentCourseSubjectIds.includes(id));
-      const toRemove = currentCourseSubjectIds.filter((id) => !selectedSubjectIds.includes(id));
-      if (toRemove.length > 0) {
-        await courseSubjectApi.removeMany(editingCourse.courseId, toRemove);
+      // 1) bật/tắt (bulk) theo diff so với lúc mở modal
+      const initialMap = new Map<number, boolean>(
+        initialCourseSubjects.map((cs) => [cs.subjectId, cs.isActive ?? true]),
+      );
+      const currentMap = new Map<number, boolean>(
+        courseSubjects.map((cs) => [cs.subjectId, cs.isActive ?? true]),
+      );
+      const toDeactivate: number[] = [];
+      const toActivate: number[] = [];
+      initialMap.forEach((orig, id) => {
+        if (!currentMap.has(id)) return;
+        const cur = currentMap.get(id) ?? orig;
+        if (orig && !cur) toDeactivate.push(id);
+        else if (!orig && cur) toActivate.push(id);
+      });
+      if (toDeactivate.length > 0) {
+        await courseSubjectApi.deactivateMany(editingCourse.courseId, toDeactivate);
       }
-      if (toAdd.length > 0) {
-        await courseSubjectApi.assignBulk(editingCourse.courseId, toAdd);
+      if (toActivate.length > 0) {
+        await courseSubjectApi.activateMany(editingCourse.courseId, toActivate);
+      }
+
+      // 2) gán thêm (bulk)
+      const toAddIds = Array.from(
+        new Set(pendingSubjectIdsToAdd.filter((id) => !courseSubjects.some((cs) => cs.subjectId === id))),
+      );
+      if (toAddIds.length > 0) {
+        await courseSubjectApi.assignBulk(editingCourse.courseId, toAddIds);
       }
 
       message.success('Cập nhật khóa học thành công');
@@ -383,85 +434,194 @@ export default function CoursesManagement() {
         />
       </div>
 
-      <Dialog
-        open={openEdit}
-        onClose={closeEditModal}
-        title={isCreating ? 'Tạo khóa học' : 'Cập nhật khóa học'}
-        description={
-          isCreating
-            ? 'Tạo mới một khóa học trong hệ thống.'
-            : 'Chỉnh sửa thông tin cơ bản của khóa học.'
-        }
-        className="max-w-[520px]"
+      {/* Sidebar upsert (giống detail) */}
+      {openEdit && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 h-full"
+          onClick={closeEditModal}
+          aria-hidden
+        />
+      )}
+      <div
+        className={`fixed top-0 right-0 h-full w-[820px] max-w-[95vw] bg-[#f3f4f6] z-50
+        transition-transform duration-300
+        ${openEdit ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Mã khóa học</Label>
-            <Input value={courseCode} onChange={(e) => setCourseCode(e.target.value)} />
+        <div className="flex flex-col h-full overflow-y-auto no-scrollbar text-gray-700">
+          <div className="px-6 py-5 bg-[#f3f4f6] border-b">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-lg font-semibold text-black">
+                  {isCreating ? 'Tạo khóa học' : 'Cập nhật khóa học'}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {isCreating
+                    ? 'Tạo mới một khóa học trong hệ thống.'
+                    : 'Chỉnh sửa thông tin cơ bản của khóa học.'}
+                </p>
+              </div>
+              <button
+                onClick={closeEditModal}
+                className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                aria-label="Đóng"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>Tên khóa học</Label>
-            <Input value={courseName} onChange={(e) => setCourseName(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Mô tả (tùy chọn)</Label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder="Mô tả ngắn về khóa học"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Môn học trong khóa (tùy chọn)</Label>
-              <div className="max-h-40 overflow-y-auto rounded-md border p-3">
-                {allSubjects.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Đang tải danh sách môn học...</p>
+
+          <div className="p-6 space-y-4">
+            <div className="space-y-2">
+              <Label>Mã khóa học</Label>
+              <Input value={courseCode} onChange={(e) => setCourseCode(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Tên khóa học</Label>
+              <Input value={courseName} onChange={(e) => setCourseName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Mô tả (tùy chọn)</Label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="Mô tả ngắn về khóa học"
+              />
+            </div>
+
+            {/* Môn học — Switch + thêm nhiều rồi Lưu */}
+            <div className="space-y-2 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <Label>Môn học</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => setShowAddSubject(true)}
+                  disabled={allSubjects.length === 0}
+                >
+                  <Plus className="w-4 h-4" />
+                  Thêm môn
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Gạt để bật/tắt môn đã gán; thêm mới qua nút bên trên (tick nhiều ô rồi bấm Lưu).
+              </p>
+
+              <div className="stoms-scrollbar max-h-[40vh] overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
+                {courseSubjects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Chưa gán môn nào. Nhấn &quot;Thêm môn&quot; để chọn.
+                  </p>
                 ) : (
-                  <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {allSubjects.map((s) => (
-                      <label
-                        key={s.subjectId}
-                        className="flex cursor-pointer items-center gap-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedSubjectIds.includes(s.subjectId)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedSubjectIds((prev) => [...prev, s.subjectId]);
-                            } else {
-                              setSelectedSubjectIds((prev) =>
-                                prev.filter((id) => id !== s.subjectId),
-                              );
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <span>
-                          {s.subjectCode} - {s.subjectName}
-                        </span>
-                      </label>
-                    ))}
+                  <div className="space-y-2">
+                    {courseSubjects.map((cs) => {
+                      const isActive = cs.isActive ?? true;
+                      const name =
+                        cs.subjectName ??
+                        allSubjects.find((x) => x.subjectId === cs.subjectId)?.subjectName ??
+                        `Môn #${cs.subjectId}`;
+                      return (
+                        <div
+                          key={cs.subjectId}
+                          className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
+                        >
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-medium text-black truncate">{name}</span>
+                            <span className="text-xs text-gray-500">ID: {cs.subjectId}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs text-gray-500 hidden sm:inline">
+                              {isActive ? 'Đang dùng' : 'Đang tắt'}
+                            </span>
+                            <Switch
+                              checked={isActive}
+                              onCheckedChange={(checked) => {
+                                setCourseSubjects((prev) =>
+                                  prev.map((it) =>
+                                    it.subjectId === cs.subjectId ? { ...it, isActive: checked } : it,
+                                  ),
+                                );
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             </div>
-        </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={closeEditModal} disabled={submitting}>
-            Hủy
-          </Button>
-          <Button
-            className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-            onClick={handleSubmitEdit}
-            disabled={submitting}
-          >
-            {submitting ? (isCreating ? 'Đang tạo...' : 'Đang lưu...') : isCreating ? 'Tạo' : 'Lưu'}
-          </Button>
+            {showAddSubject && (
+              <div className="space-y-2 rounded-md border bg-white p-3">
+                <div className="flex items-center justify-between">
+                  <Label>Thêm môn học</Label>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddSubject(false)}>
+                    Đóng
+                  </Button>
+                </div>
+                <div className="text-xs text-gray-500 mb-1">
+                  Chọn một hoặc nhiều môn chưa gán; bấm <strong>Lưu</strong> để gán hàng loạt.
+                </div>
+                <div className="stoms-scrollbar max-h-64 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
+                  {allSubjects.filter((s) => !courseSubjects.some((cs) => cs.subjectId === s.subjectId)).length ===
+                  0 ? (
+                    <p className="text-sm text-muted-foreground">Đã gán hết môn có sẵn.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {allSubjects
+                        .filter((s) => !courseSubjects.some((cs) => cs.subjectId === s.subjectId))
+                        .map((s) => {
+                          const checked = pendingSubjectIdsToAdd.includes(s.subjectId);
+                          return (
+                            <label
+                              key={s.subjectId}
+                              className="flex w-full cursor-pointer items-center gap-3 rounded-md border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300"
+                                checked={checked}
+                                onChange={(e) => {
+                                  setPendingSubjectIdsToAdd((prev) =>
+                                    e.target.checked
+                                      ? [...prev, s.subjectId]
+                                      : prev.filter((id) => id !== s.subjectId),
+                                  );
+                                }}
+                              />
+                              <span className="flex-1">
+                                {s.subjectCode} - {s.subjectName}
+                              </span>
+                              <span className="text-xs text-gray-400">#{s.subjectId}</span>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-auto border-t bg-white p-4">
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeEditModal} disabled={submitting}>
+                Hủy
+              </Button>
+              <Button
+                className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                onClick={handleSubmitEdit}
+                disabled={submitting}
+              >
+                {submitting ? (isCreating ? 'Đang tạo...' : 'Đang lưu...') : isCreating ? 'Tạo' : 'Lưu'}
+              </Button>
+            </div>
+          </div>
         </div>
-      </Dialog>
+      </div>
     </div>
   );
 }

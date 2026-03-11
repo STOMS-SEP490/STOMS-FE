@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { message } from 'antd';
+import { Plus } from 'lucide-react';
 import memberApi from '@/modules/member/api/memberApi';
+import topicApi from '@/modules/topic/api/topicApi';
 import teamService from '../services/teamService';
 import type { Member } from '@/modules/member/member';
-import type { Team } from '../team';
+import type { Team, TeamTopic } from '../team';
+import type { TopicListItem } from '@/modules/topic/topic';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
+import { Switch } from '@/shared/components/ui/switch';
 import { cn } from '@/shared/lib/utils';
 
 type Props = {
@@ -24,10 +28,17 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
   const [candidates, setCandidates] = useState<Member[]>([]);
   const [leaderOptions, setLeaderOptions] = useState<Member[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [loadingTopics, setLoadingTopics] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [currentTeamMemberIds, setCurrentTeamMemberIds] = useState<number[]>([]);
+  const [topicCandidates, setTopicCandidates] = useState<TopicListItem[]>([]);
+  /** Danh sách team-topic đã gán (có isActive) — bật/tắt bằng Switch, Lưu mới gọi API */
+  const [teamTopics, setTeamTopics] = useState<TeamTopic[]>([]);
+  const [initialTeamTopics, setInitialTeamTopics] = useState<TeamTopic[]>([]);
+  const [pendingTopicIdsToAdd, setPendingTopicIdsToAdd] = useState<number[]>([]);
+  const [showAddTopic, setShowAddTopic] = useState(false);
 
   useEffect(() => {
     const fetchCandidates = async () => {
@@ -35,6 +46,11 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         setCandidates([]);
         setSelectedMemberIds([]);
         setCurrentTeamMemberIds([]);
+        setTopicCandidates([]);
+        setTeamTopics([]);
+        setInitialTeamTopics([]);
+        setPendingTopicIdsToAdd([]);
+        setShowAddTopic(false);
         return;
       }
 
@@ -44,11 +60,23 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
       setError('');
       setSelectedMemberIds([]);
       setCurrentTeamMemberIds([]);
+      setTeamTopics([]);
+      setInitialTeamTopics([]);
+      setPendingTopicIdsToAdd([]);
+      setShowAddTopic(false);
 
       try {
         setLoadingCandidates(true);
-        const res = await memberApi.getMembers({ pageSize: 500 });
-        const items = (res.items ?? []) as Member[];
+        setLoadingTopics(true);
+
+        const [membersRes, topicsRes, teamDetails] = await Promise.all([
+          memberApi.getMembers({ pageSize: 500 }),
+          topicApi.getTopics({ pageNumber: 1, pageSize: 500 }),
+          teamService.getTeamById(team.teamId),
+        ]);
+
+        const items = ((membersRes as any).items ?? []) as Member[];
+        const allTopics = (((topicsRes as any).items ?? []) as TopicListItem[]).filter((t) => t?.isActive);
 
         const isInThisTeam = (m: any) => Number(m?.team?.teamId) === Number(team.teamId);
         const isNoTeam = (m: any) => m?.team == null || m?.team?.teamId == null;
@@ -80,11 +108,21 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         setCurrentTeamMemberIds(inTeamIds);
         const ensureLeader = leaderId != null ? Array.from(new Set([...inTeamIds, leaderId])) : inTeamIds;
         setSelectedMemberIds(ensureLeader);
+
+        const rawTopics = (teamDetails?.teamTopics ?? []) as TeamTopic[];
+        const list = rawTopics.filter((x) => Number.isFinite(x?.topicId) && x.topicId > 0);
+        setTopicCandidates(allTopics);
+        setTeamTopics(list.map((x) => ({ ...x, isActive: x.isActive ?? true })));
+        setInitialTeamTopics(list.map((x) => ({ ...x, isActive: x.isActive ?? true })));
+        setPendingTopicIdsToAdd([]);
+        setShowAddTopic(false);
       } catch {
         setCandidates([]);
         setLeaderOptions([]);
+        setTopicCandidates([]);
       } finally {
         setLoadingCandidates(false);
+        setLoadingTopics(false);
       }
     };
 
@@ -125,6 +163,36 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         await teamService.removeMembers(toRemove);
       }
 
+      // 1) Bật/tắt topic đã gán (bulk) — so với lúc mở modal
+      const initialMap = new Map<number, boolean>(
+        initialTeamTopics.map((tt) => [tt.topicId, tt.isActive ?? true]),
+      );
+      const currentMap = new Map<number, boolean>(
+        teamTopics.map((tt) => [tt.topicId, tt.isActive ?? true]),
+      );
+      const toDeactivate: number[] = [];
+      const toActivate: number[] = [];
+      initialMap.forEach((orig, id) => {
+        if (!currentMap.has(id)) return;
+        const cur = currentMap.get(id) ?? orig;
+        if (orig && !cur) toDeactivate.push(id);
+        else if (!orig && cur) toActivate.push(id);
+      });
+      if (toDeactivate.length > 0) {
+        await teamService.deactivateTopicsMany(team.teamId, toDeactivate);
+      }
+      if (toActivate.length > 0) {
+        await teamService.activateTopicsMany(team.teamId, toActivate);
+      }
+
+      // 2) Gán thêm topic (bulk) — topic mới mặc định IsActive = true ở BE
+      const toAddTopicIds = Array.from(
+        new Set(pendingTopicIdsToAdd.filter((id) => !teamTopics.some((tt) => tt.topicId === id))),
+      );
+      if (toAddTopicIds.length > 0) {
+        await teamService.addTopicsBulk(team.teamId, toAddTopicIds);
+      }
+
       message.success('Cập nhật nhóm thành công');
       onClose();
       onUpdated?.();
@@ -144,9 +212,14 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
     setLeaderMemberId(null);
     setCandidates([]);
     setLeaderOptions([]);
+    setTopicCandidates([]);
     setError('');
     setSelectedMemberIds([]);
     setCurrentTeamMemberIds([]);
+    setTeamTopics([]);
+    setInitialTeamTopics([]);
+    setPendingTopicIdsToAdd([]);
+    setShowAddTopic(false);
     onClose();
   };
 
@@ -213,7 +286,7 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
           <p className="text-sm text-gray-500">Đang tải danh sách thành viên...</p>
         ) : candidates.length > 0 ? (
           <div className="space-y-2">
-            <div className="max-h-56 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-2">
+            <div className="max-h-56 overflow-y-auto stoms-scrollbar space-y-2 pr-2">
               {candidates.map((m) => {
                 const isInTeam = currentTeamMemberIds.includes(m.memberId);
                 const isLeader = leaderMemberId != null && m.memberId === leaderMemberId;
@@ -255,6 +328,122 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         ) : (
           <p className="text-sm text-gray-500">Không có thành viên phù hợp để hiển thị.</p>
         )}
+
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-black font-medium">Chủ đề của nhóm</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => setShowAddTopic(true)}
+              disabled={topicCandidates.length === 0}
+            >
+              <Plus className="w-4 h-4" />
+              Thêm chủ đề
+            </Button>
+          </div>
+          <p className="text-xs text-gray-600">
+            Gạt để bật/tắt chủ đề đã gán; thêm mới qua nút bên trên (tick nhiều ô rồi bấm Lưu).
+          </p>
+        </div>
+
+        {loadingTopics ? (
+          <p className="text-sm text-gray-500">Đang tải danh sách chủ đề...</p>
+        ) : (
+          <div className="space-y-2">
+            <div className="max-h-56 overflow-y-auto stoms-scrollbar space-y-2 pr-2 rounded-md border bg-muted/20 p-3 pr-2">
+              {teamTopics.length === 0 && !showAddTopic ? (
+                <p className="text-sm text-gray-500">
+                  Chưa gán chủ đề nào. Nhấn &quot;Thêm chủ đề&quot; để chọn.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {teamTopics.map((tt) => {
+                    const isActiveTopic = tt.isActive ?? true;
+                    const name = tt.topicName ?? topicCandidates.find((c) => c.topicId === tt.topicId)?.topicName ?? `Chủ đề #${tt.topicId}`;
+                    return (
+                      <div
+                        key={`${tt.teamId}-${tt.topicId}`}
+                        className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-medium text-black truncate">{name}</span>
+                          <span className="text-xs text-gray-500">ID: {tt.topicId}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-gray-500 hidden sm:inline">
+                            {isActiveTopic ? 'Đang dùng' : 'Đang tắt'}
+                          </span>
+                          <Switch
+                            checked={isActiveTopic}
+                            onCheckedChange={(checked) => {
+                              setTeamTopics((prev) =>
+                                prev.map((item) =>
+                                  item.topicId === tt.topicId ? { ...item, isActive: checked } : item,
+                                ),
+                              );
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showAddTopic && (
+          <div className="space-y-2 rounded-md border bg-white p-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-black font-medium">Thêm chủ đề</Label>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddTopic(false)}>
+                Đóng
+              </Button>
+            </div>
+            <p className="text-xs text-gray-600">
+              Chọn một hoặc nhiều chủ đề chưa gán; bấm <strong>Lưu</strong> để gán hàng loạt.
+            </p>
+            <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
+              {topicCandidates.filter((t) => !teamTopics.some((tt) => tt.topicId === t.topicId)).length === 0 ? (
+                <p className="text-sm text-gray-500">Đã gán hết chủ đề có sẵn.</p>
+              ) : (
+                <div className="space-y-2">
+                  {topicCandidates
+                    .filter((t) => !teamTopics.some((tt) => tt.topicId === t.topicId))
+                    .map((t) => {
+                      const checked = pendingTopicIdsToAdd.includes(t.topicId);
+                      return (
+                        <label
+                          key={t.topicId}
+                          className="flex w-full cursor-pointer items-center gap-3 rounded-md border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300"
+                            checked={checked}
+                            onChange={(e) => {
+                              setPendingTopicIdsToAdd((prev) =>
+                                e.target.checked
+                                  ? [...prev, t.topicId]
+                                  : prev.filter((id) => id !== t.topicId),
+                              );
+                            }}
+                          />
+                          <span className="flex-1">{t.topicName}</span>
+                          <span className="text-xs text-gray-400">#{t.topicId}</span>
+                        </label>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {selectedMemberIds.length > 0 && (
           <p className="text-xs text-gray-600">
             Sẽ thêm {selectedMemberIds.length} thành viên vào nhóm sau khi lưu.

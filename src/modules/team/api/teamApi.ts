@@ -31,10 +31,12 @@ function mapTeamSessionFromApi(raw: Record<string, unknown>): TeamSession {
 }
 
 function mapTeamTopicFromApi(raw: Record<string, unknown>): TeamTopic {
+  const isActiveRaw = raw['isActive'] ?? raw['IsActive'];
   return {
     teamId: Number(raw['teamId'] ?? raw['TeamId']),
     topicId: Number(raw['topicId'] ?? raw['TopicId']),
     topicName: (raw['topicName'] ?? raw['TopicName'] ?? null) as string | null,
+    isActive: isActiveRaw === undefined ? true : Boolean(isActiveRaw),
     createdAt: raw['createdAt'] != null || raw['CreatedAt'] != null
       ? String(raw['createdAt'] ?? raw['CreatedAt'])
       : '',
@@ -117,5 +119,25 @@ export const teamApi = {
   /** DELETE api/team-members - BE: TeamMemberRemoveRequest { MemberIds } */
   removeMembers: async (memberIds: number[]): Promise<void> => {
     await axiosClient.delete('/team-members', { data: { MemberIds: memberIds } });
+  },
+
+  /** POST api/team-topics/bulk - BE: TeamTopicBulkCreateRequest { TeamId, TopicIds } */
+  addTopicsBulk: async (teamId: number, topicIds: number[]): Promise<void> => {
+    await axiosClient.post('/team-topics/bulk', { TeamId: teamId, TopicIds: topicIds });
+  },
+
+  /** DELETE api/team-topics/team/:teamId/topics - BE: TeamTopicBulkRemoveRequest { TopicIds } */
+  removeTopicsBulk: async (teamId: number, topicIds: number[]): Promise<void> => {
+    await axiosClient.delete(`/team-topics/team/${teamId}/topics`, { data: { TopicIds: topicIds } });
+  },
+
+  /** PUT api/team-topics/team/:teamId/topics/activate — bật nhiều topic của team (body: { TopicIds } ) */
+  activateTopicsMany: async (teamId: number, topicIds: number[]): Promise<void> => {
+    await axiosClient.put(`/team-topics/team/${teamId}/topics/activate`, { TopicIds: topicIds });
+  },
+
+  /** PUT api/team-topics/team/:teamId/topics/deactivate — tắt nhiều topic của team (body: { TopicIds } ) */
+  deactivateTopicsMany: async (teamId: number, topicIds: number[]): Promise<void> => {
+    await axiosClient.put(`/team-topics/team/${teamId}/topics/deactivate`, { TopicIds: topicIds });
   },
 };

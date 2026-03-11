@@ -17,6 +17,25 @@ const eventSessionSkillApi = {
   remove: (eventSessionId: number, skillId: number) => {
     return axiosClient.delete(`/event-session-skills/${eventSessionId}`, { params: { skillId } })
   },
+
+  /** Gán nhiều skill cho 1 buổi (bulk). */
+  assignBulk: (eventSessionId: number, skillIds: number[]) => {
+    return axiosClient.post(`/event-session-skills/event-session/${eventSessionId}/skills/bulk`, {
+      SkillIds: skillIds,
+    })
+  },
+
+  activateMany: (eventSessionId: number, skillIds: number[]) => {
+    return axiosClient.put(`/event-session-skills/event-session/${eventSessionId}/skills/activate`, {
+      SkillIds: skillIds,
+    })
+  },
+
+  deactivateMany: (eventSessionId: number, skillIds: number[]) => {
+    return axiosClient.put(`/event-session-skills/event-session/${eventSessionId}/skills/deactivate`, {
+      SkillIds: skillIds,
+    })
+  },
 }
 
 export default eventSessionSkillApi

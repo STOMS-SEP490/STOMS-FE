@@ -87,7 +87,8 @@ export default function TeamsManagement() {
     {
       id: 'topics',
       header: 'Số topic',
-      cell: ({ row }) => row.original.teamTopics?.length ?? 0,
+      cell: ({ row }) =>
+        row.original.teamTopics?.filter((tt) => tt.isActive !== false).length ?? 0,
     },
     {
       accessorKey: 'createdAt',

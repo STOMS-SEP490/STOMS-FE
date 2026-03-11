@@ -3,6 +3,7 @@ import type { SubjectListItem } from '@/modules/subject/subject';
 export type CourseSubjectSummary = {
   subjectId: number;
   subjectName?: string;
+  isActive?: boolean;
   subject?: SubjectListItem;
 };
 
