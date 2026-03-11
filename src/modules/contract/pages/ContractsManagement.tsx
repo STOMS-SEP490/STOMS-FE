@@ -203,7 +203,7 @@ export default function ContractsManagement() {
               className="text-gray-800 cursor-pointer"
               onClick={() => handleViewDetail(contract)}
             />
-            {!isManagerPage && (
+            {!isManagerPage && contract.isPaid !== true && (
               <Pencil
                 size={16}
                 className="text-blue-600 cursor-pointer"
