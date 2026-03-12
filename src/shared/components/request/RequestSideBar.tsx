@@ -1,31 +1,62 @@
-import Badge from 'antd/es/badge/Badge';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
+import { Badge } from '@/shared/components/ui/badge';
 
 function isPendingStatus(status: string | undefined): boolean {
   const s = (status ?? '').toLowerCase();
   return s === 'pending' || s.includes('chờ') || s.includes('pending');
 }
 
+function getRequestType(item: { subjectId?: number | null; courseId?: number | null; eventId?: number | null }) {
+  if (item.eventId) return { label: 'Event', cls: 'bg-orange-50 text-orange-700 border-orange-200' };
+  if (item.subjectId) return { label: 'Môn', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+  if (item.courseId) return { label: 'Khóa học', cls: 'bg-purple-50 text-purple-700 border-purple-200' };
+  return { label: 'Khác', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+}
+
 export type RequestSidebarProps = {
   search?: string;
   onlyPending?: boolean;
+  typeFilter?: 'all' | 'event' | 'subject' | 'course';
+  statusFilter?: 'all' | 'pending' | 'approved' | 'rejected';
+  refreshKey?: number;
 };
 
-export default function RequestSidebar({ search = '', onlyPending = false }: RequestSidebarProps) {
+export default function RequestSidebar({
+  search = '',
+  onlyPending = false,
+  typeFilter = 'all',
+  statusFilter = 'all',
+  refreshKey = 0,
+}: RequestSidebarProps) {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const { data: requestList, totalItems, loading } = useRequests(1, 50);
+  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey);
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   const filtered = requestList
     .filter((item) => {
+      const q = search.trim().toLowerCase();
       const matchSearch =
-        (item.requestName ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        (item.customerName ?? '').toLowerCase().includes(search.toLowerCase());
+        (item.requestCode ?? '').toLowerCase().includes(q) ||
+        (item.requestName ?? '').toLowerCase().includes(q);
       if (!matchSearch) return false;
+      const matchType = (() => {
+        if (typeFilter === 'all') return true;
+        if (typeFilter === 'event') return !!item.eventId;
+        if (typeFilter === 'subject') return !!item.subjectId;
+        if (typeFilter === 'course') return !!item.courseId;
+      })();
+      if (!matchType) return false;
+
       if (onlyPending) return isPendingStatus(item.status);
+      if (statusFilter === 'all') return true;
+      const s = String(item.status ?? '').toLowerCase();
+      if (statusFilter === 'pending') return s.includes('pending') || s.includes('chờ');
+      if (statusFilter === 'approved') return s.includes('approved') || s.includes('đã duyệt');
+      if (statusFilter === 'rejected') return s.includes('rejected') || s.includes('reject') || s.includes('từ chối');
       return true;
     });
 
@@ -33,13 +64,20 @@ export default function RequestSidebar({ search = '', onlyPending = false }: Req
     <div className="text-black">
       <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="flex justify-between p-4 border-b">
-          <h2 className="font-semibold text-lg text-black">Danh sách yêu cầu</h2>
-          <span className="text-sm font-medium text-primary">{filtered.length}</span>
+        <div className="flex justify-between items-center p-4 border-b border-slate-200">
+          <div className="min-w-0">
+            <h2 className="font-semibold text-base text-black truncate">Danh sách yêu cầu</h2>
+            <p className="text-[11px] text-slate-500">
+              {loading ? 'Đang tải...' : `${filtered.length}${typeof totalItems === 'number' ? `/${totalItems}` : ''} yêu cầu`}
+            </p>
+          </div>
+          <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1">
+            {filtered.length}
+          </span>
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50">
           {loading && (
             <div className="p-4 text-sm text-gray-500">Đang tải danh sách...</div>
           )}
@@ -49,23 +87,38 @@ export default function RequestSidebar({ search = '', onlyPending = false }: Req
           {!loading &&
             filtered.map((item) => {
               const isActive = id === String(item.requestId);
+              const isHovered = hoveredId === item.requestId;
 
               return (
                 <div
                   key={item.requestId}
                   onClick={() => navigate(`/manager/requests/${item.requestId}`)}
-                  className={`cursor-pointer rounded-xl border p-4 transition
-                  ${isActive ? 'bg-blue-50 border-blue-500' : 'bg-white hover:shadow-sm'}`}
+                  onMouseEnter={() => setHoveredId(item.requestId)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  className={`cursor-pointer rounded-2xl border p-3 transition group
+                  ${isActive ? 'bg-blue-50/70 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="text-sm font-medium text-black">
-                      {item.requestName || item.requestCode}
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-black truncate">
+                        {item.requestName || '—'}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        <Badge className="bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-medium">
+                          {item.requestCode}
+                        </Badge>
+                        <Badge className={`border text-[11px] font-medium ${getRequestType(item).cls}`}>
+                          {getRequestType(item).label}
+                        </Badge>
+                      </div>
                     </div>
                     <StatusBadge status={item.status} />
                   </div>
-                  <div className="text-xs text-gray-500 mt-2">
-                    {item.customerName || '—'}
-                  </div>
+                  {(isActive || isHovered) && (
+                    <div className="mt-2 text-[11px] text-slate-600">
+                      Bấm để xem chi tiết
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -79,13 +132,33 @@ function StatusBadge({ status }: { status: string }) {
   const s = (status ?? '').toLowerCase();
 
   if (s.includes('chờ') || s.includes('pending'))
-    return <Badge className="bg-orange-100 text-orange-600 text-xs">Chờ duyệt</Badge>;
+    return (
+      <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-medium whitespace-nowrap shrink-0">
+        Chờ duyệt
+      </Badge>
+    );
   if (s.includes('đã duyệt') || s.includes('approved'))
-    return <Badge className="bg-green-100 text-green-600 text-xs">Đã duyệt</Badge>;
+    return (
+      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-medium whitespace-nowrap shrink-0">
+        Đã duyệt
+      </Badge>
+    );
   if (s.includes('đang xử lý') || s.includes('processing'))
-    return <Badge className="bg-blue-100 text-blue-600 text-xs">Đang xử lý</Badge>;
+    return (
+      <Badge className="bg-sky-50 text-sky-700 border border-sky-200 text-[11px] font-medium whitespace-nowrap shrink-0">
+        Đang xử lý
+      </Badge>
+    );
   if (s.includes('từ chối') || s.includes('reject'))
-    return <Badge className="bg-red-100 text-red-600 text-xs">Từ chối</Badge>;
+    return (
+      <Badge className="bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-medium whitespace-nowrap shrink-0">
+        Từ chối
+      </Badge>
+    );
 
-  return <Badge className="bg-gray-100 text-gray-600 text-xs">{status || '—'}</Badge>;
+  return (
+    <Badge className="bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-medium whitespace-nowrap shrink-0">
+      {status || '—'}
+    </Badge>
+  );
 }
