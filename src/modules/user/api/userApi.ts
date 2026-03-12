@@ -47,7 +47,11 @@ const userService = {
   },
 
   createUsersBulk: async (payload: { quantity: number; roleId: number; emails: string[] }) => {
-    return axiosClient.post('/users/bulk', payload);
+    const { roleId, emails } = payload;
+    return axiosClient.post('/users/bulk', {
+      roleId,
+      users: emails.map((email) => ({ email })),
+    });
   },
 };
 
