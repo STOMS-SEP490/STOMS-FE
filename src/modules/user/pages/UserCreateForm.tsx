@@ -56,7 +56,6 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
       message.success('Tạo tài khoản thành công');
       setQuantity(1);
       setEmailsText('');
-      setMode('manual');
       onClose();
       onCreated?.();
     } catch (err) {
@@ -69,7 +68,6 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
   const handleClose = () => {
     setQuantity(1);
     setEmailsText('');
-    setMode('manual');
     setError('');
     onClose();
   };
