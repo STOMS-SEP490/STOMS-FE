@@ -274,14 +274,18 @@ export default function RequestDetailTeamPanel({
       {teamDetailPopup &&
         createPortal(
           <div
-            className="fixed z-[100] w-72 rounded-2xl bg-white shadow-xl ring-1 ring-black/5 overflow-hidden"
+            className="fixed z-[100] w-72 rounded-2xl bg-white shadow-xl overflow-hidden"
             style={{ left: teamDetailPopup.left, top: teamDetailPopup.top }}
             onMouseEnter={handlePopupMouseEnter}
             onMouseLeave={handlePopupMouseLeave}
           >
-            <div className="bg-gradient-to-br from-[#208aae]/10 to-[#2197C0]/5 px-4 py-3 border-b border-gray-100">
-              <p className="text-sm font-semibold text-gray-900 truncate">{teamDetailPopup.team.teamName}</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">ID: {teamDetailPopup.team.teamId}</p>
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {teamDetailPopup.team.teamName}
+                </p>
+                <p className="text-[11px] text-gray-500 mt-0.5">ID đội: {teamDetailPopup.team.teamId}</p>
+              </div>
             </div>
             <div className="p-4 space-y-3">
               {(teamDetailPopup.team as { leader?: { fullName?: string } }).leader && (
@@ -300,14 +304,6 @@ export default function RequestDetailTeamPanel({
                   </span>
                 </div>
               )}
-              {teamDetailPopup.team.createdAt && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-gray-400 shrink-0 w-20">Tạo lúc</span>
-                  <span className="text-xs text-gray-600">
-                    {dayjs(teamDetailPopup.team.createdAt).format('DD/MM/YYYY')}
-                  </span>
-                </div>
-              )}
               {((teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount != null ||
                 (teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount != null) && (
                 <div className="pt-2 border-t border-gray-100 space-y-1.5">
@@ -315,12 +311,12 @@ export default function RequestDetailTeamPanel({
                   <div className="flex gap-3">
                     {(teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount != null && (
                       <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                        GV: {(teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount}
+                        Giảng viên: {(teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount}
                       </span>
                     )}
                     {(teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount != null && (
                       <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                        TA: {(teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount}
+                        Trợ giảng: {(teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount}
                       </span>
                     )}
                   </div>

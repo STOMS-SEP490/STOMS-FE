@@ -4,7 +4,8 @@ import type { RequestListItem } from '../request';
 
 export const useRequests = (
   pageNumber: number,
-  pageSize: number
+  pageSize: number,
+  refreshKey: number = 0
 ) => {
   const [data, setData] = useState<RequestListItem[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -30,7 +31,7 @@ export const useRequests = (
     };
 
     fetchData();
-  }, [pageNumber, pageSize]);
+  }, [pageNumber, pageSize, refreshKey]);
 
   return { data, totalItems, loading };
 };
