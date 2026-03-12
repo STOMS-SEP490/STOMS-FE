@@ -31,7 +31,7 @@ type Props = {
   onUpdated?: () => void;
 };
 
-const ROLE_OPTIONS = [1, 2, 3, 4, 5].map((id) => ({
+const ROLE_OPTIONS = [1, 2, 3, 4, 5, 6].map((id) => ({
   value: id,
   label: ROLE_MAP[id] ?? `Vai trò ${id}`,
 }));

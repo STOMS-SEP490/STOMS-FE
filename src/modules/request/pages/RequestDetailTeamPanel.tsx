@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import dayjs from 'dayjs';
 import { Search, X } from 'lucide-react';
+import { message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
@@ -12,28 +13,46 @@ export type SessionForTeam = {
   sessionNo: number;
   startAt: string;
   endAt: string;
+  teachersRequired?: number | null;
+  tasRequired?: number | null;
 };
 
 type Props = {
   session: SessionForTeam & { sessionId: number };
   requestCode: string;
   sessionsCount: number;
+  allSessions: Array<{
+    sessionId: number;
+    teachersRequired?: number | null;
+    tasRequired?: number | null;
+  }>;
+  suggestedTeamIdsBySessionId?: Record<number, number[]>;
+  currentAssignedTeamIds?: number[];
   onClose: () => void;
-  onAssignToAll: (teamIds: number[]) => void;
+  onAssignSession: (sessionId: number, teamIds: number[]) => void;
+  onAssignAllUi: (args: { sessionIds: number[]; teamId: number }) => void;
+  onClearAllUi: (sessionIds: number[]) => void;
 };
 
 export default function RequestDetailTeamPanel({
   session,
   requestCode,
   sessionsCount,
+  allSessions,
+  suggestedTeamIdsBySessionId,
+  currentAssignedTeamIds,
   onClose,
-  onAssignToAll,
+  onAssignSession,
+  onAssignAllUi,
+  onClearAllUi,
 }: Props) {
   const [suggestedTeams, setSuggestedTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [teamSearch, setTeamSearch] = useState('');
   const [addedTeamIds, setAddedTeamIds] = useState<number[]>([]);
+  const [assignAllEnabled, setAssignAllEnabled] = useState(false);
+  const [assignAllAppliedSessionIds, setAssignAllAppliedSessionIds] = useState<number[]>([]);
   const [teamDetailPopup, setTeamDetailPopup] = useState<{ team: Team; left: number; top: number } | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closePopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,7 +61,6 @@ export default function RequestDetailTeamPanel({
     const fetchTeams = async () => {
       setLoading(true);
       setError(null);
-      setAddedTeamIds([]);
       try {
         const teams = await sessionApi.suggestTeams(session.sessionId);
         setSuggestedTeams(teams);
@@ -59,6 +77,24 @@ export default function RequestDetailTeamPanel({
     };
     void fetchTeams();
   }, [session.sessionId]);
+
+  useEffect(() => {
+    // Khi chuyển sang session khác thì mới reset trạng thái switch + selection theo session đó.
+    setAddedTeamIds(currentAssignedTeamIds ?? []);
+    setAssignAllEnabled(false);
+    setAssignAllAppliedSessionIds([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.sessionId]);
+
+  useEffect(() => {
+    // Nếu người dùng bỏ hết team đã chọn thì không thể "gán cho tất cả"
+    if (addedTeamIds.length === 0 && assignAllEnabled) {
+      setAssignAllEnabled(false);
+      if (assignAllAppliedSessionIds.length > 0) onClearAllUi(assignAllAppliedSessionIds);
+      setAssignAllAppliedSessionIds([]);
+      onAssignAllUi({ sessionIds: [], teamId: 0 });
+    }
+  }, [addedTeamIds.length, assignAllAppliedSessionIds, assignAllEnabled, onAssignAllUi, onClearAllUi]);
 
   const filteredTeams = useMemo(() => {
     const q = teamSearch.trim().toLowerCase();
@@ -104,13 +140,80 @@ export default function RequestDetailTeamPanel({
 
   const handlePopupMouseLeave = useCallback(() => setTeamDetailPopup(null), []);
 
-  const assignAllChecked = sessionsCount > 0 && addedTeamIds.length > 0;
+  const suggestionsReady =
+    allSessions.length > 0 &&
+    allSessions.every((s) => Array.isArray(suggestedTeamIdsBySessionId?.[s.sessionId]));
+
+  const canAssignAll = sessionsCount > 0 && addedTeamIds.length > 0 && !loading && suggestionsReady;
   const handleAssignAllSwitch = useCallback(
-    (checked: boolean) => {
-      onAssignToAll(checked && addedTeamIds.length > 0 ? addedTeamIds : []);
+    async (checked: boolean) => {
+      if (!checked) {
+        setAssignAllEnabled(false);
+        if (assignAllAppliedSessionIds.length > 0) {
+          // Khi tắt switch: chỉ giữ lại gán team cho phiên hiện tại,
+          // các phiên khác được gán bằng "gán tất cả" sẽ bị xóa.
+          const toClear = assignAllAppliedSessionIds.filter((sid) => sid !== session.sessionId);
+          if (toClear.length > 0) {
+            onClearAllUi(toClear);
+          }
+        }
+        // Reset danh sách phiên đã áp dụng bulk (lần sau bật lại tính lại từ đầu)
+        setAssignAllAppliedSessionIds([]);
+        onAssignAllUi({ sessionIds: [], teamId: 0 });
+        return;
+      }
+      if (addedTeamIds.length === 0) return;
+      if (!suggestionsReady) {
+        message.info('Đang tải gợi ý đội cho các phiên, vui lòng thử lại sau vài giây.');
+        return;
+      }
+
+      // Yêu cầu: gán cùng 1 team cho các phiên, nhưng chỉ những phiên có suggestion trùng.
+      // Chọn team ưu tiên là team đầu tiên người dùng chọn.
+      const chosenTeamId = addedTeamIds[0];
+
+      try {
+        const eligibleSessions = allSessions
+          .filter((s) => {
+            const ids = suggestedTeamIdsBySessionId?.[s.sessionId] ?? [];
+            return ids.some((id) => Number(id) === Number(chosenTeamId));
+          })
+          .map((s) => s.sessionId);
+
+        if (eligibleSessions.length === 0) {
+          message.info('Không có phiên nào có team gợi ý trùng để gán.');
+          setAssignAllEnabled(false);
+          setAssignAllAppliedSessionIds([]);
+          onAssignAllUi({ sessionIds: [], teamId: 0 });
+          return;
+        }
+
+        // Chỉ gán trên UI (không gọi API)
+        message.success(`Đã gán (UI) cùng 1 đội cho ${eligibleSessions.length} phiên`);
+        setAssignAllEnabled(true);
+        setAssignAllAppliedSessionIds(eligibleSessions);
+        onAssignAllUi({ sessionIds: eligibleSessions, teamId: chosenTeamId });
+      } catch (err) {
+        console.error(err);
+        message.error('Gán đội cho tất cả phiên thất bại');
+      }
     },
-    [addedTeamIds, onAssignToAll]
+    [
+      addedTeamIds,
+      allSessions,
+      assignAllAppliedSessionIds,
+      onAssignAllUi,
+      onClearAllUi,
+      suggestedTeamIdsBySessionId,
+    ]
   );
+
+  const handleSaveCurrent = useCallback(async () => {
+    // Theo yêu cầu: gán ở UI, không gọi API.
+    message.success('Đã lưu gán đội (UI)');
+    onAssignSession(session.sessionId, addedTeamIds);
+    onClose();
+  }, [addedTeamIds, onAssignSession, onClose, session.sessionId]);
 
   return (
     <div className="space-y-3">
@@ -258,8 +361,8 @@ export default function RequestDetailTeamPanel({
         <p className="text-xs font-medium text-black whitespace-nowrap">Gán đội đã chọn cho tất cả phiên</p>
         <Switch
           className="!rounded-[15px] shrink-0"
-          checked={assignAllChecked}
-          disabled={addedTeamIds.length === 0 || sessionsCount === 0}
+          checked={assignAllEnabled}
+          disabled={!canAssignAll || loading}
           onCheckedChange={handleAssignAllSwitch}
         />
       </div>
@@ -268,7 +371,9 @@ export default function RequestDetailTeamPanel({
         <Button type="button" variant="outline" className="border-gray-300 text-black bg-white" onClick={onClose}>
           Hủy
         </Button>
-        <Button className="bg-blue-600 text-white">Lưu thay đổi</Button>
+        <Button className="bg-blue-600 text-white" onClick={handleSaveCurrent} disabled={loading}>
+          {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+        </Button>
       </div>
     </div>
   );

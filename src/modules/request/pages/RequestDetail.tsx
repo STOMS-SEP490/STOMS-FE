@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Plus, X } from 'lucide-react';
-import { message } from 'antd';
 import RequestHeader from '@/shared/components/request/RequestHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import type { RequestListItem, RequestSessionSummary } from '../request';
 import { requestApi } from '../api/requestApi';
+import { sessionApi } from '../api/sessionApi';
 import { useProgramCoordinatorId } from '../hooks/useProgramCoordinatorId';
 import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
@@ -32,6 +32,8 @@ export default function RequestDetail() {
   const [sessions, setSessions] = useState<SessionWithFlags[]>([]);
   const [rightPanel, setRightPanel] = useState<RightPanelState>(null);
   const [loading, setLoading] = useState(false);
+  const [suggestedTeamIdsBySessionId, setSuggestedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
+  const [uiAssignedTeamIdsBySessionId, setUiAssignedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
   const createdByMemberId = useProgramCoordinatorId();
 
   useEffect(() => {
@@ -62,14 +64,68 @@ export default function RequestDetail() {
     void fetchData();
   }, [id]);
 
-  const handleAssignToAll = useCallback((teamIds: number[]) => {
-    if (teamIds.length > 0) {
-      setSessions((prev) => prev.map((s) => ({ ...s, teamAssigned: true })));
-      message.success('Đã gán đội (giả lập) cho tất cả các phiên trên UI.');
-    } else {
-      setSessions((prev) => prev.map((s) => ({ ...s, teamAssigned: false })));
-      message.info('Đã bỏ gán đội cho tất cả phiên (chỉ UI).');
+  useEffect(() => {
+    // Preload team-suggestions cho tất cả session để "gán cho tất cả" chỉ chạy UI, không gọi API lúc toggle.
+    if (sessions.length === 0) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const pairs = await Promise.all(
+          sessions.map(async (s) => {
+            try {
+              const teams = await sessionApi.suggestTeams(s.sessionId);
+              return [s.sessionId, teams.map((t) => t.teamId) as number[]] as const;
+            } catch {
+              return [s.sessionId, [] as number[]] as const;
+            }
+          })
+        );
+        if (cancelled) return;
+        const map: Record<number, number[]> = {};
+        for (const [sid, ids] of pairs) map[sid] = ids;
+        setSuggestedTeamIdsBySessionId(map);
+      } catch {
+        // ignore
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessions]);
+
+  const handleAssignSession = useCallback((sessionId: number, teamIds: number[]) => {
+    setUiAssignedTeamIdsBySessionId((prev) => ({ ...prev, [sessionId]: teamIds }));
+    setSessions((prev) =>
+      prev.map((s) => (s.sessionId === sessionId ? { ...s, teamAssigned: teamIds.length > 0 } : s))
+    );
+  }, []);
+
+  const handleAssignAllUi = useCallback((args: { sessionIds: number[]; teamId: number }) => {
+    const { sessionIds, teamId } = args;
+    if (sessionIds.length === 0 || !teamId) {
+      return;
     }
+    setUiAssignedTeamIdsBySessionId((prev) => {
+      const next = { ...prev };
+      for (const sid of sessionIds) next[sid] = [teamId];
+      return next;
+    });
+    setSessions((prev) =>
+      prev.map((s) => (sessionIds.includes(s.sessionId) ? { ...s, teamAssigned: true } : s))
+    );
+  }, []);
+
+  const handleClearAllUi = useCallback((sessionIds: number[]) => {
+    if (sessionIds.length === 0) return;
+    setUiAssignedTeamIdsBySessionId((prev) => {
+      const next = { ...prev };
+      for (const sid of sessionIds) delete next[sid];
+      return next;
+    });
+    setSessions((prev) =>
+      prev.map((s) => (sessionIds.includes(s.sessionId) ? { ...s, teamAssigned: false } : s))
+    );
   }, []);
 
   const handleEquipmentSuccess = useCallback(async () => {
@@ -359,8 +415,17 @@ export default function RequestDetail() {
                   session={rightPanel.session}
                   requestCode={request.requestCode ?? ''}
                   sessionsCount={sessions.length}
+                  allSessions={sessions.map((s) => ({
+                    sessionId: s.sessionId,
+                    teachersRequired: (s as any).teachersRequired ?? null,
+                    tasRequired: (s as any).tasRequired ?? null,
+                  }))}
+                  suggestedTeamIdsBySessionId={suggestedTeamIdsBySessionId}
+                  currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                   onClose={() => setRightPanel(null)}
-                  onAssignToAll={handleAssignToAll}
+                  onAssignSession={handleAssignSession}
+                  onAssignAllUi={handleAssignAllUi}
+                  onClearAllUi={handleClearAllUi}
                 />
               )}
               {rightPanel.mode === 'equipment' && (

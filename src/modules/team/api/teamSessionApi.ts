@@ -16,5 +16,12 @@ export const teamSessionApi = {
       sessionId,
       items,
     }),
+
+  /** PUT api/team-sessions/bulk — replace teams for session */
+  replaceForSession: (sessionId: number, items: TeamSessionBulkItem[]): Promise<void> =>
+    axiosClient.put('/team-sessions/bulk', {
+      sessionId,
+      items,
+    }),
 };
 
