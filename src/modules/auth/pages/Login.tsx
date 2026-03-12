@@ -26,8 +26,9 @@ export default function Login() {
       try {
         const raw = localStorage.getItem('user');
         const roleId = raw ? Number(JSON.parse(raw)?.roleId) : NaN;
-        if (roleId === 3) navigate('/pc');
-        else if (roleId === 4) navigate('/teacher');
+        if (roleId === 2) navigate('/tl');
+        else if (roleId === 3) navigate('/pc');
+        else if (roleId === 4 || roleId === 5) navigate('/teacher');
         else navigate('/manager');
       } catch {
         navigate('/manager');
@@ -71,8 +72,9 @@ export default function Login() {
         token: res.accessToken,
       });
 
-      if (res.roleId === 3) navigate('/pc');
-      else if (res.roleId === 4) navigate('/teacher');
+      if (res.roleId === 2) navigate('/tl');
+      else if (res.roleId === 3) navigate('/pc');
+      else if (res.roleId === 4 || res.roleId === 5) navigate('/teacher');
       else navigate('/manager');
     } catch (error: any) {
       const message =

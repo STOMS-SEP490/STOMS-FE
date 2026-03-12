@@ -27,10 +27,37 @@ export type SessionDetail = {
 };
 
 export const sessionApi = {
-  suggestTeams: (sessionId: number): Promise<Team[]> =>
-    axiosClient.get('/sessions/suggest-team', {
-      params: { sessionId },
-    }),
+  suggestTeams: async (sessionId: number): Promise<Team[]> => {
+    const is404 = (err: unknown) => {
+      if (!err || typeof err !== 'object') return false;
+      const anyErr = err as any;
+      return (
+        anyErr?.status === 404 ||
+        anyErr?.statusCode === 404 ||
+        anyErr?.response?.status === 404 ||
+        anyErr?.response?.statusCode === 404
+      );
+    };
+
+    const attempts: Array<() => Promise<Team[]>> = [
+      () => axiosClient.get(`/sessions/${sessionId}/team-suggestions`),
+      () => axiosClient.get('/sessions/suggest-team', { params: { sessionId } }),
+      () => axiosClient.get('/sessions/suggest-teams', { params: { sessionId } }),
+      () => axiosClient.get(`/sessions/${sessionId}/suggest-team`),
+      () => axiosClient.get(`/sessions/${sessionId}/suggest-teams`),
+    ];
+
+    let lastErr: unknown;
+    for (const run of attempts) {
+      try {
+        return await run();
+      } catch (err) {
+        lastErr = err;
+        if (!is404(err)) break;
+      }
+    }
+    throw lastErr;
+  },
 
   getById: async (id: number): Promise<SessionDetail> => {
     const res = await axiosClient.get('/sessions/' + id);
