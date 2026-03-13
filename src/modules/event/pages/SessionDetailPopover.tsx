@@ -1,9 +1,11 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MapPin, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { SessionDetail } from '@/modules/request/api/sessionApi';
 import { Badge } from '@/shared/components/ui/badge';
 import { useSessionDetailPopover } from '@/modules/event/hooks/useSessionDetailPopover';
+import { useCurrentUser } from '@/shared/hooks/useCurrentUser';
 
 type Props = {
   open: boolean;
@@ -26,6 +28,9 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
   const [pos, setPos] = useState<{ left: number; top: number }>({ left: 12, top: 12 });
 
   const { requestCode, requestName, staff } = useSessionDetailPopover(open, session);
+  const navigate = useNavigate();
+  const currentUser = useCurrentUser();
+  const isTeamLeader = currentUser?.role === 'Trưởng nhóm';
 
   const width = 360;
   const gap = 12;
@@ -104,9 +109,15 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
         <div className="px-5 pb-5 flex-1 overflow-y-auto no-scrollbar">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-semibold text-gray-800">Giảng viên/Trợ giảng:</div>
-            <button type="button" className="text-sm text-blue-600 hover:underline">
-              Điểm danh
-            </button>
+            {isTeamLeader && session && (
+              <button
+                type="button"
+                className="text-sm text-blue-600 hover:underline"
+                onClick={() => navigate(`/tl/attendance/${session.sessionId}`)}
+              >
+                Điểm danh
+              </button>
+            )}
           </div>
 
           <div className="space-y-3">

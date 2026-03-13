@@ -22,28 +22,14 @@ type Props = {
   onCreated?: () => void;
 };
 
-const ROLE_OPTIONS = [
-  { value: 1, label: ROLE_MAP[1] ?? 'Admin' },
-  { value: 2, label: ROLE_MAP[2] ?? 'Quản lý' },
-  { value: 3, label: ROLE_MAP[3] ?? 'Tuyển sinh' },
-  { value: 4, label: ROLE_MAP[4] ?? 'Giảng viên' },
-  { value: 5, label: ROLE_MAP[5] ?? 'Trợ giảng' },
-];
-
-function generateRandomEmail() {
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-  let prefix = '';
-  for (let i = 0; i < 3; i++) {
-    prefix += letters.charAt(Math.floor(Math.random() * letters.length));
-  }
-  const number = Math.floor(100 + Math.random() * 900);
-  return `${prefix}${number}@stom.fpt`;
-}
+const ROLE_OPTIONS = [1, 2, 3, 4, 5, 6].map((id) => ({
+  value: id,
+  label: ROLE_MAP[id] ?? `Vai trò ${id}`,
+}));
 
 export default function UserCreateForm({ open, onClose, onCreated }: Props) {
   const [roleId, setRoleId] = useState<number>(4);
   const [quantity, setQuantity] = useState(1);
-  const [mode, setMode] = useState<'manual'>('manual');
   const [emailsText, setEmailsText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -70,7 +56,6 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
       message.success('Tạo tài khoản thành công');
       setQuantity(1);
       setEmailsText('');
-      setMode('manual');
       onClose();
       onCreated?.();
     } catch (err) {
@@ -83,7 +68,6 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
   const handleClose = () => {
     setQuantity(1);
     setEmailsText('');
-    setMode('manual');
     setError('');
     onClose();
   };

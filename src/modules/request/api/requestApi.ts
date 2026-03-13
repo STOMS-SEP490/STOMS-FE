@@ -18,6 +18,20 @@ export const requestApi = {
   create: (data: CreateRequestPayload): Promise<void> =>
     axiosClient.post('/requests', data),
 
+  approve: (id: number, payload: { approvedByMemberId?: number | null }): Promise<RequestListItem> =>
+    axiosClient.put(`/requests/${id}/approve`, {
+      ApprovedByMemberId: payload.approvedByMemberId ?? null,
+    }),
+
+  reject: (
+    id: number,
+    payload: { reason: string; approvedByMemberId?: number | null }
+  ): Promise<RequestListItem> =>
+    axiosClient.put(`/requests/${id}/reject`, {
+      Reason: payload.reason,
+      ApprovedByMemberId: payload.approvedByMemberId ?? null,
+    }),
+
   update: (
     id: number,
     data: Partial<CreateRequestPayload>

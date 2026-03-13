@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Clock, FileText, LogOut, Menu, UserCircle, ClipboardList } from 'lucide-react';
+import {
+  Users,
+  Clock,
+  ClipboardList,
+  UserCircle,
+  Menu,
+  LogOut,
+} from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
 import { logout } from '@/modules/auth/pages/Logout';
 
-export default function TeacherSidebar() {
+export default function TeamLeaderSidebar() {
   const [collapsed, setCollapsed] = useState(true);
   const navigate = useNavigate();
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
@@ -18,7 +25,7 @@ export default function TeacherSidebar() {
     if (!raw) return;
 
     try {
-      const parsed = JSON.parse(raw) as { memberId?: number; email?: string };
+      const parsed = JSON.parse(raw) as { memberId?: number };
       if (!parsed.memberId) return;
 
       memberApi
@@ -42,18 +49,13 @@ export default function TeacherSidebar() {
 
   const menus = useMemo(
     () => [
-      { label: 'Hồ sơ', icon: UserCircle, path: '/teacher/profile' },
-      { label: 'Sự kiện', icon: CalendarDays, path: '/teacher/events' },
-      { label: 'Thời khóa biểu', icon: Clock, path: '/teacher/timetable' },
-      { label: 'Phân công', icon: ClipboardList, path: '/teacher/assignments' },
-      { label: 'Hợp đồng', icon: FileText, path: '/teacher/contracts' },
+      { label: 'Hồ sơ', icon: UserCircle, path: '/tl/profile' },
+      { label: 'Nhóm', icon: Users, path: '/tl/teams' },
+      { label: 'Thời khóa biểu', icon: Clock, path: '/tl/timetable' },
+      { label: 'Phân công', icon: ClipboardList, path: '/tl/assignments' },
     ],
     []
   );
-
-  const handleLogout = async () => {
-    await logout();
-  };
 
   return (
     <aside
@@ -82,7 +84,7 @@ export default function TeacherSidebar() {
       {!collapsed && (
         <button
           type="button"
-          onClick={() => navigate('/teacher/profile')}
+          onClick={() => navigate('/tl/profile')}
           className="flex flex-col items-center mb-8 w-full focus:outline-none"
           title="Xem hồ sơ"
         >
@@ -127,13 +129,12 @@ export default function TeacherSidebar() {
         >
           {menus.map((m) => {
             const Icon = m.icon;
-
             return (
               <NavLink key={m.path} to={m.path}>
                 {({ isActive }) => (
                   <div className={`relative group ${collapsed ? 'h-15' : 'h-20'}`}>
                     <div
-                      className={` 
+                      className={`
                         h-full rounded-xl 
                         flex flex-col items-center justify-center
                         transition-all
@@ -145,7 +146,6 @@ export default function TeacherSidebar() {
                         <div className="text-xs mt-2 text-center text-gray-400">{m.label}</div>
                       )}
                     </div>
-
                     <div
                       className={`
                         absolute inset-0 rounded-xl
@@ -163,23 +163,6 @@ export default function TeacherSidebar() {
                         <div className="text-xs mt-2 font-medium text-center px-1">{m.label}</div>
                       )}
                     </div>
-
-                    {collapsed && (
-                      <div
-                        className="
-                          absolute left-full ml-3
-                          top-1/2 -translate-y-1/2
-                          bg-gray-900 text-white text-xs
-                          px-3 py-1.5 rounded-md
-                          opacity-0 group-hover:opacity-100
-                          transition-all duration-200
-                          whitespace-nowrap
-                          shadow-lg z-50
-                        "
-                      >
-                        {m.label}
-                      </div>
-                    )}
                   </div>
                 )}
               </NavLink>
@@ -190,7 +173,7 @@ export default function TeacherSidebar() {
 
       <div className="mt-auto pt-4">
         <button
-          onClick={handleLogout}
+          onClick={async () => logout()}
           className="w-full flex items-center justify-center gap-2 
                      py-3 rounded-xl text-red-600 
                      hover:bg-red-50 transition"
