@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useRequests } from '../hooks/useRequests';
 import type { RequestListItem } from '../request';
+import { getRequestStatusInfo, getRequestStatusLabel } from '@/constants/status';
 import { Badge } from '@/shared/components/ui/badge';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -16,25 +17,6 @@ const getRequestType = (row: RequestListItem) => {
   if (row.courseId) return 'Course';
   if (row.eventId) return 'Event';
   return 'Khác';
-};
-
-const statusMap = {
-  approved: {
-    label: 'Đã duyệt',
-    className: 'bg-green-100 text-green-700',
-  },
-  pending: {
-    label: 'Chờ duyệt',
-    className: 'bg-yellow-100 text-yellow-700',
-  },
-  draft: {
-    label: 'Nháp',
-    className: 'bg-gray-200 text-gray-700',
-  },
-  rejected: {
-    label: 'Từ chối',
-    className: 'bg-red-100 text-red-600',
-  },
 };
 
 export default function RequestsManagement() {
@@ -48,17 +30,9 @@ export default function RequestsManagement() {
   );
 
   const stats = useMemo(() => {
-    const pending = data.filter(
-      (d) => d.status?.toLowerCase() === 'pending'
-    ).length;
-
-    const approved = data.filter(
-      (d) => d.status?.toLowerCase() === 'approved'
-    ).length;
-
-    const rejected = data.filter(
-      (d) => d.status?.toLowerCase() === 'rejected'
-    ).length;
+    const pending = data.filter((d) => getRequestStatusLabel(d.status) === 'Chờ duyệt').length;
+    const approved = data.filter((d) => getRequestStatusLabel(d.status) === 'Đã duyệt').length;
+    const rejected = data.filter((d) => getRequestStatusLabel(d.status) === 'Từ chối').length;
 
     return { pending, approved, rejected };
   }, [data]);
@@ -107,14 +81,11 @@ export default function RequestsManagement() {
       accessorKey: 'status',
       header: 'Trạng thái',
       cell: ({ row }) => {
-        const status =
-          row.original.status?.toLowerCase() as keyof typeof statusMap;
-
-        const config = statusMap[status] || statusMap.pending;
+        const info = getRequestStatusInfo(row.original.status);
 
         return (
-          <Badge className={config.className}>
-            {config.label}
+          <Badge className={info.className}>
+            {info.label}
           </Badge>
         );
       },

@@ -104,6 +104,7 @@ export default function ContractDetailSidebar({ open, onClose, contract }: Props
 
             <Card title="Thông tin buổi học">
               <div className="grid grid-cols-2 gap-3 text-sm">
+                <InfoRow label="Tên phiên" value={contract.session?.title ?? '—'} />
                 <InfoRow label="Buổi số" value={contract.session?.sessionNo ?? '—'} />
                 <InfoRow
                   label="Thời gian"

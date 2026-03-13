@@ -17,17 +17,13 @@ type Props = {
 export default function EditContractModal({ open, onClose, contract, onUpdated }: Props) {
   const [contractCode, setContractCode] = useState('');
   const [amount, setAmount] = useState<string>('');
-  const [sessionId, setSessionId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (open && contract) {
       setContractCode(contract.contractCode ?? '');
-      setAmount(
-        contract.amount != null ? String(contract.amount) : '',
-      );
-      setSessionId(contract.sessionId ? String(contract.sessionId) : '');
+      setAmount(contract.amount != null ? String(contract.amount) : '');
       setError('');
     }
   }, [open, contract]);
@@ -49,14 +45,11 @@ export default function EditContractModal({ open, onClose, contract, onUpdated }
       return;
     }
 
-    const sessionIdNumber = sessionId ? Number(sessionId) : undefined;
-
     try {
       setLoading(true);
       await contractApi.update(contract.contractId, {
         contractCode: code,
         amount: amountNumber,
-        sessionId: sessionIdNumber,
       });
       message.success('Cập nhật hợp đồng thành công');
       onClose();
@@ -75,7 +68,6 @@ export default function EditContractModal({ open, onClose, contract, onUpdated }
   const handleClose = () => {
     setContractCode('');
     setAmount('');
-    setSessionId('');
     setError('');
     onClose();
   };
@@ -112,19 +104,6 @@ export default function EditContractModal({ open, onClose, contract, onUpdated }
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="Nhập số tiền"
-            className="h-10 text-black placeholder:text-gray-500 border-gray-200"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="edit-sessionId" className="text-black font-medium">
-            ID buổi học
-          </Label>
-          <Input
-            id="edit-sessionId"
-            value={sessionId}
-            onChange={(e) => setSessionId(e.target.value)}
-            placeholder="Nhập ID buổi học (nếu có)"
             className="h-10 text-black placeholder:text-gray-500 border-gray-200"
           />
         </div>

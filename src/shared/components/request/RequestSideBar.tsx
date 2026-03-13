@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import { Badge } from '@/shared/components/ui/badge';
+import { getRequestStatusInfo } from '@/constants/status';
 
 function isPendingStatus(status: string | undefined): boolean {
   const s = (status ?? '').toLowerCase();
@@ -19,7 +20,7 @@ export type RequestSidebarProps = {
   search?: string;
   onlyPending?: boolean;
   typeFilter?: 'all' | 'event' | 'subject' | 'course';
-  statusFilter?: 'all' | 'pending' | 'approved' | 'rejected';
+  statusFilter?: 'all' | 'pending' | 'approved' | 'rejected' | 'assigning';
   refreshKey?: number;
 };
 
@@ -56,7 +57,10 @@ export default function RequestSidebar({
       const s = String(item.status ?? '').toLowerCase();
       if (statusFilter === 'pending') return s.includes('pending') || s.includes('chờ');
       if (statusFilter === 'approved') return s.includes('approved') || s.includes('đã duyệt');
-      if (statusFilter === 'rejected') return s.includes('rejected') || s.includes('reject') || s.includes('từ chối');
+      if (statusFilter === 'rejected')
+        return s.includes('rejected') || s.includes('reject') || s.includes('từ chối');
+      if (statusFilter === 'assigning')
+        return s.includes('assigning') || s.includes('đang phân công');
       return true;
     });
 
@@ -128,37 +132,11 @@ export default function RequestSidebar({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const s = (status ?? '').toLowerCase();
-
-  if (s.includes('chờ') || s.includes('pending'))
-    return (
-      <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-medium whitespace-nowrap shrink-0">
-        Chờ duyệt
-      </Badge>
-    );
-  if (s.includes('đã duyệt') || s.includes('approved'))
-    return (
-      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-medium whitespace-nowrap shrink-0">
-        Đã duyệt
-      </Badge>
-    );
-  if (s.includes('đang xử lý') || s.includes('processing'))
-    return (
-      <Badge className="bg-sky-50 text-sky-700 border border-sky-200 text-[11px] font-medium whitespace-nowrap shrink-0">
-        Đang xử lý
-      </Badge>
-    );
-  if (s.includes('từ chối') || s.includes('reject'))
-    return (
-      <Badge className="bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-medium whitespace-nowrap shrink-0">
-        Từ chối
-      </Badge>
-    );
-
+function StatusBadge({ status }: { status: string | number }) {
+  const info = getRequestStatusInfo(status);
   return (
-    <Badge className="bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-medium whitespace-nowrap shrink-0">
-      {status || '—'}
+    <Badge className={`${info.className} text-[11px] font-medium whitespace-nowrap shrink-0`}>
+      {info.label}
     </Badge>
   );
 }

@@ -41,7 +41,8 @@ function getEventStyle(event: CalendarEvent) {
   const color = event.color || '#22c55e';
   return {
     style: {
-      backgroundColor: `${color}1a`,
+      // Nền pastel cố định theo design
+      backgroundColor: '#e6f6fd',
       color: '#111827',
       border: `1px solid ${color}`,
       borderRadius: '12px',
@@ -161,25 +162,30 @@ export default function EventCalendar() {
           </div>
         </div>
       ),
-      event: (props: { event: CalendarEvent }) => {
-        return (
-          <div className="rbc-event-content h-full flex flex-col">
-            <div className="px-2.5 pt-1.5 pb-1 flex-1 flex flex-col gap-0.5">
-              <span className="text-xs font-semibold text-gray-900 truncate">
-                {props.event.title}
+      event: ({ event }: { event: CalendarEvent }) => (
+        <div className="rbc-event-content h-full flex flex-col">
+          <div className="px-2.5 pt-1.5 pb-1 flex-1 flex flex-col gap-0.5">
+            <div className="flex items-start justify-between gap-1">
+              <span className="text-xs font-semibold text-slate-900 truncate">
+                {event.title}
               </span>
-              <span className="text-[11px] text-gray-700">
-                {format(props.event.start, 'HH:mm')} - {format(props.event.end, 'HH:mm')}
-              </span>
-              {props.event.resource && (
-                <span className="text-[11px] text-gray-500 truncate">
-                  {props.event.resource}
+              {event.unassigned && (
+                <span className="ml-1 inline-flex items-center rounded-full bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap">
+                  Chưa phân công
                 </span>
               )}
             </div>
+            <span className="text-[11px] text-slate-800">
+              {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}
+            </span>
+            {event.resource && (
+              <span className="text-[11px] text-slate-600 truncate">
+                {event.resource}
+              </span>
+            )}
           </div>
-        );
-      },
+        </div>
+      ),
     }),
     [view, formattedRange]
   );

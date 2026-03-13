@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useOutletContext } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2 } from 'lucide-react';
+import { Plus, X, CheckCircle2, CheckSquare } from 'lucide-react';
 import { message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
@@ -18,11 +18,22 @@ import { useProgramCoordinatorId } from '../hooks/useProgramCoordinatorId';
 import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
+import assignmentApi from '../api/assignmentApi';
 
 type SessionWithFlags = RequestSessionSummary & {
   reservationId?: number | null;
   teamAssigned?: boolean;
   equipmentReserved?: boolean;
+};
+
+type SessionAssignmentRow = {
+  assignmentId: number;
+  staffMemberId: number;
+  staffRole: string;
+  status?: string;
+  fullName: string;
+  email: string;
+  avatarUrl: string;
 };
 
 type RightPanelState =
@@ -33,22 +44,36 @@ type RightPanelState =
 
 type RequestLayoutOutletContext = {
   refreshRequestSidebar?: () => void;
+  viewMode?: 'request' | 'assignment';
 };
 
 export default function RequestDetail() {
   const { id } = useParams<{ id: string }>();
-  const { refreshRequestSidebar } = useOutletContext<RequestLayoutOutletContext>();
+  const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
   const [request, setRequest] = useState<RequestListItem | null>(null);
   const [sessions, setSessions] = useState<SessionWithFlags[]>([]);
   const [rightPanel, setRightPanel] = useState<RightPanelState>(null);
   const [loading, setLoading] = useState(false);
   const [suggestedTeamIdsBySessionId, setSuggestedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
   const [uiAssignedTeamIdsBySessionId, setUiAssignedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
+  const [assignmentsBySessionId, setAssignmentsBySessionId] = useState<Record<number, SessionAssignmentRow[]>>({});
+  const [selectedAssignmentIdsBySessionId, setSelectedAssignmentIdsBySessionId] = useState<Record<number, number[]>>(
+    {}
+  );
   const createdByMemberId = useProgramCoordinatorId();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [approvingSessionId, setApprovingSessionId] = useState<number | null>(null);
+  const [rejectAssignmentState, setRejectAssignmentState] = useState<{
+    open: boolean;
+    assignmentId: number | null;
+    sessionId: number | null;
+    displayName: string;
+  }>({ open: false, assignmentId: null, sessionId: null, displayName: '' });
+  const [rejectAssignmentReason, setRejectAssignmentReason] = useState('');
+  const [, setRejectAssignmentLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -133,6 +158,48 @@ export default function RequestDetail() {
       cancelled = true;
     };
   }, [sessions]);
+
+  // Khi ở tab Duyệt phân công, load assignment cho các phiên (nếu chưa có)
+  useEffect(() => {
+    if (viewMode !== 'assignment') return;
+    if (!sessions.length) return;
+    const missingIds = sessions
+      .map((s) => s.sessionId)
+      .filter((sid) => !assignmentsBySessionId[sid]);
+    if (!missingIds.length) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const details = await Promise.all(missingIds.map((sid) => sessionApi.getById(sid)));
+        if (cancelled) return;
+        setAssignmentsBySessionId((prev) => {
+          const next = { ...prev };
+          details.forEach((d) => {
+            const rows: SessionAssignmentRow[] =
+              (d.assignments ?? [])
+                .filter((a) => a && a.assignmentId && a.staffMemberId)
+                .map((a) => ({
+                  assignmentId: a!.assignmentId,
+                  staffMemberId: a!.staffMemberId,
+                  staffRole: (a!.staffRole || '').toUpperCase(),
+                  status: a!.status,
+                  fullName: a!.staffMember?.fullName || '—',
+                  email: a!.staffMember?.userEmail || '',
+                  avatarUrl: a!.staffMember?.avatarUrl || '',
+                })) ?? [];
+            next[d.sessionId] = rows;
+          });
+          return next;
+        });
+      } catch {
+        // ignore
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, sessions, assignmentsBySessionId]);
 
   const handleAssignSession = useCallback((sessionId: number, teamIds: number[]) => {
     setUiAssignedTeamIdsBySessionId((prev) => ({ ...prev, [sessionId]: teamIds }));
@@ -220,6 +287,119 @@ export default function RequestDetail() {
     if (!request || !id) return;
     setApproveOpen(true);
   }, [id, request]);
+
+  const handleToggleAssignmentSelection = useCallback((sessionId: number, assignmentId: number) => {
+    setSelectedAssignmentIdsBySessionId((prev) => {
+      const current = prev[sessionId] ?? [];
+      const exists = current.includes(assignmentId);
+      const nextForSession = exists ? current.filter((id) => id !== assignmentId) : [...current, assignmentId];
+      return { ...prev, [sessionId]: nextForSession };
+    });
+  }, []);
+
+  const handleApproveSelectedAssignments = useCallback(
+    async (sessionId: number) => {
+      const rows = assignmentsBySessionId[sessionId] ?? [];
+      if (!rows.length) {
+        message.warning('Phiên này chưa có assignment nào để duyệt.');
+        return;
+      }
+      const selected = selectedAssignmentIdsBySessionId[sessionId] ?? [];
+      const ids = (selected.length ? selected : rows.map((r) => r.assignmentId)).filter((id) => id > 0);
+      if (!ids.length) {
+        message.warning('Vui lòng chọn ít nhất một assignment để duyệt.');
+        return;
+      }
+      try {
+        setApprovingSessionId(sessionId);
+        await assignmentApi.approve(ids);
+        message.success('Đã duyệt các assignment đã chọn.');
+        // reload assignments cho phiên này
+        const detail = await sessionApi.getById(sessionId);
+        const rowsReload: SessionAssignmentRow[] =
+          (detail.assignments ?? [])
+            .filter((a) => a && a.assignmentId && a.staffMemberId)
+            .map((a) => ({
+              assignmentId: a!.assignmentId,
+              staffMemberId: a!.staffMemberId,
+              staffRole: (a!.staffRole || '').toUpperCase(),
+              status: a!.status,
+              fullName: a!.staffMember?.fullName || '—',
+              email: a!.staffMember?.userEmail || '',
+              avatarUrl: a!.staffMember?.avatarUrl || '',
+            })) ?? [];
+        setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
+        setSelectedAssignmentIdsBySessionId((prev) => ({ ...prev, [sessionId]: [] }));
+        await refreshDetail();
+      } catch (err) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msg = (err as any)?.message || 'Duyệt phân công thất bại.';
+        message.error(msg);
+      } finally {
+        setApprovingSessionId(null);
+      }
+    },
+    [assignmentsBySessionId, selectedAssignmentIdsBySessionId, refreshDetail]
+  );
+
+  const handleOpenRejectAssignment = useCallback(
+    (sessionId: number, row: SessionAssignmentRow) => {
+      setRejectAssignmentState({
+        open: true,
+        assignmentId: row.assignmentId,
+        sessionId,
+        displayName: row.fullName || `Assignment #${row.assignmentId}`,
+      });
+      setRejectAssignmentReason('');
+    },
+    []
+  );
+
+  const handleConfirmRejectAssignment = async () => {
+    if (!rejectAssignmentState.open || !rejectAssignmentState.assignmentId || !rejectAssignmentState.sessionId) {
+      return;
+    }
+    const trimmed = rejectAssignmentReason.trim();
+    if (!trimmed) {
+      message.warning('Vui lòng nhập lý do từ chối assignment.');
+      return;
+    }
+    try {
+      setRejectAssignmentLoading(true);
+      await assignmentApi.reject(rejectAssignmentState.assignmentId, trimmed);
+      message.success('Đã từ chối assignment.');
+      const detail = await sessionApi.getById(rejectAssignmentState.sessionId);
+      const rowsReload: SessionAssignmentRow[] =
+        (detail.assignments ?? [])
+          .filter((a) => a && a.assignmentId && a.staffMemberId)
+          .map((a) => ({
+            assignmentId: a!.assignmentId,
+            staffMemberId: a!.staffMemberId,
+            staffRole: (a!.staffRole || '').toUpperCase(),
+            status: a!.status,
+            fullName: a!.staffMember?.fullName || '—',
+            email: a!.staffMember?.userEmail || '',
+            avatarUrl: a!.staffMember?.avatarUrl || '',
+          })) ?? [];
+      setAssignmentsBySessionId((prev) => ({ ...prev, [rejectAssignmentState.sessionId!]: rowsReload }));
+      setSelectedAssignmentIdsBySessionId((prev) => {
+        const current = prev[rejectAssignmentState.sessionId!] ?? [];
+        return {
+          ...prev,
+          [rejectAssignmentState.sessionId!]: current.filter((id) => id !== rejectAssignmentState.assignmentId),
+        };
+      });
+      setRejectAssignmentState({ open: false, assignmentId: null, sessionId: null, displayName: '' });
+      setRejectAssignmentReason('');
+      await refreshDetail();
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msg = (err as any)?.message || 'Từ chối assignment thất bại.';
+      message.error(msg);
+    } finally {
+      setRejectAssignmentLoading(false);
+    }
+  };
 
   const handleConfirmApprove = useCallback(async () => {
     if (!id || sessions.length === 0) return;
@@ -382,15 +562,208 @@ export default function RequestDetail() {
         </div>
       </div>
 
-        {/* MAIN CONTENT */}
-        <Tabs defaultValue="overview" className="space-y-4 text-black">
-        <TabsList className="bg-transparent border-0 shadow-none p-0 mb-0">
-          <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-          <TabsTrigger value="constraints">Ràng buộc</TabsTrigger>
-          <TabsTrigger value="attachments">Tệp đính kèm</TabsTrigger>
-        </TabsList>
+      {/* MAIN CONTENT */}
+      {viewMode === 'assignment' ? (
+        <div className="space-y-4 text-black">
+          <div className="mb-2 sticky top-4 z-10 flex flex-wrap justify-between items-center gap-4 bg-white/95 backdrop-blur p-4 rounded-2xl shadow-sm border border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-slate-800 min-w-0">
+              <Badge className="shrink-0 bg-sky-100 text-sky-800 border-0 text-[11px]">
+                Duyệt phân công
+              </Badge>
+              <span className="text-gray-800">
+                Xem các phiên thuộc yêu cầu này và duyệt phân công cho từng phiên sau khi Team
+                Leader đã gán đủ nhân sự.
+              </span>
+            </div>
+          </div>
 
-        <TabsContent value="overview" className="space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+            {sessions.length === 0 ? (
+              <p className="text-xs text-gray-500">
+                Yêu cầu này chưa có phiên để phân công. Vui lòng kiểm tra lại danh sách phiên.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {sessions.map((session) => {
+                  const rows = assignmentsBySessionId[session.sessionId] ?? [];
+                  const selectedIds = selectedAssignmentIdsBySessionId[session.sessionId] ?? [];
+                  const pendingCount = rows.filter((r) => {
+                    const statusText = (r.status || '').toUpperCase();
+                    return statusText !== 'APPROVED' && statusText !== '2' && statusText !== 'REJECTED' && statusText !== '3';
+                  }).length;
+                  return (
+                    <div
+                      key={session.sessionId}
+                      className="w-full border border-slate-200 rounded-2xl px-4 py-3 space-y-3 bg-sky-50/40"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Phiên {session.sessionNo}
+                            </span>
+                            <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-semibold">
+                              {session.status || 'Assigning'}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-sm font-semibold text-slate-900">
+                            {dayjs(session.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
+                            {dayjs(session.endAt).format('DD/MM/YYYY HH:mm')}
+                          </p>
+                          <p className="text-[11px] text-slate-600 mt-0.5">
+                            <span className="font-medium text-slate-800">Giảng viên yêu cầu:</span>{' '}
+                            {session.teachersRequired ?? 1}
+                            {' · '}
+                            <span className="font-medium text-slate-800">Trợ giảng yêu cầu:</span>{' '}
+                            {session.tasRequired ?? 1}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-500">
+                            Pending:{' '}
+                            <span className="font-semibold text-slate-800">
+                              {pendingCount}
+                            </span>
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="rounded-full gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={approvingSessionId === session.sessionId || pendingCount === 0}
+                            onClick={() => void handleApproveSelectedAssignments(session.sessionId)}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            {approvingSessionId === session.sessionId
+                              ? 'Đang duyệt...'
+                              : selectedIds.length
+                                ? 'Duyệt assignment đã chọn'
+                                : 'Duyệt tất cả pending'}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-200 pt-2 space-y-1">
+                        {rows.length === 0 ? (
+                          <p className="text-xs text-gray-500">
+                            Phiên này hiện chưa có assignment nào (hoặc chưa được Team Leader phân công).
+                          </p>
+                        ) : (
+                          rows.map((row) => {
+                            const checked = selectedIds.includes(row.assignmentId);
+                            const isTeacher =
+                              row.staffRole === 'TE' || row.staffRole === 'TEACHER';
+                            const statusText = (row.status || '').toUpperCase();
+                            const isApproved = statusText === 'APPROVED' || statusText === '2';
+                            const isRejected = statusText === 'REJECTED' || statusText === '3';
+                            const canReview = !isApproved && !isRejected;
+                            return (
+                              <div
+                                key={row.assignmentId}
+                                className={`flex items-center justify-between gap-3 py-1.5 px-2 rounded-lg transition-colors ${
+                                  checked && canReview ? 'bg-sky-50' : 'bg-transparent'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span
+                                    className={`shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                      isTeacher
+                                        ? 'bg-sky-100 text-sky-700'
+                                        : 'bg-amber-100 text-amber-700'
+                                    }`}
+                                  >
+                                    {isTeacher ? 'Giảng viên' : 'Trợ giảng'}
+                                  </span>
+                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
+                                    {row.avatarUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={row.avatarUrl}
+                                        alt={row.fullName}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                        }}
+                                      />
+                                    ) : (
+                                      (row.fullName || 'N')[0]
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-slate-900 truncate">
+                                      {row.fullName || '—'}
+                                    </p>
+                                    {row.email && (
+                                      <p className="text-[11px] text-slate-500 truncate">{row.email}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {isApproved && (
+                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] px-2 py-0.5 font-semibold">
+                                      Đã duyệt
+                                    </span>
+                                  )}
+                                  {isRejected && (
+                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] px-2 py-0.5 font-semibold">
+                                      Đã từ chối
+                                    </span>
+                                  )}
+                                  {canReview && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] px-2 py-0.5"
+                                        onClick={() =>
+                                          handleOpenRejectAssignment(session.sessionId, row)
+                                        }
+                                      >
+                                        Từ chối
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleToggleAssignmentSelection(
+                                            session.sessionId,
+                                            row.assignmentId
+                                          )
+                                        }
+                                        className={`relative inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors ${
+                                          checked
+                                            ? 'border-emerald-500 bg-emerald-500 text-white'
+                                            : 'border-slate-300 bg-white text-slate-400 hover:border-slate-400'
+                                        }`}
+                                        aria-label={checked ? 'Bỏ chọn assignment' : 'Chọn assignment'}
+                                      >
+                                        <CheckSquare
+                                          className={`h-3.5 w-3.5 transition-transform ${
+                                            checked ? 'scale-100' : 'scale-0'
+                                          }`}
+                                        />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <Tabs defaultValue="overview" className="space-y-4 text-black">
+          <TabsList className="bg-transparent border-0 shadow-none p-0 mb-0">
+            <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+            <TabsTrigger value="constraints">Ràng buộc</TabsTrigger>
+            <TabsTrigger value="attachments">Tệp đính kèm</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-4">
           {/* ACTION BAR — nút đồng bộ màu brand như Đặt trước thiết bị */}
           <div className="mb-2 sticky top-4 z-10 flex flex-wrap justify-between items-center gap-4 bg-white/95 backdrop-blur p-4 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex items-center gap-2 text-sm text-amber-800 min-w-0">
@@ -509,21 +882,22 @@ export default function RequestDetail() {
               </div>
             )}
           </div>
-        </TabsContent>
+          </TabsContent>
 
-        <TabsContent value="constraints">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs text-gray-500">
-            Ràng buộc giảng dạy và phân công sẽ được hiển thị ở đây (theo BR-STF,
-            BR-SCH, BR-TIME...).
-          </div>
-        </TabsContent>
+          <TabsContent value="constraints">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs text-gray-500">
+              Ràng buộc giảng dạy và phân công sẽ được hiển thị ở đây (theo BR-STF,
+              BR-SCH, BR-TIME...).
+            </div>
+          </TabsContent>
 
-        <TabsContent value="attachments">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs text-gray-500">
-            Danh sách tệp đính kèm yêu cầu sẽ được hiển thị ở đây.
-          </div>
-        </TabsContent>
+          <TabsContent value="attachments">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs text-gray-500">
+              Danh sách tệp đính kèm yêu cầu sẽ được hiển thị ở đây.
+            </div>
+          </TabsContent>
         </Tabs>
+      )}
 
       {/* RIGHT SIDEBAR SLIDE-OVER FOR TEAM / EQUIPMENT */}
       {rightPanel && (
@@ -623,6 +997,54 @@ export default function RequestDetail() {
           </div>
         </div>
       )}
+
+      {/* Dialog từ chối assignment */}
+      <Dialog
+        open={rejectAssignmentState.open}
+        onClose={() => {
+          setRejectAssignmentState({ open: false, assignmentId: null, sessionId: null, displayName: '' });
+          setRejectAssignmentReason('');
+        }}
+        title="Từ chối phân công"
+        description={
+          rejectAssignmentState.displayName
+            ? `Assignment của: ${rejectAssignmentState.displayName}`
+            : undefined
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="reject-assignment-reason" className="text-black text-xs">
+            Lý do từ chối
+          </Label>
+          <textarea
+            id="reject-assignment-reason"
+            className="w-full min-h-[72px] rounded-lg border border-slate-200 px-3 py-2 text-xs text-black outline-none focus:ring-1 focus:ring-rose-400"
+            placeholder="Nhập lý do từ chối phân công này..."
+            value={rejectAssignmentReason}
+            onChange={(e) => setRejectAssignmentReason(e.target.value)}
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+            onClick={() => {
+              setRejectAssignmentState({ open: false, assignmentId: null, sessionId: null, displayName: '' });
+              setRejectAssignmentReason('');
+            }}
+          >
+            Hủy
+          </Button>
+          <Button
+            type="button"
+            className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs px-4"
+            onClick={() => void handleConfirmRejectAssignment()}
+          >
+            Xác nhận từ chối
+          </Button>
+        </div>
+      </Dialog>
 
       {/* Duyệt yêu cầu — form gọn, cùng tone với action bar */}
       <Dialog

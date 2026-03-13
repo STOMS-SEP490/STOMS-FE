@@ -22,6 +22,23 @@ export type AttendanceCheckOutBatchResult = {
   message: string;
 };
 
+export type AttendanceHistoryItem = {
+  attendanceId: number;
+  checkinAt: string | null;
+  checkoutAt: string | null;
+  note: string;
+  session: {
+    sessionId: number;
+    sessionNo: number;
+    sessionTitle: string;
+    startAt: string;
+    endAt: string;
+    location: string;
+    isOnline: boolean | null;
+    status: string;
+  };
+};
+
 function mapAttendanceFromApi(raw: Record<string, unknown>): Attendance {
   return {
     attendanceId: Number(raw['attendanceId'] ?? raw['AttendanceId'] ?? 0),
@@ -117,6 +134,45 @@ export const attendanceApi = {
       notCheckedInMemberIds: notCheckedRaw.map((x) => Number(x)),
       message,
     };
+  },
+
+  /** GET /api/dashboard/users/{memberId}/attendance-history */
+  async getHistoryByMember(
+    memberId: number,
+    params: { pageNumber?: number; pageSize?: number } = {},
+  ): Promise<PaginationResponse<AttendanceHistoryItem>> {
+    const res = await axiosClient.get<Record<string, unknown>>(
+      `/dashboard/users/${memberId}/attendance-history`,
+      {
+        params: {
+          pageNumber: params.pageNumber,
+          pageSize: params.pageSize,
+        },
+      },
+    );
+    const raw = (res ?? {}) as Record<string, unknown>;
+    return mapPagedFromApi(raw, (x) => {
+      const sessionRaw = (x['session'] ?? x['Session'] ?? {}) as Record<string, unknown>;
+      return {
+        attendanceId: Number(x['attendanceId'] ?? x['AttendanceId'] ?? 0),
+        checkinAt: (x['checkinAt'] ?? x['CheckinAt'] ?? null) as string | null,
+        checkoutAt: (x['checkoutAt'] ?? x['CheckoutAt'] ?? null) as string | null,
+        note: String(x['note'] ?? x['Note'] ?? ''),
+        session: {
+          sessionId: Number(sessionRaw['sessionId'] ?? sessionRaw['SessionId'] ?? 0),
+          sessionNo: Number(sessionRaw['sessionNo'] ?? sessionRaw['SessionNo'] ?? 0),
+          sessionTitle: String(sessionRaw['sessionTitle'] ?? sessionRaw['SessionTitle'] ?? ''),
+          startAt: String(sessionRaw['startAt'] ?? sessionRaw['StartAt'] ?? ''),
+          endAt: String(sessionRaw['endAt'] ?? sessionRaw['EndAt'] ?? ''),
+          location: String(sessionRaw['location'] ?? sessionRaw['Location'] ?? ''),
+          isOnline:
+            (sessionRaw['isOnline'] ?? sessionRaw['IsOnline'] ?? null) === null
+              ? null
+              : Boolean(sessionRaw['isOnline'] ?? sessionRaw['IsOnline']),
+          status: String(sessionRaw['status'] ?? sessionRaw['Status'] ?? ''),
+        },
+      };
+    });
   },
 };
 

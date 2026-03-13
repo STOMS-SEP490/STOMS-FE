@@ -1,7 +1,8 @@
 
-import { BookOpen } from 'lucide-react'
-import type { RequestListItem } from '../request'
-import { StatCard } from '@/shared/components/common/StatCard'
+import { BookOpen } from 'lucide-react';
+import type { RequestListItem } from '../request';
+import { StatCard } from '@/shared/components/common/StatCard';
+import { getRequestStatusLabel } from '@/constants/status';
 
 type Props = {
   data: RequestListItem[]
@@ -21,7 +22,7 @@ export function RequestStats({ data, totalItems }: Props) {
         label="Chờ duyệt"
         value={
           data.filter(
-            (d) => d.status?.toLowerCase() === 'pending'
+            (d) => getRequestStatusLabel(d.status) === 'Chờ duyệt'
           ).length.toString()
         }
       />
@@ -30,7 +31,7 @@ export function RequestStats({ data, totalItems }: Props) {
         label="Đã duyệt"
         value={
           data.filter(
-            (d) => d.status?.toLowerCase() === 'approved'
+            (d) => getRequestStatusLabel(d.status) === 'Đã duyệt'
           ).length.toString()
         }
       />
@@ -39,10 +40,10 @@ export function RequestStats({ data, totalItems }: Props) {
         label="Từ chối"
         value={
           data.filter(
-            (d) => d.status?.toLowerCase() === 'rejected'
+            (d) => getRequestStatusLabel(d.status) === 'Từ chối'
           ).length.toString()
         }
       />
     </div>
-  )
+  );
 }
