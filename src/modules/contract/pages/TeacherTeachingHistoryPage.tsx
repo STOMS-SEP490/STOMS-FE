@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import contractApi from '../api/contractApi';
 import type { ContractListItem } from '../contract';
 import ContractDetailSidebar from './ContractDetailSidebar';
+import { taskReportApi, type TaskReport } from '@/modules/task-report/api/taskReportApi';
 
 function formatDate(value?: string) {
   if (!value) return '—';
@@ -40,6 +41,8 @@ export default function TeacherTeachingHistoryPage() {
   const [createSessionId, setCreateSessionId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContract, setDetailContract] = useState<ContractListItem | null>(null);
+  const [detailRoleLabel, setDetailRoleLabel] = useState<string | null>(null);
+  const [reportsBySession, setReportsBySession] = useState<Record<number, TaskReport[]>>({});
 
   useEffect(() => {
     const run = async () => {
@@ -58,6 +61,26 @@ export default function TeacherTeachingHistoryPage() {
         }
         setItems(rows);
         setTotalItems(res.totalItems ?? rows.length);
+
+        // load task reports cho các session trong trang hiện tại
+        const sessionIds = rows.map((x) => x.sessionId).filter((id) => !!id);
+        if (sessionIds.length) {
+          const reportRes = await taskReportApi.getTaskReports({
+            pageNumber: 1,
+            pageSize: 500,
+            sessionId: undefined,
+            userId: undefined,
+          });
+          const bySession: Record<number, TaskReport[]> = {};
+          (reportRes.items ?? []).forEach((r) => {
+            if (!r.sessionId) return;
+            if (!bySession[r.sessionId]) bySession[r.sessionId] = [];
+            bySession[r.sessionId].push(r);
+          });
+          setReportsBySession(bySession);
+        } else {
+          setReportsBySession({});
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -78,23 +101,21 @@ export default function TeacherTeachingHistoryPage() {
               {formatDate(row.original.startAt)}
             </span>
             <span className="text-xs text-slate-500">
-              {row.original.startAt
-                ? dayjs(row.original.startAt).locale('vi').format('dddd')
-                : '—'}
+              {formatTimeRange(row.original.startAt, row.original.endAt)}
             </span>
           </div>
         ),
       },
       {
         accessorKey: 'sessionName',
-        header: 'TÊN PHIÊN',
+        header: 'PHIÊN',
         cell: ({ row }) => (
           <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
             <div className="text-[13px] font-semibold text-slate-900 line-clamp-2">
-              {row.original.sessionName || '—'}
+              {row.original.requestName || row.original.requestCode || '—'}
             </div>
             <div className="text-[11px] text-slate-500">
-              {formatTimeRange(row.original.startAt, row.original.endAt)}
+              {row.original.sessionName || '—'}
             </div>
           </div>
         ),
@@ -163,6 +184,13 @@ export default function TeacherTeachingHistoryPage() {
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold whitespace-nowrap ${paidClass}`}
                 onClick={async () => {
                   try {
+                    const rawRole = String(row.original.role || '');
+                    const normalized = rawRole.toLowerCase();
+                    const roleLabel =
+                      normalized.includes('ta') || normalized.includes('trợ')
+                        ? 'Trợ giảng'
+                        : 'Giáo viên';
+                    setDetailRoleLabel(roleLabel);
                     const full = await contractApi.getById(row.original.contractId!);
                     setDetailContract(full);
                     setDetailOpen(true);
@@ -186,6 +214,36 @@ export default function TeacherTeachingHistoryPage() {
               }}
             >
               <PlusCircle className="h-3.5 w-3.5" />
+            </button>
+          );
+        },
+      },
+      {
+        id: 'report',
+        header: 'BÁO CÁO',
+        cell: ({ row }) => {
+          const hasReport = !!reportsBySession[row.original.sessionId]?.length;
+          if (hasReport) {
+            return (
+              <span className="inline-flex items-center text-[11px] font-semibold text-violet-700 bg-violet-50 border border-violet-100 rounded-full px-3 py-1">
+                Đã viết báo cáo
+              </span>
+            );
+          }
+          return (
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-full border border-violet-200 bg-violet-50 w-7 h-7 text-violet-700 hover:bg-violet-100 text-lg leading-none"
+              onClick={() => {
+                const rid = row.original.requestId;
+                const sid = row.original.sessionId;
+                const params = new URLSearchParams();
+                if (rid != null) params.set('requestId', String(rid));
+                if (sid != null) params.set('sessionId', String(sid));
+                navigate(`/teacher/tasks?${params.toString()}`);
+              }}
+            >
+              +
             </button>
           );
         },
@@ -310,8 +368,10 @@ export default function TeacherTeachingHistoryPage() {
         onClose={() => {
           setDetailOpen(false);
           setDetailContract(null);
+          setDetailRoleLabel(null);
         }}
         contract={detailContract}
+        roleLabel={detailRoleLabel ?? undefined}
       />
     </div>
   );

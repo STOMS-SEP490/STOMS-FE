@@ -4,9 +4,8 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { StatCard } from '@/shared/components/common/StatCard';
 import HoverSearch from '@/shared/components/ui/search';
-import teachingHistoryApi, {
-  type TeachingHistoryItem,
-} from '../api/teachingHistoryApi';
+import teachingHistoryApi, { type TeachingHistoryItem } from '../api/teachingHistoryApi';
+import { useLocation } from 'react-router-dom';
 
 function formatDateTime(value?: string) {
   if (!value) return '—';
@@ -94,6 +93,8 @@ export default function TeacherAssignments() {
 
   const memberId =
     Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || undefined;
+  const location = useLocation();
+  const isInSchedule = location.pathname.startsWith('/teacher/timetable');
 
   const fetchData = async () => {
     if (!memberId) return;
@@ -126,6 +127,28 @@ export default function TeacherAssignments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNumber, search]);
 
+  if (isInSchedule) {
+    // Trong layout "Thời khóa biểu & phân công": chỉ hiển thị bảng, không header / stats / card lặp lại
+    return (
+      <div className="relative">
+        {loading && (
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
+            <span className="text-sm text-muted-foreground">Đang tải phân công...</span>
+          </div>
+        )}
+        <DataTable
+          columns={columns}
+          data={items}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={(page) => setPageNumber(page)}
+        />
+      </div>
+    );
+  }
+
+  // Trang phân công độc lập (nếu dùng): giữ header, stats, card như cũ
   return (
     <div className="relative p-6 space-y-6">
       {loading && (

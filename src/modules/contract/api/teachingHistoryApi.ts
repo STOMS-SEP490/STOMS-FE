@@ -20,6 +20,8 @@ export type MemberSessionsFilterParams = {
 
 export type TeachingHistoryItem = {
   sessionId: number;
+  sessionNo?: number;
+  requestId?: number;
   sessionName: string;
   startAt: string;
   endAt: string;
@@ -41,6 +43,8 @@ function mapItemFromApi(raw: any): TeachingHistoryItem {
 
   return {
     sessionId: Number(raw.sessionId ?? raw.SessionId ?? 0),
+    sessionNo: raw.sessionNo !== undefined ? Number(raw.sessionNo) : raw.SessionNo !== undefined ? Number(raw.sessionNo) : undefined,
+    requestId: request != null ? Number(request.requestId ?? request.RequestId ?? 0) : undefined,
     sessionName: String(raw.sessionTitle ?? raw.SessionTitle ?? ''),
     startAt: String(raw.startAt ?? raw.StartAt ?? ''),
     endAt: String(raw.endAt ?? raw.EndAt ?? ''),

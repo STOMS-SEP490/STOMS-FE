@@ -27,6 +27,11 @@ export type AttendanceHistoryItem = {
   checkinAt: string | null;
   checkoutAt: string | null;
   note: string;
+  request?: {
+    requestId: number;
+    requestCode: string;
+    requestName: string;
+  } | null;
   session: {
     sessionId: number;
     sessionNo: number;
@@ -153,11 +158,25 @@ export const attendanceApi = {
     const raw = (res ?? {}) as Record<string, unknown>;
     return mapPagedFromApi(raw, (x) => {
       const sessionRaw = (x['session'] ?? x['Session'] ?? {}) as Record<string, unknown>;
+      const requestRaw = (x['request'] ?? x['Request'] ?? null) as
+        | Record<string, unknown>
+        | null;
       return {
         attendanceId: Number(x['attendanceId'] ?? x['AttendanceId'] ?? 0),
         checkinAt: (x['checkinAt'] ?? x['CheckinAt'] ?? null) as string | null,
         checkoutAt: (x['checkoutAt'] ?? x['CheckoutAt'] ?? null) as string | null,
         note: String(x['note'] ?? x['Note'] ?? ''),
+        request: requestRaw
+          ? {
+              requestId: Number(requestRaw['requestId'] ?? requestRaw['RequestId'] ?? 0),
+              requestCode: String(
+                requestRaw['requestCode'] ?? requestRaw['RequestCode'] ?? '',
+              ),
+              requestName: String(
+                requestRaw['requestName'] ?? requestRaw['RequestName'] ?? '',
+              ),
+            }
+          : null,
         session: {
           sessionId: Number(sessionRaw['sessionId'] ?? sessionRaw['SessionId'] ?? 0),
           sessionNo: Number(sessionRaw['sessionNo'] ?? sessionRaw['SessionNo'] ?? 0),

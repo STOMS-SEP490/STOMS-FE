@@ -6,6 +6,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   contract: ContractListItem | null;
+  roleLabel?: string | null;
 };
 
 function formatDateTime(date?: string | null) {
@@ -13,7 +14,7 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN');
 }
 
-export default function ContractDetailSidebar({ open, onClose, contract }: Props) {
+export default function ContractDetailSidebar({ open, onClose, contract, roleLabel }: Props) {
   if (!contract) return null;
 
   const lecturer = contract.createdByUser?.member;
@@ -75,9 +76,27 @@ export default function ContractDetailSidebar({ open, onClose, contract }: Props
           <div className="px-5 py-4 space-y-4 bg-[#f7f7f8]">
             <Card title="Thông tin hợp đồng">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <InfoRow label="Mã hợp đồng" value={contract.contractCode} />
+                <InfoRow
+                  label="Mã hợp đồng"
+                  value={
+                    <span className="inline-flex items-center rounded-full bg-slate-900 text-white px-3 py-1 text-xs font-semibold tracking-wide">
+                      {contract.contractCode}
+                    </span>
+                  }
+                />
                 <InfoRow label="ID hợp đồng" value={contract.contractId} />
-                <InfoRow label="Số tiền" value={contract.amount != null ? `${contract.amount.toLocaleString('vi-VN')} đ` : '—'} />
+                <InfoRow
+                  label="Số tiền"
+                  value={
+                    contract.amount != null ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-semibold">
+                        {contract.amount.toLocaleString('vi-VN')} đ
+                      </span>
+                    ) : (
+                      '—'
+                    )
+                  }
+                />
                 <InfoRow label="Ngày tạo" value={formatDateTime(contract.createdAt)} />
                 <InfoRow label="Ngày cập nhật" value={formatDateTime(contract.updatedAt)} />
               </div>
@@ -104,7 +123,18 @@ export default function ContractDetailSidebar({ open, onClose, contract }: Props
 
             <Card title="Thông tin buổi học">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <InfoRow label="Tên phiên" value={contract.session?.title ?? '—'} />
+                <InfoRow
+                  label="Tên phiên"
+                  value={
+                    contract.session?.title ? (
+                      <span className="font-semibold text-slate-900">
+                        {contract.session.title}
+                      </span>
+                    ) : (
+                      '—'
+                    )
+                  }
+                />
                 <InfoRow label="Buổi số" value={contract.session?.sessionNo ?? '—'} />
                 <InfoRow
                   label="Thời gian"
@@ -126,6 +156,10 @@ export default function ContractDetailSidebar({ open, onClose, contract }: Props
                         ? 'Online'
                         : 'Offline'
                   }
+                />
+                <InfoRow
+                  label="Dạy với vai trò"
+                  value={roleLabel ?? '—'}
                 />
               </div>
             </Card>

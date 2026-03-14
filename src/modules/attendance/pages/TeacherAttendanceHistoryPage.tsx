@@ -31,7 +31,7 @@ const columns: ColumnDef<Row>[] = [
         <div className="flex flex-col">
           <span className="text-sm font-semibold text-slate-900">{formatDate(d)}</span>
           <span className="text-xs text-slate-500">
-            {d ? dayjs(d).locale('vi').format('dddd') : '—'}
+            {formatTime(row.original.session.startAt)} - {formatTime(row.original.session.endAt)}
           </span>
         </div>
       );
@@ -43,10 +43,10 @@ const columns: ColumnDef<Row>[] = [
     cell: ({ row }) => (
       <div className="min-w-0 max-w-[280px]">
         <div className="text-sm font-semibold text-slate-900 truncate">
-          {row.original.session.sessionTitle || '—'}
+          {row.original.request?.requestName || row.original.request?.requestCode || '—'}
         </div>
         <div className="text-xs text-slate-500">
-          {formatTime(row.original.session.startAt)} - {formatTime(row.original.session.endAt)}
+          {row.original.session.sessionTitle || '—'}
         </div>
       </div>
     ),

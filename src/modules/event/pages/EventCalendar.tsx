@@ -10,6 +10,7 @@ import './EventCalendar.css';
 import { useCalendarEvents } from '@/modules/event/hooks/useCalendarEvents';
 import { sessionApi, type SessionDetail } from '@/modules/request/api/sessionApi';
 import SessionDetailPopover from './SessionDetailPopover';
+import { useLocation } from 'react-router-dom';
 
 const locales = { vi };
 
@@ -37,16 +38,34 @@ const CALENDAR_MESSAGES = {
   showMore: (count: number) => `+${count} thêm`,
 };
 
+// Palette pastel cho các block event (theo ảnh bạn gửi)
+const EVENT_PASTEL_COLORS = [
+  '#fffce3',
+  '#b5d1de',
+  '#cee1e0',
+  '#cad7e6',
+  '#fff7e1',
+  '#d9e7d6',
+  '#c1e2db',
+  '#c8e6cf',
+  '#b6dce4',
+];
+
 function getEventStyle(event: CalendarEvent) {
-  const color = event.color || '#22c55e';
+  const baseColors = EVENT_PASTEL_COLORS;
+  // Dùng id hoặc title để chia màu ổn định
+  const key = typeof event.id === 'number' ? event.id : String(event.id || event.title || '').length;
+  const idx = Math.abs(Number(key)) % baseColors.length;
+  const bg = baseColors[idx] || '#cad7e6';
+
   return {
     style: {
-      // Nền pastel cố định theo design
-      backgroundColor: '#e6f6fd',
-      color: '#111827',
-      border: `1px solid ${color}`,
-      borderRadius: '12px',
-      boxShadow: '0 4px 10px rgba(15, 23, 42, 0.06)',
+      // Tone màu pastel giống palette
+      backgroundColor: bg,
+      color: '#0f172a',
+      border: '1px solid rgba(148, 163, 184, 0.7)',
+      borderRadius: '14px',
+      boxShadow: '0 6px 14px rgba(15, 23, 42, 0.08)',
       padding: 0,
       overflow: 'hidden',
     },
@@ -60,6 +79,8 @@ export default function EventCalendar() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailSession, setDetailSession] = useState<SessionDetail | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const location = useLocation();
+  const isTeacherSchedule = location.pathname.startsWith('/teacher/timetable');
 
   const { defaultDate, scrollToTime } = useMemo(() => {
     const d = new Date();
@@ -204,6 +225,56 @@ export default function EventCalendar() {
     }
   };
 
+  const calendarContent = (
+    <div className="relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
+          <span className="text-sm text-gray-500">Đang tải lịch...</span>
+        </div>
+      )}
+      <Calendar
+        localizer={localizer}
+        events={events}
+        startAccessor="start"
+        endAccessor="end"
+        view={view}
+        date={date}
+        onNavigate={onNavigate}
+        onView={onView}
+        onSelectEvent={handleSelectEvent as any}
+        defaultDate={defaultDate}
+        defaultView="day"
+        min={new Date(0, 0, 0, 8, 0, 0)}
+        max={new Date(0, 0, 0, 20, 0, 0)}
+        scrollToTime={scrollToTime}
+        messages={CALENDAR_MESSAGES}
+        components={customComponents}
+        eventPropGetter={getEventStyle}
+        showMultiDayTimes
+        culture="vi"
+        style={{ height: 640 }}
+      />
+    </div>
+  );
+
+  if (isTeacherSchedule) {
+    return (
+      <>
+        {calendarContent}
+        <SessionDetailPopover
+          open={detailOpen}
+          anchorRect={anchorRect}
+          onClose={() => {
+            setDetailOpen(false);
+            setDetailSession(null);
+            setAnchorRect(null);
+          }}
+          session={detailSession}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="p-6 bg-[#f3f4f6]">
       <div className="bg-white px-6 py-4 mb-4 rounded-xl border shadow-sm flex flex-col gap-1">
@@ -214,33 +285,7 @@ export default function EventCalendar() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {loading && (
-          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
-            <span className="text-sm text-gray-500">Đang tải lịch...</span>
-          </div>
-        )}
-        <Calendar
-          localizer={localizer}
-          events={events}
-          startAccessor="start"
-          endAccessor="end"
-          view={view}
-          date={date}
-          onNavigate={onNavigate}
-          onView={onView}
-          onSelectEvent={handleSelectEvent as any}
-          defaultDate={defaultDate}
-          defaultView="day"
-          min={new Date(0, 0, 0, 8, 0, 0)}
-          max={new Date(0, 0, 0, 20, 0, 0)}
-          scrollToTime={scrollToTime}
-          messages={CALENDAR_MESSAGES}
-          components={customComponents}
-          eventPropGetter={getEventStyle}
-          showMultiDayTimes
-          culture="vi"
-          style={{ height: 640 }}
-        />
+        {calendarContent}
       </div>
 
       <SessionDetailPopover
