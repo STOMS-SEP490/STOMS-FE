@@ -121,7 +121,7 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
           </div>
 
           <div className="space-y-3">
-            {staff.length > 0 ? (
+            {staff.length > 0 &&
               staff.map((s) => (
                 <div key={s.assignmentId} className="flex items-center gap-3">
                   <span
@@ -146,9 +146,22 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
                     {s.email && <div className="text-xs text-gray-500 truncate">{s.email}</div>}
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="text-sm text-gray-500">Chưa có phân công.</div>
+              ))}
+            {(staff.length === 0 || staff.every((s) => !s.name || s.name === '—')) && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 flex items-center justify-between gap-3">
+                <div className="text-sm text-amber-800">
+                  Phiên này hiện <span className="font-semibold">chưa có phân công</span> giảng viên/trợ giảng.
+                </div>
+                {isTeamLeader && (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1"
+                    onClick={() => navigate('/tl/assignments')}
+                  >
+                    Nhấn để phân công
+                  </button>
+                )}
+              </div>
             )}
           </div>
 

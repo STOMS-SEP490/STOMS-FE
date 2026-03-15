@@ -16,6 +16,7 @@ export type SessionDetail = {
   assignments?: {
     assignmentId: number;
     staffRole: string;
+    status?: string;
     staffMemberId: number;
     staffMember?: {
       memberId: number;
@@ -93,6 +94,7 @@ export const sessionApi = {
             return {
               assignmentId: Number(a.assignmentId ?? a.AssignmentId ?? 0),
               staffRole: String(a.staffRole ?? a.StaffRole ?? ''),
+              status: String(a.status ?? a.Status ?? ''),
               staffMemberId: Number(a.staffMemberId ?? a.StaffMemberId ?? 0),
               staffMember: staff
                 ? {

@@ -80,4 +80,6 @@ export type CalendarEvent = {
   end: Date;
   resource?: string;
   color?: string;
+  /** Dùng cho team leader: true nếu phiên chưa có teacher/TA được phân công */
+  unassigned?: boolean;
 };

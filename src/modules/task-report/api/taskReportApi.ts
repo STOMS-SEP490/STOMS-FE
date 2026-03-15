@@ -1,6 +1,26 @@
 import axiosClient from '@/shared/lib/axios';
 import type { PaginationResponse } from '@/shared/types/api';
 
+/** Format datetime cho BE: local, không kèm Z để tránh UTC (theo spec task-report). */
+export function formatTaskReportDateTime(isoOrDate: string | null | undefined): string | undefined {
+  if (!isoOrDate) return undefined;
+  const d = new Date(isoOrDate);
+  if (Number.isNaN(d.getTime())) return undefined;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${day}T${h}:${min}:${s}`;
+}
+
+export type TaskReportExpense = {
+  expenseId: number;
+  amount?: number | null;
+  description?: string | null;
+};
+
 export type TaskReport = {
   taskReportId: number;
   userId: number | null;
@@ -41,6 +61,14 @@ function mapExpenseFromApi(raw: Record<string, unknown>): ExpenseItem {
         : null,
     description: expenseDesc,
     name,
+  expenses?: TaskReportExpense[] | null;
+};
+
+function mapExpenseFromApi(raw: Record<string, unknown>): TaskReportExpense {
+  return {
+    expenseId: Number(raw['expenseId'] ?? raw['ExpenseId'] ?? 0),
+    amount: raw['amount'] != null || raw['Amount'] != null ? Number(raw['amount'] ?? raw['Amount']) : null,
+    description: raw['description'] != null || raw['Description'] != null ? String(raw['description'] ?? raw['Description']) : null,
   };
 }
 
@@ -108,14 +136,39 @@ export type TaskReportFilterParams = {
   sessionId?: number;
 };
 
+/**
+ * Một khoản chi phí gửi khi tạo báo cáo (ExpensesJson).
+ * paymentImgIndex: index 0-based trong mảng PaymentImgs. Bắt buộc nếu có ảnh chứng từ.
+ */
+export type TaskReportExpenseItem = {
+  amount: number;
+  /** BE bắt buộc không để trống. */
+  description: string;
+  /** Khi sửa: có expenseId và không gửi ảnh mới thì BE giữ ảnh cũ. */
+  expenseId?: number;
+  /** Index 0-based trỏ vào PaymentImgs. Bắt buộc khi tạo mới; khi sửa chỉ cần nếu thay ảnh. */
+  paymentImgIndex?: number;
+};
+
+/**
+ * Body POST task-reports (multipart/form-data).
+ * - RequestId (optional): task chung theo yêu cầu. Nếu có SessionId thì bỏ qua RequestId (BE lấy từ session).
+ * - SessionId (optional): task riêng theo phiên. Session phải COMPLETED, member phải có attendance.
+ * - Title, Description: bắt buộc, non-empty.
+ * - StartAt, EndAt: datetime optional, gửi local không kèm Z (tránh UTC).
+ * - ExpensesJson, PaymentImgs: optional (expenses + ảnh chuyển khoản).
+ */
 export type TaskReportCreatePayload = {
-  userId?: number | null;
-  requestId: number;
+  requestId?: number | null;
   sessionId?: number | null;
   title: string;
   description: string;
   startAt?: string | null;
   endAt?: string | null;
+  /** Khoản chi phí phát sinh (gửi dạng ExpensesJson). */
+  expenses?: TaskReportExpenseItem[];
+  /** Ảnh chứng từ chuyển khoản (gửi dạng PaymentImgs). */
+  paymentImages?: File[];
 };
 
 export type TaskReportUpdatePayload = {
@@ -125,6 +178,10 @@ export type TaskReportUpdatePayload = {
   description: string;
   startAt?: string | null;
   endAt?: string | null;
+  /** Cập nhật danh sách khoản chi phí (gửi dạng ExpensesJson). */
+  expenses?: TaskReportExpenseItem[];
+  /** Ảnh chứng từ mới (khi thêm khoản có paymentImgIndex). */
+  paymentImages?: File[];
 };
 
 export const taskReportApi = {
@@ -154,15 +211,20 @@ export const taskReportApi = {
     return mapTaskReportFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
+  /** PUT api/task-reports/:id — BE chỉ nhận JSON: Title, Description, StartAt, EndAt, RequestId, SessionId (không có expenses). */
   async update(id: number, payload: TaskReportUpdatePayload): Promise<TaskReport> {
     const body: Record<string, unknown> = {
-      RequestId: payload.requestId,
-      SessionId: payload.sessionId ?? null,
       Title: payload.title,
       Description: payload.description,
-      StartAt: payload.startAt ?? null,
-      EndAt: payload.endAt ?? null,
+      StartAt: formatTaskReportDateTime(payload.startAt) ?? payload.startAt ?? null,
+      EndAt: formatTaskReportDateTime(payload.endAt) ?? payload.endAt ?? null,
     };
+    if (payload.sessionId != null && payload.sessionId > 0) {
+      body.SessionId = payload.sessionId;
+    } else {
+      body.RequestId = payload.requestId ?? null;
+      body.SessionId = null;
+    }
     const res = await axiosClient.put<Record<string, unknown>>(`/task-reports/${id}`, body);
     return mapTaskReportFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },

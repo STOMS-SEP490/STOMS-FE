@@ -129,12 +129,11 @@ export default function EquipmentsManagement() {
     nextStatus: string
   ) => {
     const current = normalizeStatusValue(item.status)
-    // Không cho đổi nếu đang Đang mượn hoặc Không khả dụng
+    // Không cho đổi nếu đang Đang mượn (phải đổi qua phiếu mượn)
     if (
       !nextStatus ||
       nextStatus === current ||
-      current === EQUIPMENT_STATUS.BORROWED ||
-      current === EQUIPMENT_STATUS.UNAVAILABLE
+      current === EQUIPMENT_STATUS.BORROWED
     ) {
       return
     }
@@ -192,14 +191,12 @@ export default function EquipmentsManagement() {
         const isBorrowed = statusValue === EQUIPMENT_STATUS.BORROWED
         const isUnavailable = statusValue === EQUIPMENT_STATUS.UNAVAILABLE
         const isUpdating = updatingStatusId === row.original.equipmentId
-        if (isBorrowed || isUnavailable) {
+        if (isBorrowed) {
           return (
             <span
               className={`inline-flex items-center justify-center h-6 w-[120px] px-2 rounded-full text-[11px] font-medium ${getEquipmentStatusColor(status)}`}
               title={
-                isBorrowed
-                  ? 'Thiết bị đang được mượn (chỉ thay đổi qua phiếu mượn)'
-                  : 'Thiết bị đang ở trạng thái Không khả dụng (chỉ thay đổi qua nút ngừng sử dụng)'
+                'Thiết bị đang được mượn (chỉ thay đổi qua phiếu mượn)'
               }
             >
               {getEquipmentStatusDisplay(status)}
@@ -225,12 +222,17 @@ export default function EquipmentsManagement() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {EQUIPMENT_STATUS_OPTIONS.filter(
-                (opt) =>
-                  opt.value !== EQUIPMENT_STATUS.BORROWED &&
-                  opt.value !== EQUIPMENT_STATUS.UNAVAILABLE
-              ).map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
+              {EQUIPMENT_STATUS_OPTIONS.filter((opt) => {
+                if (opt.value === EQUIPMENT_STATUS.BORROWED) return false;
+                // Khi đang Không khả dụng: vẫn giữ option Không khả dụng để hiển thị label hiện tại
+                if (opt.value === EQUIPMENT_STATUS.UNAVAILABLE && !isUnavailable) return false;
+                return true;
+              }).map((opt) => (
+                <SelectItem
+                  key={opt.value}
+                  value={opt.value}
+                  disabled={opt.value === EQUIPMENT_STATUS.UNAVAILABLE}
+                >
                   {opt.label}
                 </SelectItem>
               ))}

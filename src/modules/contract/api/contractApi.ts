@@ -9,6 +9,7 @@ import type {
 } from '../contract';
 
 function mapUserFromApi(raw: any): ContractUserItem {
+  // JSON mặc định từ BE dùng camelCase; fallback PascalCase khi cần.
   const member = raw.member ?? raw.Member ?? {};
   return {
     email: String(raw.email ?? raw.Email ?? ''),
@@ -40,7 +41,7 @@ function mapSessionFromApi(raw: any): ContractSessionItem {
         : raw.IsOnline !== undefined
           ? Boolean(raw.IsOnline)
           : null,
-    title: raw.title ?? raw.Title,
+    title: String(raw.sessionTitle ?? raw.SessionTitle ?? ''),
   };
 }
 

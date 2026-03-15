@@ -14,6 +14,16 @@ export type AssignmentDetail = {
   } | null;
 };
 
+export type SuggestedStaff = {
+  memberId: number;
+  userId: number;
+  fullName: string;
+  roleName: string;
+  avatarUrl: string;
+  skillMatchCount: number;
+  assignmentCountIn30Days: number;
+};
+
 export const assignmentApi = {
   getById: async (id: number): Promise<AssignmentDetail> => {
     const res = await axiosClient.get(`/assignments/${id}`);
@@ -35,6 +45,36 @@ export const assignmentApi = {
           }
         : null,
     };
+  },
+
+  approve: async (ids: number[]): Promise<void> => {
+    if (!ids.length) return;
+    await axiosClient.put('/assignments/approve', {
+      assignmentIds: ids,
+    });
+  },
+
+  reject: async (assignmentId: number, reason: string): Promise<void> => {
+    await axiosClient.put('/assignments/reject', {
+      assignmentId,
+      reason,
+    });
+  },
+
+  suggestStaff: async (assignmentId: number): Promise<SuggestedStaff[]> => {
+    const res = await axiosClient.get(`/assignments/${assignmentId}/suggest-staff`);
+    const items: any[] = ((res as any)?.data ?? res ?? []) as any[];
+    return items.map((raw) => ({
+      memberId: Number(raw.memberId ?? raw.MemberId ?? 0),
+      userId: Number(raw.userId ?? raw.UserId ?? 0),
+      fullName: String(raw.fullName ?? raw.FullName ?? ''),
+      roleName: String(raw.roleName ?? raw.RoleName ?? ''),
+      avatarUrl: String(raw.avatarUrl ?? raw.AvatarUrl ?? ''),
+      skillMatchCount: Number(raw.skillMatchCount ?? raw.SkillMatchCount ?? 0),
+      assignmentCountIn30Days: Number(
+        raw.assignmentCountIn30Days ?? raw.AssignmentCountIn30Days ?? 0
+      ),
+    }));
   },
 };
 

@@ -12,8 +12,16 @@ export type TeachingHistoryFilterParams = {
   isOnline?: boolean;
 };
 
+export type MemberSessionsFilterParams = {
+  hasContract?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
+};
+
 export type TeachingHistoryItem = {
   sessionId: number;
+  sessionNo?: number;
+  requestId?: number;
   sessionName: string;
   startAt: string;
   endAt: string;
@@ -21,12 +29,26 @@ export type TeachingHistoryItem = {
   isOnline: boolean | null;
   role: string;
   status: string;
+  requestCode?: string;
+  requestName?: string;
+  contractId?: number | null;
+  contractCode?: string;
+  contractIsPaid?: boolean | null;
 };
 
 function mapItemFromApi(raw: any): TeachingHistoryItem {
+  // Shape dựa theo DashboardTeachingHistoryItemResponse; JSON dùng camelCase.
+  const request = raw.request ?? raw.Request ?? null;
+  const contract = raw.contract ?? raw.Contract ?? null;
+
   return {
-    sessionId: Number(raw.sessionId ?? raw.SessionId),
-    sessionName: String(raw.sessionName ?? raw.SessionName ?? ''),
+    sessionId: Number(raw.sessionId ?? raw.SessionId ?? 0),
+    sessionNo: raw.sessionNo !== undefined ? Number(raw.sessionNo) : raw.SessionNo !== undefined ? Number(raw.sessionNo) : undefined,
+    requestId: request != null ? Number(request.requestId ?? request.RequestId ?? 0) : undefined,
+    sessionName:
+      String(raw.sessionTitle ?? raw.SessionTitle ?? '').trim() ||
+      `Phiên ${raw.sessionNo ?? raw.SessionNo ?? ''}`.trim() ||
+      'Phiên dạy',
     startAt: String(raw.startAt ?? raw.StartAt ?? ''),
     endAt: String(raw.endAt ?? raw.EndAt ?? ''),
     location: String(raw.location ?? raw.Location ?? ''),
@@ -38,6 +60,14 @@ function mapItemFromApi(raw: any): TeachingHistoryItem {
           : null,
     role: String(raw.role ?? raw.Role ?? ''),
     status: String(raw.status ?? raw.Status ?? ''),
+    requestCode: request ? String(request.requestCode ?? request.RequestCode ?? '') : undefined,
+    requestName: request ? String(request.requestName ?? request.RequestName ?? '') : undefined,
+    contractId: contract ? Number(contract.contractId ?? contract.ContractId ?? 0) : null,
+    contractCode: contract ? String(contract.contractCode ?? contract.ContractCode ?? '') : undefined,
+    contractIsPaid:
+      contract && (contract.isPaid !== undefined || contract.IsPaid !== undefined)
+        ? Boolean(contract.isPaid ?? contract.IsPaid)
+        : null,
   };
 }
 
@@ -49,14 +79,41 @@ const teachingHistoryApi = {
     const res = await axiosClient.get(`/dashboard/users/${memberId}/teaching-history`, {
       params,
     });
-    const items = (res.items ?? res.Items ?? []) as any[];
+    const raw: any = res ?? {};
+    const items = (raw.items ?? raw.Items ?? []) as any[];
     return {
-      pageNumber: Number(res.pageNumber ?? res.PageNumber ?? 1),
-      pageSize: Number(res.pageSize ?? res.PageSize ?? params.pageSize ?? 10),
-      totalItems: Number(res.totalItems ?? res.TotalItems ?? items.length),
-      totalPages: Number(res.totalPages ?? res.TotalPages ?? 1),
+      pageNumber: Number(raw.pageNumber ?? raw.PageNumber ?? 1),
+      pageSize: Number(raw.pageSize ?? raw.PageSize ?? params.pageSize ?? 10),
+      totalItems: Number(raw.totalItems ?? raw.TotalItems ?? items.length),
+      totalPages: Number(raw.totalPages ?? raw.TotalPages ?? 1),
       items: items.map((x) => mapItemFromApi(x)),
     };
+  },
+
+  getSessionsByMember: async (
+    memberId: number,
+    params: MemberSessionsFilterParams
+  ): Promise<PaginationResponse<TeachingHistoryItem>> => {
+    const res = await axiosClient.get(`/assignments/members/${memberId}/sessions`, {
+      params,
+    });
+    const raw: any = res ?? {};
+    const items = (raw.items ?? raw.Items ?? []) as any[];
+    return {
+      pageNumber: Number(raw.pageNumber ?? raw.PageNumber ?? 1),
+      pageSize: Number(raw.pageSize ?? raw.PageSize ?? params.pageSize ?? 10),
+      totalItems: Number(raw.totalItems ?? raw.TotalItems ?? items.length),
+      totalPages: Number(raw.totalPages ?? raw.TotalPages ?? 1),
+      items: items.map((x) => mapItemFromApi(x)),
+    };
+  },
+
+  /** Lịch được phân công cho giảng viên: GET /api/members/{memberId}/teaching-schedule */
+  getTeachingSchedule: async (memberId: number): Promise<TeachingHistoryItem[]> => {
+    const res = await axiosClient.get<any>(`/members/${memberId}/teaching-schedule`);
+    const raw = (res as any)?.data ?? res ?? [];
+    const items = Array.isArray(raw) ? raw : (raw?.items ?? raw?.Items ?? []);
+    return (items as any[]).map((x) => mapItemFromApi(x));
   },
 };
 

@@ -84,6 +84,11 @@
   padding: 0 2px;
 }
 
+/* Month view: event block can align full cell width */
+.rbc-month-view .rbc-row-segment {
+  padding: 0;
+}
+
 .rbc-event {
   padding: 0;
   border-radius: 12px;

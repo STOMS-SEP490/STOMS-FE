@@ -13,9 +13,15 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onCreated?: () => void;
+  initialSessionId?: number | null;
 };
 
-export default function CreateContractModal({ open, onClose, onCreated }: Props) {
+export default function CreateContractModal({
+  open,
+  onClose,
+  onCreated,
+  initialSessionId,
+}: Props) {
   const [contractCode, setContractCode] = useState('');
   const [amount, setAmount] = useState<string>('');
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -39,6 +45,11 @@ export default function CreateContractModal({ open, onClose, onCreated }: Props)
           sessionStatus: 'Completed',
         });
         setHistoryItems(res.items || []);
+
+        // Nếu có initialSessionId (từ lịch sử giảng dạy), ưu tiên set sẵn
+        if (initialSessionId) {
+          setSessionId(initialSessionId);
+        }
       } catch (err) {
         console.error('fetch teaching history error', err);
         message.error('Không tải được danh sách buổi học đã dạy');
@@ -48,16 +59,15 @@ export default function CreateContractModal({ open, onClose, onCreated }: Props)
     };
 
     fetchHistory();
-  }, [open, memberId]);
+  }, [open, memberId, initialSessionId]);
 
   const completedSessions = useMemo(
     () =>
-      historyItems.filter(
-        (item) =>
-          item &&
-          String(item.status).toUpperCase().includes('HOÀN THÀNH') ||
-          String(item.status).toUpperCase() === 'COMPLETED'
-      ),
+      historyItems.filter((item) => {
+        if (!item) return false;
+        const status = String(item.status ?? '').toUpperCase();
+        return status.includes('HOÀN THÀNH') || status === 'COMPLETED';
+      }),
     [historyItems]
   );
 
@@ -156,27 +166,29 @@ export default function CreateContractModal({ open, onClose, onCreated }: Props)
           />
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-black font-medium">
-            Buổi học (đã hoàn thành & đã phân công)
-          </Label>
-          <Select
-            value={sessionId ?? undefined}
-            onChange={(value: number) => setSessionId(value)}
-            placeholder="Chọn buổi học"
-            loading={sessionsLoading}
-            className="w-full"
-            notFoundContent={sessionsLoading ? <Spin size="small" /> : 'Không có buổi học phù hợp'}
-          >
-            {completedSessions.map((item) => (
-              <Select.Option key={item.sessionId} value={item.sessionId}>
-                {`${item.sessionName || `Buổi ${item.sessionId}`} — ${new Date(
-                  item.startAt
-                ).toLocaleString('vi-VN')} (${item.location || '—'})`}
-              </Select.Option>
-            ))}
-          </Select>
-        </div>
+        {!initialSessionId && (
+          <div className="space-y-2">
+            <Label className="text-black font-medium">
+              Buổi học (đã hoàn thành & đã phân công)
+            </Label>
+            <Select
+              value={sessionId ?? undefined}
+              onChange={(value: number) => setSessionId(value)}
+              placeholder="Chọn buổi học"
+              loading={sessionsLoading}
+              className="w-full"
+              notFoundContent={sessionsLoading ? <Spin size="small" /> : 'Không có buổi học phù hợp'}
+            >
+              {completedSessions.map((item) => (
+                <Select.Option key={item.sessionId} value={item.sessionId}>
+                  {`${item.sessionName || `Buổi ${item.sessionId}`} — ${new Date(
+                    item.startAt
+                  ).toLocaleString('vi-VN')} (${item.location || '—'})`}
+                </Select.Option>
+              ))}
+            </Select>
+          </div>
+        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
