@@ -16,6 +16,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 export default function CoursesManagement() {
   const context = useOutletContext<{ position: string }>();
@@ -208,8 +209,7 @@ export default function CoursesManagement() {
       setOpenEdit(false);
       await fetchCourses();
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra';
-      message.error(msg);
+      message.error(getErrorMessage(e?.response?.data ?? e));
     } finally {
       setSubmitting(false);
     }
@@ -231,8 +231,7 @@ export default function CoursesManagement() {
           message.success('Cập nhật trạng thái khóa học thành công');
           await fetchCourses();
         } catch (e: any) {
-          const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra';
-          message.error(msg);
+          message.error(getErrorMessage(e?.response?.data ?? e));
         }
       },
     });

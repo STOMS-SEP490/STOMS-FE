@@ -1,0 +1,409 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Eye, RotateCcw } from 'lucide-react';
+import { Drawer, message, Modal } from 'antd';
+
+import { DataTable } from '@/shared/components/common/DataTable';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import HoverSearch from '@/shared/components/ui/search';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
+
+import type { RequestListItem } from '@/modules/request/request';
+import { requestApi } from '@/modules/request/api/requestApi';
+import type { ExpenseItem, TaskReport } from '../api/taskReportApi';
+import { taskReportApi } from '../api/taskReportApi';
+
+type RequestSessionSummary = NonNullable<RequestListItem['sessions']>[number];
+
+export default function TaskReportsManagement() {
+  const [pageNumber, setPageNumber] = useState(1);
+  const pageSize = 10;
+
+  const [filterRequestId, setFilterRequestId] = useState<string>('all');
+  const [filterSessionId, setFilterSessionId] = useState<string>('all');
+  const [filterTitle, setFilterTitle] = useState<string>('');
+
+  const [openView, setOpenView] = useState(false);
+  const [viewTaskReport, setViewTaskReport] = useState<TaskReport | null>(null);
+
+  const selectedRequestIdNum =
+    filterRequestId !== 'all' ? Number(filterRequestId) : null;
+  const selectedSessionIdNum =
+    filterSessionId !== 'all' ? Number(filterSessionId) : null;
+
+  const resetFilters = () => {
+    setFilterRequestId('all');
+    setFilterSessionId('all');
+    setFilterTitle('');
+    setPageNumber(1);
+  };
+
+  const {
+    data: requestsPaged,
+    isLoading: requestsLoading,
+    error: requestsError,
+  } = useQuery({
+    queryKey: ['requests', 'task-reports-management'],
+    queryFn: () => requestApi.getRequests({ pageNumber: 1, pageSize: 500 }),
+  });
+
+  const requests = useMemo(() => requestsPaged?.items ?? [], [requestsPaged]);
+  const requestNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const r of requests) map.set(r.requestId, r.requestName);
+    return map;
+  }, [requests]);
+
+  const {
+    data: selectedRequestDetail,
+    isLoading: requestDetailLoading,
+    error: requestDetailError,
+  } = useQuery({
+    queryKey: ['request-detail', selectedRequestIdNum],
+    enabled:
+      typeof selectedRequestIdNum === 'number' && selectedRequestIdNum > 0,
+    queryFn: () => requestApi.getById(selectedRequestIdNum as number),
+  });
+
+  const sessionsForSelectedRequest: RequestSessionSummary[] =
+    selectedRequestDetail?.sessions ?? [];
+
+  const sessionLabelById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of sessionsForSelectedRequest) {
+      map.set(
+        s.sessionId,
+        `Buổi ${s.sessionNo}${s.status ? ` (${s.status})` : ''}`
+      );
+    }
+    return map;
+  }, [sessionsForSelectedRequest]);
+
+  const {
+    data: taskReportsPaged,
+    isLoading: taskReportsLoading,
+    error: taskReportsError,
+  } = useQuery({
+    queryKey: [
+      'task-reports',
+      pageNumber,
+      pageSize,
+      selectedRequestIdNum ?? 'all',
+      selectedSessionIdNum ?? 'all',
+    ],
+    queryFn: () =>
+      taskReportApi.getTaskReports({
+        pageNumber,
+        pageSize,
+        requestId: selectedRequestIdNum ?? undefined,
+        sessionId: selectedSessionIdNum ?? undefined,
+      }),
+  });
+
+  const taskReports = useMemo(
+    () => taskReportsPaged?.items ?? [],
+    [taskReportsPaged]
+  );
+
+  const filteredTaskReports = useMemo(() => {
+    const q = filterTitle.trim().toLowerCase();
+    if (!q) return taskReports;
+    return taskReports.filter((r) =>
+      String(r.title ?? '').toLowerCase().includes(q)
+    );
+  }, [taskReports, filterTitle]);
+
+  const totalItems = taskReportsPaged?.totalItems ?? 0;
+
+  const lastErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    const err = requestsError ?? requestDetailError ?? taskReportsError;
+    if (!err) return;
+    const msg = getErrorMessage(err);
+    if (lastErrorRef.current === msg) return;
+    lastErrorRef.current = msg;
+    message.error(msg);
+  }, [requestsError, requestDetailError, taskReportsError]);
+
+  const columns: ColumnDef<TaskReport>[] = [
+    { accessorKey: 'taskReportId', header: 'Mã task' },
+    {
+      accessorKey: 'title',
+      header: 'Tiêu đề',
+      cell: ({ row }) => (
+        <div className="max-w-[360px] truncate" title={row.original.title}>
+          {row.original.title}
+        </div>
+      ),
+    },
+    {
+      id: 'request',
+      header: 'Yêu cầu',
+      cell: ({ row }) => {
+        const name = requestNameById.get(row.original.requestId);
+        return (
+          <div
+            className="max-w-[320px] truncate"
+            title={name ?? String(row.original.requestId)}
+          >
+            {name ?? `Request #${row.original.requestId}`}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'session',
+      header: 'Phiên',
+      cell: ({ row }) => {
+        const sid = row.original.sessionId;
+        if (!sid) return '—';
+        return sessionLabelById.get(sid) ?? `Session #${sid}`;
+      },
+    },
+    {
+      id: 'time',
+      header: 'Thời gian',
+      cell: ({ row }) => (
+        <div className="text-xs text-gray-600">
+          <div>
+            {row.original.startAt
+              ? new Date(row.original.startAt).toLocaleString()
+              : '—'}
+          </div>
+          <div>
+            {row.original.endAt
+              ? new Date(row.original.endAt).toLocaleString()
+              : '—'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Thao tác',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setViewTaskReport(row.original);
+              setOpenView(true);
+            }}
+            title="Xem chi tiết"
+          >
+            <Eye size={16} className="text-gray-800 cursor-pointer" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  const canPickSession = filterRequestId !== 'all';
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
+        <div>
+          <h2 className="text-xl font-semibold text-black">
+            Quản lý task report
+          </h2>
+          <p className="text-xs text-gray-500">
+            Xem danh sách task report và lọc theo yêu cầu / buổi
+          </p>
+        </div>
+
+        <Badge className="bg-blue-50 text-blue-700">
+          {taskReportsLoading ? 'Đang tải...' : `${totalItems} task`}
+        </Badge>
+      </div>
+
+      <div className="flex justify-end gap-3 mb-2">
+        <HoverSearch
+          placeholder="Tìm theo tên..."
+          value={filterTitle}
+          onChange={setFilterTitle}
+        />
+
+        <Select
+          value={filterRequestId}
+          onValueChange={(v) => {
+            setFilterRequestId(v);
+            setFilterSessionId('all');
+            setPageNumber(1);
+          }}
+        >
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[260px]">
+            <SelectValue
+              placeholder={
+                requestsLoading ? 'Đang tải yêu cầu...' : 'Chọn yêu cầu'
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả yêu cầu</SelectItem>
+            {requests.map((r) => (
+              <SelectItem key={r.requestId} value={String(r.requestId)}>
+                {r.requestCode ? `[${r.requestCode}] ` : ''}
+                {r.requestName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filterSessionId}
+          onValueChange={(v) => {
+            setFilterSessionId(v);
+            setPageNumber(1);
+          }}
+          disabled={!canPickSession || requestDetailLoading}
+        >
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[220px]">
+            <SelectValue
+              placeholder={
+                !canPickSession
+                  ? 'Chọn yêu cầu trước'
+                  : requestDetailLoading
+                    ? 'Đang tải buổi...'
+                    : 'Chọn buổi'
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả buổi</SelectItem>
+            {sessionsForSelectedRequest.map((s) => (
+              <SelectItem key={s.sessionId} value={String(s.sessionId)}>
+                Buổi {s.sessionNo}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant="secondary"
+          className="bg-white"
+          onClick={resetFilters}
+          title="Đặt lại bộ lọc"
+        >
+          <RotateCcw />
+        </Button>
+      </div>
+
+      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+        <DataTable
+          columns={columns}
+          data={filteredTaskReports}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={(page) => setPageNumber(page)}
+        />
+      </div>
+
+      <Drawer
+        open={openView}
+        onClose={() => {
+          setOpenView(false);
+          setViewTaskReport(null);
+        }}
+        placement="right"
+        width={540}
+        title="Chi tiết task report"
+      >
+        {viewTaskReport ? (
+          <div className="space-y-4">
+            <div>
+              <div className="text-xs text-gray-500">Tiêu đề</div>
+              <div className="font-medium">{viewTaskReport.title}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Mô tả</div>
+              <div className="whitespace-pre-wrap text-sm">
+                {viewTaskReport.description}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-gray-500">Yêu cầu</div>
+                <div>
+                  {requestNameById.get(viewTaskReport.requestId) ??
+                    `Request #${viewTaskReport.requestId}`}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Phiên</div>
+                <div>
+                  {viewTaskReport.sessionId
+                    ? sessionLabelById.get(viewTaskReport.sessionId) ??
+                      `Session #${viewTaskReport.sessionId}`
+                    : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Thời gian bắt đầu</div>
+                <div>
+                  {viewTaskReport.startAt
+                    ? new Date(viewTaskReport.startAt).toLocaleString()
+                    : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Thời gian kết thúc</div>
+                <div>
+                  {viewTaskReport.endAt
+                    ? new Date(viewTaskReport.endAt).toLocaleString()
+                    : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Người chi</div>
+                <div>{viewTaskReport.memberName ?? '—'}</div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <div className="text-sm font-semibold mb-2">Khoản chi</div>
+              {((viewTaskReport.expenses ?? []) as ExpenseItem[]).length === 0 ? (
+                <div className="text-sm text-gray-500">Không có khoản chi.</div>
+              ) : (
+                <div className="space-y-2">
+                  {(viewTaskReport.expenses ?? []).map((e) => (
+                    <div
+                      key={e.expenseId}
+                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 bg-gray-50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate" title={e.name}>
+                          {e.name || '—'}
+                        </div>
+                        <div className="text-xs text-gray-600 truncate" title={e.description}>
+                          {e.description || '—'}
+                        </div>
+                      </div>
+                      <div className="ml-3 text-sm font-semibold tabular-nums whitespace-nowrap">
+                        {e.amount != null ? e.amount.toLocaleString('vi-VN') : '—'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500">Không có dữ liệu.</div>
+        )}
+      </Drawer>
+    </div>
+  );
+}
+

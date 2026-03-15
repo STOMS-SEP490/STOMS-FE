@@ -11,9 +11,49 @@ export type TaskReport = {
   startAt: string | null;
   endAt: string | null;
   createdAt: string | null;
+  memberName?: string | null;
+  expenses?: ExpenseItem[] | null;
 };
 
+export type ExpenseItem = {
+  expenseId: number;
+  amount: number | null;
+  description: string;
+  name: string;
+};
+
+function mapExpenseFromApi(raw: Record<string, unknown>): ExpenseItem {
+  const expenseDesc = String(raw['description'] ?? raw['Description'] ?? '');
+  const tx = (raw['transaction'] ?? raw['Transaction'] ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const txDesc = tx ? String(tx['description'] ?? tx['Description'] ?? '') : '';
+
+  // "Tên khoản chi": ưu tiên Transaction.Description (nếu có), fallback Expense.Description
+  const name = txDesc?.trim() ? txDesc : expenseDesc;
+
+  return {
+    expenseId: Number(raw['expenseId'] ?? raw['ExpenseId'] ?? 0),
+    amount:
+      (raw['amount'] ?? raw['Amount'] ?? null) != null
+        ? Number(raw['amount'] ?? raw['Amount'])
+        : null,
+    description: expenseDesc,
+    name,
+  };
+}
+
 function mapTaskReportFromApi(raw: Record<string, unknown>): TaskReport {
+  const expensesRaw =
+    ((raw['expenses'] ?? raw['Expenses']) as unknown[] | undefined) ?? undefined;
+  const memberRaw = (raw['member'] ?? raw['Member'] ?? null) as
+    | Record<string, unknown>
+    | null;
+  const memberFullName = memberRaw
+    ? String(memberRaw['fullName'] ?? memberRaw['FullName'] ?? '')
+    : '';
+
   return {
     taskReportId: Number(raw['taskReportId'] ?? raw['TaskReportId'] ?? 0),
     userId:
@@ -39,6 +79,10 @@ function mapTaskReportFromApi(raw: Record<string, unknown>): TaskReport {
       (raw['createdAt'] ?? raw['CreatedAt'] ?? null) != null
         ? String(raw['createdAt'] ?? raw['CreatedAt'])
         : null,
+    memberName: memberFullName || null,
+    expenses: expensesRaw
+      ? expensesRaw.map((x) => mapExpenseFromApi((x ?? {}) as Record<string, unknown>))
+      : undefined,
   };
 }
 
@@ -88,12 +132,12 @@ export const taskReportApi = {
     const res = await axiosClient.get<Record<string, unknown>>('/task-reports/filter', {
       params,
     });
-    return mapPagedFromApi(res ?? {}, mapTaskReportFromApi);
+    return mapPagedFromApi((res ?? {}) as unknown as Record<string, unknown>, mapTaskReportFromApi);
   },
 
   async getById(id: number): Promise<TaskReport> {
     const res = await axiosClient.get<Record<string, unknown>>(`/task-reports/${id}`);
-    return mapTaskReportFromApi(res ?? {});
+    return mapTaskReportFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   async create(payload: TaskReportCreatePayload): Promise<TaskReport> {
@@ -107,7 +151,7 @@ export const taskReportApi = {
       EndAt: payload.endAt ?? null,
     };
     const res = await axiosClient.post<Record<string, unknown>>('/task-reports', body);
-    return mapTaskReportFromApi(res ?? {});
+    return mapTaskReportFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   async update(id: number, payload: TaskReportUpdatePayload): Promise<TaskReport> {
@@ -120,7 +164,7 @@ export const taskReportApi = {
       EndAt: payload.endAt ?? null,
     };
     const res = await axiosClient.put<Record<string, unknown>>(`/task-reports/${id}`, body);
-    return mapTaskReportFromApi(res ?? {});
+    return mapTaskReportFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   async remove(id: number): Promise<void> {
