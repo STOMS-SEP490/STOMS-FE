@@ -31,6 +31,36 @@ export type TaskReport = {
   startAt: string | null;
   endAt: string | null;
   createdAt: string | null;
+  memberName?: string | null;
+  expenses?: ExpenseItem[] | null;
+};
+
+export type ExpenseItem = {
+  expenseId: number;
+  amount: number | null;
+  description: string;
+  name: string;
+};
+
+function mapExpenseFromApi(raw: Record<string, unknown>): ExpenseItem {
+  const expenseDesc = String(raw['description'] ?? raw['Description'] ?? '');
+  const tx = (raw['transaction'] ?? raw['Transaction'] ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const txDesc = tx ? String(tx['description'] ?? tx['Description'] ?? '') : '';
+
+  // "Tên khoản chi": ưu tiên Transaction.Description (nếu có), fallback Expense.Description
+  const name = txDesc?.trim() ? txDesc : expenseDesc;
+
+  return {
+    expenseId: Number(raw['expenseId'] ?? raw['ExpenseId'] ?? 0),
+    amount:
+      (raw['amount'] ?? raw['Amount'] ?? null) != null
+        ? Number(raw['amount'] ?? raw['Amount'])
+        : null,
+    description: expenseDesc,
+    name,
   expenses?: TaskReportExpense[] | null;
 };
 
@@ -43,10 +73,15 @@ function mapExpenseFromApi(raw: Record<string, unknown>): TaskReportExpense {
 }
 
 function mapTaskReportFromApi(raw: Record<string, unknown>): TaskReport {
-  const expensesRaw = (raw['expenses'] ?? raw['Expenses']) as unknown[] | undefined;
-  const expenses = Array.isArray(expensesRaw)
-    ? expensesRaw.map((x) => mapExpenseFromApi((x ?? {}) as Record<string, unknown>))
-    : undefined;
+  const expensesRaw =
+    ((raw['expenses'] ?? raw['Expenses']) as unknown[] | undefined) ?? undefined;
+  const memberRaw = (raw['member'] ?? raw['Member'] ?? null) as
+    | Record<string, unknown>
+    | null;
+  const memberFullName = memberRaw
+    ? String(memberRaw['fullName'] ?? memberRaw['FullName'] ?? '')
+    : '';
+
   return {
     taskReportId: Number(raw['taskReportId'] ?? raw['TaskReportId'] ?? 0),
     userId:
@@ -72,7 +107,10 @@ function mapTaskReportFromApi(raw: Record<string, unknown>): TaskReport {
       (raw['createdAt'] ?? raw['CreatedAt'] ?? null) != null
         ? String(raw['createdAt'] ?? raw['CreatedAt'])
         : null,
-    expenses: expenses?.length ? expenses : undefined,
+    memberName: memberFullName || null,
+    expenses: expensesRaw
+      ? expensesRaw.map((x) => mapExpenseFromApi((x ?? {}) as Record<string, unknown>))
+      : undefined,
   };
 }
 
@@ -151,46 +189,26 @@ export const taskReportApi = {
     const res = await axiosClient.get<Record<string, unknown>>('/task-reports/filter', {
       params,
     });
-    return mapPagedFromApi(res ?? {}, mapTaskReportFromApi);
+    return mapPagedFromApi((res ?? {}) as unknown as Record<string, unknown>, mapTaskReportFromApi);
   },
 
   async getById(id: number): Promise<TaskReport> {
     const res = await axiosClient.get<Record<string, unknown>>(`/task-reports/${id}`);
-    return mapTaskReportFromApi(res ?? {});
+    return mapTaskReportFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   async create(payload: TaskReportCreatePayload): Promise<TaskReport> {
-    const form = new FormData();
-    if (payload.sessionId != null && payload.sessionId > 0) {
-      form.append('SessionId', String(payload.sessionId));
-    } else if (payload.requestId != null && payload.requestId > 0) {
-      form.append('RequestId', String(payload.requestId));
-    }
-    form.append('Title', payload.title);
-    form.append('Description', payload.description);
-    const startAtFormatted = formatTaskReportDateTime(payload.startAt);
-    const endAtFormatted = formatTaskReportDateTime(payload.endAt);
-    if (startAtFormatted) form.append('StartAt', startAtFormatted);
-    if (endAtFormatted) form.append('EndAt', endAtFormatted);
-    if (payload.expenses?.length) {
-      form.append(
-        'ExpensesJson',
-        JSON.stringify(
-          payload.expenses.map((e) => ({
-            amount: e.amount,
-            description: (e.description ?? '').trim() || 'Không ghi chú',
-            ...(e.paymentImgIndex != null ? { paymentImgIndex: e.paymentImgIndex } : {}),
-          }))
-        )
-      );
-    }
-    if (payload.paymentImages?.length) {
-      payload.paymentImages.forEach((file) => form.append('PaymentImgs', file));
-    }
-    const res = await axiosClient.post<Record<string, unknown>>('/task-reports', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return mapTaskReportFromApi(res ?? {});
+    const body: Record<string, unknown> = {
+      UserId: payload.userId ?? null,
+      RequestId: payload.requestId,
+      SessionId: payload.sessionId ?? null,
+      Title: payload.title,
+      Description: payload.description,
+      StartAt: payload.startAt ?? null,
+      EndAt: payload.endAt ?? null,
+    };
+    const res = await axiosClient.post<Record<string, unknown>>('/task-reports', body);
+    return mapTaskReportFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   /** PUT api/task-reports/:id — BE chỉ nhận JSON: Title, Description, StartAt, EndAt, RequestId, SessionId (không có expenses). */
@@ -208,7 +226,7 @@ export const taskReportApi = {
       body.SessionId = null;
     }
     const res = await axiosClient.put<Record<string, unknown>>(`/task-reports/${id}`, body);
-    return mapTaskReportFromApi(res ?? {});
+    return mapTaskReportFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   async remove(id: number): Promise<void> {

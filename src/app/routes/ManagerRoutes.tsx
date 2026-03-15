@@ -14,6 +14,7 @@ import TransactionLayout from '@/app/layouts/TransactionsLayout';
 import Transactions from '@/modules/transaction/pages/Transaction';
 import ExpenditureFund from '@/modules/transaction/pages/ExpenditureFund';
 import ContributionFund from '@/modules/transaction/pages/ContributionFund';
+import WalletsManagement from '@/modules/transaction/pages/WalletsManagement';
 import AuditLogs from '@/modules/auditLog/pages/AuditLogs';
 import SkillsManagement from '@/modules/skill/pages/SkillMangagement';
 import TeamLayout from '@/app/layouts/TeamLayout';
@@ -23,6 +24,7 @@ import RequestLayout from '../layouts/RequestLayout';
 import RequestDetail from '@/modules/request/pages/RequestDetail';
 import MembersManagement from '@/modules/member/pages/MembersManagement';
 import UserProfile from '@/modules/user/pages/UserProfile';
+import TaskReportsManagement from '@/modules/task-report/pages/TaskReportsManagement';
 
 const RequestPlaceholder = () => (
   <div className="p-6 text-sm text-gray-500">
@@ -45,6 +47,7 @@ const ManagerRoutes = [
   { path: 'profile', element: <UserProfile /> },
   { path: 'users', element: <UserManagement /> },
   { path: 'members', element: <MembersManagement /> },
+  { path: 'tasks', element: <TaskReportsManagement /> },
   { path: 'roles', element: <RolesManagement /> },
   // { path: 'teams', element: <TeamsManagement /> },
   { path: 'contracts', element: <ContractsManagement /> },
@@ -76,6 +79,7 @@ const ManagerRoutes = [
       { index: true, element: <Transactions /> },
       { path: 'expenditure', element: <ExpenditureFund /> },
       { path: 'contribution', element: <ContributionFund /> },
+      { path: 'wallets', element: <WalletsManagement /> },
     ],
   },
   {
