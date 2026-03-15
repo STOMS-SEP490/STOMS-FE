@@ -150,11 +150,12 @@ export function getRequestStatusLabel(status: string | number | null | undefined
 export function getRequestStatusInfo(status: string | number | null | undefined): {
   label: string;
   className: string;
+  leftBarClass: string;
 } {
   const baseClass = 'bg-slate-50 text-slate-700 border-slate-200';
   const code = normalizeStatusCode(status, REQUEST_STATUS_LABEL);
   if (!code) {
-    return { label: String(status || '—'), className: baseClass };
+    return { label: String(status || '—'), className: baseClass, leftBarClass: 'border-l-slate-400' };
   }
   const label = REQUEST_STATUS_LABEL[code] ?? String(status || '—');
   const classNameByCode: Record<number, string> = {
@@ -166,9 +167,19 @@ export function getRequestStatusInfo(status: string | number | null | undefined)
     [REQUEST_STATUS.COMPLETED]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     [REQUEST_STATUS.CANCELLED]: 'bg-slate-50 text-slate-700 border-slate-200',
   };
+  const leftBarByCode: Record<number, string> = {
+    [REQUEST_STATUS.PENDING]: 'border-l-amber-500',
+    [REQUEST_STATUS.APPROVED]: 'border-l-emerald-500',
+    [REQUEST_STATUS.REJECTED]: 'border-l-rose-500',
+    [REQUEST_STATUS.ASSIGNING]: 'border-l-sky-500',
+    [REQUEST_STATUS.PUBLISHED]: 'border-l-slate-400',
+    [REQUEST_STATUS.COMPLETED]: 'border-l-emerald-500',
+    [REQUEST_STATUS.CANCELLED]: 'border-l-slate-400',
+  };
   return {
     label,
     className: classNameByCode[code] ?? baseClass,
+    leftBarClass: leftBarByCode[code] ?? 'border-l-slate-400',
   };
 }
 

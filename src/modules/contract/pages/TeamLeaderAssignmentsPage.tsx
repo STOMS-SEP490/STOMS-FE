@@ -30,6 +30,10 @@ type TeamRequestItem = {
   requestId: number;
   requestCode: string;
   requestName: string;
+  customerName?: string | null;
+  subjectId?: number | null;
+  courseId?: number | null;
+  eventId?: number | null;
   status: string;
   startDate?: string;
   sessions: TeamSessionLite[];
@@ -48,6 +52,10 @@ export default function TeamLeaderAssignmentsPage() {
   const [assignSelections, setAssignSelections] = useState<Record<number, number>>({});
   const [searchByAssignmentId, setSearchByAssignmentId] = useState<Record<number, string>>({});
   const [savingAll, setSavingAll] = useState(false);
+  const [hoveredStaff, setHoveredStaff] = useState<{
+    staff: SuggestedStaff | Member;
+    assignmentId: number;
+  } | null>(null);
 
   const loadInitial = useCallback(async () => {
     try {
@@ -103,6 +111,10 @@ export default function TeamLeaderAssignmentsPage() {
               requestId: r.requestId,
               requestCode: r.requestCode,
               requestName: r.requestName,
+              customerName: r.customerName,
+              subjectId: r.subjectId,
+              courseId: r.courseId,
+              eventId: r.eventId,
               status: r.status,
               startDate: r.startDate,
               sessions: sessionsByRequest.get(id) ?? [],
@@ -355,54 +367,62 @@ export default function TeamLeaderAssignmentsPage() {
     [assignSelections, selectedRequest, sessionDetailsById, suggestedByAssignmentId, teamMembers]
   );
 
-  const renderMemberOption = (m: Member | SuggestedStaff) => (
-    <div className="flex items-center gap-2">
-      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
-        {m.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={m.avatarUrl}
-            alt={m.fullName}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
-            }}
-          />
-        ) : (
-          (m.fullName || 'N')[0]
-        )}
+  const renderMemberOption = (m: Member | SuggestedStaff) => {
+    const subText =
+      'user' in m
+        ? (m as Member).user?.email || '—'
+        : (m as SuggestedStaff).email ?? (m as SuggestedStaff).roleName ?? '—';
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
+          {m.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={m.avatarUrl}
+              alt={m.fullName}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+              }}
+            />
+          ) : (
+            (m.fullName || 'N')[0]
+          )}
+        </div>
+        <div className="flex flex-row items-center gap-2 min-w-0 flex-1">
+          <span className="text-xs font-medium text-slate-900 truncate shrink-0">
+            {m.fullName || '—'}
+          </span>
+          <span className="text-[11px] text-slate-500 truncate">{subText}</span>
+        </div>
       </div>
-      <div className="flex flex-col min-w-0">
-        <span className="text-xs font-medium text-slate-900 truncate">
-          {m.fullName || '—'}
-        </span>
-        <span className="text-[11px] text-slate-500 truncate">
-          {'user' in m ? (m as Member).user?.email || '—' : (m as SuggestedStaff).roleName || '—'}
-        </span>
-      </div>
-    </div>
-  );
+    );
+  };
 
-  const buildSuggestedTooltip = (m: Member | SuggestedStaff): string => {
-    if ('skills' in m) {
-      const staff = m as SuggestedStaff;
-      const skills =
-        (staff as any).skills && Array.isArray((staff as any).skills)
-          ? ((staff as any).skills as { skillName?: string }[])
-              .map((s) => s.skillName)
-              .filter(Boolean)
-              .join(', ')
-          : '';
-      const skillText = skills ? `Kỹ năng: ${skills}` : 'Kỹ năng: (không có dữ liệu)';
-      const workload = `Số buổi trong 30 ngày: ${staff.assignmentCountIn30Days}`;
-      const match =
-        staff.skillMatchCount && staff.skillMatchCount > 0
-          ? `Kỹ năng khớp yêu cầu: ${staff.skillMatchCount}`
-          : 'Kỹ năng khớp yêu cầu: 0';
-      return `${skillText}\n${workload}\n${match}`;
-    }
-    const member = m as Member;
-    return `Email: ${member.user?.email || '—'}`;
+  const renderStaffHoverCard = (staff: SuggestedStaff | Member) => {
+    const isSuggested = 'skillMatchCount' in staff && 'assignmentCountIn30Days' in staff;
+    if (!isSuggested) return null;
+    const s = staff as SuggestedStaff;
+    const skillNames =
+      s.skills?.map((sk) => sk.skillName).filter(Boolean).join(', ') || '—';
+    return (
+      <div className="px-2 py-2 border-t border-slate-100 bg-slate-50/90 rounded-b-md">
+        <div className="text-[11px] space-y-1">
+          <div>
+            <span className="font-medium text-slate-600">Kỹ năng: </span>
+            <span className="text-slate-800">{skillNames}</span>
+          </div>
+          <div>
+            <span className="font-medium text-slate-600">Khớp yêu cầu: </span>
+            <span className="text-slate-800">{s.skillMatchCount}</span>
+          </div>
+          <div>
+            <span className="font-medium text-slate-600">Số buổi (30 ngày): </span>
+            <span className="text-slate-800">{s.assignmentCountIn30Days}</span>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -453,11 +473,12 @@ export default function TeamLeaderAssignmentsPage() {
                   key={r.requestId}
                   requestName={r.requestName ?? '—'}
                   requestCode={r.requestCode}
-                  subtitle={
-                    r.startDate
-                      ? `${r.sessions.length} phiên · ${dayjs(r.startDate).format('DD/MM/YYYY')}`
-                      : `${r.sessions.length} phiên`
-                  }
+                  customerName={r.customerName}
+                  subjectId={r.subjectId}
+                  courseId={r.courseId}
+                  eventId={r.eventId}
+                  status={r.status}
+                  showNeedsAction={true}
                   isActive={r.requestId === selectedRequestId}
                   onClick={() => setSelectedRequestId(r.requestId)}
                   hintText="Bấm để xem chi tiết"
@@ -602,7 +623,8 @@ export default function TeamLeaderAssignmentsPage() {
                                           m.memberId === selectedId) &&
                                         (!searchText ||
                                           m.fullName?.toLowerCase().includes(searchText) ||
-                                          m.roleName?.toLowerCase().includes(searchText))
+                                          m.roleName?.toLowerCase().includes(searchText) ||
+                                          m.email?.toLowerCase().includes(searchText))
                                     );
 
                                     const fallbackList =
@@ -655,9 +677,16 @@ export default function TeamLeaderAssignmentsPage() {
                                                 key={m.memberId}
                                                 value={String(m.memberId)}
                                                 className="text-xs py-1.5"
-                                                title={buildSuggestedTooltip(m)}
                                               >
-                                                {renderMemberOption(m)}
+                                                <div
+                                                  className="w-full"
+                                                  onMouseEnter={() =>
+                                                    setHoveredStaff({ staff: m, assignmentId: a.assignmentId })
+                                                  }
+                                                  onMouseLeave={() => setHoveredStaff(null)}
+                                                >
+                                                  {renderMemberOption(m)}
+                                                </div>
                                               </SelectItem>
                                             ))}
                                             {fallbackList.map((m) => (
@@ -665,11 +694,20 @@ export default function TeamLeaderAssignmentsPage() {
                                                 key={m.memberId}
                                                 value={String(m.memberId)}
                                                 className="text-xs py-1.5"
-                                                title={buildSuggestedTooltip(m)}
                                               >
-                                                {renderMemberOption(m)}
+                                                <div
+                                                  className="w-full"
+                                                  onMouseEnter={() =>
+                                                    setHoveredStaff({ staff: m, assignmentId: a.assignmentId })
+                                                  }
+                                                  onMouseLeave={() => setHoveredStaff(null)}
+                                                >
+                                                  {renderMemberOption(m)}
+                                                </div>
                                               </SelectItem>
                                             ))}
+                                            {hoveredStaff?.assignmentId === a.assignmentId &&
+                                              renderStaffHoverCard(hoveredStaff.staff)}
                                           </SelectContent>
                                         </Select>
                                       </div>
@@ -717,7 +755,8 @@ export default function TeamLeaderAssignmentsPage() {
                                           m.memberId === selectedId) &&
                                         (!searchText ||
                                           m.fullName?.toLowerCase().includes(searchText) ||
-                                          m.roleName?.toLowerCase().includes(searchText))
+                                          m.roleName?.toLowerCase().includes(searchText) ||
+                                          m.email?.toLowerCase().includes(searchText))
                                     );
 
                                     const fallbackList =
@@ -770,9 +809,16 @@ export default function TeamLeaderAssignmentsPage() {
                                                 key={m.memberId}
                                                 value={String(m.memberId)}
                                                 className="text-xs py-1.5"
-                                                title={buildSuggestedTooltip(m)}
                                               >
-                                                {renderMemberOption(m)}
+                                                <div
+                                                  className="w-full"
+                                                  onMouseEnter={() =>
+                                                    setHoveredStaff({ staff: m, assignmentId: a.assignmentId })
+                                                  }
+                                                  onMouseLeave={() => setHoveredStaff(null)}
+                                                >
+                                                  {renderMemberOption(m)}
+                                                </div>
                                               </SelectItem>
                                             ))}
                                             {fallbackList.map((m) => (
@@ -780,11 +826,20 @@ export default function TeamLeaderAssignmentsPage() {
                                                 key={m.memberId}
                                                 value={String(m.memberId)}
                                                 className="text-xs py-1.5"
-                                                title={buildSuggestedTooltip(m)}
                                               >
-                                                {renderMemberOption(m)}
+                                                <div
+                                                  className="w-full"
+                                                  onMouseEnter={() =>
+                                                    setHoveredStaff({ staff: m, assignmentId: a.assignmentId })
+                                                  }
+                                                  onMouseLeave={() => setHoveredStaff(null)}
+                                                >
+                                                  {renderMemberOption(m)}
+                                                </div>
                                               </SelectItem>
                                             ))}
+                                            {hoveredStaff?.assignmentId === a.assignmentId &&
+                                              renderStaffHoverCard(hoveredStaff.staff)}
                                           </SelectContent>
                                         </Select>
                                       </div>
