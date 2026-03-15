@@ -14,7 +14,8 @@ import { useNavigate } from 'react-router-dom';
 import contractApi from '../api/contractApi';
 import type { ContractListItem } from '../contract';
 import ContractDetailSidebar from './ContractDetailSidebar';
-import { taskReportApi, type TaskReport } from '@/modules/task-report/api/taskReportApi';
+import { taskReportApi } from '@/modules/task-report/api/taskReportApi';
+import type { TaskReport } from '@/modules/task-report/taskReport';
 
 function formatDate(value?: string) {
   if (!value) return '—';

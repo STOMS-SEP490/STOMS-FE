@@ -19,8 +19,8 @@ import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 import type { RequestListItem } from '@/modules/request/request';
 import { requestApi } from '@/modules/request/api/requestApi';
-import type { ExpenseItem, TaskReport } from '../api/taskReportApi';
 import { taskReportApi } from '../api/taskReportApi';
+import type { ExpenseItem, TaskReport } from '../taskReport';
 
 type RequestSessionSummary = NonNullable<RequestListItem['sessions']>[number];
 
