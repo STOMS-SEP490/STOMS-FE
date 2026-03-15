@@ -15,9 +15,11 @@ export default function TransactionLayout() {
     currentTab = 'expenditure';
   } else if (location.pathname.includes('contribution')) {
     currentTab = 'contribution';
+  } else if (location.pathname.includes('wallets')) {
+    currentTab = 'wallets';
   }
   return (
-    <div className="h-screen overflow-hidden p-6 space-y-6 bg-[#f3f4f6]">
+    <div className="min-h-screen overflow-y-auto p-6 space-y-6 bg-[#f3f4f6]">
       {/* HEADER */}
       <div className="bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <h2 className="text-xl font-semibold text-black">Quản lý giao dịch</h2>
@@ -58,6 +60,12 @@ export default function TransactionLayout() {
                 onClick={() => navigate('/manager/transactions/expenditure')}
               >
                 ĐÃ CHI TRẢ
+              </TabsTrigger>
+              <TabsTrigger
+                value="wallets"
+                onClick={() => navigate('/manager/transactions/wallets')}
+              >
+                QUỸ
               </TabsTrigger>
             </TabsList>
 
