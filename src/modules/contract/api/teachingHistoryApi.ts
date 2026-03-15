@@ -45,7 +45,10 @@ function mapItemFromApi(raw: any): TeachingHistoryItem {
     sessionId: Number(raw.sessionId ?? raw.SessionId ?? 0),
     sessionNo: raw.sessionNo !== undefined ? Number(raw.sessionNo) : raw.SessionNo !== undefined ? Number(raw.sessionNo) : undefined,
     requestId: request != null ? Number(request.requestId ?? request.RequestId ?? 0) : undefined,
-    sessionName: String(raw.sessionTitle ?? raw.SessionTitle ?? ''),
+    sessionName:
+      String(raw.sessionTitle ?? raw.SessionTitle ?? '').trim() ||
+      `Phiên ${raw.sessionNo ?? raw.SessionNo ?? ''}`.trim() ||
+      'Phiên dạy',
     startAt: String(raw.startAt ?? raw.StartAt ?? ''),
     endAt: String(raw.endAt ?? raw.EndAt ?? ''),
     location: String(raw.location ?? raw.Location ?? ''),
@@ -103,6 +106,14 @@ const teachingHistoryApi = {
       totalPages: Number(raw.totalPages ?? raw.TotalPages ?? 1),
       items: items.map((x) => mapItemFromApi(x)),
     };
+  },
+
+  /** Lịch được phân công cho giảng viên: GET /api/members/{memberId}/teaching-schedule */
+  getTeachingSchedule: async (memberId: number): Promise<TeachingHistoryItem[]> => {
+    const res = await axiosClient.get<any>(`/members/${memberId}/teaching-schedule`);
+    const raw = (res as any)?.data ?? res ?? [];
+    const items = Array.isArray(raw) ? raw : (raw?.items ?? raw?.Items ?? []);
+    return (items as any[]).map((x) => mapItemFromApi(x));
   },
 };
 

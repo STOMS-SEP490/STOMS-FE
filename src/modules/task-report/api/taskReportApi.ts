@@ -106,7 +106,9 @@ export type TaskReportExpenseItem = {
   amount: number;
   /** BE bắt buộc không để trống. */
   description: string;
-  /** Index 0-based trỏ vào PaymentImgs. */
+  /** Khi sửa: có expenseId và không gửi ảnh mới thì BE giữ ảnh cũ. */
+  expenseId?: number;
+  /** Index 0-based trỏ vào PaymentImgs. Bắt buộc khi tạo mới; khi sửa chỉ cần nếu thay ảnh. */
   paymentImgIndex?: number;
 };
 
@@ -138,6 +140,10 @@ export type TaskReportUpdatePayload = {
   description: string;
   startAt?: string | null;
   endAt?: string | null;
+  /** Cập nhật danh sách khoản chi phí (gửi dạng ExpensesJson). */
+  expenses?: TaskReportExpenseItem[];
+  /** Ảnh chứng từ mới (khi thêm khoản có paymentImgIndex). */
+  paymentImages?: File[];
 };
 
 export const taskReportApi = {
@@ -187,6 +193,7 @@ export const taskReportApi = {
     return mapTaskReportFromApi(res ?? {});
   },
 
+  /** PUT api/task-reports/:id — BE chỉ nhận JSON: Title, Description, StartAt, EndAt, RequestId, SessionId (không có expenses). */
   async update(id: number, payload: TaskReportUpdatePayload): Promise<TaskReport> {
     const body: Record<string, unknown> = {
       Title: payload.title,

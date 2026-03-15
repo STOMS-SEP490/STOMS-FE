@@ -1,19 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
-import { Badge } from '@/shared/components/ui/badge';
-import { getRequestStatusInfo } from '@/constants/status';
+import RequestCard from './RequestCard';
 
 function isPendingStatus(status: string | undefined): boolean {
   const s = (status ?? '').toLowerCase();
   return s === 'pending' || s.includes('chờ') || s.includes('pending');
-}
-
-function getRequestType(item: { subjectId?: number | null; courseId?: number | null; eventId?: number | null }) {
-  if (item.eventId) return { label: 'Event', cls: 'bg-orange-50 text-orange-700 border-orange-200' };
-  if (item.subjectId) return { label: 'Môn', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
-  if (item.courseId) return { label: 'Khóa học', cls: 'bg-purple-50 text-purple-700 border-purple-200' };
-  return { label: 'Khác', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
 }
 
 export type RequestSidebarProps = {
@@ -89,54 +81,24 @@ export default function RequestSidebar({
             <div className="p-4 text-sm text-gray-500">Chưa có yêu cầu nào.</div>
           )}
           {!loading &&
-            filtered.map((item) => {
-              const isActive = id === String(item.requestId);
-              const isHovered = hoveredId === item.requestId;
-
-              return (
-                <div
-                  key={item.requestId}
-                  onClick={() => navigate(`/manager/requests/${item.requestId}`)}
-                  onMouseEnter={() => setHoveredId(item.requestId)}
-                  onMouseLeave={() => setHoveredId(null)}
-                  className={`cursor-pointer rounded-2xl border p-3 transition group
-                  ${isActive ? 'bg-blue-50/70 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}
-                >
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-black truncate">
-                        {item.requestName || '—'}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 flex-wrap">
-                        <Badge className="bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-medium">
-                          {item.requestCode}
-                        </Badge>
-                        <Badge className={`border text-[11px] font-medium ${getRequestType(item).cls}`}>
-                          {getRequestType(item).label}
-                        </Badge>
-                      </div>
-                    </div>
-                    <StatusBadge status={item.status} />
-                  </div>
-                  {(isActive || isHovered) && (
-                    <div className="mt-2 text-[11px] text-slate-600">
-                      Bấm để xem chi tiết
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            filtered.map((item) => (
+              <RequestCard
+                key={item.requestId}
+                requestName={item.requestName ?? '—'}
+                requestCode={item.requestCode}
+                subjectId={item.subjectId}
+                courseId={item.courseId}
+                eventId={item.eventId}
+                status={item.status}
+                isActive={id === String(item.requestId)}
+                isHovered={hoveredId === item.requestId}
+                onClick={() => navigate(`/manager/requests/${item.requestId}`)}
+                onMouseEnter={() => setHoveredId(item.requestId)}
+                onMouseLeave={() => setHoveredId(null)}
+              />
+            ))}
         </div>
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string | number }) {
-  const info = getRequestStatusInfo(status);
-  return (
-    <Badge className={`${info.className} text-[11px] font-medium whitespace-nowrap shrink-0`}>
-      {info.label}
-    </Badge>
   );
 }

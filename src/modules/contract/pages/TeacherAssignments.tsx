@@ -100,12 +100,9 @@ export default function TeacherAssignments() {
     if (!memberId) return;
     try {
       setLoading(true);
-      const res = await teachingHistoryApi.getTeachingHistory(memberId, {
-        pageNumber,
-        pageSize,
-      });
+      const list = await teachingHistoryApi.getTeachingSchedule(memberId);
 
-      let filtered = res.items ?? [];
+      let filtered = list ?? [];
       const keyword = search.trim().toLowerCase();
       if (keyword) {
         filtered = filtered.filter((x) =>
@@ -125,7 +122,7 @@ export default function TeacherAssignments() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageNumber, search]);
+  }, [search]);
 
   if (isInSchedule) {
     // Trong layout "Thời khóa biểu & phân công": chỉ hiển thị bảng, không header / stats / card lặp lại

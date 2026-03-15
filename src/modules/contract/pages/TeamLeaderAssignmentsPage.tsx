@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import RequestHeader from '@/shared/components/request/RequestHeader';
+import RequestCard from '@/shared/components/request/RequestCard';
 import { requestApi } from '@/modules/request/api/requestApi';
 import { sessionApi, type SessionDetail } from '@/modules/request/api/sessionApi';
 import { teamApi } from '@/modules/team/api/teamApi';
@@ -405,33 +406,34 @@ export default function TeamLeaderAssignmentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-4">
-        {loading && (
-          <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
-            <Spin tip="Đang tải dữ liệu phân công cho team..." />
-          </div>
-        )}
-
-        <div className="bg-white px-6 py-4 mb-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-1">
-          <h2 className="text-xl font-semibold text-gray-900">Phân công nhân sự cho team</h2>
-          <p className="text-xs text-gray-500">
-            Chọn yêu cầu bên trái, sau đó gán giảng viên và trợ giảng cho từng phiên của team.
-          </p>
+    <div className="min-h-screen p-6 space-y-6 bg-slate-50">
+      {loading && (
+        <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
+          <Spin tip="Đang tải dữ liệu phân công cho team..." />
         </div>
+      )}
 
-        <div className="flex gap-4">
-          {/* Sidebar requests */}
-          <div className="w-[340px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+      <div className="bg-white px-6 py-4 mb-2 rounded-2xl border border-slate-200 shadow-sm">
+        <h2 className="text-xl font-semibold text-black">Phân công nhân sự cho team</h2>
+        <p className="text-xs text-gray-500">
+          Chọn yêu cầu bên trái, sau đó gán giảng viên và trợ giảng cho từng phiên của team.
+        </p>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* Sidebar — đồng bộ style với Duyệt yêu cầu (RequestLayout) */}
+        <div className="w-full lg:w-[360px] shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="h-full flex flex-col text-black">
+            <div className="flex justify-between items-center p-4 border-b border-slate-200">
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-slate-900 truncate">
-                  Yêu cầu cần phân công
-                </h3>
+                <h2 className="font-semibold text-base text-black truncate">Danh sách yêu cầu</h2>
                 <p className="text-[11px] text-slate-500">
                   {filteredRequests.length} yêu cầu thuộc team của bạn
                 </p>
               </div>
+              <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1 shrink-0">
+                {filteredRequests.length}
+              </span>
             </div>
             <div className="px-3 pt-2 pb-3 border-b border-slate-100">
               <HoverSearch
@@ -442,54 +444,38 @@ export default function TeamLeaderAssignmentsPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50">
               {filteredRequests.length === 0 && (
-                <div className="p-4 text-xs text-slate-500">
+                <div className="p-4 text-sm text-gray-500">
                   Chưa có yêu cầu nào có phiên của team này.
                 </div>
               )}
-              {filteredRequests.map((r) => {
-                const isActive = r.requestId === selectedRequestId;
-                return (
-                  <button
-                    key={r.requestId}
-                    type="button"
-                    onClick={() => setSelectedRequestId(r.requestId)}
-                    className={`w-full text-left rounded-2xl border px-3 py-2.5 transition ${
-                      isActive
-                        ? 'bg-blue-50/70 border-blue-300 shadow-sm'
-                        : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-[13px] font-semibold text-slate-900 truncate">
-                          {r.requestName || '—'}
-                        </div>
-                        <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] text-slate-600">
-                          <span className="px-1.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 font-medium">
-                            {r.requestCode}
-                          </span>
-                          {r.startDate && (
-                            <span className="text-slate-500">
-                              Bắt đầu: {dayjs(r.startDate).format('DD/MM/YYYY')}
-                            </span>
-                          )}
-                          <span className="text-slate-500">
-                            {r.sessions.length} phiên của team
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+              {filteredRequests.map((r) => (
+                <RequestCard
+                  key={r.requestId}
+                  requestName={r.requestName ?? '—'}
+                  requestCode={r.requestCode}
+                  subtitle={
+                    r.startDate
+                      ? `${r.sessions.length} phiên · ${dayjs(r.startDate).format('DD/MM/YYYY')}`
+                      : `${r.sessions.length} phiên`
+                  }
+                  isActive={r.requestId === selectedRequestId}
+                  onClick={() => setSelectedRequestId(r.requestId)}
+                  hintText="Bấm để xem chi tiết"
+                />
+              ))}
             </div>
           </div>
+        </div>
 
-          {/* Detail */}
-          <div className="flex-1">
+        {/* Content */}
+        <div className="flex-1 min-w-0 overflow-y-auto">
             {!selectedRequest ? (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-sm text-slate-500">
-                Chọn một yêu cầu ở cột bên trái để bắt đầu phân công nhân sự cho team.
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl text-slate-400">📋</span>
+                </div>
+                <p className="text-sm font-medium text-black">Chọn một yêu cầu ở cột bên trái</p>
+                <p className="text-xs text-gray-500 mt-1">để bắt đầu phân công nhân sự cho team.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -498,22 +484,32 @@ export default function TeamLeaderAssignmentsPage() {
                   status={selectedRequest.status}
                 />
 
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      Phiên của team trong yêu cầu này
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Gợi ý nhân sự lấy từ danh sách thành viên trong team.
-                    </p>
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="bg-gradient-to-r from-slate-50 to-white px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Phiên của team trong yêu cầu này
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Gợi ý nhân sự lấy từ danh sách thành viên trong team.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={savingAll}
+                      className="rounded-lg bg-[#2197C0] hover:bg-[#208AAE] text-white text-xs px-5 shrink-0"
+                      onClick={() => void handleSaveAllAssignmentsForRequest()}
+                    >
+                      {savingAll ? 'Đang hoàn tất phân công...' : 'Hoàn tất phân công cho yêu cầu này'}
+                    </Button>
                   </div>
-
+                  <div className="p-4 space-y-3">
                   {selectedRequest.sessions.length === 0 ? (
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-500 py-4">
                       Yêu cầu này chưa có phiên nào gán cho team.
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {selectedRequest.sessions.map((s) => {
                         const detail = sessionDetailsById[s.sessionId];
                         const assignments = detail?.assignments ?? [];
@@ -538,38 +534,42 @@ export default function TeamLeaderAssignmentsPage() {
                         return (
                           <div
                             key={s.sessionId}
-                            className="border border-slate-200 rounded-xl px-4 py-3 space-y-2"
+                            className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div>
-                                <div className="text-sm font-semibold text-slate-900">
-                                  Phiên {s.sessionNo}
+                            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-gradient-to-r from-sky-50/80 to-white border-b border-slate-100">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-[#2197C0]/10 flex items-center justify-center shrink-0">
+                                  <span className="text-sm font-bold text-[#1978a0]">{s.sessionNo}</span>
                                 </div>
-                                <div className="text-[11px] text-slate-600">
-                                  {dayjs(s.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
-                                  {dayjs(s.endAt).format('DD/MM/YYYY HH:mm')}
-                                </div>
-                                <div className="text-[11px] text-slate-500">
-                                  {s.location || '—'}
+                                <div>
+                                  <div className="text-sm font-bold text-slate-900">
+                                    Phiên {s.sessionNo}
+                                  </div>
+                                  <div className="text-[11px] text-slate-600">
+                                    {dayjs(s.startAt).format('DD/MM HH:mm')} → {dayjs(s.endAt).format('HH:mm')}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500">
+                                    {s.location || '—'}
+                                  </div>
                                 </div>
                               </div>
                               <div className="flex flex-col items-end gap-1">
                                 {assignments.length === 0 && (
-                                  <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] text-amber-700">
+                                  <span className="inline-flex items-center rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1 text-[11px] font-medium text-amber-700">
                                     Chưa có phân công
                                   </span>
                                 )}
                               </div>
                             </div>
 
-                            <div className="mt-3 space-y-3">
-                              {/* Giáo viên */}
-                              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2">
+                            <div className="p-4 space-y-3">
+                              {/* Giảng viên */}
+                              <div className="rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50/50 to-white p-3 space-y-2 shadow-sm">
                                 <div className="flex items-center justify-between">
-                                  <Badge className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 text-[11px] font-semibold">
+                                  <Badge className="px-2 py-0.5 rounded-lg bg-sky-100 text-sky-800 border border-sky-200 text-[11px] font-semibold">
                                     Giảng viên
                                   </Badge>
-                                  <span className="text-[11px] text-slate-500">
+                                  <span className="text-[11px] font-medium text-slate-600">
                                     Cần: {teachersRequired || teacherSlots.length || 0}
                                   </span>
                                 </div>
@@ -625,7 +625,7 @@ export default function TeamLeaderAssignmentsPage() {
                                     return (
                                       <div
                                         key={a.assignmentId}
-                                        className="rounded-lg bg-white px-3 py-2 border border-slate-200"
+                                        className="rounded-lg bg-white px-3 py-2 border border-sky-100 shadow-sm"
                                       >
                                         <Select
                                           value={selectedId ? String(selectedId) : undefined}
@@ -679,9 +679,9 @@ export default function TeamLeaderAssignmentsPage() {
                               </div>
 
                               {/* Trợ giảng */}
-                              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2">
+                              <div className="rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50/50 to-white p-3 space-y-2 shadow-sm">
                                 <div className="flex items-center justify-between">
-                                  <Badge className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-semibold">
+                                  <Badge className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-semibold">
                                     Trợ giảng
                                   </Badge>
                                   <span className="text-[11px] text-slate-500">
@@ -740,7 +740,7 @@ export default function TeamLeaderAssignmentsPage() {
                                     return (
                                       <div
                                         key={a.assignmentId}
-                                        className="rounded-lg bg-white px-3 py-2 border border-slate-200"
+                                        className="rounded-lg bg-white px-3 py-2 border border-amber-100 shadow-sm"
                                       >
                                         <Select
                                           value={selectedId ? String(selectedId) : undefined}
@@ -795,16 +795,16 @@ export default function TeamLeaderAssignmentsPage() {
 
                               {/* Tiến độ phân công */}
                               {totalSlots > 0 && (
-                                <div className="pt-1 space-y-1">
-                                  <div className="flex items-center justify-between text-[11px] text-slate-600">
+                                <div className="pt-3 mt-3 border-t border-slate-100 space-y-2">
+                                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-700">
                                     <span>Tiến độ phân công</span>
-                                    <span>
+                                    <span className="tabular-nums">
                                       {filledSlots}/{totalSlots}
                                     </span>
                                   </div>
-                                  <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                                  <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden shadow-inner">
                                     <div
-                                      className="h-full rounded-full bg-gradient-to-r from-[#2197C0] to-emerald-400 transition-all"
+                                      className="h-full rounded-full bg-gradient-to-r from-[#2197C0] to-emerald-500 transition-all duration-300"
                                       style={{ width: `${progress * 100}%` }}
                                     />
                                   </div>
@@ -813,10 +813,10 @@ export default function TeamLeaderAssignmentsPage() {
                             </div>
 
                             {assignments.length > 0 && selectedRequest.sessions.length > 1 && (
-                              <div className="pt-3 flex flex-wrap items-center justify-between gap-2">
+                              <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 mt-3">
                                 <button
                                   type="button"
-                                  className="text-[11px] text-[#2197C0] hover:text-[#208AAE] font-medium underline-offset-2 hover:underline"
+                                  className="text-xs font-medium text-[#2197C0] hover:text-[#1978a0] hover:bg-sky-50 rounded-lg px-3 py-1.5 transition-colors"
                                   onClick={() => handleApplyToOtherSessions(s.sessionId)}
                                 >
                                   Áp dụng phân công phiên này cho các phiên khác
@@ -830,22 +830,9 @@ export default function TeamLeaderAssignmentsPage() {
                   )}
                 </div>
               </div>
+            </div>
             )}
           </div>
-        </div>
-
-        {selectedRequest && (
-          <div className="max-w-6xl mx-auto mt-4 flex justify-end">
-            <Button
-              type="button"
-              disabled={savingAll}
-              className="rounded-lg bg-[#2197C0] hover:bg-[#208AAE] text-white text-xs px-5"
-              onClick={() => void handleSaveAllAssignmentsForRequest()}
-            >
-              {savingAll ? 'Đang hoàn tất phân công...' : 'Hoàn tất phân công cho yêu cầu này'}
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

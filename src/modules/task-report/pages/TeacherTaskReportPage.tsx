@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { taskReportApi, type TaskReport } from '../api/taskReportApi';
 import teachingHistoryApi, { type TeachingHistoryItem } from '@/modules/contract/api/teachingHistoryApi';
+import { useRequests } from '@/modules/request/hooks/useRequests';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { DatePicker, message, Spin } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { Dialog } from '@/shared/components/ui/dialog';
-import { CalendarClock, CloudUpload, FileText, Pencil, Plus, Save, Trash2, Wallet, X } from 'lucide-react';
+import { CalendarClock, CloudUpload, FileText, Plus, Save, Trash2, Wallet, X } from 'lucide-react';
 
 const COMPLETED_STATUSES = ['completed', 'hoàn thành', 'done', 'finished'];
 
@@ -35,6 +36,14 @@ type ReportRow = {
   hasExpense: boolean;
   expenseAmount: string;
   expenseNote: string;
+};
+
+/** Một dòng chi phí hiển thị khi sửa (BE không hỗ trợ sửa chi phí, chỉ xem). */
+type EditingExpenseRow = {
+  key: string;
+  expenseId?: number;
+  amount: string;
+  description: string;
 };
 
 function formatDateRange(start?: string, end?: string) {
@@ -66,13 +75,19 @@ function sessionInRange(startAt: string, from: Dayjs | null, to: Dayjs | null): 
 }
 
 export default function TeacherTaskReportPage() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
 
   const [sessions, setSessions] = useState<TeachingHistoryItem[]>([]);
   const [taskReports, setTaskReports] = useState<TaskReport[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { data: requestList } = useRequests(1, 500, 0);
+  const requestMap = useMemo(() => {
+    const m = new Map<number, (typeof requestList)[0]>();
+    for (const r of requestList) m.set(r.requestId, r);
+    return m;
+  }, [requestList]);
 
   const [filterFrom, setFilterFrom] = useState<Dayjs | null>(null);
   const [filterTo, setFilterTo] = useState<Dayjs | null>(null);
@@ -94,6 +109,8 @@ export default function TeacherTaskReportPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [openReportModal, setOpenReportModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [expandedExpensesReportId, setExpandedExpensesReportId] = useState<number | null>(null);
+  const [editingExpenses, setEditingExpenses] = useState<EditingExpenseRow[]>([]);
 
   const requestGroupsRaw: RequestGroup[] = useMemo(() => {
     const completed = sessions.filter(isSessionCompleted);
@@ -251,6 +268,14 @@ export default function TeacherTaskReportPage() {
     setExpenseEvidenceFile(null);
     setExpenseEvidencePreview('');
     setEditingId(r.taskReportId);
+    setEditingExpenses(
+      (r.expenses?.length ? r.expenses : []).map((e, i) => ({
+        key: `exp-${e.expenseId ?? i}-${Date.now()}`,
+        expenseId: e.expenseId,
+        amount: String(e.amount ?? ''),
+        description: e.description ?? '',
+      }))
+    );
   }, []);
 
   const cancelEdit = useCallback(() => {
@@ -258,6 +283,7 @@ export default function TeacherTaskReportPage() {
     setFormState({ title: '', description: '', startAt: '', endAt: '', hasExpense: false, expenseAmount: '', expenseNote: '' });
     setExpenseEvidenceFile(null);
     setExpenseEvidencePreview('');
+    setEditingExpenses([]);
   }, []);
 
   const closeReportModal = useCallback(() => {
@@ -278,7 +304,7 @@ export default function TeacherTaskReportPage() {
         return;
       }
       if (!expenseEvidenceFile) {
-        message.warning('Vui lòng tải lên ảnh chứng từ chuyển khoản.');
+        message.warning('Mỗi khoản chi phí bắt buộc có ảnh chứng từ chuyển khoản.');
         return;
       }
     }
@@ -442,9 +468,10 @@ export default function TeacherTaskReportPage() {
                 : 'Chưa có phiên nào đã hoàn thành để ghi báo cáo.'}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50">
               {requestGroups.map((g) => {
                 const isActive = g.requestId === selectedRequestId;
+                const fullRequest = requestMap.get(g.requestId);
                 return (
                   <button
                     key={g.requestId}
@@ -453,15 +480,31 @@ export default function TeacherTaskReportPage() {
                       setSelectedRequestId(g.requestId);
                       setSelectedSessionId(null);
                     }}
-                    className={`w-full text-left rounded-xl border px-3 py-2.5 text-xs transition-all ${
+                    className={`w-full text-left rounded-2xl border px-3 py-2.5 transition ${
                       isActive
-                        ? 'border-sky-500 bg-sky-50 shadow-sm'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'bg-blue-50/70 border-blue-300 shadow-sm'
+                        : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
                     }`}
                   >
-                    <div className="font-semibold text-gray-900 truncate">{g.requestName}</div>
-                    <div className="text-[11px] text-gray-500 mt-0.5">
-                      {g.requestCode} · {g.sessions.length} phiên
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-semibold text-slate-900 truncate">
+                          {g.requestName || '—'}
+                        </div>
+                        <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] text-slate-600">
+                          <span className="px-1.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 font-medium">
+                            {g.requestCode}
+                          </span>
+                          {fullRequest?.startDate && (
+                            <span className="text-slate-500">
+                              Bắt đầu: {dayjs(fullRequest.startDate).format('DD/MM/YYYY')}
+                            </span>
+                          )}
+                          <span className="text-slate-500">
+                            {g.sessions.length} phiên
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </button>
                 );
@@ -568,9 +611,6 @@ export default function TeacherTaskReportPage() {
                   <Plus size={14} />
                   Tạo báo cáo
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => navigate('/teacher/timetable')}>
-                  Xem lịch giảng dạy
-                </Button>
               </div>
             )}
           </div>
@@ -607,14 +647,50 @@ export default function TeacherTaskReportPage() {
                                   <p className="text-xs text-gray-600 mt-1 line-clamp-3">{r.description || '—'}</p>
                                   <div className="mt-2 flex items-center gap-2">
                                     {hasExpenses ? (
-                                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedExpensesReportId((prev) =>
+                                            prev === r.taskReportId ? null : r.taskReportId
+                                          );
+                                        }}
+                                        className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.5 hover:bg-amber-100 transition cursor-pointer"
+                                      >
                                         <Wallet size={12} />
                                         Có chi phí ({r.expenses!.length} khoản)
-                                      </span>
+                                      </button>
                                     ) : (
                                       <span className="text-xs text-gray-400">Không có chi phí</span>
                                     )}
                                   </div>
+                                  {hasExpenses && expandedExpensesReportId === r.taskReportId && (
+                                    <div className="mt-3 pt-3 border-t border-amber-100 space-y-2">
+                                      <div className="text-[11px] font-medium text-amber-800 uppercase tracking-wide">
+                                        Các khoản chi phí
+                                      </div>
+                                      <ul className="space-y-1.5">
+                                        {r.expenses!.map((exp, idx) => (
+                                          <li
+                                            key={exp.expenseId ?? idx}
+                                            className="flex items-start justify-between gap-2 text-xs bg-amber-50/50 rounded-lg px-3 py-2 border border-amber-100"
+                                          >
+                                            <span className="text-gray-700">
+                                              {exp.description || `Khoản ${idx + 1}`}
+                                            </span>
+                                            <span className="font-semibold text-amber-800 whitespace-nowrap">
+                                              {exp.amount != null
+                                                ? new Intl.NumberFormat('vi-VN', {
+                                                    style: 'currency',
+                                                    currency: 'VND',
+                                                  }).format(exp.amount)
+                                                : '—'}
+                                            </span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex gap-1 flex-shrink-0">
                                   <Button
@@ -698,6 +774,30 @@ export default function TeacherTaskReportPage() {
                       onChange={(e) => setFormField('description', e.target.value)}
                     />
                   </div>
+
+                  {editingId != null && editingExpenses.length > 0 && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                      <p className="text-xs text-slate-600 mb-2">
+                        Backend hiện chỉ hỗ trợ sửa tiêu đề, mô tả và thời gian. Các khoản chi phí dưới đây chỉ xem, không chỉnh sửa được.
+                      </p>
+                      <div className="text-[11px] font-medium text-slate-500 mb-1">Các khoản chi phí hiện có</div>
+                      <ul className="space-y-1.5">
+                        {editingExpenses.map((row, idx) => (
+                          <li
+                            key={row.key}
+                            className="flex justify-between gap-2 text-xs bg-white rounded border border-slate-100 px-2 py-1.5"
+                          >
+                            <span className="text-gray-700">{row.description || `Khoản ${idx + 1}`}</span>
+                            <span className="font-medium text-slate-700 whitespace-nowrap">
+                              {row.amount && !Number.isNaN(Number(row.amount.replace(/\D/g, '')))
+                                ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(row.amount.replace(/\D/g, '')))
+                                : '—'}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {editingId == null && (
                     <>

@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { CalendarEvent, EventListItem } from '@/modules/event/event';
 import eventApi from '@/modules/event/api/eventApi';
-import { requestApi } from '@/modules/request/api/requestApi';
 import { teamApi } from '@/modules/team/api/teamApi';
 import axiosClient from '@/shared/lib/axios';
-import { REQUEST_STATUS } from '@/constants/status';
 
 function buildCalendarEvents(items: EventListItem[]): CalendarEvent[] {
   const result: CalendarEvent[] = [];
@@ -43,8 +41,7 @@ export function useCalendarEvents() {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        // 1) Thời khóa biểu TEACHER: chỉ hiển thị khi Request đã Published
-        // và session được phân cho chính member đó (assignment Approved).
+        // 1) Thời khóa biểu TEACHER: lấy lịch được phân công qua GET /api/members/{memberId}/teaching-schedule
         if (isTeacherTimetable) {
           const memberId =
             Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) ||
@@ -52,66 +49,29 @@ export function useCalendarEvents() {
           if (!memberId) {
             setEvents([]);
           } else {
-            // Lấy danh sách request Published
-            const reqPaged = await requestApi.getRequests({
-              pageNumber: 1,
-              pageSize: 200,
-              // BE có thể nhận cả number/string; FE dùng string trước
-              status: String(REQUEST_STATUS.PUBLISHED),
-            } as any);
-            const reqItems: any[] = (reqPaged as any)?.items ?? (reqPaged as any)?.Items ?? [];
-            const requestIds: number[] = Array.from(
-              new Set(
-                reqItems
-                  .map((r) => Number(r.requestId ?? r.RequestId ?? 0))
-                  .filter((id) => id > 0)
-              )
-            );
-
-            // Với mỗi request, lấy session mà member được phân công
-            const sessionsByRequest = await Promise.all(
-              requestIds.map(async (requestId) => {
-                try {
-                  const res = await axiosClient.get<any[]>(
-                    `/sessions/by-request-and-member?requestId=${requestId}&memberId=${memberId}`
-                  );
-                  return ((res as any)?.data ?? res ?? []) as any[];
-                } catch {
-                  return [] as any[];
-                }
-              })
-            );
-
-            const allSessions: any[] = sessionsByRequest.flat();
-
-            const mapped: CalendarEvent[] = allSessions.flatMap((s: any) => {
-              const startRaw = s.startAt ?? s.StartAt;
-              const endRaw = s.endAt ?? s.EndAt;
-              if (!startRaw || !endRaw) return [];
-              const start = new Date(startRaw);
-              const end = new Date(endRaw);
-              const assignments: any[] = (s.assignments ?? s.Assignments ?? []) as any[];
-
-              // Chỉ giữ session mà assignment của memberId đã được APPROVED
-              const hasApprovedAssignmentForMe = assignments.some((a) => {
-                const staffId = Number(a.staffMemberId ?? a.StaffMemberId ?? 0);
-                if (staffId !== memberId) return false;
-                const st = String(a.status ?? a.Status ?? '').toUpperCase();
-                return st === 'APPROVED' || st === '2';
+            try {
+              const res = await axiosClient.get<any>(`/members/${memberId}/teaching-schedule`);
+              const raw = (res as any)?.data ?? res ?? [];
+              const items = Array.isArray(raw) ? raw : (raw?.items ?? raw?.Items ?? []);
+              const mapped: CalendarEvent[] = (items as any[]).flatMap((s: any) => {
+                const startRaw = s.startAt ?? s.StartAt;
+                const endRaw = s.endAt ?? s.EndAt;
+                if (!startRaw || !endRaw) return [];
+                const start = new Date(startRaw);
+                const end = new Date(endRaw);
+                return {
+                  id: s.sessionId ?? s.SessionId ?? `${memberId}-${startRaw}`,
+                  title: `Phiên ${s.sessionNo ?? s.SessionNo ?? ''}`.trim() || 'Phiên dạy',
+                  start,
+                  end,
+                  resource: s.location ?? s.Location ?? undefined,
+                  color: '#22c55e',
+                } as CalendarEvent;
               });
-              if (!hasApprovedAssignmentForMe) return [];
-
-              return {
-                id: s.sessionId ?? s.SessionId,
-                title: `Phiên ${s.sessionNo ?? s.SessionNo ?? ''}`.trim() || 'Phiên dạy',
-                start,
-                end,
-                resource: s.location ?? s.Location ?? undefined,
-                color: '#22c55e',
-              } as CalendarEvent;
-            });
-
-            setEvents(mapped);
+              setEvents(mapped);
+            } catch {
+              setEvents([]);
+            }
           }
         }
         // 2) Thời khóa biểu TEAM LEADER: hiển thị toàn bộ session mà team đó được gán
