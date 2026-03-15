@@ -35,7 +35,8 @@ axiosClient.interceptors.response.use(
     const status = error.response?.status;
     const isAuthEndpoint =
       originalRequest?.url?.includes('/auth/login') ||
-      originalRequest?.url?.includes('/auth/refresh');
+      originalRequest?.url?.includes('/auth/refresh') ||
+      originalRequest?.url?.includes('/auth/logout');
 
     if (status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
@@ -69,8 +70,11 @@ axiosClient.interceptors.response.use(
     }
 
     if (status === 401) {
+      const isLogout = originalRequest?.url?.includes('/auth/logout');
       localStorage.clear();
       window.location.href = '/login';
+      if (isLogout) return Promise.resolve(undefined);
+      return Promise.reject(error.response?.data || error);
     }
 
     return Promise.reject(error.response?.data || error);
