@@ -1,10 +1,5 @@
-import {
-  teamApi,
-  type TeamFilterParams,
-  type TeamCreatePayload,
-  type TeamUpdatePayload,
-} from '../api/teamApi';
-import type { Team } from '../team';
+import { teamApi } from '../api/teamApi';
+import type { Team, TeamFilterParams, TeamCreatePayload, TeamUpdatePayload } from '../team';
 import type { PaginationResponse } from '@/shared/types/api';
 
 const teamService = {

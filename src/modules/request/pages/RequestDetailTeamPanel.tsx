@@ -300,7 +300,7 @@ export default function RequestDetailTeamPanel({
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-black truncate">{team?.teamName ?? `Đội #${tid}`}</p>
-                    <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500">
                       {memberCount != null ? `${memberCount} thành viên` : 'Đội đã gắn'}
                     </p>
                   </div>
@@ -406,48 +406,48 @@ export default function RequestDetailTeamPanel({
       {(showAddTeam || addedTeamIds.length === 0) && (
         <>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Tìm theo tên đội"
-              value={teamSearch}
-              onChange={(e) => setTeamSearch(e.target.value)}
-              className="pl-9 text-xs text-black border-gray-200 bg-white"
-            />
-          </div>
-          {error && (
-            <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{error}</p>
-          )}
-          {loading ? (
-            <p className="text-xs text-gray-500">Đang tải danh sách đội gợi ý...</p>
-          ) : filteredTeams.length === 0 ? (
-            <p className="text-xs text-gray-500">Không có đội gợi ý phù hợp cho phiên này.</p>
-          ) : (
-            <div className="space-y-2">
-              {filteredTeams.map((team) => {
-                const isAdded = addedTeamIds.includes(team.teamId);
-                return (
-                  <div
-                    key={team.teamId}
-                    role="button"
-                    tabIndex={0}
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Tìm theo tên đội"
+          value={teamSearch}
+          onChange={(e) => setTeamSearch(e.target.value)}
+          className="pl-9 text-xs text-black border-gray-200 bg-white"
+        />
+      </div>
+      {error && (
+        <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{error}</p>
+      )}
+      {loading ? (
+        <p className="text-xs text-gray-500">Đang tải danh sách đội gợi ý...</p>
+      ) : filteredTeams.length === 0 ? (
+        <p className="text-xs text-gray-500">Không có đội gợi ý phù hợp cho phiên này.</p>
+      ) : (
+        <div className="space-y-2">
+          {filteredTeams.map((team) => {
+            const isAdded = addedTeamIds.includes(team.teamId);
+            return (
+              <div
+                key={team.teamId}
+                role="button"
+                tabIndex={0}
                     className={`rounded-xl border p-3 cursor-pointer transition ${
-                      isAdded ? 'bg-green-50 border-green-400' : 'bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
-                    }`}
-                    onClick={() => toggleTeamAdded(team.teamId)}
-                    onMouseEnter={(e) => handleTeamCardMouseEnter(team, e)}
-                    onMouseLeave={handleTeamCardMouseLeave}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
+                  isAdded ? 'bg-green-50 border-green-400' : 'bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
+                }`}
+                onClick={() => toggleTeamAdded(team.teamId)}
+                onMouseEnter={(e) => handleTeamCardMouseEnter(team, e)}
+                onMouseLeave={handleTeamCardMouseLeave}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
                         <p className="text-sm font-medium text-black">{team.teamName}</p>
                         <p className="text-xs text-gray-500">ID đội: {team.teamId}</p>
                       </div>
                       {isAdded && <span className="text-xs text-green-600 font-medium">Đã chọn</span>}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+              </div>
+            );
+          })}
+        </div>
           )}
         </>
       )}
@@ -509,15 +509,15 @@ export default function RequestDetailTeamPanel({
         )}
 
       {addedTeamIds.length > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border bg-gray-50 p-3">
-          <p className="text-xs font-medium text-black whitespace-nowrap">Gán đội đã chọn cho tất cả phiên</p>
-          <Switch
-            className="!rounded-[15px] shrink-0"
-            checked={assignAllEnabled}
-            disabled={!canAssignAll || loading}
-            onCheckedChange={handleAssignAllSwitch}
-          />
-        </div>
+      <div className="flex items-center justify-between gap-3 rounded-xl border bg-gray-50 p-3">
+        <p className="text-xs font-medium text-black whitespace-nowrap">Gán đội đã chọn cho tất cả phiên</p>
+        <Switch
+          className="!rounded-[15px] shrink-0"
+          checked={assignAllEnabled}
+          disabled={!canAssignAll || loading}
+          onCheckedChange={handleAssignAllSwitch}
+        />
+      </div>
       )}
 
       <div className="flex justify-end gap-3 pt-2">

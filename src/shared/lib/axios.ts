@@ -70,10 +70,11 @@ axiosClient.interceptors.response.use(
     }
 
     if (status === 401) {
-      const isLogout = originalRequest?.url?.includes('/auth/logout');
+      if (isAuthEndpoint) {
+        return Promise.reject(error);
+      }
       localStorage.clear();
       window.location.href = '/login';
-      if (isLogout) return Promise.resolve(undefined);
       return Promise.reject(error.response?.data || error);
     }
 

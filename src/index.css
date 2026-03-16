@@ -68,6 +68,15 @@ body {
   min-height: 100vh;
 }
 
+/* Ẩn nút reveal password mặc định của trình duyệt (Edge, Chrome) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+input::-webkit-credentials-auto-fill-button {
+  display: none !important;
+}
+
 h1 {
   font-size: 3.2em;
   line-height: 1.1;

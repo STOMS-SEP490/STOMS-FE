@@ -135,10 +135,21 @@ function normalizeStatusCode(
     if (s.includes('approved') || s.includes('đã duyệt')) return SESSION_STATUS.APPROVED;
     if (s.includes('rejected') || s.includes('reject') || s.includes('từ chối'))
       return SESSION_STATUS.REJECTED;
+    if (s === 'assigning' || s.includes('đang phân công')) return SESSION_STATUS.ASSIGNING;
+    if (s === 'assignment_rejected' || s.includes('phân công bị từ chối'))
+      return SESSION_STATUS.ASSIGNMENT_REJECTED;
+    if (s === 'assigned' || s.includes('đã phân công')) return SESSION_STATUS.ASSIGNED;
+    if (s === 'cancelled' || s.includes('đã hủy')) return SESSION_STATUS.CANCELLED;
     if (s.includes('ongoing') || s.includes('đang diễn')) return SESSION_STATUS.ONGOING;
     if (s.includes('completed') || s.includes('hoàn thành')) return SESSION_STATUS.COMPLETED;
   }
   return null;
+}
+
+export function getSessionStatusLabel(status: string | number | null | undefined): string {
+  const code = normalizeStatusCode(status, SESSION_STATUS_LABEL);
+  if (!code) return String(status || '—');
+  return SESSION_STATUS_LABEL[code] ?? String(status);
 }
 
 export function getRequestStatusLabel(status: string | number | null | undefined): string {

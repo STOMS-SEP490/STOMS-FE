@@ -41,6 +41,7 @@ type SessionAssignmentRow = {
 type RightPanelState =
   | { mode: 'team'; session: SessionWithFlags }
   | { mode: 'detail'; session: SessionWithFlags }
+  | { mode: 'assignment'; session: SessionWithFlags }
   | { mode: 'equipment' }
   | null;
 
@@ -62,7 +63,6 @@ export default function RequestDetail() {
   const [selectedAssignmentIdsBySessionId, setSelectedAssignmentIdsBySessionId] = useState<Record<number, number[]>>(
     {}
   );
-  const [assignmentPanelSession, setAssignmentPanelSession] = useState<SessionWithFlags | null>(null);
   const createdByMemberId = useProgramCoordinatorId();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -603,7 +603,7 @@ export default function RequestDetail() {
               <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}>
                 {statusInfo.label}
               </span>
-            </div>
+          </div>
           </div>
           {/* Info: Mã yêu cầu, Ngày gửi, Số lượng phiên */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100">
@@ -620,18 +620,18 @@ export default function RequestDetail() {
                 <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày gửi</p>
                 <p className="font-semibold text-sm text-slate-900 mt-0.5">
                   {request.createdAt ? dayjs(request.createdAt).format('DD/MM/YYYY') : dayjs(request.startDate).format('DD/MM/YYYY')}
-                </p>
-              </div>
-            </div>
+          </p>
+        </div>
+          </div>
             <div className="flex items-start gap-3">
               <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
               <div>
                 <p className="text-[11px] text-slate-500 uppercase tracking-wide">Số lượng phiên</p>
                 <p className="font-semibold text-sm text-slate-900 mt-0.5">{sessionCount} phiên</p>
               </div>
-            </div>
           </div>
         </div>
+      </div>
 
       {/* MAIN CONTENT */}
       {viewMode === 'assignment' ? (
@@ -699,126 +699,16 @@ export default function RequestDetail() {
                           <Button
                             type="button"
                             size="sm"
-                            className="rounded-full gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={approvingSessionId === session.sessionId || pendingCount === 0}
-                            onClick={() => void handleApproveSelectedAssignments(session.sessionId)}
+                            variant="outline"
+                            className="rounded-full border-slate-300 text-slate-700 text-[11px] px-3"
+                            onClick={() => setRightPanel({ mode: 'assignment', session })}
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            {approvingSessionId === session.sessionId
-                              ? 'Đang duyệt...'
-                              : selectedIds.length
-                                ? 'Duyệt assignment đã chọn'
-                                : 'Duyệt tất cả pending'}
+                            Chi tiết phân công
                           </Button>
                         </div>
                       </div>
 
-                      <div className="border-t border-slate-200 pt-2 space-y-1">
-                        {rows.length === 0 ? (
-                          <p className="text-xs text-gray-500">
-                            Phiên này hiện chưa có assignment nào (hoặc chưa được Team Leader phân công).
-                          </p>
-                        ) : (
-                          rows.map((row) => {
-                            const checked = selectedIds.includes(row.assignmentId);
-                            const isTeacher =
-                              row.staffRole === 'TE' || row.staffRole === 'TEACHER';
-                            const statusText = (row.status || '').toUpperCase();
-                            const isApproved = statusText === 'APPROVED' || statusText === '2';
-                            const isRejected = statusText === 'REJECTED' || statusText === '3';
-                            const canReview = !isApproved && !isRejected;
-                            return (
-                              <div
-                                key={row.assignmentId}
-                                className={`flex items-center justify-between gap-3 py-1.5 px-2 rounded-lg transition-colors ${
-                                  checked && canReview ? 'bg-sky-50' : 'bg-transparent'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <span
-                                    className={`shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                      isTeacher
-                                        ? 'bg-sky-100 text-sky-700'
-                                        : 'bg-amber-100 text-amber-700'
-                                    }`}
-                                  >
-                                    {isTeacher ? 'Giảng viên' : 'Trợ giảng'}
-                                  </span>
-                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
-                                    {row.avatarUrl ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={row.avatarUrl}
-                                        alt={row.fullName}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
-                                        }}
-                                      />
-                                    ) : (
-                                      (row.fullName || 'N')[0]
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium text-slate-900 truncate">
-                                      {row.fullName || '—'}
-                                    </p>
-                                    {row.email && (
-                                      <p className="text-[11px] text-slate-500 truncate">{row.email}</p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {isApproved && (
-                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] px-2 py-0.5 font-semibold">
-                                      Đã duyệt
-                                    </span>
-                                  )}
-                                  {isRejected && (
-                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] px-2 py-0.5 font-semibold">
-                                      Đã từ chối
-                                    </span>
-                                  )}
-                                  {canReview && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] px-2 py-0.5"
-                                        onClick={() =>
-                                          handleOpenRejectAssignment(session.sessionId, row)
-                                        }
-                                      >
-                                        Từ chối
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleToggleAssignmentSelection(
-                                            session.sessionId,
-                                            row.assignmentId
-                                          )
-                                        }
-                                        className={`relative inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors ${
-                                          checked
-                                            ? 'border-emerald-500 bg-emerald-500 text-white'
-                                            : 'border-slate-300 bg-white text-slate-400 hover:border-slate-400'
-                                        }`}
-                                        aria-label={checked ? 'Bỏ chọn assignment' : 'Chọn assignment'}
-                                      >
-                                        <CheckSquare
-                                          className={`h-3.5 w-3.5 transition-transform ${
-                                            checked ? 'scale-100' : 'scale-0'
-                                          }`}
-                                        />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
+                      {/* Danh sách giảng viên / trợ giảng được hiển thị trong panel Chi tiết phân công, không hiển thị trực tiếp ở đây */}
                     </div>
                   );
                 })}
@@ -859,8 +749,8 @@ export default function RequestDetail() {
                 <span className="text-sm font-medium text-slate-700">Tiến độ gắn đội</span>
                 <span className="text-sm font-semibold text-slate-800 tabular-nums">
                   {assignedCount}/{sessions.length || 0} phiên
-                </span>
-              </div>
+              </span>
+            </div>
               <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-sky-500 transition-all duration-300"
@@ -930,8 +820,8 @@ export default function RequestDetail() {
                       : `Phiên ${session.sessionNo}`;
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
                   return (
-                    <div
-                      key={session.sessionId}
+                  <div
+                    key={session.sessionId}
                       className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-1.5">
@@ -942,7 +832,7 @@ export default function RequestDetail() {
                           <span className="text-xs text-slate-500">Dạy học</span>
                           <span
                             className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
-                              session.teamAssigned
+                            session.teamAssigned
                                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 : 'bg-amber-50 text-amber-800 border border-amber-200'
                             }`}
@@ -951,15 +841,15 @@ export default function RequestDetail() {
                             {session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
                           </span>
                         </div>
-                        <button
-                          type="button"
+                      <button
+                        type="button"
                           onClick={() => setRightPanel({ mode: 'detail', session })}
                           className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 hover:text-sky-700 shrink-0"
-                        >
-                          Chi tiết
+                      >
+                        Chi tiết
                           <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      </button>
+                    </div>
                       <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">
                         {sessionTitle}
                       </p>
@@ -972,7 +862,7 @@ export default function RequestDetail() {
                             <span className="text-slate-600">{teamCount} đội</span>
                           </>
                         )}
-                      </div>
+                  </div>
                     </div>
                   );
                 })}
@@ -1015,7 +905,7 @@ export default function RequestDetail() {
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
                 {rightPanel.mode !== 'detail' && (
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
                     {rightPanel.mode === 'team' ? 'Đang gán đội' : 'Đặt trước thiết bị'}
                   </p>
                 )}
@@ -1072,10 +962,10 @@ export default function RequestDetail() {
               {rightPanel.mode === 'detail' && request && (
                 <>
                   {/* Thông tin phiên + Danh sách thiết bị: luôn hiển thị, kể cả khi đã gắn đội / đã duyệt */}
-                  <RequestSessionDetailPanel
-                    session={rightPanel.session}
-                    requestCode={request.requestCode ?? ''}
-                    assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                <RequestSessionDetailPanel
+                  session={rightPanel.session}
+                  requestCode={request.requestCode ?? ''}
+                  assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                   />
                   <div className="mt-6">
                     {rightPanel.session.teamAssigned ? (
@@ -1123,6 +1013,165 @@ export default function RequestDetail() {
                   onClearAllUi={handleClearAllUi}
                   onQuantitiesChange={handleQuantitiesChange}
                 />
+              )}
+              {rightPanel.mode === 'assignment' && (
+                <div className="space-y-4">
+                  <div className="rounded-2xl bg-white border border-gray-100 shadow-sm">
+                    <div className="px-4 py-2.5 border-b border-gray-100">
+                      <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
+                    </div>
+                    <div className="px-4 py-3 space-y-1 text-sm text-gray-700">
+                      <p>
+                        <span className="font-medium">Thời gian:</span>{' '}
+                        {dayjs(rightPanel.session.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
+                        {dayjs(rightPanel.session.endAt).format('DD/MM/YYYY HH:mm')}
+                      </p>
+                      <p>
+                        <span className="font-medium">Giảng viên yêu cầu:</span>{' '}
+                        {rightPanel.session.teachersRequired ?? 1}
+                        {' · '}
+                        <span className="font-medium">Trợ giảng yêu cầu:</span>{' '}
+                        {rightPanel.session.tasRequired ?? 1}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-white border border-gray-100 shadow-sm">
+                    <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="rounded-full gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={
+                          approvingSessionId === rightPanel.session.sessionId ||
+                          (assignmentsBySessionId[rightPanel.session.sessionId] ?? []).every((r) => {
+                            const statusText = (r.status || '').toUpperCase();
+                            return (
+                              statusText === 'APPROVED' ||
+                              statusText === '2' ||
+                              statusText === 'REJECTED' ||
+                              statusText === '3'
+                            );
+                          })
+                        }
+                        onClick={() => void handleApproveSelectedAssignments(rightPanel.session.sessionId)}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {approvingSessionId === rightPanel.session.sessionId
+                          ? 'Đang duyệt...'
+                          : 'Duyệt tất cả phân công'}
+                      </Button>
+                    </div>
+                    <div className="px-4 py-3 space-y-1 text-sm">
+                      {(() => {
+                        const rows = assignmentsBySessionId[rightPanel.session.sessionId] ?? [];
+                        if (!rows.length) {
+                          return (
+                            <p className="text-xs text-gray-500">
+                              Phiên này hiện chưa có assignment nào (hoặc chưa được Team Leader phân công).
+                            </p>
+                          );
+                        }
+                        const selectedIds =
+                          selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
+                        return rows.map((row) => {
+                          const checked = selectedIds.includes(row.assignmentId);
+                          const isTeacher = row.staffRole === 'TE' || row.staffRole === 'TEACHER';
+                          const statusText = (row.status || '').toUpperCase();
+                          const isApproved = statusText === 'APPROVED' || statusText === '2';
+                          const isRejected = statusText === 'REJECTED' || statusText === '3';
+                          const canReview = !isApproved && !isRejected;
+                          return (
+                            <div
+                              key={row.assignmentId}
+                              className={`flex items-center justify-between gap-3 py-1.5 px-2 rounded-lg transition-colors ${
+                                checked && canReview ? 'bg-sky-50' : 'bg-transparent'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span
+                                  className={`shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    isTeacher ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700'
+                                  }`}
+                                >
+                                  {isTeacher ? 'Giảng viên' : 'Trợ giảng'}
+                                </span>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
+                                    {row.avatarUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={row.avatarUrl}
+                                        alt={row.fullName}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                        }}
+                                      />
+                                    ) : (
+                                      (row.fullName || 'N')[0]
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-slate-900 truncate">
+                                      {row.fullName || '—'}
+                                    </p>
+                                    {row.email && (
+                                      <p className="text-[11px] text-slate-500 truncate">{row.email}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isApproved && (
+                                  <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] px-2 py-0.5 font-semibold">
+                                    Đã duyệt
+                                  </span>
+                                )}
+                                {isRejected && (
+                                  <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] px-2 py-0.5 font-semibold">
+                                    Đã từ chối
+                                  </span>
+                                )}
+                                {canReview && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] px-2 py-0.5"
+                                      onClick={() =>
+                                        handleOpenRejectAssignment(rightPanel.session.sessionId, row)
+                                      }
+                                    >
+                                      Từ chối
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleToggleAssignmentSelection(
+                                          rightPanel.session.sessionId,
+                                          row.assignmentId
+                                        )
+                                      }
+                                      className={`rounded-lg border text-[11px] px-2 py-0.5 ${
+                                        checked
+                                          ? 'border-sky-500 bg-sky-50 text-sky-700'
+                                          : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                                      }`}
+                                      disabled={!canReview}
+                                    >
+                                      {checked ? 'Bỏ chọn' : 'Chọn duyệt'}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
               )}
               {rightPanel.mode === 'equipment' && (
                 <RequestDetailEquipmentPanel
