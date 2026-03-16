@@ -1,0 +1,58 @@
+import axiosClient from '@/shared/lib/axios';
+import type { PaginationResponse } from '@/shared/types/api';
+import type { UpdateUserPayload, User } from '@/modules/user/user';
+
+export type UserFilterParams = {
+  pageNumber?: number;
+  pageSize?: number;
+  UserId?: number;
+  Email?: string;
+  IsActive?: boolean;
+  RoleId?: number;
+};
+
+const userService = {
+  getUsers: async (params: UserFilterParams): Promise<PaginationResponse<User>> => {
+    return axiosClient.get('/users/filter', { params });
+  },
+
+  getUserById: async (id: number): Promise<User> => {
+    return axiosClient.get(`/users/${id}`);
+  },
+
+  activateUser: async (userId: number) => {
+    return axiosClient.put(`/users/${userId}/activate`);
+  },
+
+  deactivateUser: async (userId: number) => {
+    return axiosClient.put(`/users/${userId}/deactivate`);
+  },
+
+  updateUser: async (userId: number, payload: UpdateUserPayload) => {
+    return axiosClient.put(`/users/${userId}`, payload);
+  },
+
+  /** Đặt lại mật khẩu user (admin). PUT api/users/{id}/change-password */
+  changePassword: async (userId: number, newPassword: string) => {
+    return axiosClient.put(`/users/${userId}/change-password`, { newPassword });
+  },
+
+  createUser: async (payload: {
+    email: string;
+    passwordHash: string;
+    isActive: boolean;
+    roleId: number;
+  }): Promise<{ userId: number }> => {
+    return axiosClient.post('/users', payload);
+  },
+
+  createUsersBulk: async (payload: { quantity: number; roleId: number; emails: string[] }) => {
+    const { roleId, emails } = payload;
+    return axiosClient.post('/users/bulk', {
+      roleId,
+      users: emails.map((email) => ({ email })),
+    });
+  },
+};
+
+export default userService;
