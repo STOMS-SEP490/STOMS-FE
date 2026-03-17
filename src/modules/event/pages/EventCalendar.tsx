@@ -8,7 +8,8 @@ import type { CalendarEvent } from '@/modules/event/event';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './EventCalendar.css';
 import { useCalendarEvents } from '@/modules/event/hooks/useCalendarEvents';
-import { sessionApi, type SessionDetail } from '@/modules/request/api/sessionApi';
+import sessionService from '@/modules/request/api/sessionApi';
+import type { SessionDetail } from '@/modules/request/api/type';
 import SessionDetailPopover from './SessionDetailPopover';
 import { useLocation } from 'react-router-dom';
 
@@ -217,7 +218,7 @@ export default function EventCalendar() {
     try {
       const target = (e?.currentTarget || e?.target) as HTMLElement | undefined;
       if (target?.getBoundingClientRect) setAnchorRect(target.getBoundingClientRect());
-      const session = await sessionApi.getById(idNum);
+      const session = await sessionService.getById(idNum);
       setDetailSession(session);
       setDetailOpen(true);
     } catch (err) {

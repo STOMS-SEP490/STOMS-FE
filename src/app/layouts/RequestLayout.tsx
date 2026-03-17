@@ -4,7 +4,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Switch } from '@/shared/components/ui/switch';
 import { RotateCcw } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
@@ -23,8 +23,22 @@ export default function RequestLayout() {
     setStatusFilter('all');
   };
 
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    root.classList.add('scrollbar-hide', 'no-scrollbar');
+    body.classList.add('scrollbar-hide', 'no-scrollbar');
+    return () => {
+      root.classList.remove('scrollbar-hide', 'no-scrollbar');
+      body.classList.remove('scrollbar-hide', 'no-scrollbar');
+    };
+  }, []);
+
   return (
-    <div className="p-6 space-y-6 bg-slate-50" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div
+      className="p-6 bg-slate-50 flex flex-col gap-1 min-h-0 overflow-hidden"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
       {/* HEADER */}
 
       <div className="bg-white px-6 py-4 mb-2 rounded-2xl border border-slate-200 shadow-sm">
@@ -131,9 +145,9 @@ export default function RequestLayout() {
           )}
         </div>
       </div>
-      <div className="flex gap-4">
+      <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <RequestSidebar
             search={search}
             onlyPending={onlyPending}
@@ -144,13 +158,15 @@ export default function RequestLayout() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          <Outlet
-            context={{
-              refreshRequestSidebar: () => setSidebarRefreshKey((k) => k + 1),
-              viewMode,
-            }}
-          />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full overflow-y-auto scrollbar-hide pr-1">
+            <Outlet
+              context={{
+                refreshRequestSidebar: () => setSidebarRefreshKey((k) => k + 1),
+                viewMode,
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>

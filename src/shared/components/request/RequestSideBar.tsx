@@ -65,7 +65,7 @@ export default function RequestSidebar({
   }, [filtered.length, id, loading, navigate]);
 
   return (
-    <div className="text-black">
+    <div className="text-black h-full">
       <div className="h-full flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-slate-200">
@@ -81,7 +81,7 @@ export default function RequestSidebar({
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-3 space-y-2 bg-slate-50">
           {loading && (
             <div className="p-4 text-sm text-gray-500">Đang tải danh sách...</div>
           )}

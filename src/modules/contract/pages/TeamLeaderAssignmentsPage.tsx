@@ -8,6 +8,9 @@ import {
   Clock,
   Calendar,
   Hash,
+  List,
+  Copy,
+  Share2,
   GraduationCap,
   Users,
   AlertCircle,
@@ -18,6 +21,7 @@ import HoverSearch from '@/shared/components/ui/search';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
+import { Switch } from '@/shared/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -25,14 +29,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select';
-import RequestCard from '@/shared/components/request/RequestCard';
-import { requestApi } from '@/modules/request/api/requestApi';
-import { sessionApi, type SessionDetail } from '@/modules/request/api/sessionApi';
+import RequestCard, { getRequestType } from '@/shared/components/request/RequestCard';
+import { getRequestStatusInfo } from '@/constants/status';
 import { teamApi } from '@/modules/team/api/teamApi';
 import memberApi from '@/modules/member/api/memberApi';
 import type { Member } from '@/modules/member/member';
 import axiosClient from '@/shared/lib/axios';
-import { assignmentApi, type SuggestedStaff } from '@/modules/request/api/assignmentApi';
+import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
+import requestApi from '@/modules/request/api/requestApi';
+import sessionApi from '@/modules/request/api/sessionApi';
+import assignmentApi from '@/modules/request/api/assignmentApi';
 
 type TeamSessionLite = {
   sessionId: number;
@@ -69,6 +75,8 @@ export default function TeamLeaderAssignmentsPage() {
   >({});
 
   const [search, setSearch] = useState('');
+  const [onlyNeedsAction, setOnlyNeedsAction] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'assigning'>('assigning');
   const [assignSelections, setAssignSelections] = useState<Record<number, number>>({});
   const [searchByAssignmentId, setSearchByAssignmentId] = useState<Record<number, string>>({});
   const [savingAll, setSavingAll] = useState(false);
@@ -173,17 +181,39 @@ export default function TeamLeaderAssignmentsPage() {
 
   const filteredRequests = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return requests;
-    return requests.filter(
-      (r) =>
-        r.requestCode.toLowerCase().includes(q) || (r.requestName ?? '').toLowerCase().includes(q),
-    );
-  }, [requests, search]);
+    const base = !q
+      ? requests
+      : requests.filter(
+          (r) =>
+            r.requestCode.toLowerCase().includes(q) ||
+            (r.requestName ?? '').toLowerCase().includes(q),
+        );
+    if (statusFilter === 'assigning' || onlyNeedsAction) {
+      return base.filter((r) =>
+        r.sessions.some((s) => String(s.status ?? '').toLowerCase() === 'assigning'),
+      );
+    }
+    return base;
+  }, [requests, search, onlyNeedsAction, statusFilter]);
 
   const selectedRequest = useMemo(
     () => requests.find((r) => r.requestId === selectedRequestId) ?? null,
     [requests, selectedRequestId],
   );
+
+  const selectedRequestTypeInfo = useMemo(() => {
+    if (!selectedRequest) return null;
+    return getRequestType({
+      subjectId: selectedRequest.subjectId,
+      courseId: selectedRequest.courseId,
+      eventId: selectedRequest.eventId,
+    });
+  }, [selectedRequest]);
+
+  const selectedRequestStatusInfo = useMemo(() => {
+    if (!selectedRequest?.status) return null;
+    return getRequestStatusInfo(selectedRequest.status);
+  }, [selectedRequest]);
 
   /* ───────── Session details + suggestions ───────── */
 
@@ -557,8 +587,14 @@ export default function TeamLeaderAssignmentsPage() {
 
   /* ───────── Render ───────── */
 
+  const handleResetFilters = () => {
+    setSearch('');
+    setOnlyNeedsAction(false);
+    setStatusFilter('assigning');
+  };
+
   return (
-    <div className="flex flex-col p-6 gap-4 bg-[#f3f4f6] overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
+    <div className="flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
           <Spin tip="Đang tải dữ liệu phân công cho team..." />
@@ -566,17 +602,49 @@ export default function TeamLeaderAssignmentsPage() {
       )}
 
       {/* HEADER */}
-      <div className="bg-white px-6 py-4 rounded-xl border shadow-sm shrink-0">
-        <h2 className="text-xl font-semibold text-black">Phân công nhân sự cho team</h2>
+      <div className="bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm shrink-0">
+        <h2 className="text-xl font-semibold text-black">Trung tâm phân công</h2>
         <p className="text-xs text-gray-500 mt-1">
-          Chọn yêu cầu bên trái → xem danh sách phiên → bấm phiên để phân công nhân sự.
+          Quản lý phân công nhân sự cho các yêu cầu thuộc team của bạn.
         </p>
       </div>
 
-      {/* MAIN 2-COLUMN LAYOUT */}
-      <div className="flex gap-4 flex-1 min-h-0">
-        {/* ─── LEFT: Request list ─── */}
-        <div className="w-[340px] shrink-0 bg-white border rounded-xl overflow-hidden flex flex-col">
+      <div className="flex justify-start gap-3 mb-2 flex-wrap">
+        <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
+        <div className="flex items-center gap-3">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | 'assigning')}>
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[160px]">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="assigning">Đang phân công</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
+            onClick={handleResetFilters}
+          >
+            <RotateCcw size={16} />
+          </Button>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              className="!rounded-[15px]"
+              checked={onlyNeedsAction}
+              onCheckedChange={setOnlyNeedsAction}
+            />
+            <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        {/* Sidebar */}
+        <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden">
           <div className="flex justify-between items-center p-4 border-b border-slate-200">
             <div className="min-w-0">
               <h2 className="font-semibold text-base text-black truncate">Danh sách yêu cầu</h2>
@@ -586,21 +654,14 @@ export default function TeamLeaderAssignmentsPage() {
             </div>
             <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1 shrink-0">
               {filteredRequests.length}
-                                  </span>
-                                </div>
-          <div className="px-3 pt-2 pb-3 border-b border-slate-100">
-            <HoverSearch
-              value={search}
-              onChange={setSearch}
-              placeholder="Tìm theo mã hoặc tên yêu cầu..."
-            />
+            </span>
           </div>
           <div className="flex-1 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
                 Chưa có yêu cầu nào có phiên của team này.
-                                    </div>
-                                  )}
+              </div>
+            )}
             {filteredRequests.map((r) => (
               <RequestCard
                 key={r.requestId}
@@ -623,10 +684,10 @@ export default function TeamLeaderAssignmentsPage() {
           </div>
         </div>
 
-        {/* ─── MIDDLE: Session list ─── */}
+        {/* Content */}
         <div className="flex-1 min-w-0 overflow-y-auto no-scrollbar">
           {!selectedRequest ? (
-            <div className="bg-white rounded-xl border shadow-sm p-8 text-center">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
               <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
                 <span className="text-2xl text-slate-400">📋</span>
               </div>
@@ -636,41 +697,79 @@ export default function TeamLeaderAssignmentsPage() {
           ) : (
             <div className="space-y-4">
               {/* Request header */}
-              <div className="bg-white rounded-xl px-6 py-4 shadow-sm border">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h5 className="text-lg font-bold text-slate-800">
-                      {selectedRequest.requestName || selectedRequest.requestCode}
-                    </h5>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Mã: {selectedRequest.requestCode} · {selectedRequest.sessions.length} phiên
-                    </p>
+              <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
+                    {selectedRequest.requestName || selectedRequest.requestCode}
+                  </h5>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      title="Sao chép mã"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      title="Chia sẻ"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 hover:border-slate-300"
+                      title="Xem trong lịch"
+                    >
+                      <Calendar className="w-4 h-4" />
+                    </button>
                   </div>
-                  {(() => {
-                    const allFilled = selectedRequest.sessions.every((s) => {
-                      const detail = sessionDetailsById[s.sessionId];
-                      const assignments = detail?.assignments ?? [];
-                      return assignments.length > 0 && assignments.every((a) => !!a.staffMemberId);
-                    });
-                    if (allFilled) return null;
-                    return (
-                      <Button
-                        type="button"
-                        disabled={savingAll}
-                        className="rounded-lg bg-[#2197C0] hover:bg-[#208AAE] text-white text-xs px-4 shrink-0"
-                        onClick={() => void handleSaveAllAssignmentsForRequest()}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {selectedRequestTypeInfo && (
+                      <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
+                        {selectedRequestTypeInfo.label}
+                      </span>
+                    )}
+                    {selectedRequestStatusInfo && (
+                      <span
+                        className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${selectedRequestStatusInfo.className}`}
                       >
-                        {savingAll ? (
-                          'Đang lưu...'
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                            Hoàn tất phân công
-                          </>
-                        )}
-                      </Button>
-                    );
-                  })()}
+                        {selectedRequestStatusInfo.label}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100">
+                  <div className="flex items-start gap-3">
+                    <Hash className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] text-slate-500 uppercase tracking-wide">Mã yêu cầu</p>
+                      <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                        {selectedRequest.requestCode}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày gửi</p>
+                      <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                        {selectedRequest.startDate
+                          ? dayjs(selectedRequest.startDate).format('DD/MM/YYYY')
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] text-slate-500 uppercase tracking-wide">Số lượng phiên</p>
+                      <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                        {selectedRequest.sessions.length} phiên
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -685,7 +784,7 @@ export default function TeamLeaderAssignmentsPage() {
                 });
                 const progress = totalSlots === 0 ? 0 : Math.min(1, filledSlots / totalSlots);
                 return (
-                  <div className="bg-white rounded-xl border shadow-sm p-4">
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-medium text-slate-700">Tiến độ phân công</span>
                       <span className="text-sm font-semibold text-slate-800 tabular-nums">
@@ -703,8 +802,10 @@ export default function TeamLeaderAssignmentsPage() {
               })()}
 
               {/* Session list */}
-              <div className="bg-white rounded-xl border shadow-sm p-4">
-                <h3 className="text-sm font-semibold text-slate-900 mb-3">Danh sách phiên học</h3>
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
+                </div>
                 {selectedRequest.sessions.length === 0 ? (
                   <p className="text-xs text-slate-500 py-6 text-center">
                     Yêu cầu này chưa có phiên nào gán cho team.
@@ -714,46 +815,40 @@ export default function TeamLeaderAssignmentsPage() {
                     {selectedRequest.sessions.map((session) => {
                       const stats = getSessionStats(session);
                       const isActive = activeSession?.sessionId === session.sessionId;
-                                    return (
-                                      <div
+                      const title = `Phiên ${session.sessionNo}`;
+                      return (
+                        <div
                           key={session.sessionId}
                           role="button"
                           tabIndex={0}
                           onClick={() => setActiveSession(session)}
-                          className={`w-full border rounded-lg px-4 py-2.5 transition cursor-pointer ${
+                          className={`w-full border rounded-lg bg-white px-4 py-2.5 transition cursor-pointer ${
                             isActive
                               ? 'bg-sky-50/80 border-sky-300 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                              : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
                           }`}
                         >
                           <div className="flex flex-wrap items-center justify-between gap-1.5">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-xs text-sky-600 font-medium">
-                                {dayjs(session.startAt).format('HH:mm')} -{' '}
-                                {dayjs(session.endAt).format('HH:mm')}
+                                {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                               </span>
-                              <span className="text-xs text-slate-500">
-                                {dayjs(session.startAt).format('DD/MM/YYYY')}
-                              </span>
+                              <span className="text-xs text-slate-500">Dạy học</span>
                               <span
                                 className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
                                   stats.total > 0 && stats.filled === stats.total
                                     ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                    : stats.filled > 0
-                                      ? 'bg-sky-50 text-sky-800 border border-sky-200'
-                                      : 'bg-amber-50 text-amber-800 border border-amber-200'
+                                    : 'bg-amber-50 text-amber-800 border border-amber-200'
                                 }`}
                               >
-                                {stats.total === 0 && (
-                                  <AlertCircle className="w-3 h-3 shrink-0" />
-                                )}
+                                {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
                                 {stats.total === 0
                                   ? 'Chưa có slot'
                                   : stats.filled === stats.total
                                     ? 'Đã gán đủ'
-                                    : `${stats.filled}/${stats.total} slot`}
+                                    : 'Chưa gán đủ'}
                               </span>
-                                            </div>
+                            </div>
                             <button
                               type="button"
                               className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 hover:text-sky-700 shrink-0"
@@ -763,16 +858,20 @@ export default function TeamLeaderAssignmentsPage() {
                             </button>
                           </div>
                           <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">
-                            Phiên {session.sessionNo}
+                            {title}
                           </p>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
                             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span>{session.location || '—'}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-slate-600">
+                              {dayjs(session.startAt).format('DD/MM/YYYY')}
+                            </span>
                           </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
