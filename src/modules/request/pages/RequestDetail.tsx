@@ -246,9 +246,9 @@ export default function RequestDetail() {
             <TabsTrigger value="attachments">Tệp đính kèm</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
+          <TabsContent value="overview" className="space-y-4 mb-0">
           {/* WARNING BOX + PROGRESS — Figma: cam, tiến độ gắn đội, nút Từ chối */}
-          <div className="space-y-3 mb-4">
+          <div className="space-y-3">
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex items-start gap-2 min-w-0">
                 <span className="text-amber-600 shrink-0 mt-0.5">⚠</span>
@@ -473,7 +473,7 @@ export default function RequestDetail() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 pt-0">
+            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
                 <>
                   {/* Thông tin phiên + Danh sách thiết bị: luôn hiển thị, kể cả khi đã gắn đội / đã duyệt */}

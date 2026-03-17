@@ -159,7 +159,7 @@ export default function RequestLayout() {
 
         {/* Content */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto scrollbar-hide pr-1">
+          <div className="h-full overflow-y-auto no-scrollbar pr-1">
             <Outlet
               context={{
                 refreshRequestSidebar: () => setSidebarRefreshKey((k) => k + 1),

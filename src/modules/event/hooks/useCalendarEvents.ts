@@ -102,24 +102,25 @@ export function useCalendarEvents() {
           const sessionsRaw: any[] = await axiosClient.get(`/sessions/by-team/${firstTeam.teamId}`);
           const mapped: CalendarEvent[] =
             (sessionsRaw ?? []).flatMap((s: any) => {
-              const startRaw = s.startAt;
-              const endRaw = s.endAt;
+              const startRaw = s.startAt ?? s.StartAt;
+              const endRaw = s.endAt ?? s.EndAt;
               if (!startRaw || !endRaw) return [];
               const start = new Date(startRaw);
               const end = new Date(endRaw);
-              const assignments: any[] = (s.assignments ?? []) as any[];
-              const hasTeachingStaff = assignments.some((a) => {
-                const role = String(a.staffRole ?? '').toLowerCase();
-                return role.includes('teacher') || role.includes('giảng') || role.includes('ta');
+              const assignments: any[] = (s.assignments ?? s.Assignments ?? []) as any[];
+              const hasAssigned = assignments.some((a) => {
+                const status = String(a.status ?? a.Status ?? '').toUpperCase();
+                if (status === 'REJECTED' || status === '3') return false;
+                return true;
               });
               return {
-                id: s.sessionId,
-                title: `Phiên ${s.sessionNo ?? ''}`.trim(),
+                id: s.sessionId ?? s.SessionId,
+                title: `Phiên ${s.sessionNo ?? s.SessionNo ?? ''}`.trim(),
                 start,
                 end,
-                resource: s.location ?? undefined,
+                resource: s.location ?? s.Location ?? undefined,
                 color: '#0ea5e9',
-                unassigned: !hasTeachingStaff,
+                unassigned: !hasAssigned,
               } as CalendarEvent;
             }) ?? [];
           setEvents(mapped);
