@@ -75,7 +75,7 @@ export default function TeamLeaderAssignmentsPage() {
 
   const [hoveredStaff, setHoveredStaff] = useState<{
     staff: SuggestedStaff | Member;
-    assignmentId: number;
+    rect: DOMRect;
   } | null>(null);
 
   // Panel state — click session to open right panel
@@ -264,58 +264,58 @@ export default function TeamLeaderAssignmentsPage() {
   }, []);
 
   const handleSaveAllAssignmentsForRequest = useCallback(async () => {
-    if (!selectedRequest) return;
-    const sessionIds = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
-    if (!sessionIds.length) {
-      message.warning('Yêu cầu này không có phiên nào của team để phân công.');
-      return;
-    }
+      if (!selectedRequest) return;
+      const sessionIds = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
+      if (!sessionIds.length) {
+        message.warning('Yêu cầu này không có phiên nào của team để phân công.');
+        return;
+      }
 
-    const missingPerSession: number[] = [];
-    for (const s of selectedRequest.sessions) {
-      const detail = sessionDetailsById[s.sessionId];
-      if (!detail?.assignments?.length) continue;
-      const missingSlots = detail.assignments.filter(
-        (a) => !(assignSelections[a.assignmentId] || a.staffMemberId),
-      );
-      if (missingSlots.length > 0) missingPerSession.push(s.sessionNo);
-    }
-    if (missingPerSession.length > 0) {
-      message.warning(
-        `Vui lòng gán đủ giảng viên / trợ giảng cho tất cả slot. Còn thiếu ở phiên: ${missingPerSession.join(', ')}.`,
-      );
-      return;
-    }
-
-    try {
-      setSavingAll(true);
+      const missingPerSession: number[] = [];
       for (const s of selectedRequest.sessions) {
         const detail = sessionDetailsById[s.sessionId];
         if (!detail?.assignments?.length) continue;
-        const items = detail.assignments
-          .map((a) => {
+        const missingSlots = detail.assignments.filter(
+        (a) => !(assignSelections[a.assignmentId] || a.staffMemberId),
+        );
+      if (missingSlots.length > 0) missingPerSession.push(s.sessionNo);
+      }
+      if (missingPerSession.length > 0) {
+        message.warning(
+        `Vui lòng gán đủ giảng viên / trợ giảng cho tất cả slot. Còn thiếu ở phiên: ${missingPerSession.join(', ')}.`,
+        );
+        return;
+      }
+
+      try {
+        setSavingAll(true);
+        for (const s of selectedRequest.sessions) {
+          const detail = sessionDetailsById[s.sessionId];
+          if (!detail?.assignments?.length) continue;
+          const items = detail.assignments
+            .map((a) => {
             const mid = assignSelections[a.assignmentId] ?? a.staffMemberId;
             if (!mid) return null;
             return { AssignmentId: a.assignmentId, StaffMemberId: mid };
-          })
-          .filter(Boolean) as { AssignmentId: number; StaffMemberId: number }[];
-        if (!items.length) continue;
-        // eslint-disable-next-line no-await-in-loop
+            })
+            .filter(Boolean) as { AssignmentId: number; StaffMemberId: number }[];
+          if (!items.length) continue;
+          // eslint-disable-next-line no-await-in-loop
         await axiosClient.put('/assignments/assign-members', { items });
-      }
-      message.success('Đã hoàn tất phân công cho tất cả phiên của team trong yêu cầu này.');
+        }
+        message.success('Đã hoàn tất phân công cho tất cả phiên của team trong yêu cầu này.');
       setSessionDetailsById((prev) => {
         const next = { ...prev };
         for (const sid of sessionIds) delete next[sid];
         return next;
       });
-      await ensureSessionDetails(sessionIds);
-    } catch (err) {
-      console.error(err);
-      message.error('Hoàn tất phân công thất bại.');
-    } finally {
-      setSavingAll(false);
-    }
+        await ensureSessionDetails(sessionIds);
+      } catch (err) {
+        console.error(err);
+        message.error('Hoàn tất phân công thất bại.');
+      } finally {
+        setSavingAll(false);
+      }
   }, [assignSelections, ensureSessionDetails, selectedRequest, sessionDetailsById]);
 
   const handleApplyToOtherSessions = useCallback(
@@ -359,8 +359,8 @@ export default function TeamLeaderAssignmentsPage() {
             if (!candidates?.length) return;
             const suggestionList = suggestedByAssignmentId[a.assignmentId] ?? [];
             const sourceList: { memberId: number }[] = suggestionList.length
-              ? suggestionList
-              : teamMembers;
+                ? suggestionList
+                : teamMembers;
             const usedForRole = usedPerRole[roleKey] ?? [];
             const memberToApply = candidates.find(
               (id) => !usedForRole.includes(id) && sourceList.some((m) => m.memberId === id),
@@ -400,55 +400,43 @@ export default function TeamLeaderAssignmentsPage() {
         ? (m as Member).user?.email || '—'
         : (m as SuggestedStaff).email ?? (m as SuggestedStaff).roleName ?? '—';
     return (
-      <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
-          {m.avatarUrl ? (
-            <img
-              src={m.avatarUrl}
-              alt={m.fullName}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
-              }}
-            />
-          ) : (
-            (m.fullName || 'N')[0]
-          )}
-        </div>
+    <div className="flex items-center gap-2">
+      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
+        {m.avatarUrl ? (
+          <img
+            src={m.avatarUrl}
+            alt={m.fullName}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+            }}
+          />
+        ) : (
+          (m.fullName || 'N')[0]
+        )}
+      </div>
         <div className="flex flex-row items-center gap-2 min-w-0 flex-1">
           <span className="text-xs font-medium text-slate-900 truncate shrink-0">
-            {m.fullName || '—'}
-          </span>
+          {m.fullName || '—'}
+        </span>
           <span className="text-[11px] text-slate-500 truncate">{subText}</span>
-        </div>
       </div>
-    );
+    </div>
+  );
   };
 
-  const renderStaffHoverCard = (staff: SuggestedStaff | Member) => {
-    const isSuggested = 'skillMatchCount' in staff && 'assignmentCountIn30Days' in staff;
-    if (!isSuggested) return null;
-    const s = staff as SuggestedStaff;
-    const skillNames = s.skills?.map((sk) => sk.skillName).filter(Boolean).join(', ') || '—';
-    return (
-      <div className="px-2 py-2 border-t border-slate-100 bg-slate-50/90 rounded-b-md">
-        <div className="text-[11px] space-y-1">
-          <div>
-            <span className="font-medium text-slate-600">Kỹ năng: </span>
-            <span className="text-slate-800">{skillNames}</span>
-          </div>
-          <div>
-            <span className="font-medium text-slate-600">Khớp yêu cầu: </span>
-            <span className="text-slate-800">{s.skillMatchCount}</span>
-          </div>
-          <div>
-            <span className="font-medium text-slate-600">Số buổi (30 ngày): </span>
-            <span className="text-slate-800">{s.assignmentCountIn30Days}</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const handleStaffHover = useCallback(
+    (staff: SuggestedStaff | Member, e: React.MouseEvent) => {
+      const isSuggested = 'skillMatchCount' in staff;
+      if (!isSuggested) {
+        setHoveredStaff(null);
+        return;
+      }
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      setHoveredStaff({ staff, rect });
+    },
+    [],
+  );
 
   const renderSlotPicker = (
     slots: NonNullable<SessionDetail['assignments']>,
@@ -469,17 +457,17 @@ export default function TeamLeaderAssignmentsPage() {
     const placeholder = colorScheme === 'sky' ? 'Chọn giảng viên' : 'Chọn trợ giảng';
     const searchPlaceholder = colorScheme === 'sky' ? 'Tìm giảng viên...' : 'Tìm trợ giảng...';
 
-    return (
+                        return (
       <div className={`rounded-xl border ${borderColor} ${bgGradient} p-3 space-y-2 shadow-sm`}>
-        <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between">
           <Badge
             className={`px-2 py-0.5 rounded-lg ${badgeCls} text-[11px] font-semibold border`}
           >
             {roleLabel}
-          </Badge>
+                                  </Badge>
           <span className="text-[11px] font-medium text-slate-600">Cần: {requiredCount}</span>
-        </div>
-        <div className="space-y-2">
+                                </div>
+                                <div className="space-y-2">
           {slots.length === 0 && (
             <div className="text-[11px] text-slate-500">Chưa có slot phân công.</div>
           )}
@@ -487,96 +475,90 @@ export default function TeamLeaderAssignmentsPage() {
             const selectedId = assignSelections[a.assignmentId] ?? (a.staffMemberId ?? 0);
             const selectedSameRole = slots
               .map((sl) => assignSelections[sl.assignmentId] ?? (sl.staffMemberId ?? 0))
-              .filter((id) => id > 0);
+                                      .filter((id) => id > 0);
             const selectedOthers = selectedSameRole.filter((id) => id !== selectedId);
             const searchText = searchByAssignmentId[a.assignmentId]?.toLowerCase() || '';
 
             const suggestedList = (suggestedByAssignmentId[a.assignmentId] ?? []).filter(
-              (m) =>
+                                      (m) =>
                 (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
-                (!searchText ||
-                  m.fullName?.toLowerCase().includes(searchText) ||
+                                        (!searchText ||
+                                          m.fullName?.toLowerCase().includes(searchText) ||
                   m.roleName?.toLowerCase().includes(searchText) ||
                   m.email?.toLowerCase().includes(searchText)),
-            );
+                                    );
 
-            const fallbackList =
-              !suggestedByAssignmentId[a.assignmentId] ||
-              suggestedByAssignmentId[a.assignmentId]?.length === 0
-                ? teamMembers.filter(
-                    (m) =>
+                                    const fallbackList =
+                                      !suggestedByAssignmentId[a.assignmentId] ||
+                                      suggestedByAssignmentId[a.assignmentId]?.length === 0
+                                        ? teamMembers.filter(
+                                            (m) =>
                       (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
-                      (!searchText ||
+                                              (!searchText ||
                         m.fullName?.toLowerCase().includes(searchText) ||
                         m.user?.email?.toLowerCase().includes(searchText)),
-                  )
-                : [];
+                                          )
+                                        : [];
 
-            return (
+                                    return (
               <div key={a.assignmentId} className={`rounded-lg bg-white px-3 py-2 border ${slotBorder} shadow-sm`}>
-                <Select
-                  value={selectedId ? String(selectedId) : undefined}
+                                        <Select
+                                          value={selectedId ? String(selectedId) : undefined}
                   onValueChange={(value) => handleSelectStaff(a.assignmentId, Number(value))}
-                >
-                  <SelectTrigger className="h-9 w-full text-xs border-none shadow-none px-0">
+                                        >
+                                          <SelectTrigger className="h-9 w-full text-xs border-none shadow-none px-0">
                     <SelectValue placeholder={placeholder} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="px-2 pb-1 pt-1.5">
-                      <Input
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <div className="px-2 pb-1 pt-1.5">
+                                              <Input
                         placeholder={searchPlaceholder}
-                        className="h-7 text-xs"
-                        value={searchByAssignmentId[a.assignmentId] || ''}
-                        onChange={(e) =>
-                          setSearchByAssignmentId((prev) => ({
-                            ...prev,
-                            [a.assignmentId]: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    {suggestedList.map((m) => (
-                      <SelectItem key={m.memberId} value={String(m.memberId)} className="text-xs py-1.5">
-                        <div
-                          className="w-full"
-                          onMouseEnter={() =>
-                            setHoveredStaff({ staff: m, assignmentId: a.assignmentId })
-                          }
-                          onMouseLeave={() => setHoveredStaff(null)}
-                        >
-                          {renderMemberOption(m)}
-                        </div>
-                      </SelectItem>
-                    ))}
-                    {fallbackList.map((m) => (
-                      <SelectItem key={m.memberId} value={String(m.memberId)} className="text-xs py-1.5">
-                        <div
-                          className="w-full"
-                          onMouseEnter={() =>
-                            setHoveredStaff({ staff: m, assignmentId: a.assignmentId })
-                          }
-                          onMouseLeave={() => setHoveredStaff(null)}
-                        >
-                          {renderMemberOption(m)}
-                        </div>
-                      </SelectItem>
-                    ))}
-                    {hoveredStaff?.assignmentId === a.assignmentId &&
-                      renderStaffHoverCard(hoveredStaff.staff)}
-                  </SelectContent>
-                </Select>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                                                className="h-7 text-xs"
+                                                value={searchByAssignmentId[a.assignmentId] || ''}
+                                                onChange={(e) =>
+                                                  setSearchByAssignmentId((prev) => ({
+                                                    ...prev,
+                                                    [a.assignmentId]: e.target.value,
+                                                  }))
+                                                }
+                                              />
+                                            </div>
+                                            {suggestedList.map((m) => (
+                                              <SelectItem
+                                                key={m.memberId}
+                                                value={String(m.memberId)}
+                                                className="text-xs py-1.5"
+                        onMouseEnter={(e) => handleStaffHover(m, e)}
+                        onMouseLeave={() => setHoveredStaff(null)}
+                                              >
+                                                {renderMemberOption(m)}
+                                              </SelectItem>
+                                            ))}
+                                            {fallbackList.map((m) => (
+                                              <SelectItem
+                                                key={m.memberId}
+                                                value={String(m.memberId)}
+                                                className="text-xs py-1.5"
+                        onMouseEnter={(e) => handleStaffHover(m, e)}
+                        onMouseLeave={() => setHoveredStaff(null)}
+                                              >
+                                                {renderMemberOption(m)}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
     );
   };
 
   /* ───────── Render ───────── */
 
   return (
-    <div className="h-screen p-6 space-y-6 bg-[#f3f4f6]">
+    <div className="flex flex-col p-6 gap-4 bg-[#f3f4f6] overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
           <Spin tip="Đang tải dữ liệu phân công cho team..." />
@@ -584,15 +566,15 @@ export default function TeamLeaderAssignmentsPage() {
       )}
 
       {/* HEADER */}
-      <div className="bg-white px-6 py-4 rounded-xl border shadow-sm">
+      <div className="bg-white px-6 py-4 rounded-xl border shadow-sm shrink-0">
         <h2 className="text-xl font-semibold text-black">Phân công nhân sự cho team</h2>
         <p className="text-xs text-gray-500 mt-1">
           Chọn yêu cầu bên trái → xem danh sách phiên → bấm phiên để phân công nhân sự.
         </p>
       </div>
 
-      {/* MAIN 3-COLUMN LAYOUT */}
-      <div className="flex gap-4" style={{ height: 'calc(100vh - 180px)' }}>
+      {/* MAIN 2-COLUMN LAYOUT */}
+      <div className="flex gap-4 flex-1 min-h-0">
         {/* ─── LEFT: Request list ─── */}
         <div className="w-[340px] shrink-0 bg-white border rounded-xl overflow-hidden flex flex-col">
           <div className="flex justify-between items-center p-4 border-b border-slate-200">
@@ -604,8 +586,8 @@ export default function TeamLeaderAssignmentsPage() {
             </div>
             <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1 shrink-0">
               {filteredRequests.length}
-            </span>
-          </div>
+                                  </span>
+                                </div>
           <div className="px-3 pt-2 pb-3 border-b border-slate-100">
             <HoverSearch
               value={search}
@@ -617,8 +599,8 @@ export default function TeamLeaderAssignmentsPage() {
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
                 Chưa có yêu cầu nào có phiên của team này.
-              </div>
-            )}
+                                    </div>
+                                  )}
             {filteredRequests.map((r) => (
               <RequestCard
                 key={r.requestId}
@@ -664,21 +646,31 @@ export default function TeamLeaderAssignmentsPage() {
                       Mã: {selectedRequest.requestCode} · {selectedRequest.sessions.length} phiên
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    disabled={savingAll}
-                    className="rounded-lg bg-[#2197C0] hover:bg-[#208AAE] text-white text-xs px-4 shrink-0"
-                    onClick={() => void handleSaveAllAssignmentsForRequest()}
-                  >
-                    {savingAll ? (
-                      'Đang lưu...'
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                        Hoàn tất phân công
-                      </>
-                    )}
-                  </Button>
+                  {(() => {
+                    const allFilled = selectedRequest.sessions.every((s) => {
+                      const detail = sessionDetailsById[s.sessionId];
+                      const assignments = detail?.assignments ?? [];
+                      return assignments.length > 0 && assignments.every((a) => !!a.staffMemberId);
+                    });
+                    if (allFilled) return null;
+                    return (
+                      <Button
+                        type="button"
+                        disabled={savingAll}
+                        className="rounded-lg bg-[#2197C0] hover:bg-[#208AAE] text-white text-xs px-4 shrink-0"
+                        onClick={() => void handleSaveAllAssignmentsForRequest()}
+                      >
+                        {savingAll ? (
+                          'Đang lưu...'
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                            Hoàn tất phân công
+                          </>
+                        )}
+                      </Button>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -722,8 +714,8 @@ export default function TeamLeaderAssignmentsPage() {
                     {selectedRequest.sessions.map((session) => {
                       const stats = getSessionStats(session);
                       const isActive = activeSession?.sessionId === session.sessionId;
-                      return (
-                        <div
+                                    return (
+                                      <div
                           key={session.sessionId}
                           role="button"
                           tabIndex={0}
@@ -761,7 +753,7 @@ export default function TeamLeaderAssignmentsPage() {
                                     ? 'Đã gán đủ'
                                     : `${stats.filled}/${stats.total} slot`}
                               </span>
-                            </div>
+                                            </div>
                             <button
                               type="button"
                               className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 hover:text-sky-700 shrink-0"
@@ -777,26 +769,30 @@ export default function TeamLeaderAssignmentsPage() {
                             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span>{session.location || '—'}</span>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                 )}
               </div>
             </div>
           )}
-        </div>
+                              </div>
 
-        {/* ─── RIGHT: Session detail + assignment panel (slide-over) ─── */}
-        {activeSession && (
-          <div className="w-[480px] shrink-0 bg-white border rounded-xl overflow-hidden flex flex-col shadow-lg">
+      </div>
+
+      {/* ─── RIGHT: Session detail + assignment panel (slide-over overlay) ─── */}
+      {activeSession && (
+        <div className="fixed inset-0 z-40 flex justify-end">
+          <div className="flex-1 bg-black/30" onClick={() => setActiveSession(null)} />
+          <div className="w-full max-w-xl h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden border-l">
             {/* Panel header */}
-            <div className="flex items-start justify-between p-5 pb-3 border-b border-gray-100">
+            <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
                   Phiên {activeSession.sessionNo}
                 </h2>
-                <div className="flex flex-wrap items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-2 mt-2">
                   <span className="text-xs font-medium text-sky-600">
                     {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
                   </span>
@@ -821,14 +817,14 @@ export default function TeamLeaderAssignmentsPage() {
               <button
                 type="button"
                 onClick={() => setActiveSession(null)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition bg-transparent border-0"
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Panel body */}
-            <div className="flex-1 overflow-y-auto no-scrollbar p-5 pt-4 space-y-4">
+            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-4 space-y-4">
               {/* Session info */}
               <div className="rounded-xl bg-white shadow-sm border border-gray-100">
                 <div className="px-4 py-2.5 border-b border-gray-100">
@@ -932,30 +928,30 @@ export default function TeamLeaderAssignmentsPage() {
                         {renderSlotPicker(taSlots, 'Trợ giảng', tasRequired, 'amber')}
 
                         {/* Progress */}
-                        {totalSlots > 0 && (
+                              {totalSlots > 0 && (
                           <div className="pt-3 mt-1 border-t border-slate-100 space-y-2">
                             <div className="flex items-center justify-between text-[11px] font-medium text-slate-700">
-                              <span>Tiến độ phân công</span>
+                                    <span>Tiến độ phân công</span>
                               <span className="tabular-nums">
-                                {filledSlots}/{totalSlots}
-                              </span>
-                            </div>
+                                      {filledSlots}/{totalSlots}
+                                    </span>
+                                  </div>
                             <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden shadow-inner">
-                              <div
+                                    <div
                                 className="h-full rounded-full bg-gradient-to-r from-[#2197C0] to-emerald-500 transition-all duration-300"
-                                style={{ width: `${progress * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
+                                      style={{ width: `${progress * 100}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
 
                         {/* Apply to other sessions */}
                         {assignments.length > 0 &&
                           selectedRequest &&
                           selectedRequest.sessions.length > 1 && (
                             <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
-                              <button
-                                type="button"
+                                <button
+                                  type="button"
                                 className="text-xs font-medium text-[#2197C0] hover:text-[#1978a0] hover:bg-sky-50 rounded-lg px-3 py-1.5 transition-colors"
                                 onClick={() =>
                                   handleApplyToOtherSessions(activeSession.sessionId)
@@ -963,18 +959,63 @@ export default function TeamLeaderAssignmentsPage() {
                               >
                                 <RotateCcw className="w-3 h-3 inline mr-1" />
                                 Áp dụng cho các phiên khác
-                              </button>
-                            </div>
+                                </button>
+                              </div>
                           )}
                       </>
-                    )}
-                  </div>
-                );
+                            )}
+                          </div>
+                        );
               })()}
-            </div>
-          </div>
+                    </div>
+                </div>
+              </div>
+            )}
+
+      {/* Floating staff detail tooltip */}
+      {hoveredStaff && (() => {
+        const { staff, rect } = hoveredStaff;
+        const isSuggested = 'skillMatchCount' in staff && 'assignmentCountIn30Days' in staff;
+        if (!isSuggested) return null;
+        const s = staff as SuggestedStaff;
+        const skillNames = s.skills?.map((sk) => sk.skillName).filter(Boolean).join(', ') || '—';
+        const top = rect.top;
+        const left = rect.left - 220;
+        return (
+          <div
+            className="fixed z-[100] w-[200px] bg-white border border-slate-200 rounded-lg shadow-xl p-3 pointer-events-none"
+            style={{ top: Math.max(8, top), left: Math.max(8, left) }}
+          >
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center shrink-0">
+                {s.avatarUrl ? (
+                  <img src={s.avatarUrl} alt={s.fullName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[10px] font-semibold text-slate-500">{(s.fullName || 'N')[0]}</span>
         )}
       </div>
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-slate-900 truncate">{s.fullName}</div>
+                <div className="text-[10px] text-slate-500 truncate">{s.email || s.roleName}</div>
+              </div>
+            </div>
+            <div className="text-[11px] space-y-1.5">
+              <div>
+                <span className="font-medium text-slate-500">Kỹ năng</span>
+                <p className="text-slate-800 mt-0.5">{skillNames}</p>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium text-slate-500">Khớp YC</span>
+                <span className="font-semibold text-slate-800">{s.skillMatchCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium text-slate-500">Buổi (30 ngày)</span>
+                <span className="font-semibold text-slate-800">{s.assignmentCountIn30Days}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

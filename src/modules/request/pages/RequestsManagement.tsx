@@ -38,7 +38,13 @@ export default function RequestsManagement() {
   }, [data]);
 
   const columns: ColumnDef<RequestListItem>[] = [
-    { accessorKey: 'requestCode', header: 'Mã yêu cầu' },
+    {
+      accessorKey: 'requestCode',
+      header: 'Mã yêu cầu',
+      cell: ({ row }) => (
+        <span className="font-semibold">{row.original.requestCode}</span>
+      ),
+    },
     { accessorKey: 'requestName', header: 'Tên yêu cầu' },
     { accessorKey: 'customerName', header: 'Khách hàng' },
 

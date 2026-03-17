@@ -24,7 +24,7 @@ export default function RequestLayout() {
   };
 
   return (
-    <div className="min-h-screen p-6 space-y-6 bg-slate-50">
+    <div className="p-6 space-y-6 bg-slate-50" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
 
       <div className="bg-white px-6 py-4 mb-2 rounded-2xl border border-slate-200 shadow-sm">

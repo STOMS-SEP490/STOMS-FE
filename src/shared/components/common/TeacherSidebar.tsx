@@ -63,8 +63,8 @@ export default function TeacherSidebar() {
       className={`
         h-screen bg-[#F6F8FB] border-r
         transition-all duration-300
-        ${collapsed ? 'w-20 px-2' : 'w-80 px-6'}
-        py-6 flex flex-col
+        ${collapsed ? 'w-[72px] px-1.5' : 'w-72 px-5'}
+        py-5 flex flex-col
       `}
     >
       {!collapsed && (
@@ -89,11 +89,11 @@ export default function TeacherSidebar() {
           className="flex flex-col items-center mb-8 w-full focus:outline-none"
           title="Xem hồ sơ"
         >
-          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg ring-4 ring-white">
+          <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center shadow-lg ring-4 ring-white">
             <img
               src={sidebarAvatarSrc}
               alt="avatar"
-              className="w-16 h-16 rounded-full object-cover"
+              className="w-14 h-14 rounded-full object-cover"
               onError={(e) => {
                 const img = e.currentTarget;
                 img.onerror = null;
@@ -139,7 +139,7 @@ export default function TeacherSidebar() {
                 end={!isTimetable}
               >
                 {({ isActive }) => (
-                  <div className={`relative group ${collapsed ? 'h-15' : 'h-20'}`}>
+                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
                     <div
                       className={` 
                         h-full rounded-xl 
@@ -148,7 +148,7 @@ export default function TeacherSidebar() {
                         ${isActive ? 'opacity-0' : 'group-hover:opacity-0'}
                       `}
                     >
-                      <Icon size={20} className="text-gray-400" />
+                      <Icon size={18} className="text-gray-400" />
                       {!collapsed && (
                         <div className="text-xs mt-2 text-center text-gray-400">{m.label}</div>
                       )}
@@ -166,7 +166,7 @@ export default function TeacherSidebar() {
                         }
                       `}
                     >
-                      <Icon size={22} />
+                      <Icon size={20} />
                       {!collapsed && (
                         <div className="text-xs mt-2 font-medium text-center px-1">{m.label}</div>
                       )}
@@ -203,7 +203,7 @@ export default function TeacherSidebar() {
                      py-3 rounded-xl text-red-600 
                      hover:bg-red-50 transition"
         >
-          <LogOut size={18} />
+          <LogOut size={16} />
           {!collapsed && <span>Đăng xuất</span>}
         </button>
       </div>

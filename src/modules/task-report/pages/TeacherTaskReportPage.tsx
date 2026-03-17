@@ -432,7 +432,7 @@ export default function TeacherTaskReportPage() {
   // ─── Render ───
 
   return (
-    <div className="h-screen flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden">
+    <div className="flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
       {/* Header */}
       <div className="bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm">
         <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>

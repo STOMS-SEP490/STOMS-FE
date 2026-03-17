@@ -163,7 +163,7 @@ export default function SessionAttendancePage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] p-6">
+    <div className="bg-[#f3f4f6] p-6" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex items-center gap-3 mb-2">
           <button

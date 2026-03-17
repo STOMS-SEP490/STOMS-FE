@@ -576,7 +576,7 @@ export default function RequestDetail() {
   const sessionCount = sessions.length || request.sessionsRequired || 0;
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-slate-50">
+    <div className="bg-slate-50" style={{ minHeight: 'calc(var(--content-height, 100vh) - 64px)' }}>
       <div className="mx-auto max-w-6xl px-4 pb-6 space-y-4 text-black">
         {/* HEADER CARD — title + 3 icon (sao chép, chia sẻ, lịch) + 2 pill cùng hàng; info 3 cột */}
         <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
