@@ -97,7 +97,7 @@ export default function EventDetailSidebar({ open, onClose, event }: Props) {
                           {es.title || `Buổi ${es.sessionNo ?? index + 1}`}
                         </span>
                         <span className="text-xs text-gray-500 shrink-0">
-                          {es.sessionNo != null && `#${es.sessionNo}`}
+                         
                           {es.duration ? ` · ${es.duration}` : ''}
                         </span>
                       </div>
