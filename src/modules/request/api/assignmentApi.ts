@@ -14,12 +14,19 @@ export type AssignmentDetail = {
   } | null;
 };
 
+export type SuggestedStaffSkill = {
+  skillId: number;
+  skillName: string;
+};
+
 export type SuggestedStaff = {
   memberId: number;
   userId: number;
   fullName: string;
   roleName: string;
+  email?: string;
   avatarUrl: string;
+  skills?: SuggestedStaffSkill[];
   skillMatchCount: number;
   assignmentCountIn30Days: number;
 };
@@ -64,17 +71,28 @@ export const assignmentApi = {
   suggestStaff: async (assignmentId: number): Promise<SuggestedStaff[]> => {
     const res = await axiosClient.get(`/assignments/${assignmentId}/suggest-staff`);
     const items: any[] = ((res as any)?.data ?? res ?? []) as any[];
-    return items.map((raw) => ({
-      memberId: Number(raw.memberId ?? raw.MemberId ?? 0),
-      userId: Number(raw.userId ?? raw.UserId ?? 0),
-      fullName: String(raw.fullName ?? raw.FullName ?? ''),
-      roleName: String(raw.roleName ?? raw.RoleName ?? ''),
-      avatarUrl: String(raw.avatarUrl ?? raw.AvatarUrl ?? ''),
-      skillMatchCount: Number(raw.skillMatchCount ?? raw.SkillMatchCount ?? 0),
-      assignmentCountIn30Days: Number(
-        raw.assignmentCountIn30Days ?? raw.AssignmentCountIn30Days ?? 0
-      ),
-    }));
+    return items.map((raw) => {
+      const skillsRaw = raw.skills ?? raw.Skills ?? [];
+      const skills = Array.isArray(skillsRaw)
+        ? skillsRaw.map((s: any) => ({
+            skillId: Number(s.skillId ?? s.SkillId ?? 0),
+            skillName: String(s.skillName ?? s.SkillName ?? ''),
+          }))
+        : undefined;
+      return {
+        memberId: Number(raw.memberId ?? raw.MemberId ?? 0),
+        userId: Number(raw.userId ?? raw.UserId ?? 0),
+        fullName: String(raw.fullName ?? raw.FullName ?? ''),
+        roleName: String(raw.roleName ?? raw.RoleName ?? ''),
+        email: raw.email != null ? String(raw.email) : raw.Email != null ? String(raw.Email) : undefined,
+        avatarUrl: String(raw.avatarUrl ?? raw.AvatarUrl ?? ''),
+        skills,
+        skillMatchCount: Number(raw.skillMatchCount ?? raw.SkillMatchCount ?? 0),
+        assignmentCountIn30Days: Number(
+          raw.assignmentCountIn30Days ?? raw.AssignmentCountIn30Days ?? 0
+        ),
+      };
+    });
   },
 };
 

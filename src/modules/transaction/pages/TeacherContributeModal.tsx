@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
-import transactionApi from '../api/transactionApi';
+import { CloudUpload } from 'lucide-react';
+import { contributionApi } from '../api/contributionApi';
+import { walletApi, type WalletListItem } from '../api/walletApi';
 
 type Props = {
   open: boolean;
@@ -13,12 +15,34 @@ type Props = {
 };
 
 export default function TeacherContributeModal({ open, onClose, onSubmitted }: Props) {
-  const [amount, setAmount] = useState<string>('');
+  const [amount, setAmount] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
+  const [imagePreview, setImagePreview] = useState('');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [wallets, setWallets] = useState<WalletListItem[]>([]);
+  const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null);
+  const [walletsLoading, setWalletsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const fetch = async () => {
+      setWalletsLoading(true);
+      try {
+        const res = await walletApi.getWallets({ pageNumber: 1, pageSize: 50 });
+        const list = res.items ?? [];
+        setWallets(list);
+        if (list.length === 1) setSelectedWalletId(list[0].walletId);
+      } catch {
+        setWallets([]);
+      } finally {
+        setWalletsLoading(false);
+      }
+    };
+    void fetch();
+  }, [open]);
 
   const resetState = () => {
     setAmount('');
@@ -51,9 +75,7 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
     setImageFile(file);
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setImagePreview(reader.result);
-      }
+      if (typeof reader.result === 'string') setImagePreview(reader.result);
     };
     reader.readAsDataURL(file);
   };
@@ -62,37 +84,29 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
     e.preventDefault();
     setError('');
 
+    if (!selectedWalletId) {
+      setError('Vui lòng chọn ví quỹ để đóng góp.');
+      return;
+    }
+
     const amountNumber = Number((amount || '').replace(/\D/g, ''));
     if (!amountNumber || Number.isNaN(amountNumber) || amountNumber <= 0) {
       setError('Vui lòng nhập số tiền đóng góp hợp lệ.');
       return;
     }
-    if (!imageFile || !imagePreview) {
+    if (!imageFile) {
       setError('Vui lòng tải lên ảnh chứng từ chuyển khoản.');
-      return;
-    }
-
-    const rawUser = localStorage.getItem('user');
-    let memberId = 0;
-    try {
-      memberId = Number(JSON.parse(rawUser || '{}')?.memberId || 0) || 0;
-    } catch {
-      memberId = 0;
-    }
-    if (!memberId) {
-      setError('Không tìm thấy thông tin giáo viên. Vui lòng đăng nhập lại.');
       return;
     }
 
     try {
       setLoading(true);
-      await transactionApi.create({
-        memberId,
+      await contributionApi.submit({
+        walletId: selectedWalletId,
         amount: amountNumber,
-        type: 'Contribution',
-        description: note.trim(),
-        paymentImg: imagePreview,
-      } as any);
+        description: note.trim() || undefined,
+        paymentImg: imageFile,
+      });
       message.success('Đóng góp quỹ thành công.');
       resetState();
       onClose();
@@ -114,18 +128,60 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
       className="max-w-lg"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        {wallets.length > 1 && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-black">
+              Ví quỹ <span className="text-red-500">*</span>
+            </Label>
+            <select
+              value={selectedWalletId ?? ''}
+              onChange={(e) => setSelectedWalletId(Number(e.target.value) || null)}
+              className="w-full h-10 rounded-md border border-gray-200 px-3 text-sm text-black bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              disabled={walletsLoading}
+            >
+              <option value="">— Chọn ví quỹ —</option>
+              {wallets.map((w) => (
+                <option key={w.walletId} value={w.walletId}>
+                  {w.walletName} (Số dư: {(w.balance ?? 0).toLocaleString('vi-VN')} đ)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {wallets.length === 1 && (
+          <div className="rounded-lg bg-sky-50 border border-sky-200 px-4 py-2.5">
+            <div className="text-xs text-sky-700 font-medium">Đóng vào ví</div>
+            <div className="text-sm text-black font-semibold mt-0.5">
+              {wallets[0].walletName}{' '}
+              <span className="text-xs text-gray-500 font-normal">
+                (Số dư: {(wallets[0].balance ?? 0).toLocaleString('vi-VN')} đ)
+              </span>
+            </div>
+          </div>
+        )}
+
+        {wallets.length === 0 && !walletsLoading && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            Chưa có ví quỹ nào trong hệ thống. Vui lòng liên hệ quản lý.
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label className="text-sm font-medium text-black">
             Số tiền đóng góp <span className="text-red-500">*</span>
           </Label>
-          <Input
-            type="text"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Nhập số tiền bạn muốn đóng góp vào quỹ"
-            className="h-10 text-black placeholder:text-gray-500 border-gray-200"
-          />
-          <p className="text-xs text-gray-500">Nhập số tiền bạn muốn đóng góp vào quỹ</p>
+          <div className="flex items-center rounded-md border border-gray-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-sky-500">
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Nhập số tiền"
+              className="border-0 focus-visible:ring-0 text-black placeholder:text-gray-500"
+            />
+            <span className="px-3 py-2 text-sm text-gray-500 border-l border-gray-200">₫</span>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -135,16 +191,23 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
           <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 rounded-xl py-8 px-4 cursor-pointer bg-slate-50 hover:bg-slate-100 transition">
             <input
               type="file"
-              accept="image/png,image/jpeg"
+              accept="image/png,image/jpeg,image/jpg"
               className="hidden"
               onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
               disabled={loading}
             />
             {imagePreview ? (
-              <img src={imagePreview} alt="Chứng từ" className="max-h-40 rounded-md object-contain" />
+              <img
+                src={imagePreview}
+                alt="Chứng từ"
+                className="max-h-40 rounded-md object-contain"
+              />
             ) : (
               <div className="text-center space-y-1">
-                <div className="text-sm font-medium text-slate-700">Nhấn để tải lên ảnh chứng từ</div>
+                <CloudUpload className="mx-auto h-8 w-8 text-slate-400" />
+                <div className="text-sm font-medium text-slate-700">
+                  Nhấn để tải lên ảnh chứng từ
+                </div>
                 <div className="text-xs text-slate-500">PNG, JPG (tối đa 5MB)</div>
               </div>
             )}
@@ -176,7 +239,7 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
           <Button
             type="submit"
             className="px-5 bg-[#2197C0] hover:bg-[#208AAE] text-white"
-            disabled={loading}
+            disabled={loading || wallets.length === 0}
           >
             {loading ? 'Đang xác nhận...' : 'Xác nhận đóng góp'}
           </Button>
@@ -185,4 +248,3 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
     </Dialog>
   );
 }
-

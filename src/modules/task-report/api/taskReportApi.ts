@@ -5,59 +5,90 @@ import type {
   TaskReportFilterParams,
   TaskReportCreatePayload,
   TaskReportUpdatePayload,
+  TaskReportExpense,
+  ExpenseCreatePayload,
+  ExpenseFilterParams,
 } from '../taskReport';
 
-/** Format datetime cho BE: local, không kèm Z (tránh UTC). */
-export function formatTaskReportDateTime(
-  isoOrDate: string | null | undefined
-): string | undefined {
-  if (!isoOrDate) return undefined;
-  const d = new Date(isoOrDate);
+function formatLocalDateTime(iso: string | null | undefined): string | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return undefined;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  const s = String(d.getSeconds()).padStart(2, '0');
-  return `${y}-${m}-${day}T${h}:${min}:${s}`;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 export const taskReportApi = {
-  getTaskReports: (
-    params?: TaskReportFilterParams
-  ): Promise<PaginationResponse<TaskReport>> =>
+  /* ──────────── Task Reports ──────────── */
+
+  /** GET /api/task-reports/filter */
+  getAll: (params?: TaskReportFilterParams): Promise<PaginationResponse<TaskReport>> =>
     axiosClient.get('/task-reports/filter', { params }),
 
+  /** GET /api/task-reports/{id} */
   getById: (id: number): Promise<TaskReport> =>
     axiosClient.get(`/task-reports/${id}`),
 
-  create: (payload: TaskReportCreatePayload): Promise<TaskReport> =>
-    axiosClient.post('/task-reports', {
+  /** POST /api/task-reports (multipart/form-data) */
+  create: async (payload: TaskReportCreatePayload): Promise<TaskReport> => {
+    const fd = new FormData();
+    if (payload.requestId != null) fd.append('RequestId', String(payload.requestId));
+    if (payload.sessionId != null) fd.append('SessionId', String(payload.sessionId));
+    fd.append('Title', payload.title);
+    fd.append('Description', payload.description);
+    const start = formatLocalDateTime(payload.startAt);
+    const end = formatLocalDateTime(payload.endAt);
+    if (start) fd.append('StartAt', start);
+    if (end) fd.append('EndAt', end);
+    if (payload.expenses?.length) {
+      fd.append('ExpensesJson', JSON.stringify(payload.expenses));
+    }
+    if (payload.paymentImages?.length) {
+      for (const file of payload.paymentImages) fd.append('PaymentImgs', file);
+    }
+    return axiosClient.post('/task-reports', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  /** PUT /api/task-reports/{id} (JSON) */
+  update: (id: number, payload: TaskReportUpdatePayload): Promise<TaskReport> =>
+    axiosClient.put(`/task-reports/${id}`, {
       RequestId: payload.requestId ?? null,
       SessionId: payload.sessionId ?? null,
       Title: payload.title,
       Description: payload.description,
-      StartAt: payload.startAt ?? null,
-      EndAt: payload.endAt ?? null,
+      StartAt: formatLocalDateTime(payload.startAt) ?? null,
+      EndAt: formatLocalDateTime(payload.endAt) ?? null,
     }),
 
-  update: (id: number, payload: TaskReportUpdatePayload): Promise<TaskReport> => {
-    const body: Record<string, unknown> = {
-      Title: payload.title,
-      Description: payload.description,
-      StartAt: formatTaskReportDateTime(payload.startAt) ?? payload.startAt ?? null,
-      EndAt: formatTaskReportDateTime(payload.endAt) ?? payload.endAt ?? null,
-    };
-    if (payload.sessionId != null && payload.sessionId > 0) {
-      body.SessionId = payload.sessionId;
-    } else {
-      body.RequestId = payload.requestId ?? null;
-      body.SessionId = null;
-    }
-    return axiosClient.put(`/task-reports/${id}`, body);
-  },
-
+  /** DELETE /api/task-reports/{id} */
   remove: (id: number): Promise<void> =>
     axiosClient.delete(`/task-reports/${id}`),
+
+  /* ──────────── Expenses ──────────── */
+
+  /** GET /api/expenses/filter */
+  getExpenses: (params?: ExpenseFilterParams): Promise<PaginationResponse<TaskReportExpense>> =>
+    axiosClient.get('/expenses/filter', { params }),
+
+  /** GET /api/expenses/{id} */
+  getExpenseById: (id: number): Promise<TaskReportExpense> =>
+    axiosClient.get(`/expenses/${id}`),
+
+  /** POST /api/expenses (multipart/form-data) */
+  addExpense: async (payload: ExpenseCreatePayload): Promise<TaskReportExpense> => {
+    const fd = new FormData();
+    fd.append('TaskReportId', String(payload.taskReportId));
+    fd.append('Amount', String(payload.amount));
+    fd.append('Description', payload.description);
+    if (payload.paymentImg) fd.append('PaymentImg', payload.paymentImg);
+    return axiosClient.post('/expenses', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  /** DELETE /api/expenses/{id} */
+  removeExpense: (id: number): Promise<void> =>
+    axiosClient.delete(`/expenses/${id}`),
 };

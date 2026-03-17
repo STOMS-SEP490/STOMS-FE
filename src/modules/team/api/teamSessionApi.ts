@@ -1,27 +1,12 @@
 import axiosClient from '@/shared/lib/axios';
-
-export type TeamSessionBulkItem = {
-  teamId: number;
-  teachersRequired: number;
-  tasRequired: number;
-};
+import type { TeamSessionBulkItem } from '../team';
 
 export const teamSessionApi = {
-  /** POST api/team-sessions/bulk */
-  bulkAssignToSession: (
-    sessionId: number,
-    items: TeamSessionBulkItem[]
-  ): Promise<void> =>
-    axiosClient.post('/team-sessions/bulk', {
-      sessionId,
-      items,
-    }),
+  bulkAssignToSession: async (sessionId: number, items: TeamSessionBulkItem[]): Promise<void> => {
+    await axiosClient.post('/team-sessions/bulk', { sessionId, items });
+  },
 
-  /** PUT api/team-sessions/bulk — replace teams for session */
-  replaceForSession: (sessionId: number, items: TeamSessionBulkItem[]): Promise<void> =>
-    axiosClient.put('/team-sessions/bulk', {
-      sessionId,
-      items,
-    }),
+  replaceForSession: async (sessionId: number, items: TeamSessionBulkItem[]): Promise<void> => {
+    await axiosClient.put('/team-sessions/bulk', { sessionId, items });
+  },
 };
-

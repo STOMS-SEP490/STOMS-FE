@@ -1,3 +1,5 @@
+/* ─── Entity types ─── */
+
 export type TeamSession = {
   teamSessionId: number;
   teamId: number;
@@ -23,4 +25,62 @@ export type Team = {
   leaderMemberName?: string | null;
   teamSessions?: TeamSession[];
   teamTopics?: TeamTopic[];
+};
+
+/* ─── Filter / Payload types ─── */
+
+export type TeamFilterParams = {
+  pageNumber?: number;
+  pageSize?: number;
+  teamId?: number;
+  teamName?: string;
+  leaderMemberId?: number;
+};
+
+export type TeamCreatePayload = {
+  teamName: string;
+  leaderMemberId?: number;
+};
+
+export type TeamUpdatePayload = {
+  teamName: string;
+  leaderMemberId?: number;
+};
+
+/* ─── GET /api/teams/member/{memberId} → TeamDetailResponse ─── */
+
+export type TeamMemberItem = {
+  memberId: number;
+  userId: number;
+  roleId: number;
+  teamId: number | null;
+  avatarUrl: string | null;
+  fullName: string;
+  phone: string | null;
+  address: string | null;
+  cin: string | null;
+  bankCode: string | null;
+  bankName: string | null;
+  taxNumber: string | null;
+  email: string;
+};
+
+export type TeamTopicItem = {
+  topicId: number;
+  topicName: string;
+};
+
+export type TeamDetail = {
+  teamId: number;
+  teamName: string;
+  members: TeamMemberItem[];
+  topics: TeamTopicItem[];
+};
+
+/* ─── TeamSession API payload ─── */
+
+export type TeamSessionBulkItem = {
+  teamId: number;
+  teachersRequired: number;
+  tasRequired: number;
 };

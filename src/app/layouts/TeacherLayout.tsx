@@ -6,7 +6,9 @@ export default function TeacherLayout() {
     <div className="flex h-screen">
       <TeacherSidebar />
       <main className="flex-1 bg-[#f3f4f6] overflow-y-auto no-scrollbar">
-        <Outlet />
+        <div className="main-content">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

@@ -135,10 +135,21 @@ function normalizeStatusCode(
     if (s.includes('approved') || s.includes('đã duyệt')) return SESSION_STATUS.APPROVED;
     if (s.includes('rejected') || s.includes('reject') || s.includes('từ chối'))
       return SESSION_STATUS.REJECTED;
+    if (s === 'assigning' || s.includes('đang phân công')) return SESSION_STATUS.ASSIGNING;
+    if (s === 'assignment_rejected' || s.includes('phân công bị từ chối'))
+      return SESSION_STATUS.ASSIGNMENT_REJECTED;
+    if (s === 'assigned' || s.includes('đã phân công')) return SESSION_STATUS.ASSIGNED;
+    if (s === 'cancelled' || s.includes('đã hủy')) return SESSION_STATUS.CANCELLED;
     if (s.includes('ongoing') || s.includes('đang diễn')) return SESSION_STATUS.ONGOING;
     if (s.includes('completed') || s.includes('hoàn thành')) return SESSION_STATUS.COMPLETED;
   }
   return null;
+}
+
+export function getSessionStatusLabel(status: string | number | null | undefined): string {
+  const code = normalizeStatusCode(status, SESSION_STATUS_LABEL);
+  if (!code) return String(status || '—');
+  return SESSION_STATUS_LABEL[code] ?? String(status);
 }
 
 export function getRequestStatusLabel(status: string | number | null | undefined): string {
@@ -150,11 +161,12 @@ export function getRequestStatusLabel(status: string | number | null | undefined
 export function getRequestStatusInfo(status: string | number | null | undefined): {
   label: string;
   className: string;
+  leftBarClass: string;
 } {
   const baseClass = 'bg-slate-50 text-slate-700 border-slate-200';
   const code = normalizeStatusCode(status, REQUEST_STATUS_LABEL);
   if (!code) {
-    return { label: String(status || '—'), className: baseClass };
+    return { label: String(status || '—'), className: baseClass, leftBarClass: 'border-l-slate-400' };
   }
   const label = REQUEST_STATUS_LABEL[code] ?? String(status || '—');
   const classNameByCode: Record<number, string> = {
@@ -166,9 +178,19 @@ export function getRequestStatusInfo(status: string | number | null | undefined)
     [REQUEST_STATUS.COMPLETED]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     [REQUEST_STATUS.CANCELLED]: 'bg-slate-50 text-slate-700 border-slate-200',
   };
+  const leftBarByCode: Record<number, string> = {
+    [REQUEST_STATUS.PENDING]: 'border-l-amber-500',
+    [REQUEST_STATUS.APPROVED]: 'border-l-emerald-500',
+    [REQUEST_STATUS.REJECTED]: 'border-l-rose-500',
+    [REQUEST_STATUS.ASSIGNING]: 'border-l-sky-500',
+    [REQUEST_STATUS.PUBLISHED]: 'border-l-slate-400',
+    [REQUEST_STATUS.COMPLETED]: 'border-l-emerald-500',
+    [REQUEST_STATUS.CANCELLED]: 'border-l-slate-400',
+  };
   return {
     label,
     className: classNameByCode[code] ?? baseClass,
+    leftBarClass: leftBarByCode[code] ?? 'border-l-slate-400',
   };
 }
 

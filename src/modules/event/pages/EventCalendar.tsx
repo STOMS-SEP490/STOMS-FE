@@ -226,7 +226,7 @@ export default function EventCalendar() {
   };
 
   const calendarContent = (
-    <div className="relative">
+    <div className="relative flex-1 min-h-0">
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
           <span className="text-sm text-gray-500">Đang tải lịch...</span>
@@ -252,14 +252,14 @@ export default function EventCalendar() {
         eventPropGetter={getEventStyle}
         showMultiDayTimes
         culture="vi"
-        style={{ height: 640 }}
+        style={{ height: '100%' }}
       />
     </div>
   );
 
   if (isTeacherSchedule) {
     return (
-      <>
+      <div className="flex flex-col overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
         {calendarContent}
         <SessionDetailPopover
           open={detailOpen}
@@ -271,20 +271,20 @@ export default function EventCalendar() {
           }}
           session={detailSession}
         />
-      </>
+      </div>
     );
   }
 
   return (
-    <div className="p-6 bg-[#f3f4f6]">
-      <div className="bg-white px-6 py-4 mb-4 rounded-xl border shadow-sm flex flex-col gap-1">
+    <div className="flex flex-col p-6 gap-4 bg-[#f3f4f6] overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
+      <div className="bg-white px-6 py-4 rounded-xl border shadow-sm flex flex-col gap-1 shrink-0">
         <h2 className="text-xl font-semibold text-gray-900">Theo dõi lịch trình</h2>
         <p className="text-xs text-gray-500">
           Theo dõi các tất cả các phiên trong lịch trình.
         </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex-1 min-h-0 flex flex-col">
         {calendarContent}
       </div>
 

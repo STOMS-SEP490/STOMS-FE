@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import RequestCard from './RequestCard';
@@ -56,6 +56,14 @@ export default function RequestSidebar({
       return true;
     });
 
+  // Nếu theo bộ lọc hiện tại không còn yêu cầu nào
+  // mà URL vẫn đang ở /requests/:id thì điều hướng về trang placeholder
+  useEffect(() => {
+    if (!loading && filtered.length === 0 && id) {
+      navigate('/manager/requests');
+    }
+  }, [filtered.length, id, loading, navigate]);
+
   return (
     <div className="text-black">
       <div className="h-full flex flex-col">
@@ -67,7 +75,7 @@ export default function RequestSidebar({
               {loading ? 'Đang tải...' : `${filtered.length}${typeof totalItems === 'number' ? `/${totalItems}` : ''} yêu cầu`}
             </p>
           </div>
-          <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1">
+          <span className="text-xs font-medium text-sky-800 bg-sky-100 border border-sky-200 rounded-full px-3 py-1">
             {filtered.length}
           </span>
         </div>
@@ -86,10 +94,12 @@ export default function RequestSidebar({
                 key={item.requestId}
                 requestName={item.requestName ?? '—'}
                 requestCode={item.requestCode}
+                customerName={item.customerName}
                 subjectId={item.subjectId}
                 courseId={item.courseId}
                 eventId={item.eventId}
                 status={item.status}
+                showNeedsAction={isPendingStatus(item.status)}
                 isActive={id === String(item.requestId)}
                 isHovered={hoveredId === item.requestId}
                 onClick={() => navigate(`/manager/requests/${item.requestId}`)}
