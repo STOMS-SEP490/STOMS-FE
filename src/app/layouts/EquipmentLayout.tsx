@@ -6,7 +6,9 @@ export default function EquipmentLayout() {
     <div className="flex h-screen">
       <EquipmentSidebar />
       <main className="flex-1 bg-[#f3f4f6] overflow-y-auto no-scrollbar">
-        <Outlet />
+        <div className="main-content">
+          <Outlet />
+        </div>
       </main>
     </div>
   )

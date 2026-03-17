@@ -22,65 +22,34 @@ export type ContributionFilterParams = {
   description?: string;
 };
 
-function mapContributionFromApi(raw: Record<string, unknown>): ContributionListItem {
-  const memberRaw = (raw['member'] ?? raw['Member'] ?? null) as
-    | Record<string, unknown>
-    | null;
-  const memberName = memberRaw
-    ? String(memberRaw['fullName'] ?? memberRaw['FullName'] ?? '')
-    : '';
-
-  return {
-    contributionId: Number(raw['contributionId'] ?? raw['ContributionId'] ?? 0),
-    memberId: Number(raw['memberId'] ?? raw['MemberId'] ?? 0),
-    memberName: memberName || null,
-    transactionId: Number(raw['transactionId'] ?? raw['TransactionId'] ?? 0),
-    amount:
-      (raw['amount'] ?? raw['Amount'] ?? null) != null
-        ? Number(raw['amount'] ?? raw['Amount'])
-        : null,
-    description: String(raw['description'] ?? raw['Description'] ?? ''),
-    paymentImg: String(raw['paymentImg'] ?? raw['PaymentImg'] ?? ''),
-    createdAt:
-      (raw['createdAt'] ?? raw['CreatedAt'] ?? null) != null
-        ? String(raw['createdAt'] ?? raw['CreatedAt'])
-        : null,
-  };
-}
-
-function mapPagedFromApi(
-  raw: Record<string, unknown>
-): PaginationResponse<ContributionListItem> {
-  const items = ((raw['items'] ?? raw['Items']) as unknown[] | undefined) ?? [];
-  return {
-    pageNumber: Number(raw['pageNumber'] ?? raw['PageNumber'] ?? 1),
-    pageSize: Number(raw['pageSize'] ?? raw['PageSize'] ?? 10),
-    totalItems: Number(raw['totalItems'] ?? raw['TotalItems'] ?? 0),
-    totalPages: Number(raw['totalPages'] ?? raw['TotalPages'] ?? 0),
-    items: items.map((x) =>
-      mapContributionFromApi((x ?? {}) as Record<string, unknown>)
-    ),
-  };
-}
-
 export const contributionApi = {
-  async getContributions(
-    params?: ContributionFilterParams
-  ): Promise<PaginationResponse<ContributionListItem>> {
-    const res = await axiosClient.get<Record<string, unknown>>(
-      '/contributions/filter',
-      { params }
-    );
-    return mapPagedFromApi((res ?? {}) as unknown as Record<string, unknown>);
-  },
+  getContributions: (
+    params?: ContributionFilterParams,
+  ): Promise<PaginationResponse<ContributionListItem>> =>
+    axiosClient.get('/contributions/filter', { params }),
 
-  async getById(id: number): Promise<ContributionListItem> {
-    const res = await axiosClient.get<Record<string, unknown>>(
-      `/contributions/${id}`
-    );
-    return mapContributionFromApi(
-      (res ?? {}) as unknown as Record<string, unknown>
-    );
+  getById: (id: number): Promise<ContributionListItem> =>
+    axiosClient.get(`/contributions/${id}`),
+
+  /**
+   * POST /api/wallets/{walletId}/contributions
+   * BE dùng [FromForm] ContributionSubmitRequest → multipart/form-data.
+   * Tạo Transaction + Contribution atomically.
+   */
+  submit: async (payload: {
+    walletId: number;
+    amount: number;
+    description?: string;
+    paymentImg: File;
+  }): Promise<ContributionListItem> => {
+    const fd = new FormData();
+    fd.append('Amount', String(payload.amount));
+    if (payload.description?.trim()) {
+      fd.append('Description', payload.description.trim());
+    }
+    fd.append('PaymentImg', payload.paymentImg);
+    return axiosClient.post(`/wallets/${payload.walletId}/contributions`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   },
 };
-

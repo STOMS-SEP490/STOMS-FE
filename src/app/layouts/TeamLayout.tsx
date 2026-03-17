@@ -4,7 +4,7 @@ import { GraduationCap, CheckCircle, BookOpen, Clock } from 'lucide-react';
 
 export default function TeamLayout() {
   return (
-    <div className="h-screen p-6 space-y-6 bg-[#f3f4f6]">
+    <div className="p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
       <div className="bg-white flex justify-between px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <div>

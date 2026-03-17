@@ -123,3 +123,19 @@
 .rbc-allday-cell {
   display: none;
 }
+
+/* Ẩn scrollbar toàn bộ calendar */
+.rbc-time-content,
+.rbc-time-view,
+.rbc-calendar,
+.rbc-month-view {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.rbc-time-content::-webkit-scrollbar,
+.rbc-time-view::-webkit-scrollbar,
+.rbc-calendar::-webkit-scrollbar,
+.rbc-month-view::-webkit-scrollbar {
+  display: none;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import authService from '@/modules/auth/api/authApi';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { saveAuthToStorage } from '@/modules/auth/authStorage';
@@ -16,6 +17,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     setImage('/img/login.png');
@@ -49,9 +51,16 @@ export default function Login() {
     setLoading(true);
 
     try {
+      let savedDeviceUid: string | undefined;
+      try {
+        const raw = localStorage.getItem('user');
+        if (raw) savedDeviceUid = JSON.parse(raw)?.deviceUid || undefined;
+      } catch { /* ignore */ }
+
       const res = await authService.login({
         email: email.trim(),
         password: password.trim(),
+        deviceUid: savedDeviceUid,
         platform: 'web',
         deviceName: navigator.userAgent,
         fcmToken: '',
@@ -76,13 +85,14 @@ export default function Login() {
       else if (res.roleId === 3) navigate('/pc');
       else if (res.roleId === 4 || res.roleId === 5) navigate('/teacher');
       else navigate('/manager');
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data ||
-        'Đăng nhập thất bại';
-
-      alert(message);
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: unknown; status?: number } };
+      const data = axiosErr?.response?.data;
+      const msg =
+        (typeof data === 'string' && data) ||
+        (typeof data === 'object' && data !== null && 'message' in data && String((data as Record<string, unknown>).message)) ||
+        'Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.';
+      alert(msg);
     } finally {
       setLoading(false);
     }
@@ -106,15 +116,25 @@ export default function Login() {
                     focus:outline-none focus:ring-2 focus:ring-blue-950"
         />
 
-        <input
-          type="password"
-          placeholder="*****"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-4 py-3 rounded-lg 
-                    bg-[#6e8ebd] placeholder-white/70
-                    focus:outline-none focus:ring-2 focus:ring-blue-950"
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="*****"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-4 py-3 pr-12 rounded-lg 
+                      bg-[#6e8ebd] placeholder-white/70
+                      focus:outline-none focus:ring-2 focus:ring-blue-950"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition bg-transparent border-0 p-0"
+            tabIndex={-1}
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
 
         <button
           type="submit"
@@ -131,20 +151,6 @@ export default function Login() {
             Quên mật khẩu?
           </Link>
         </div>
-
-        <div className="flex items-center my-4">
-          <div className="flex-1 h-px bg-white/40"></div>
-        </div>
-
-        <button
-          type="button"
-          className="w-full py-3 rounded-lg 
-                    bg-[#ffffff] hover:opacity-90 
-                    flex items-center justify-center gap-2 text-black"
-        >
-          <img src="/img/gg.png" className="w-5 h-5" />
-          Google
-        </button>
       </form>
     </>
   );

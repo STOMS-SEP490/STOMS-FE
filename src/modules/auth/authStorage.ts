@@ -1,6 +1,7 @@
 export type LoginRequest = {
   email: string;
   password: string;
+  deviceUid?: string;
   platform: string;
   deviceName: string;
   fcmToken: string;
