@@ -61,7 +61,6 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
             <div className="flex justify-between items-start">
               <div>
                 <h2 className="text-lg font-semibold text-black">{team.teamName}</h2>
-                <p className="text-sm text-gray-500">Team #{team.teamId}</p>
                 {team.leaderMemberName && (
                   <Badge className="mt-2 bg-[#2197C0]/10 text-[#2197C0]">
                     Trưởng nhóm: {team.leaderMemberName}
@@ -79,14 +78,6 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
 
             <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mt-4">
               <div>
-                <p className="text-xs text-gray-400 font-semibold">ID NHÓM</p>
-                <p>{team.teamId}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">TRƯỞNG NHÓM (ID)</p>
-                <p>{team.leaderMemberId ?? '—'}</p>
-              </div>
-              <div>
                 <p className="text-xs text-gray-400 font-semibold">NGÀY TẠO</p>
                 <p>{formatDateTime(team.createdAt)}</p>
               </div>
@@ -103,12 +94,35 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
             ) : members.length > 0 ? (
               <ul className="space-y-2 text-sm">
                 {members.map((m) => (
-                  <li key={m.memberId} className="flex justify-between items-center bg-white rounded-md px-3 py-2 border border-gray-100">
+                  <li
+                    key={m.memberId}
+                    className="flex justify-between items-center bg-white rounded-md px-3 py-2 border border-gray-100"
+                  >
                     <div>
                       <p className="font-medium text-gray-900">{m.fullName}</p>
                       <p className="text-xs text-gray-500">{m.user?.email}</p>
                     </div>
-                    <span className="text-xs text-gray-400">#{m.memberId}</span>
+                    <span className="text-xs text-gray-500">
+                      {(() => {
+                        const roleId = m.user?.roleId;
+                        switch (roleId) {
+                          case 6:
+                            return 'Quản lý thiết bị';
+                          case 5:
+                            return 'Trợ giảng';
+                          case 4:
+                            return 'Giáo viên';
+                          case 3:
+                            return 'Điều phối chương trình';
+                          case 2:
+                            return 'Trưởng nhóm';
+                          case 1:
+                            return 'Quản lý';
+                          default:
+                            return '—';
+                        }
+                      })()}
+                    </span>
                   </li>
                 ))}
               </ul>

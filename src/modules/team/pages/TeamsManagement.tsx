@@ -77,7 +77,15 @@ export default function TeamsManagement() {
 
   const columns: ColumnDef<Team>[] = [
     { accessorKey: 'teamId', header: 'Team ID' },
-    { accessorKey: 'teamName', header: 'Tên đội' },
+    {
+      accessorKey: 'teamName',
+      header: 'Tên nhóm',
+      cell: ({ row }) => (
+        <span className="font-semibold text-gray-900">
+          {row.original.teamName}
+        </span>
+      ),
+    },
     {
       id: 'leader',
       header: 'Trưởng nhóm',

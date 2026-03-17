@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { message } from 'antd';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import memberApi from '@/modules/member/api/memberApi';
 import topicApi from '@/modules/topic/api/topicApi';
 import teamService from '../services/teamService';
 import type { Member } from '@/modules/member/member';
 import type { Team, TeamTopic } from '../team';
 import type { TopicListItem } from '@/modules/topic/topic';
-import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
@@ -80,22 +79,32 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
 
         const isInThisTeam = (m: any) => Number(m?.team?.teamId) === Number(team.teamId);
         const isNoTeam = (m: any) => m?.team == null || m?.team?.teamId == null;
-        const isTeamLeaderRole = (m: any) => Number(m?.user?.roleId) === 1;
+        const isTeamLeaderRole = (m: any) => Number(m?.user?.roleId) === 2;
+        const isTeacherOrTa = (m: any) => {
+          const roleId = Number(m?.user?.roleId);
+          return roleId === 4 || roleId === 5;
+        };
 
         const inTeam = items.filter(isInThisTeam);
-        const noTeam = items.filter(isNoTeam);
+        // Thành viên chưa thuộc team: chỉ lấy Giáo viên (4) + Trợ giảng (5)
+        const noTeamTeachersAndTas = items.filter(
+          (m) => isNoTeam(m) && isTeacherOrTa(m),
+        );
 
         const merged = [
           ...inTeam,
-          ...noTeam.filter((m: any) => !inTeam.some((x: any) => x.memberId === m.memberId)),
+          ...noTeamTeachersAndTas.filter(
+            (m: any) => !inTeam.some((x: any) => x.memberId === m.memberId),
+          ),
         ];
 
         const inTeamIds = inTeam.map((m) => m.memberId);
         const currentLeader =
           leaderId != null ? items.find((m) => Number(m.memberId) === Number(leaderId)) : undefined;
 
-        // Trưởng nhóm: chỉ TeamLeader + chưa có team, nhưng luôn include leader hiện tại.
-        const leaderCandidates = items.filter((m: any) => isTeamLeaderRole(m) && isNoTeam(m));
+        // Trưởng nhóm: tất cả member có role TeamLeader, không ràng buộc teamId,
+        // nhưng luôn include leader hiện tại (nếu khác role vẫn sẽ có trong danh sách).
+        const leaderCandidates = items.filter((m: any) => isTeamLeaderRole(m));
         const leaderMerged = currentLeader
           ? [
               currentLeader,
@@ -226,13 +235,38 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
   if (!team) return null;
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      title="Chỉnh sửa nhóm"
-      description={`Cập nhật thông tin nhóm #${team.teamId}`}
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 h-full"
+          onClick={handleClose}
+          aria-hidden
+        />
+      )}
+      <div
+        className={`fixed top-0 right-0 h-full w-[520px] bg-[#f3f4f6] z-50
+        transition-transform duration-300
+        ${open ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        <div className="flex flex-col h-full overflow-y-auto no-scrollbar text-gray-700">
+          <div className="px-6 py-5 bg-[#f3f4f6] border-b border-gray-200 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-black">Chỉnh sửa nhóm</h2>
+              <p className="mt-0.5 text-sm text-gray-500">
+                Cập nhật thông tin nhóm {team.teamName}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label="Đóng"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4 p-6">
         <div className="space-y-2">
           <Label htmlFor="edit-teamName" className="text-black font-medium">
             Tên nhóm <span className="text-red-500">*</span>
@@ -263,14 +297,13 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
             <option value="">— Chọn trưởng nhóm —</option>
             {leaderOptions.map((m) => (
               <option key={m.memberId} value={String(m.memberId)}>
-                #{m.memberId} - {m.fullName}
+                {m.fullName} {m.team?.teamName ? `- ${m.team.teamName}` : ''}
               </option>
             ))}
           </select>
           {leaderMemberId != null && (
             <p className="text-sm text-gray-600">
-              Đã chọn: ID {leaderMemberId}
-              {team.leaderMemberName && ` (${team.leaderMemberName})`}
+              Trưởng nhóm hiện tại của nhóm {team.teamName}
             </p>
           )}
         </div>
@@ -309,7 +342,7 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
                         );
                       }}
                     />
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-10 w-10 relative z-0">
                       <AvatarImage src={m.avatarUrl ?? undefined} />
                       <AvatarFallback className="bg-gray-200 text-black">
                         {m.fullName?.charAt(0) ?? '?'}
@@ -319,7 +352,27 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
                       <div className="font-medium text-black">{m.fullName}</div>
                       <div className="text-xs text-black/60">{m.user?.email}</div>
                     </div>
-                    <span className="text-xs text-gray-400">#{m.memberId}</span>
+                    <span className="text-xs text-gray-500">
+                      {(() => {
+                        const roleId = m.user?.roleId;
+                        switch (roleId) {
+                          case 6:
+                            return 'Quản lý thiết bị';
+                          case 5:
+                            return 'Trợ giảng';
+                          case 4:
+                            return 'Giáo viên';
+                          case 3:
+                            return 'Điều phối chương trình';
+                          case 2:
+                            return 'Trưởng nhóm';
+                          case 1:
+                            return 'Quản lý';
+                          default:
+                            return '—';
+                        }
+                      })()}
+                    </span>
                   </div>
                 );
               })}
@@ -463,6 +516,8 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
           </Button>
         </div>
       </form>
-    </Dialog>
+        </div>
+      </div>
+    </>
   );
 }
