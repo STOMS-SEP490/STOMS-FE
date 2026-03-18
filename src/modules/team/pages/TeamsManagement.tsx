@@ -26,7 +26,7 @@ export default function TeamsManagement() {
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data, totalItems, loading, refetch } = useTeams(
+  const { data, totalItems, refetch } = useTeams(
     pageNumber,
     pageSize,
     search,
