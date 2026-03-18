@@ -21,7 +21,6 @@ import {
 import { logout } from '@/modules/auth/pages/Logout';
 
 import { NavLink, useNavigate } from 'react-router-dom';
-import authService from '@/modules/auth/api/authApi';
 import memberApi from '@/modules/member/api/memberApi';
 
 export default function Sidebar() {

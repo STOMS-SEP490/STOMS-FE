@@ -24,10 +24,7 @@ export default function RequestsManagement() {
   const [pageNumber, setPageNumber] = useState(1);
   const pageSize = 10;
 
-  const { data, totalItems, loading } = useRequests(
-    pageNumber,
-    pageSize
-  );
+  const { data, totalItems } = useRequests(pageNumber, pageSize);
 
   const stats = useMemo(() => {
     const pending = data.filter((d) => getRequestStatusLabel(d.status) === 'Chờ duyệt').length;

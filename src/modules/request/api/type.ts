@@ -1,5 +1,3 @@
-import type { Team } from '@/modules/team/team';
-
 export type CheckAvailabilityParams = {
   startAt: string;
   endAt: string;
