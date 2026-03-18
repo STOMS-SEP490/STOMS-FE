@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import RequestCard from './RequestCard';
@@ -56,8 +56,16 @@ export default function RequestSidebar({
       return true;
     });
 
+  // Nếu theo bộ lọc hiện tại không còn yêu cầu nào
+  // mà URL vẫn đang ở /requests/:id thì điều hướng về trang placeholder
+  useEffect(() => {
+    if (!loading && filtered.length === 0 && id) {
+      navigate('/manager/requests');
+    }
+  }, [filtered.length, id, loading, navigate]);
+
   return (
-    <div className="text-black">
+    <div className="text-black h-full">
       <div className="h-full flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-slate-200">
@@ -67,13 +75,13 @@ export default function RequestSidebar({
               {loading ? 'Đang tải...' : `${filtered.length}${typeof totalItems === 'number' ? `/${totalItems}` : ''} yêu cầu`}
             </p>
           </div>
-          <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1">
+          <span className="text-xs font-medium text-sky-800 bg-sky-100 border border-sky-200 rounded-full px-3 py-1">
             {filtered.length}
           </span>
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50">
+        <div className="flex-1 overflow-y-auto scrollbar-hide no-scrollbar p-3 space-y-2 bg-slate-50">
           {loading && (
             <div className="p-4 text-sm text-gray-500">Đang tải danh sách...</div>
           )}
@@ -86,10 +94,12 @@ export default function RequestSidebar({
                 key={item.requestId}
                 requestName={item.requestName ?? '—'}
                 requestCode={item.requestCode}
+                customerName={item.customerName}
                 subjectId={item.subjectId}
                 courseId={item.courseId}
                 eventId={item.eventId}
                 status={item.status}
+                showNeedsAction={isPendingStatus(item.status)}
                 isActive={id === String(item.requestId)}
                 isHovered={hoveredId === item.requestId}
                 onClick={() => navigate(`/manager/requests/${item.requestId}`)}

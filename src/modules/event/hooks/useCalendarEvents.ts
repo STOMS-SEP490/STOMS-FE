@@ -4,6 +4,9 @@ import type { CalendarEvent, EventListItem } from '@/modules/event/event';
 import eventApi from '@/modules/event/api/eventApi';
 import { teamApi } from '@/modules/team/api/teamApi';
 import axiosClient from '@/shared/lib/axios';
+import teachingHistoryApi from '@/modules/contract/api/teachingHistoryApi';
+import { sessionDisplayName } from '@/modules/contract/teachingHistory';
+import { getSessionStatusInfo } from '@/constants/status';
 
 function buildCalendarEvents(items: EventListItem[]): CalendarEvent[] {
   const result: CalendarEvent[] = [];
@@ -41,7 +44,7 @@ export function useCalendarEvents() {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        // 1) Thời khóa biểu TEACHER: lấy lịch được phân công qua GET /api/members/{memberId}/teaching-schedule
+        // 1) Thời khóa biểu TEACHER: lấy lịch được phân công qua GET /api/assignments/members/{memberId}/sessions
         if (isTeacherTimetable) {
           const memberId =
             Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) ||
@@ -50,21 +53,21 @@ export function useCalendarEvents() {
             setEvents([]);
           } else {
             try {
-              const res = await axiosClient.get<any>(`/members/${memberId}/teaching-schedule`);
-              const raw = (res as any)?.data ?? res ?? [];
-              const items = Array.isArray(raw) ? raw : (raw?.items ?? raw?.Items ?? []);
-              const mapped: CalendarEvent[] = (items as any[]).flatMap((s: any) => {
-                const startRaw = s.startAt ?? s.StartAt;
-                const endRaw = s.endAt ?? s.EndAt;
-                if (!startRaw || !endRaw) return [];
-                const start = new Date(startRaw);
-                const end = new Date(endRaw);
+              const res = await teachingHistoryApi.getTeachingSchedule(memberId, {
+                pageNumber: 1,
+                pageSize: 500,
+              });
+              const items = res.items ?? [];
+              const mapped: CalendarEvent[] = items.flatMap((s) => {
+                if (!s.startAt || !s.endAt) return [];
+                const start = new Date(s.startAt);
+                const end = new Date(s.endAt);
                 return {
-                  id: s.sessionId ?? s.SessionId ?? `${memberId}-${startRaw}`,
-                  title: `Phiên ${s.sessionNo ?? s.SessionNo ?? ''}`.trim() || 'Phiên dạy',
+                  id: s.sessionId || `${memberId}-${s.startAt}`,
+                  title: sessionDisplayName(s),
                   start,
                   end,
-                  resource: s.location ?? s.Location ?? undefined,
+                  resource: s.location || undefined,
                   color: '#22c55e',
                 } as CalendarEvent;
               });
@@ -97,8 +100,7 @@ export function useCalendarEvents() {
             return;
           }
 
-          // Gọi API GET /api/sessions/by-team/{teamId}
-          const sessionsRaw = await axiosClient.get<any[]>(`/sessions/by-team/${firstTeam.teamId}`);
+          const sessionsRaw: any[] = await axiosClient.get(`/sessions/by-team/${firstTeam.teamId}`);
           const mapped: CalendarEvent[] =
             (sessionsRaw ?? []).flatMap((s: any) => {
               const startRaw = s.startAt ?? s.StartAt;
@@ -106,20 +108,18 @@ export function useCalendarEvents() {
               if (!startRaw || !endRaw) return [];
               const start = new Date(startRaw);
               const end = new Date(endRaw);
-              const assignments: any[] = (s.assignments ?? s.Assignments ?? []) as any[];
-              const hasTeachingStaff = assignments.some((a) => {
-                const role = String(a.staffRole ?? a.StaffRole ?? '').toLowerCase();
-                return role.includes('teacher') || role.includes('giảng') || role.includes('ta');
-              });
+              const statusRaw = s.status ?? s.Status ?? null;
+              const statusInfo = getSessionStatusInfo(statusRaw);
               return {
                 id: s.sessionId ?? s.SessionId,
                 title: `Phiên ${s.sessionNo ?? s.SessionNo ?? ''}`.trim(),
                 start,
                 end,
                 resource: s.location ?? s.Location ?? undefined,
-                // Lịch team leader: dùng màu xanh dương
                 color: '#0ea5e9',
-                unassigned: !hasTeachingStaff,
+                status: statusRaw,
+                statusLabel: statusInfo.label,
+                statusClassName: statusInfo.className,
               } as CalendarEvent;
             }) ?? [];
           setEvents(mapped);

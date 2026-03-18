@@ -9,7 +9,7 @@ export default function TeacherScheduleLayout() {
   const basePath = '/teacher/timetable';
 
   return (
-    <div className="min-h-screen p-6 space-y-6 bg-[#f3f4f6]">
+    <div className="p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
       <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <div>
@@ -48,9 +48,7 @@ export default function TeacherScheduleLayout() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
-        <Outlet />
-      </div>
+      <Outlet />
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { message } from 'antd';
-import type { SessionDetail } from '@/modules/request/api/sessionApi';
-import { requestApi } from '@/modules/request/api/requestApi';
+import type { SessionDetail } from '@/modules/request/api/type';
+import requestService from '@/modules/request/api/requestApi';
 import memberApi from '@/modules/member/api/memberApi';
 import type { MemberDetail } from '@/modules/member/member';
-import assignmentApi, { type AssignmentDetail } from '@/modules/request/api/assignmentApi';
+import assignmentApi from '@/modules/request/api/assignmentApi';
+import type { AssignmentDetail } from '@/modules/request/api/type';
 
 export type PopoverStaffItem = {
   assignmentId: number;
@@ -31,7 +32,7 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
   useEffect(() => {
     if (!open || !session?.requestId) return;
     let cancelled = false;
-    requestApi
+    requestService
       .getById(session.requestId)
       .then((r) => {
         if (cancelled) return;

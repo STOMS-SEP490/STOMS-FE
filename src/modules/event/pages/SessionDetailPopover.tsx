@@ -2,10 +2,11 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MapPin, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { SessionDetail } from '@/modules/request/api/sessionApi';
+import type { SessionDetail } from '@/modules/request/api/type';
 import { Badge } from '@/shared/components/ui/badge';
 import { useSessionDetailPopover } from '@/modules/event/hooks/useSessionDetailPopover';
 import { useCurrentUser } from '@/shared/hooks/useCurrentUser';
+import { getSessionStatusLabel } from '@/constants/status';
 
 type Props = {
   open: boolean;
@@ -167,7 +168,7 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
 
           <div className="mt-6 flex items-center gap-2 text-sm">
             <span className="text-gray-600 font-medium">Trạng thái:</span>
-            <Badge className="bg-gray-100 text-gray-700">{session.status || '—'}</Badge>
+            <Badge className="bg-gray-100 text-gray-700">{getSessionStatusLabel(session.status)}</Badge>
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ export default function CoursesLayout() {
   const currentTab = location.pathname.includes('subjects') ? 'subjects' : 'courses';
 
   return (
-    <div className="min-h-screen overflow-y-auto p-6 space-y-6 bg-[#f3f4f6]">
+    <div className="overflow-y-auto p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
       <div className="bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>

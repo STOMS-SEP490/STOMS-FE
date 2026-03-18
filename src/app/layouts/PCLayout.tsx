@@ -6,7 +6,9 @@ export default function PCLayout() {
     <div className="flex h-screen">
       <PCSidebar />
       <main className="flex-1 bg-[#f3f4f6] overflow-y-auto no-scrollbar">
-        <Outlet />
+        <div className="main-content">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

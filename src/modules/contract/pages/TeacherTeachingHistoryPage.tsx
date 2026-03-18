@@ -7,7 +7,9 @@ import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import teachingHistoryApi, { type TeachingHistoryItem } from '@/modules/contract/api/teachingHistoryApi';
+import teachingHistoryApi from '@/modules/contract/api/teachingHistoryApi';
+import type { TeachingHistoryItem } from '@/modules/contract/teachingHistory';
+import { sessionDisplayName } from '@/modules/contract/teachingHistory';
 import { StatCard } from '@/shared/components/common/StatCard';
 import CreateContractModal from './CreateContractModal';
 import { useNavigate } from 'react-router-dom';
@@ -58,7 +60,7 @@ export default function TeacherTeachingHistoryPage() {
         let rows = res.items ?? [];
         const q = search.trim().toLowerCase();
         if (q) {
-          rows = rows.filter((x) => (x.sessionName || '').toLowerCase().includes(q));
+          rows = rows.filter((x) => sessionDisplayName(x).toLowerCase().includes(q));
         }
         setItems(rows);
         setTotalItems(res.totalItems ?? rows.length);
@@ -66,7 +68,7 @@ export default function TeacherTeachingHistoryPage() {
         // load task reports cho các session trong trang hiện tại
         const sessionIds = rows.map((x) => x.sessionId).filter((id) => !!id);
         if (sessionIds.length) {
-          const reportRes = await taskReportApi.getTaskReports({
+          const reportRes = await taskReportApi.getAll({
             pageNumber: 1,
             pageSize: 500,
             sessionId: undefined,
@@ -108,15 +110,15 @@ export default function TeacherTeachingHistoryPage() {
         ),
       },
       {
-        accessorKey: 'sessionName',
+        id: 'sessionName',
         header: 'PHIÊN',
         cell: ({ row }) => (
           <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
             <div className="text-[13px] font-semibold text-slate-900 line-clamp-2">
-              {row.original.requestName || row.original.requestCode || '—'}
+              {row.original.request?.requestName || row.original.request?.requestCode || '—'}
             </div>
             <div className="text-[11px] text-slate-500">
-              {row.original.sessionName || '—'}
+              {sessionDisplayName(row.original) || '—'}
             </div>
           </div>
         ),
@@ -125,14 +127,13 @@ export default function TeacherTeachingHistoryPage() {
         id: 'request',
         header: 'YÊU CẦU',
         cell: ({ row }) => {
-          const { requestCode } = row.original;
+          const requestCode = row.original.request?.requestCode;
           if (!requestCode) {
             return <span className="text-xs text-slate-400">—</span>;
           }
           return (
             <div className="min-w-0 max-w-[180px]">
               <div className="text-xs text-slate-600 truncate">
-               
                 <span className="font-semibold text-slate-900">{requestCode}</span>
               </div>
             </div>
@@ -169,10 +170,10 @@ export default function TeacherTeachingHistoryPage() {
         id: 'contract',
         header: 'HỢP ĐỒNG',
         cell: ({ row }) => {
-          const hasContract = !!row.original.contractId;
-          const code = row.original.contractCode || 'Hợp đồng';
+          const hasContract = !!row.original.contract?.contractId;
+          const code = row.original.contract?.contractCode || 'Hợp đồng';
           if (hasContract) {
-            const isPaid = row.original.contractIsPaid;
+            const isPaid = row.original.contract?.isPaid ?? null;
             const paidClass =
               isPaid === true
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
@@ -192,7 +193,7 @@ export default function TeacherTeachingHistoryPage() {
                         ? 'Trợ giảng'
                         : 'Giáo viên';
                     setDetailRoleLabel(roleLabel);
-                    const full = await contractApi.getById(row.original.contractId!);
+                    const full = await contractApi.getById(row.original.contract!.contractId);
                     setDetailContract(full);
                     setDetailOpen(true);
                   } catch (err) {
@@ -236,7 +237,7 @@ export default function TeacherTeachingHistoryPage() {
               type="button"
               className="inline-flex items-center justify-center rounded-full border border-violet-200 bg-violet-50 w-7 h-7 text-violet-700 hover:bg-violet-100 text-lg leading-none"
               onClick={() => {
-                const rid = row.original.requestId;
+                const rid = row.original.request?.requestId;
                 const sid = row.original.sessionId;
                 const params = new URLSearchParams();
                 if (rid != null) params.set('requestId', String(rid));
@@ -268,10 +269,13 @@ export default function TeacherTeachingHistoryPage() {
   }, [navigate]);
 
   const totalWithContract = useMemo(
-    () => items.filter((x) => x.contractId != null).length,
+    () => items.filter((x) => x.contract?.contractId != null).length,
     [items]
   );
-  const totalWithoutContract = useMemo(() => items.filter((x) => !x.contractId).length, [items]);
+  const totalWithoutContract = useMemo(
+    () => items.filter((x) => !x.contract?.contractId).length,
+    [items],
+  );
 
   return (
     <div className="relative p-6 space-y-6">

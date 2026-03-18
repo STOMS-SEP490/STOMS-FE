@@ -5,9 +5,8 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import contractApi from '../api/contractApi';
-import teachingHistoryApi, {
-  type TeachingHistoryItem,
-} from '../api/teachingHistoryApi';
+import teachingHistoryApi from '../api/teachingHistoryApi';
+import type { TeachingHistoryItem } from '../teachingHistory';
 
 type Props = {
   open: boolean;
@@ -181,7 +180,7 @@ export default function CreateContractModal({
             >
               {completedSessions.map((item) => (
                 <Select.Option key={item.sessionId} value={item.sessionId}>
-                  {`${item.sessionName || `Buổi ${item.sessionId}`} — ${new Date(
+                  {`${item.sessionTitle || `Buổi ${item.sessionId}`} — ${new Date(
                     item.startAt
                   ).toLocaleString('vi-VN')} (${item.location || '—'})`}
                 </Select.Option>

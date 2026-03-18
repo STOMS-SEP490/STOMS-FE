@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, RotateCcw } from 'lucide-react';
-import { Drawer, message, Modal } from 'antd';
+import { Drawer, message, Spin } from 'antd';
 
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Badge } from '@/shared/components/ui/badge';
@@ -18,9 +18,9 @@ import {
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 import type { RequestListItem } from '@/modules/request/request';
-import { requestApi } from '@/modules/request/api/requestApi';
 import { taskReportApi } from '../api/taskReportApi';
-import type { ExpenseItem, TaskReport } from '../taskReport';
+import type { TaskReport, TaskReportExpense } from '../taskReport';
+import requestApi from '@/modules/request/api/requestApi';
 
 type RequestSessionSummary = NonNullable<RequestListItem['sessions']>[number];
 
@@ -34,6 +34,7 @@ export default function TaskReportsManagement() {
 
   const [openView, setOpenView] = useState(false);
   const [viewTaskReport, setViewTaskReport] = useState<TaskReport | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
 
   const selectedRequestIdNum =
     filterRequestId !== 'all' ? Number(filterRequestId) : null;
@@ -101,7 +102,7 @@ export default function TaskReportsManagement() {
       selectedSessionIdNum ?? 'all',
     ],
     queryFn: () =>
-      taskReportApi.getTaskReports({
+      taskReportApi.getAll({
         pageNumber,
         pageSize,
         requestId: selectedRequestIdNum ?? undefined,
@@ -195,9 +196,19 @@ export default function TaskReportsManagement() {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => {
-              setViewTaskReport(row.original);
+            onClick={async () => {
               setOpenView(true);
+              setViewTaskReport(null);
+              setViewLoading(true);
+              try {
+                const detail = await taskReportApi.getById(row.original.taskReportId);
+                setViewTaskReport(detail);
+              } catch {
+                message.error('Không tải được chi tiết báo cáo');
+                setOpenView(false);
+              } finally {
+                setViewLoading(false);
+              }
             }}
             title="Xem chi tiết"
           >
@@ -320,7 +331,11 @@ export default function TaskReportsManagement() {
         width={540}
         title="Chi tiết task report"
       >
-        {viewTaskReport ? (
+        {viewLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Spin size="large" />
+          </div>
+        ) : viewTaskReport ? (
           <div className="space-y-4">
             <div>
               <div className="text-xs text-gray-500">Tiêu đề</div>
@@ -366,14 +381,14 @@ export default function TaskReportsManagement() {
                 </div>
               </div>
               <div>
-                <div className="text-xs text-gray-500">Người chi</div>
-                <div>{viewTaskReport.memberName ?? '—'}</div>
+                <div className="text-xs text-gray-500">Người báo cáo</div>
+                <div>{viewTaskReport.member?.fullName ?? '—'}</div>
               </div>
             </div>
 
             <div className="pt-2">
               <div className="text-sm font-semibold mb-2">Khoản chi</div>
-              {((viewTaskReport.expenses ?? []) as ExpenseItem[]).length === 0 ? (
+              {((viewTaskReport.expenses ?? []) as TaskReportExpense[]).length === 0 ? (
                 <div className="text-sm text-gray-500">Không có khoản chi.</div>
               ) : (
                 <div className="space-y-2">
@@ -383,10 +398,7 @@ export default function TaskReportsManagement() {
                       className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 bg-gray-50"
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate" title={e.name}>
-                          {e.name || '—'}
-                        </div>
-                        <div className="text-xs text-gray-600 truncate" title={e.description}>
+                        <div className="text-xs text-gray-600 truncate" title={e.description ?? ''}>
                           {e.description || '—'}
                         </div>
                       </div>

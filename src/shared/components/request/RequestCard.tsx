@@ -1,54 +1,56 @@
 import { Badge } from '@/shared/components/ui/badge';
 import { getRequestStatusInfo } from '@/constants/status';
+import { GraduationCap, Star, User } from 'lucide-react';
 
 export function getRequestType(item: {
   subjectId?: number | null;
   courseId?: number | null;
   eventId?: number | null;
 }) {
-  if (item.eventId) return { label: 'Event', cls: 'bg-orange-50 text-orange-700 border-orange-200' };
-  if (item.subjectId) return { label: 'Môn', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
-  if (item.courseId) return { label: 'Khóa học', cls: 'bg-purple-50 text-purple-700 border-purple-200' };
-  return { label: 'Khác', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+  if (item.eventId) return { label: 'Yêu cầu sự kiện', icon: Star };
+  if (item.subjectId || item.courseId) return { label: 'Yêu cầu giảng dạy', icon: GraduationCap };
+  return { label: 'Khác', icon: GraduationCap };
 }
 
-function StatusBadge({ status }: { status: string | number }) {
+function StatusPill({ status }: { status: string | number }) {
   const info = getRequestStatusInfo(status);
   return (
-    <Badge className={`${info.className} text-[11px] font-medium whitespace-nowrap shrink-0`}>
+    <span
+      className={`inline-flex items-center whitespace-nowrap shrink-0 rounded-full px-3 py-1 text-[11px] font-medium border ${info.className}`}
+    >
       {info.label}
-    </Badge>
+    </span>
   );
 }
 
 export type RequestCardProps = {
   requestName: string;
   requestCode: string;
-  /** Nếu có subjectId/courseId/eventId sẽ hiển thị badge loại (Event/Môn/Khóa học) */
+  /** Người tạo / khách hàng hiển thị dưới type */
+  customerName?: string | null;
   subjectId?: number | null;
   courseId?: number | null;
   eventId?: number | null;
-  /** Trạng thái yêu cầu, hiển thị badge bên phải */
   status?: string | number | null;
-  /** Dòng phụ dưới badges, ví dụ "3 phiên" */
-  subtitle?: string;
+  /** Hiển thị "Cần xử lý" khi trạng thái chờ duyệt */
+  showNeedsAction?: boolean;
   isActive?: boolean;
   isHovered?: boolean;
   onClick?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
-  /** Gợi ý khi active/hover, ví dụ "Bấm để xem chi tiết" */
   hintText?: string;
 };
 
 export default function RequestCard({
   requestName,
   requestCode,
+  customerName,
   subjectId,
   courseId,
   eventId,
   status,
-  subtitle,
+  showNeedsAction = false,
   isActive = false,
   isHovered = false,
   onClick,
@@ -57,6 +59,8 @@ export default function RequestCard({
   hintText = 'Bấm để xem chi tiết',
 }: RequestCardProps) {
   const typeInfo = getRequestType({ subjectId, courseId, eventId });
+  const statusInfo = status != null && String(status).trim() !== '' ? getRequestStatusInfo(status) : null;
+  const isPending = status != null && String(status).toLowerCase().includes('chờ');
 
   return (
     <div
@@ -65,35 +69,44 @@ export default function RequestCard({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`rounded-2xl border p-3 transition group ${
+      className={`rounded-xl border border-l-4 border-slate-200 p-3 transition group text-left ${
         onClick ? 'cursor-pointer' : ''
       } ${
-        isActive ? 'bg-blue-50/70 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
-      }`}
+        isActive
+          ? 'bg-sky-50/80 border-sky-300 shadow-sm'
+          : 'bg-white hover:border-slate-300 hover:shadow-sm'
+      } ${statusInfo ? statusInfo.leftBarClass : 'border-l-slate-300'}`}
     >
       <div className="flex justify-between items-start gap-2">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-black truncate">
-            {requestName || '—'}
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-slate-900 truncate">
+            {requestName || requestCode || '—'}
           </div>
-          <div className="mt-1 flex items-center gap-2 flex-wrap">
-            <Badge className="bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-medium">
-              {requestCode}
-            </Badge>
-            <Badge className={`border text-[11px] font-medium ${typeInfo.cls}`}>
-              {typeInfo.label}
-            </Badge>
-            {subtitle && (
-              <span className="text-[11px] text-slate-500">{subtitle}</span>
+          <div className="mt-1.5 flex flex-col gap-1">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+              <typeInfo.icon className="w-3.5 h-3.5 shrink-0" />
+              <span>{typeInfo.label}</span>
+            </div>
+            {customerName != null && customerName !== '' && (
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <User className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{customerName}</span>
+              </div>
+            )}
+            {showNeedsAction && isPending && (
+              <div className="flex items-center gap-1 text-[11px] text-rose-600 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                Cần xử lý
+              </div>
             )}
           </div>
         </div>
-        {status != null && String(status).trim() !== '' && (
-          <StatusBadge status={status} />
+        {statusInfo && (
+          <StatusPill status={status!} />
         )}
       </div>
       {(isActive || isHovered) && hintText && (
-        <div className="mt-2 text-[11px] text-slate-600">{hintText}</div>
+        <div className="mt-2 text-[11px] text-slate-500">{hintText}</div>
       )}
     </div>
   );

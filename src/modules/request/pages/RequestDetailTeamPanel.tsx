@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import dayjs from 'dayjs';
-import { Search, X } from 'lucide-react';
+import { Search, Users, Trash2, Plus } from 'lucide-react';
 import { message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
 import type { Team } from '@/modules/team/team';
-import { sessionApi } from '../api/sessionApi';
+import sessionService from '../api/sessionApi';
 
 export type SessionForTeam = {
   sessionNo: number;
@@ -19,7 +18,6 @@ export type SessionForTeam = {
 
 type Props = {
   session: SessionForTeam & { sessionId: number };
-  requestCode: string;
   sessionsCount: number;
   allSessions: Array<{
     sessionId: number;
@@ -32,11 +30,11 @@ type Props = {
   onAssignSession: (sessionId: number, teamIds: number[]) => void;
   onAssignAllUi: (args: { sessionIds: number[]; teamId: number }) => void;
   onClearAllUi: (sessionIds: number[]) => void;
+  onQuantitiesChange?: (sessionId: number, data: { teachersRequired: number; tasRequired: number }) => void;
 };
 
 export default function RequestDetailTeamPanel({
   session,
-  requestCode,
   sessionsCount,
   allSessions,
   suggestedTeamIdsBySessionId,
@@ -45,12 +43,20 @@ export default function RequestDetailTeamPanel({
   onAssignSession,
   onAssignAllUi,
   onClearAllUi,
+  onQuantitiesChange,
 }: Props) {
   const [suggestedTeams, setSuggestedTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [teamSearch, setTeamSearch] = useState('');
   const [addedTeamIds, setAddedTeamIds] = useState<number[]>([]);
+  const [teachersRequired, setTeachersRequired] = useState(() =>
+    Math.max(0, session.teachersRequired ?? 1)
+  );
+  const [tasRequired, setTasRequired] = useState(() =>
+    Math.max(0, session.tasRequired ?? 1)
+  );
+  const [showAddTeam, setShowAddTeam] = useState(false);
   const [assignAllEnabled, setAssignAllEnabled] = useState(false);
   const [assignAllAppliedSessionIds, setAssignAllAppliedSessionIds] = useState<number[]>([]);
   const [teamDetailPopup, setTeamDetailPopup] = useState<{ team: Team; left: number; top: number } | null>(null);
@@ -62,7 +68,7 @@ export default function RequestDetailTeamPanel({
       setLoading(true);
       setError(null);
       try {
-        const teams = await sessionApi.suggestTeams(session.sessionId);
+        const teams = await sessionService.suggestTeams(session.sessionId);
         setSuggestedTeams(teams);
       } catch (err: unknown) {
         const msg =
@@ -79,10 +85,12 @@ export default function RequestDetailTeamPanel({
   }, [session.sessionId]);
 
   useEffect(() => {
-    // Khi chuyển sang session khác thì mới reset trạng thái switch + selection theo session đó.
     setAddedTeamIds(currentAssignedTeamIds ?? []);
     setAssignAllEnabled(false);
     setAssignAllAppliedSessionIds([]);
+    setTeachersRequired(Math.max(0, session.teachersRequired ?? 1));
+    setTasRequired(Math.max(0, session.tasRequired ?? 1));
+    setShowAddTeam(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.sessionId]);
 
@@ -106,19 +114,50 @@ export default function RequestDetailTeamPanel({
     setAddedTeamIds((prev) =>
       prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId]
     );
+    // Sau khi chọn/bỏ chọn đội, đóng popup nếu đang mở để tránh bị kẹt
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (closePopupTimerRef.current) {
+      clearTimeout(closePopupTimerRef.current);
+      closePopupTimerRef.current = null;
+    }
+    setTeamDetailPopup(null);
   }, []);
 
   const removeAddedTeam = useCallback((teamId: number) => {
     setAddedTeamIds((prev) => prev.filter((id) => id !== teamId));
+    // Khi xóa đội, đảm bảo popup chi tiết đóng lại
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (closePopupTimerRef.current) {
+      clearTimeout(closePopupTimerRef.current);
+      closePopupTimerRef.current = null;
+    }
+    setTeamDetailPopup(null);
   }, []);
 
   const POPUP_WIDTH = 288;
+  const POPUP_HEIGHT = 260;
   const handleTeamCardMouseEnter = useCallback((team: Team, e: React.MouseEvent<HTMLDivElement>) => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     const target = e.currentTarget;
     hoverTimerRef.current = setTimeout(() => {
       const rect = target.getBoundingClientRect();
-      setTeamDetailPopup({ team, left: Math.max(8, rect.left - POPUP_WIDTH - 8), top: rect.top });
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const rawTop = rect.top;
+      const top = Math.min(
+        Math.max(8, rawTop - 16),
+        Math.max(8, viewportHeight - POPUP_HEIGHT - 8)
+      );
+      setTeamDetailPopup({
+        team,
+        left: Math.max(8, rect.left - POPUP_WIDTH - 8),
+        top,
+      });
     }, 1200);
   }, []);
 
@@ -208,21 +247,163 @@ export default function RequestDetailTeamPanel({
     ]
   );
 
-  const handleSaveCurrent = useCallback(async () => {
-    // Theo yêu cầu: gán ở UI, không gọi API.
+  const maxTeachersRequired = session.teachersRequired ?? Number.POSITIVE_INFINITY;
+  const maxTasRequired = session.tasRequired ?? Number.POSITIVE_INFINITY;
+  const totalStaff = teachersRequired + tasRequired;
+
+  const handleTeachersChange = useCallback(
+    (delta: number) => {
+      const raw = teachersRequired + delta;
+      const next = Math.max(0, Math.min(raw, maxTeachersRequired));
+      setTeachersRequired(next);
+      onQuantitiesChange?.(session.sessionId, { teachersRequired: next, tasRequired });
+    },
+    [teachersRequired, tasRequired, maxTeachersRequired, session.sessionId, onQuantitiesChange]
+  );
+  const handleTasChange = useCallback(
+    (delta: number) => {
+      const raw = tasRequired + delta;
+      const next = Math.max(0, Math.min(raw, maxTasRequired));
+      setTasRequired(next);
+      onQuantitiesChange?.(session.sessionId, { teachersRequired, tasRequired: next });
+    },
+    [teachersRequired, tasRequired, maxTasRequired, session.sessionId, onQuantitiesChange]
+  );
+
+  const handleSaveCurrent = useCallback(() => {
     message.success('Đã lưu gán đội (UI)');
     onAssignSession(session.sessionId, addedTeamIds);
+    onQuantitiesChange?.(session.sessionId, { teachersRequired, tasRequired });
     onClose();
-  }, [addedTeamIds, onAssignSession, onClose, session.sessionId]);
+  }, [addedTeamIds, teachersRequired, tasRequired, onAssignSession, onClose, onQuantitiesChange, session.sessionId]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h3 className="text-sm font-semibold text-black">Gán đội phụ trách</h3>
-      <p className="text-xs text-gray-500">
-        Danh sách đội được hệ thống gợi ý dựa trên ràng buộc và lịch dạy.
-      </p>
 
-      <div className="relative mb-2">
+      {/* Đã chọn đội: card từng đội (icon, tên, X thành viên, nút xóa) */}
+      {addedTeamIds.length > 0 && (
+        <div className="space-y-3">
+          {addedTeamIds.map((tid) => {
+            const team = suggestedTeams.find((t) => t.teamId === tid);
+            const memberCount = (team as Team & { memberCount?: number })?.memberCount;
+            return (
+              <div
+                key={tid}
+                className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm flex items-start justify-between gap-2"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5 text-sky-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-black truncate">{team?.teamName ?? `Đội #${tid}`}</p>
+      <p className="text-xs text-gray-500">
+                      {memberCount != null ? `${memberCount} thành viên` : 'Đội đã gắn'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeAddedTeam(tid)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition shrink-0"
+                  aria-label="Xóa đội"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            );
+          })}
+
+          {/* Số lượng giảng viên / trợ giảng — chỉ khi chưa gắn đội (đang chỉnh) */}
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-gray-600">Số lượng giảng viên:</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleTeachersChange(-1)}
+                  className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center text-lg leading-none"
+                >
+                  −
+                </button>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={teachersRequired}
+                  onChange={(e) => {
+                    const raw = parseInt(e.target.value, 10) || 0;
+                    const v = Math.max(0, Math.min(raw, maxTeachersRequired));
+                    setTeachersRequired(v);
+                    onQuantitiesChange?.(session.sessionId, { teachersRequired: v, tasRequired });
+                  }}
+                  className="w-12 h-8 text-center text-sm border-gray-200 px-1 [appearance:textfield]"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleTeachersChange(1)}
+                  className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center text-lg leading-none"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-gray-600">Số lượng trợ giảng:</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleTasChange(-1)}
+                  className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center text-lg leading-none"
+                >
+                  −
+                </button>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={tasRequired}
+                  onChange={(e) => {
+                    const raw = parseInt(e.target.value, 10) || 0;
+                    const v = Math.max(0, Math.min(raw, maxTasRequired));
+                    setTasRequired(v);
+                    onQuantitiesChange?.(session.sessionId, { teachersRequired, tasRequired: v });
+                  }}
+                  className="w-12 h-8 text-center text-sm border-gray-200 px-1 [appearance:textfield]"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleTasChange(1)}
+                  className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center text-lg leading-none"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <span className="text-xs text-gray-500">
+                Tổng nhân sự: <span className="font-semibold text-sky-600">{totalStaff}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Thêm đội */}
+      <button
+        type="button"
+        onClick={() => setShowAddTeam((v) => !v)}
+        className="w-full rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:border-sky-400 hover:text-sky-600 hover:bg-sky-50/50 py-2.5 flex items-center justify-center gap-2 text-sm font-medium transition"
+      >
+        <Plus className="w-4 h-4" />
+        Thêm đội
+      </button>
+
+      {/* Danh sách gợi ý (khi bấm Thêm đội hoặc chưa có đội) */}
+      {(showAddTeam || addedTeamIds.length === 0) && (
+        <>
+          <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
           placeholder="Tìm theo tên đội"
@@ -231,11 +412,9 @@ export default function RequestDetailTeamPanel({
           className="pl-9 text-xs text-black border-gray-200 bg-white"
         />
       </div>
-
       {error && (
         <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{error}</p>
       )}
-
       {loading ? (
         <p className="text-xs text-gray-500">Đang tải danh sách đội gợi ý...</p>
       ) : filteredTeams.length === 0 ? (
@@ -249,7 +428,7 @@ export default function RequestDetailTeamPanel({
                 key={team.teamId}
                 role="button"
                 tabIndex={0}
-                className={`rounded-2xl border p-3 space-y-1 cursor-pointer transition relative ${
+                    className={`rounded-xl border p-3 cursor-pointer transition ${
                   isAdded ? 'bg-green-50 border-green-400' : 'bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
                 }`}
                 onClick={() => toggleTeamAdded(team.teamId)}
@@ -258,17 +437,17 @@ export default function RequestDetailTeamPanel({
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium text-black">{team.teamName}</p>
-                    <p className="text-[11px] text-gray-500">ID đội: {team.teamId}</p>
-                  </div>
-                  {isAdded && (
-                    <span className="text-[10px] text-green-600 font-medium">Đã chọn</span>
-                  )}
-                </div>
+                        <p className="text-sm font-medium text-black">{team.teamName}</p>
+                        <p className="text-xs text-gray-500">ID đội: {team.teamId}</p>
+                      </div>
+                      {isAdded && <span className="text-xs text-green-600 font-medium">Đã chọn</span>}
+                    </div>
               </div>
             );
           })}
         </div>
+          )}
+        </>
       )}
 
       {teamDetailPopup &&
@@ -328,31 +507,6 @@ export default function RequestDetailTeamPanel({
         )}
 
       {addedTeamIds.length > 0 && (
-        <div className="rounded-xl border border-green-200 bg-green-50/50 p-3 space-y-2">
-          <p className="text-xs font-medium text-black">Đã chọn ({addedTeamIds.length} đội)</p>
-          <ul className="space-y-1.5">
-            {addedTeamIds.map((tid) => {
-              const t = suggestedTeams.find((x) => x.teamId === tid);
-              return (
-                <li key={tid} className="flex items-center justify-between text-xs">
-                  <span className="text-black">{t?.teamName ?? `ID ${tid}`}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeAddedTeam(tid);
-                    }}
-                    className="p-1 rounded text-gray-500 hover:bg-red-100 hover:text-red-600"
-                  >
-                    <X size={14} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
       <div className="flex items-center justify-between gap-3 rounded-xl border bg-gray-50 p-3">
         <p className="text-xs font-medium text-black whitespace-nowrap">Gán đội đã chọn cho tất cả phiên</p>
         <Switch
@@ -362,6 +516,7 @@ export default function RequestDetailTeamPanel({
           onCheckedChange={handleAssignAllSwitch}
         />
       </div>
+      )}
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" className="border-gray-300 text-black bg-white" onClick={onClose}>

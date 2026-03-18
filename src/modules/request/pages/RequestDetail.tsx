@@ -1,498 +1,66 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, CheckSquare } from 'lucide-react';
-import { message } from 'antd';
+import { Plus, X, CheckCircle2, Copy, Share2, Calendar, Hash, List, MapPin, AlertCircle, ChevronRight } from 'lucide-react';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
-import RequestHeader from '@/shared/components/request/RequestHeader';
+import { getRequestType } from '@/shared/components/request/RequestCard';
+import { getRequestStatusInfo } from '@/constants/status';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import type { RequestListItem, RequestSessionSummary } from '../request';
-import { requestApi } from '../api/requestApi';
-import { sessionApi } from '../api/sessionApi';
-import { teamSessionApi } from '@/modules/team/api/teamSessionApi';
-import { useProgramCoordinatorId } from '../hooks/useProgramCoordinatorId';
+import type { RequestSessionSummary } from '../request';
 import RequestDetailTeamPanel from './RequestDetailTeamPanel';
+import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
-import assignmentApi from '../api/assignmentApi';
-
-type SessionWithFlags = RequestSessionSummary & {
-  reservationId?: number | null;
-  teamAssigned?: boolean;
-  equipmentReserved?: boolean;
-};
-
-type SessionAssignmentRow = {
-  assignmentId: number;
-  staffMemberId: number;
-  staffRole: string;
-  status?: string;
-  fullName: string;
-  email: string;
-  avatarUrl: string;
-};
-
-type RightPanelState =
-  | { mode: 'team'; session: SessionWithFlags }
-  | { mode: 'detail'; session: SessionWithFlags }
-  | { mode: 'equipment' }
-  | null;
-
-type RequestLayoutOutletContext = {
-  refreshRequestSidebar?: () => void;
-  viewMode?: 'request' | 'assignment';
-};
+import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
+import type { RequestLayoutOutletContext, SessionWithFlags } from '../requestDetail.types';
 
 export default function RequestDetail() {
   const { id } = useParams<{ id: string }>();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
-  const [request, setRequest] = useState<RequestListItem | null>(null);
-  const [sessions, setSessions] = useState<SessionWithFlags[]>([]);
-  const [rightPanel, setRightPanel] = useState<RightPanelState>(null);
-  const [loading, setLoading] = useState(false);
-  const [suggestedTeamIdsBySessionId, setSuggestedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
-  const [uiAssignedTeamIdsBySessionId, setUiAssignedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
-  const [assignmentsBySessionId, setAssignmentsBySessionId] = useState<Record<number, SessionAssignmentRow[]>>({});
-  const [selectedAssignmentIdsBySessionId, setSelectedAssignmentIdsBySessionId] = useState<Record<number, number[]>>(
-    {}
-  );
-  const createdByMemberId = useProgramCoordinatorId();
-  const [approveOpen, setApproveOpen] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
-  const [approvingSessionId, setApprovingSessionId] = useState<number | null>(null);
-  const [rejectAssignmentState, setRejectAssignmentState] = useState<{
-    open: boolean;
-    assignmentId: number | null;
-    sessionId: number | null;
-    displayName: string;
-  }>({ open: false, assignmentId: null, sessionId: null, displayName: '' });
-  const [rejectAssignmentReason, setRejectAssignmentReason] = useState('');
-  const [, setRejectAssignmentLoading] = useState(false);
-
-  useEffect(() => {
-    if (!id) return;
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const detail = await requestApi.getById(Number(id));
-        setRequest(detail);
-
-        const nextUiAssigned: Record<number, number[]> = {};
-        const mappedSessions: SessionWithFlags[] =
-          detail.sessions?.map((s) => {
-            const anyS = s as RequestSessionSummary & {
-              reservationId?: number | null;
-              teamId?: number | null;
-              TeamId?: number | null;
-              teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
-              TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
-            };
-            const reservationId = anyS.reservationId ?? null;
-            const fromSessions =
-              anyS.teamSessions ?? anyS.TeamSessions ?? [];
-            const backendTeamIds = fromSessions
-              .map((ts) => ts.teamId ?? ts.TeamId)
-              .filter((id): id is number => typeof id === 'number' && id > 0);
-            const singleTeamId = anyS.teamId ?? anyS.TeamId;
-            const initialTeamIds =
-              backendTeamIds.length > 0
-                ? backendTeamIds
-                : typeof singleTeamId === 'number' && singleTeamId > 0
-                  ? [singleTeamId]
-                  : [];
-
-            const teamAssigned =
-              initialTeamIds.length > 0 || s.status?.toLowerCase() === 'approved';
-
-            if (initialTeamIds.length > 0) nextUiAssigned[s.sessionId] = initialTeamIds;
-
-            return {
-              ...s,
-              reservationId,
-              teamAssigned,
-              equipmentReserved: reservationId != null,
-            };
-          }) ?? [];
-        setSessions(mappedSessions);
-        setUiAssignedTeamIdsBySessionId(nextUiAssigned);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchData();
-  }, [id]);
-
-  useEffect(() => {
-    // Preload team-suggestions cho tất cả session để "gán cho tất cả" chỉ chạy UI, không gọi API lúc toggle.
-    if (sessions.length === 0) return;
-    let cancelled = false;
-    const run = async () => {
-      try {
-        const pairs = await Promise.all(
-          sessions.map(async (s) => {
-            try {
-              const teams = await sessionApi.suggestTeams(s.sessionId);
-              return [s.sessionId, teams.map((t) => t.teamId) as number[]] as const;
-            } catch {
-              return [s.sessionId, [] as number[]] as const;
-            }
-          })
-        );
-        if (cancelled) return;
-        const map: Record<number, number[]> = {};
-        for (const [sid, ids] of pairs) map[sid] = ids;
-        setSuggestedTeamIdsBySessionId(map);
-      } catch {
-        // ignore
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessions]);
-
-  // Khi ở tab Duyệt phân công, load assignment cho các phiên (nếu chưa có)
-  useEffect(() => {
-    if (viewMode !== 'assignment') return;
-    if (!sessions.length) return;
-    const missingIds = sessions
-      .map((s) => s.sessionId)
-      .filter((sid) => !assignmentsBySessionId[sid]);
-    if (!missingIds.length) return;
-    let cancelled = false;
-    const run = async () => {
-      try {
-        const details = await Promise.all(missingIds.map((sid) => sessionApi.getById(sid)));
-        if (cancelled) return;
-        setAssignmentsBySessionId((prev) => {
-          const next = { ...prev };
-          details.forEach((d) => {
-            const rows: SessionAssignmentRow[] =
-              (d.assignments ?? [])
-                .filter((a) => a && a.assignmentId && a.staffMemberId)
-                .map((a) => ({
-                  assignmentId: a!.assignmentId,
-                  staffMemberId: a!.staffMemberId,
-                  staffRole: (a!.staffRole || '').toUpperCase(),
-                  status: a!.status,
-                  fullName: a!.staffMember?.fullName || '—',
-                  email: a!.staffMember?.userEmail || '',
-                  avatarUrl: a!.staffMember?.avatarUrl || '',
-                })) ?? [];
-            next[d.sessionId] = rows;
-          });
-          return next;
-        });
-      } catch {
-        // ignore
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [viewMode, sessions, assignmentsBySessionId]);
-
-  const handleAssignSession = useCallback((sessionId: number, teamIds: number[]) => {
-    setUiAssignedTeamIdsBySessionId((prev) => ({ ...prev, [sessionId]: teamIds }));
-    setSessions((prev) =>
-      prev.map((s) => (s.sessionId === sessionId ? { ...s, teamAssigned: teamIds.length > 0 } : s))
-    );
-  }, []);
-
-  const handleAssignAllUi = useCallback((args: { sessionIds: number[]; teamId: number }) => {
-    const { sessionIds, teamId } = args;
-    if (sessionIds.length === 0 || !teamId) {
-      return;
-    }
-    setUiAssignedTeamIdsBySessionId((prev) => {
-      const next = { ...prev };
-      for (const sid of sessionIds) next[sid] = [teamId];
-      return next;
-    });
-    setSessions((prev) =>
-      prev.map((s) => (sessionIds.includes(s.sessionId) ? { ...s, teamAssigned: true } : s))
-    );
-  }, []);
-
-  const handleClearAllUi = useCallback((sessionIds: number[]) => {
-    if (sessionIds.length === 0) return;
-    setUiAssignedTeamIdsBySessionId((prev) => {
-      const next = { ...prev };
-      for (const sid of sessionIds) delete next[sid];
-      return next;
-    });
-    setSessions((prev) =>
-      prev.map((s) => (sessionIds.includes(s.sessionId) ? { ...s, teamAssigned: false } : s))
-    );
-  }, []);
-
-  const refreshDetail = useCallback(async () => {
-    if (!id) return;
-    try {
-      setLoading(true);
-      const detail = await requestApi.getById(Number(id));
-      setRequest(detail);
-      const nextUiAssigned: Record<number, number[]> = {};
-      const mappedSessions: SessionWithFlags[] =
-        detail.sessions?.map((s) => {
-          const anyS = s as RequestSessionSummary & {
-            reservationId?: number | null;
-            teamId?: number | null;
-            TeamId?: number | null;
-            teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
-            TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
-          };
-          const reservationId = anyS.reservationId ?? null;
-          const fromSessions = anyS.teamSessions ?? anyS.TeamSessions ?? [];
-          const backendTeamIds = fromSessions
-            .map((ts) => ts.teamId ?? ts.TeamId)
-            .filter((tid): tid is number => typeof tid === 'number' && tid > 0);
-          const singleTeamId = anyS.teamId ?? anyS.TeamId;
-          const initialTeamIds =
-            backendTeamIds.length > 0
-              ? backendTeamIds
-              : typeof singleTeamId === 'number' && singleTeamId > 0
-                ? [singleTeamId]
-                : [];
-
-          const teamAssigned =
-            initialTeamIds.length > 0 || s.status?.toLowerCase() === 'approved';
-
-          if (initialTeamIds.length > 0) nextUiAssigned[s.sessionId] = initialTeamIds;
-
-          return {
-            ...s,
-            reservationId,
-            teamAssigned,
-            equipmentReserved: reservationId != null,
-          };
-        }) ?? [];
-      setSessions(mappedSessions);
-      setUiAssignedTeamIdsBySessionId(nextUiAssigned);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  const handleApproveClick = useCallback(() => {
-    if (!request || !id) return;
-    setApproveOpen(true);
-  }, [id, request]);
-
-  const handleToggleAssignmentSelection = useCallback((sessionId: number, assignmentId: number) => {
-    setSelectedAssignmentIdsBySessionId((prev) => {
-      const current = prev[sessionId] ?? [];
-      const exists = current.includes(assignmentId);
-      const nextForSession = exists ? current.filter((id) => id !== assignmentId) : [...current, assignmentId];
-      return { ...prev, [sessionId]: nextForSession };
-    });
-  }, []);
-
-  const handleApproveSelectedAssignments = useCallback(
-    async (sessionId: number) => {
-      const rows = assignmentsBySessionId[sessionId] ?? [];
-      if (!rows.length) {
-        message.warning('Phiên này chưa có assignment nào để duyệt.');
-        return;
-      }
-      const selected = selectedAssignmentIdsBySessionId[sessionId] ?? [];
-      const ids = (selected.length ? selected : rows.map((r) => r.assignmentId)).filter((id) => id > 0);
-      if (!ids.length) {
-        message.warning('Vui lòng chọn ít nhất một assignment để duyệt.');
-        return;
-      }
-      try {
-        setApprovingSessionId(sessionId);
-        await assignmentApi.approve(ids);
-        message.success('Đã duyệt các assignment đã chọn.');
-        // reload assignments cho phiên này
-        const detail = await sessionApi.getById(sessionId);
-        const rowsReload: SessionAssignmentRow[] =
-          (detail.assignments ?? [])
-            .filter((a) => a && a.assignmentId && a.staffMemberId)
-            .map((a) => ({
-              assignmentId: a!.assignmentId,
-              staffMemberId: a!.staffMemberId,
-              staffRole: (a!.staffRole || '').toUpperCase(),
-              status: a!.status,
-              fullName: a!.staffMember?.fullName || '—',
-              email: a!.staffMember?.userEmail || '',
-              avatarUrl: a!.staffMember?.avatarUrl || '',
-            })) ?? [];
-        setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
-        setSelectedAssignmentIdsBySessionId((prev) => ({ ...prev, [sessionId]: [] }));
-        await refreshDetail();
-      } catch (err) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const msg = (err as any)?.message || 'Duyệt phân công thất bại.';
-        message.error(msg);
-      } finally {
-        setApprovingSessionId(null);
-      }
-    },
-    [assignmentsBySessionId, selectedAssignmentIdsBySessionId, refreshDetail]
-  );
-
-  const handleOpenRejectAssignment = useCallback(
-    (sessionId: number, row: SessionAssignmentRow) => {
-      setRejectAssignmentState({
-        open: true,
-        assignmentId: row.assignmentId,
-        sessionId,
-        displayName: row.fullName || `Assignment #${row.assignmentId}`,
-      });
-      setRejectAssignmentReason('');
-    },
-    []
-  );
-
-  const handleConfirmRejectAssignment = async () => {
-    if (!rejectAssignmentState.open || !rejectAssignmentState.assignmentId || !rejectAssignmentState.sessionId) {
-      return;
-    }
-    const trimmed = rejectAssignmentReason.trim();
-    if (!trimmed) {
-      message.warning('Vui lòng nhập lý do từ chối assignment.');
-      return;
-    }
-    try {
-      setRejectAssignmentLoading(true);
-      await assignmentApi.reject(rejectAssignmentState.assignmentId, trimmed);
-      message.success('Đã từ chối assignment.');
-      const detail = await sessionApi.getById(rejectAssignmentState.sessionId);
-      const rowsReload: SessionAssignmentRow[] =
-        (detail.assignments ?? [])
-          .filter((a) => a && a.assignmentId && a.staffMemberId)
-          .map((a) => ({
-            assignmentId: a!.assignmentId,
-            staffMemberId: a!.staffMemberId,
-            staffRole: (a!.staffRole || '').toUpperCase(),
-            status: a!.status,
-            fullName: a!.staffMember?.fullName || '—',
-            email: a!.staffMember?.userEmail || '',
-            avatarUrl: a!.staffMember?.avatarUrl || '',
-          })) ?? [];
-      setAssignmentsBySessionId((prev) => ({ ...prev, [rejectAssignmentState.sessionId!]: rowsReload }));
-      setSelectedAssignmentIdsBySessionId((prev) => {
-        const current = prev[rejectAssignmentState.sessionId!] ?? [];
-        return {
-          ...prev,
-          [rejectAssignmentState.sessionId!]: current.filter((id) => id !== rejectAssignmentState.assignmentId),
-        };
-      });
-      setRejectAssignmentState({ open: false, assignmentId: null, sessionId: null, displayName: '' });
-      setRejectAssignmentReason('');
-      await refreshDetail();
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Từ chối assignment thất bại.';
-      message.error(msg);
-    } finally {
-      setRejectAssignmentLoading(false);
-    }
-  };
-
-  const handleConfirmApprove = useCallback(async () => {
-    if (!id || sessions.length === 0) return;
-    try {
-      setActionLoading(true);
-      // 1) Gán đội lên BE cho từng session trước (PUT team-sessions/bulk)
-      for (const s of sessions) {
-        const teamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
-        if (teamIds.length === 0) {
-          message.error(`Phiên ${s.sessionNo} chưa có đội gán.`);
-          return;
-        }
-        const teachersRequired = (s as SessionWithFlags).teachersRequired ?? 1;
-        const tasRequired = (s as SessionWithFlags).tasRequired ?? 1;
-        const items = teamIds.map((teamId) => ({
-          teamId,
-          teachersRequired: typeof teachersRequired === 'number' ? teachersRequired : 1,
-          tasRequired: typeof tasRequired === 'number' ? tasRequired : 1,
-        }));
-        await teamSessionApi.replaceForSession(s.sessionId, items);
-      }
-      // 2) Sau khi gán xong mới duyệt yêu cầu
-      await requestApi.approve(Number(id), { approvedByMemberId: createdByMemberId || undefined });
-      message.success('Đã gán đội và duyệt yêu cầu');
-      setApproveOpen(false);
-      setRightPanel(null);
-      await refreshDetail();
-      refreshRequestSidebar?.();
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Gán đội hoặc duyệt yêu cầu thất bại';
-      message.error(msg);
-    } finally {
-      setActionLoading(false);
-    }
-  }, [createdByMemberId, id, refreshDetail, sessions, uiAssignedTeamIdsBySessionId]);
-
-  const handleRejectClick = useCallback(() => {
-    if (!request || !id) return;
-    setRejectReason('');
-    setRejectOpen(true);
-  }, [id, request]);
-
-  const handleConfirmReject = useCallback(async () => {
-    if (!id) return;
-    const trimmed = rejectReason.trim();
-    if (!trimmed) {
-      message.warning('Vui lòng nhập lý do từ chối');
-      return;
-    }
-    try {
-      setActionLoading(true);
-      await requestApi.reject(Number(id), {
-        reason: trimmed,
-        approvedByMemberId: createdByMemberId || undefined,
-      });
-      message.success('Đã từ chối yêu cầu');
-      setRejectOpen(false);
-      setRejectReason('');
-      setRightPanel(null);
-      await refreshDetail();
-      refreshRequestSidebar?.();
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Từ chối yêu cầu thất bại';
-      message.error(msg);
-    } finally {
-      setActionLoading(false);
-    }
-  }, [createdByMemberId, id, rejectReason, refreshDetail]);
-
-  const handleEquipmentSuccess = useCallback(async () => {
-    if (!request) return;
-    const detail = await requestApi.getById(Number(request.requestId));
-    setRequest(detail);
-    const mapped: SessionWithFlags[] =
-      detail.sessions?.map((s) => {
-        const anyS = s as RequestSessionSummary & { reservationId?: number | null; status?: string };
-        const reservationId = anyS.reservationId ?? null;
-        return {
-          ...s,
-          reservationId,
-          teamAssigned: anyS.status?.toLowerCase() === 'approved',
-          equipmentReserved: reservationId != null,
-        };
-      }) ?? [];
-    setSessions(mapped);
-  }, [request]);
-
-  const assignedCount = useMemo(
-    () => sessions.filter((s) => s.teamAssigned).length,
-    [sessions]
-  );
+  const {
+    request,
+    sessions,
+    rightPanel,
+    setRightPanel,
+    loading,
+    suggestedTeamIdsBySessionId,
+    uiAssignedTeamIdsBySessionId,
+    assignmentsBySessionId,
+    selectedAssignmentIdsBySessionId,
+    approveOpen,
+    setApproveOpen,
+    rejectOpen,
+    setRejectOpen,
+    rejectReason,
+    setRejectReason,
+    actionLoading,
+    approvingSessionId,
+    rejectAssignmentState,
+    setRejectAssignmentState,
+    rejectAssignmentReason,
+    setRejectAssignmentReason,
+    createdByMemberId,
+    assignedCount,
+    handleAssignSession,
+    handleAssignAllUi,
+    handleClearAllUi,
+    handleQuantitiesChange,
+    handleApproveClick,
+    handleToggleAssignmentSelection,
+    handleApproveSelectedAssignments,
+    handleOpenRejectAssignment,
+    handleConfirmRejectAssignment,
+    handleConfirmApprove,
+    handleRejectClick,
+    handleConfirmReject,
+    handleEquipmentSuccess,
+  } = useRequestDetailManager({
+    id,
+    viewMode,
+    refreshRequestSidebar,
+  });
 
   if (!id) {
     return <div className="text-sm text-black">Không tìm thấy mã yêu cầu.</div>;
@@ -506,61 +74,87 @@ export default function RequestDetail() {
     return <div className="text-sm text-black p-4">Không tìm thấy yêu cầu.</div>;
   }
 
+  const typeInfo = getRequestType({
+    subjectId: request.subjectId,
+    courseId: request.courseId,
+    eventId: request.eventId,
+  });
+  const statusInfo = getRequestStatusInfo(request.status);
+  const sessionCount = sessions.length || request.sessionsRequired || 0;
+
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-slate-50">
-      <div className="mx-auto max-w-6xl px-4 pb-6 space-y-4 text-black">
-        {/* SUMMARY HEADER */}
-        <RequestHeader
-          title={request.requestName ?? request.requestCode}
-          status={request.status}
-        />
-
-        {/* META + PROGRESS */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-2">
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-            <p className="text-xs text-gray-500 mb-1">Mã yêu cầu</p>
-            <p className="font-semibold text-sm">{request.requestCode}</p>
-            <p className="text-xs text-gray-500 mt-2">
-              Khách hàng:{' '}
-              <span className="font-medium">
-                {request.customerName || 'N/A'}
+    <div className="bg-slate-50" style={{ minHeight: 'calc(var(--content-height, 100vh) - 64px)' }}>
+      <div className="mx-auto max-w-6xl px-4 pb-0 mb-0 space-y-4 text-black">
+        {/* HEADER CARD — title + 3 icon (sao chép, chia sẻ, lịch) + 2 pill cùng hàng; info 3 cột */}
+        <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
+          {/* Hàng 1: Tên request, 3 icon, 2 pill */}
+          <div className="flex flex-wrap items-center gap-3">
+            <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
+              {request.requestName ?? request.requestCode}
+            </h5>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                title="Sao chép mã"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                title="Chia sẻ"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 hover:border-slate-300"
+                title="Xem trong lịch"
+              >
+                <Calendar className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
+                {typeInfo.label}
               </span>
-            </p>
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}
+              >
+                {statusInfo.label}
+              </span>
+            </div>
           </div>
-
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-          <p className="text-xs text-gray-500 mb-1">Ngày bắt đầu</p>
-          <p className="font-semibold text-sm">
-            {dayjs(request.startDate).format('DD/MM/YYYY')}
-          </p>
-          <p className="text-xs text-gray-500 mt-2">
-            Số phiên yêu cầu:{' '}
-            <span className="font-medium">
-              {request.sessions?.length ?? request.sessionsRequired ?? 0}
-            </span>
-          </p>
+          {/* Info: Mã yêu cầu, Ngày gửi, Số lượng phiên */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100">
+            <div className="flex items-start gap-3">
+              <Hash className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Mã yêu cầu</p>
+                <p className="font-semibold text-sm text-slate-900 mt-0.5">{request.requestCode}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày gửi</p>
+                <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                  {request.createdAt
+                    ? dayjs(request.createdAt).format('DD/MM/YYYY')
+                    : dayjs(request.startDate).format('DD/MM/YYYY')}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Số lượng phiên</p>
+                <p className="font-semibold text-sm text-slate-900 mt-0.5">{sessionCount} phiên</p>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-gray-500">Tiến độ gán đội</span>
-            <span className="text-xs font-medium">
-              {assignedCount}/{sessions.length || request.sessionsRequired || 0} phiên
-            </span>
-          </div>
-          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-2 bg-blue-500 rounded-full"
-              style={{
-                width:
-                  sessions.length === 0
-                    ? '0%'
-                    : `${(assignedCount / sessions.length) * 100}%`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
 
       {/* MAIN CONTENT */}
       {viewMode === 'assignment' ? (
@@ -586,7 +180,6 @@ export default function RequestDetail() {
               <div className="space-y-3">
                 {sessions.map((session) => {
                   const rows = assignmentsBySessionId[session.sessionId] ?? [];
-                  const selectedIds = selectedAssignmentIdsBySessionId[session.sessionId] ?? [];
                   const pendingCount = rows.filter((r) => {
                     const statusText = (r.status || '').toUpperCase();
                     return statusText !== 'APPROVED' && statusText !== '2' && statusText !== 'REJECTED' && statusText !== '3';
@@ -628,126 +221,16 @@ export default function RequestDetail() {
                           <Button
                             type="button"
                             size="sm"
-                            className="rounded-full gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={approvingSessionId === session.sessionId || pendingCount === 0}
-                            onClick={() => void handleApproveSelectedAssignments(session.sessionId)}
+                            variant="outline"
+                            className="rounded-full border-slate-300 text-slate-700 text-[11px] px-3"
+                            onClick={() => setRightPanel({ mode: 'assignment', session })}
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            {approvingSessionId === session.sessionId
-                              ? 'Đang duyệt...'
-                              : selectedIds.length
-                                ? 'Duyệt assignment đã chọn'
-                                : 'Duyệt tất cả pending'}
+                            Chi tiết phân công
                           </Button>
                         </div>
                       </div>
 
-                      <div className="border-t border-slate-200 pt-2 space-y-1">
-                        {rows.length === 0 ? (
-                          <p className="text-xs text-gray-500">
-                            Phiên này hiện chưa có assignment nào (hoặc chưa được Team Leader phân công).
-                          </p>
-                        ) : (
-                          rows.map((row) => {
-                            const checked = selectedIds.includes(row.assignmentId);
-                            const isTeacher =
-                              row.staffRole === 'TE' || row.staffRole === 'TEACHER';
-                            const statusText = (row.status || '').toUpperCase();
-                            const isApproved = statusText === 'APPROVED' || statusText === '2';
-                            const isRejected = statusText === 'REJECTED' || statusText === '3';
-                            const canReview = !isApproved && !isRejected;
-                            return (
-                              <div
-                                key={row.assignmentId}
-                                className={`flex items-center justify-between gap-3 py-1.5 px-2 rounded-lg transition-colors ${
-                                  checked && canReview ? 'bg-sky-50' : 'bg-transparent'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <span
-                                    className={`shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                      isTeacher
-                                        ? 'bg-sky-100 text-sky-700'
-                                        : 'bg-amber-100 text-amber-700'
-                                    }`}
-                                  >
-                                    {isTeacher ? 'Giảng viên' : 'Trợ giảng'}
-                                  </span>
-                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
-                                    {row.avatarUrl ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={row.avatarUrl}
-                                        alt={row.fullName}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
-                                        }}
-                                      />
-                                    ) : (
-                                      (row.fullName || 'N')[0]
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium text-slate-900 truncate">
-                                      {row.fullName || '—'}
-                                    </p>
-                                    {row.email && (
-                                      <p className="text-[11px] text-slate-500 truncate">{row.email}</p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {isApproved && (
-                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] px-2 py-0.5 font-semibold">
-                                      Đã duyệt
-                                    </span>
-                                  )}
-                                  {isRejected && (
-                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] px-2 py-0.5 font-semibold">
-                                      Đã từ chối
-                                    </span>
-                                  )}
-                                  {canReview && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] px-2 py-0.5"
-                                        onClick={() =>
-                                          handleOpenRejectAssignment(session.sessionId, row)
-                                        }
-                                      >
-                                        Từ chối
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleToggleAssignmentSelection(
-                                            session.sessionId,
-                                            row.assignmentId
-                                          )
-                                        }
-                                        className={`relative inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors ${
-                                          checked
-                                            ? 'border-emerald-500 bg-emerald-500 text-white'
-                                            : 'border-slate-300 bg-white text-slate-400 hover:border-slate-400'
-                                        }`}
-                                        aria-label={checked ? 'Bỏ chọn assignment' : 'Chọn assignment'}
-                                      >
-                                        <CheckSquare
-                                          className={`h-3.5 w-3.5 transition-transform ${
-                                            checked ? 'scale-100' : 'scale-0'
-                                          }`}
-                                        />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
+                      {/* Danh sách giảng viên / trợ giảng được hiển thị trong panel Chi tiết phân công, không hiển thị trực tiếp ở đây */}
                     </div>
                   );
                 })}
@@ -763,122 +246,141 @@ export default function RequestDetail() {
             <TabsTrigger value="attachments">Tệp đính kèm</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-          {/* ACTION BAR — nút đồng bộ màu brand như Đặt trước thiết bị */}
-          <div className="mb-2 sticky top-4 z-10 flex flex-wrap justify-between items-center gap-4 bg-white/95 backdrop-blur p-4 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex items-center gap-2 text-sm text-amber-800 min-w-0">
-              <Badge className="shrink-0 bg-amber-100 text-amber-800 border-0">Lưu ý</Badge>
-              <span className="text-gray-800">
-                Gán đội cho tất cả phiên trước khi duyệt ({assignedCount}/{sessions.length || 0}).
-              </span>
+          <TabsContent value="overview" className="space-y-4 mb-0">
+          {/* WARNING BOX + PROGRESS — Figma: cam, tiến độ gắn đội, nút Từ chối */}
+          <div className="space-y-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-start gap-2 min-w-0">
+                <span className="text-amber-600 shrink-0 mt-0.5">⚠</span>
+                <div>
+                  <p className="text-sm text-amber-800">
+                    Vui lòng gắn đội cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn{' '}
+                    {Math.max(0, sessions.length - assignedCount)} phiên chưa được gắn đội phụ trách.
+                  </p>
+                  <span className="text-xs font-medium text-amber-700 mt-1">Xem phiên chưa gắn</span>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-slate-700">Tiến độ gắn đội</span>
+                <span className="text-sm font-semibold text-slate-800 tabular-nums">
+                  {assignedCount}/{sessions.length || 0} phiên
+                </span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-sky-500 transition-all duration-300"
+                  style={{
+                    width: sessions.length === 0 ? '0%' : `${(assignedCount / sessions.length) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-lg border-gray-200 text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 bg-white"
                 disabled={String(request.status ?? '').toLowerCase() !== 'pending'}
                 onClick={handleRejectClick}
               >
-                Từ chối
+                <X className="w-4 h-4 mr-1.5" />
+                Từ chối yêu cầu
               </Button>
               <Button
                 type="button"
+                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 disabled={
-                  assignedCount !== sessions.length ||
+                  String(request.status ?? '').toLowerCase() !== 'pending' ||
                   sessions.length === 0 ||
-                  String(request.status ?? '').toLowerCase() !== 'pending'
+                  assignedCount !== sessions.length
                 }
-                className="rounded-lg gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm disabled:opacity-50 disabled:pointer-events-none"
                 onClick={handleApproveClick}
               >
-                <CheckCircle2 className="h-4 w-4" />
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
                 Duyệt yêu cầu
               </Button>
+              <span className="text-xs text-slate-500">
+                {assignedCount !== sessions.length || sessions.length === 0
+                  ? 'Cần gắn đội cho tất cả các phiên trước khi duyệt.'
+                  : ''}
+              </span>
             </div>
           </div>
 
-          {/* SESSION LIST */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm font-semibold text-black">Danh sách phiên học</h3>
+          {/* DANH SÁCH PHIÊN HỌC — kích thước gọn, cân với header request */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
               <Button
                 onClick={() =>
-                  sessions.some((s) => !s.equipmentReserved) &&
-                  setRightPanel({ mode: 'equipment' })
+                  sessions.some((s) => !s.equipmentReserved) && setRightPanel({ mode: 'equipment' })
                 }
                 disabled={sessions.every((s) => s.equipmentReserved)}
-                className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50"
+                className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50 text-[11px] h-8 rounded-lg px-3"
               >
-                <Plus size={16} />
+                <Plus size={14} />
                 Đặt trước thiết bị
               </Button>
             </div>
             {sessions.length === 0 ? (
-              <p className="text-xs text-gray-500">
-                Yêu cầu này chưa có danh sách phiên chi tiết.
-              </p>
+              <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách phiên chi tiết.</p>
             ) : (
-              <div className="space-y-3">
-                {sessions.map((session) => (
-                  <div
-                    key={session.sessionId}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 hover:border-blue-300 hover:bg-blue-50/40 transition"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-black">
-                        Phiên {session.sessionNo}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {dayjs(session.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
-                        {dayjs(session.endAt).format('DD/MM/YYYY HH:mm')}
-                      </p>
-                      <p className="text-xs text-gray-600 mt-0.5">
-                        Giảng viên: {session.teachersRequired ?? 1}, Trợ giảng: {session.tasRequired ?? 1}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setRightPanel({ mode: 'team', session })
-                        }
-                        className="focus:outline-none cursor-pointer"
-                      >
-                        <Badge
-                          className={
-                            session.teamAssigned
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-amber-100 text-amber-700'
-                          }
+              <div className="space-y-2">
+                {sessions.map((session) => {
+                  const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
+                  const teamCount = teamIds.length;
+                  const sessionTitle =
+                    (session as RequestSessionSummary & { notes?: string }).notes
+                      ? `Phiên ${session.sessionNo}: ${(session as RequestSessionSummary & { notes?: string }).notes}`
+                      : `Phiên ${session.sessionNo}`;
+                  const location = (session as RequestSessionSummary & { location?: string }).location || '—';
+                  return (
+                    <div
+                      key={session.sessionId}
+                      className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-sky-600 font-medium">
+                            {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
+                          </span>
+                          <span className="text-xs text-slate-500">Dạy học</span>
+                          <span
+                            className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
+                              session.teamAssigned
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-800 border border-amber-200'
+                            }`}
+                          >
+                            {!session.teamAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
+                            {session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setRightPanel({ mode: 'detail', session })}
+                          className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 hover:text-sky-700 shrink-0"
                         >
-                          {session.teamAssigned ? 'Đã gán đội' : 'Chưa gán đội'}
-                        </Badge>
-                      </button>
-
-                      <Badge
-                        variant="outline"
-                        className={
-                          session.equipmentReserved
-                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700 text-[11px]'
-                            : 'border-gray-200 bg-gray-50 text-gray-500 text-[11px]'
-                        }
-                      >
-                        {session.equipmentReserved ? 'Đã đặt thiết bị' : 'Chưa đặt thiết bị'}
-                      </Badge>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setRightPanel({ mode: 'detail', session })
-                        }
-                        className="text-xs text-blue-600 underline"
-                      >
-                        Chi tiết
-                      </button>
+                          Chi tiết
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">{sessionTitle}</p>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{location}</span>
+                        {session.teamAssigned && teamCount > 0 && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-slate-600">{teamCount} đội</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -917,19 +419,38 @@ export default function RequestDetail() {
             {/* Header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
+                {rightPanel.mode !== 'detail' && (
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                  {rightPanel.mode === 'team'
-                    ? 'Đang gán đội'
-                    : rightPanel.mode === 'detail'
-                    ? 'Chi tiết phiên'
-                    : 'Đặt trước thiết bị'}
-                </p>
+                    {rightPanel.mode === 'team' ? 'Đang gán đội' : 'Đặt trước thiết bị'}
+                  </p>
+                )}
                 {rightPanel.mode === 'equipment' ? (
                   <>
                     <h2 className="text-base font-semibold text-black">Chọn phiên & thiết bị</h2>
                     <p className="text-xs text-gray-500 mt-1">
                       Đặt thiết bị cho một hoặc nhiều phiên
                     </p>
+                  </>
+                ) : rightPanel.mode === 'detail' ? (
+                  <>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      Phiên {rightPanel.session.sessionNo}
+                      {(rightPanel.session as RequestSessionSummary & { notes?: string }).notes
+                        ? `: ${(rightPanel.session as RequestSessionSummary & { notes?: string }).notes}`
+                        : ''}
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className="text-xs font-medium text-sky-600">Dạy học</span>
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                          rightPanel.session.teamAssigned
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
+                        }`}
+                      >
+                        {rightPanel.session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
+                      </span>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -952,23 +473,49 @@ export default function RequestDetail() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 pt-0">
+            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
+                <>
+                  {/* Thông tin phiên + Danh sách thiết bị: luôn hiển thị, kể cả khi đã gắn đội / đã duyệt */}
                 <RequestSessionDetailPanel
                   session={rightPanel.session}
                   requestCode={request.requestCode ?? ''}
-                  assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                 />
+                  <div className="mt-6">
+                    {rightPanel.session.teamAssigned ? (
+                      <RequestDetailTeamSummary
+                        session={rightPanel.session}
+                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                      />
+                    ) : (
+                      <RequestDetailTeamPanel
+                        session={rightPanel.session}
+                        sessionsCount={sessions.length}
+                        allSessions={sessions.map((s) => ({
+                          sessionId: s.sessionId,
+                          teachersRequired: (s as SessionWithFlags).teachersRequired ?? null,
+                          tasRequired: (s as SessionWithFlags).tasRequired ?? null,
+                        }))}
+                        suggestedTeamIdsBySessionId={suggestedTeamIdsBySessionId}
+                        currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                        onClose={() => setRightPanel(null)}
+                        onAssignSession={handleAssignSession}
+                        onAssignAllUi={handleAssignAllUi}
+                        onClearAllUi={handleClearAllUi}
+                        onQuantitiesChange={handleQuantitiesChange}
+                      />
+                    )}
+                  </div>
+                </>
               )}
               {rightPanel.mode === 'team' && (
                 <RequestDetailTeamPanel
                   session={rightPanel.session}
-                  requestCode={request.requestCode ?? ''}
                   sessionsCount={sessions.length}
                   allSessions={sessions.map((s) => ({
                     sessionId: s.sessionId,
-                    teachersRequired: (s as any).teachersRequired ?? null,
-                    tasRequired: (s as any).tasRequired ?? null,
+                    teachersRequired: (s as SessionWithFlags).teachersRequired ?? null,
+                    tasRequired: (s as SessionWithFlags).tasRequired ?? null,
                   }))}
                   suggestedTeamIdsBySessionId={suggestedTeamIdsBySessionId}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
@@ -976,7 +523,167 @@ export default function RequestDetail() {
                   onAssignSession={handleAssignSession}
                   onAssignAllUi={handleAssignAllUi}
                   onClearAllUi={handleClearAllUi}
+                  onQuantitiesChange={handleQuantitiesChange}
                 />
+              )}
+              {rightPanel.mode === 'assignment' && (
+                <div className="space-y-4">
+                  <div className="rounded-2xl bg-white border border-gray-100 shadow-sm">
+                    <div className="px-4 py-2.5 border-b border-gray-100">
+                      <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
+                    </div>
+                    <div className="px-4 py-3 space-y-1 text-sm text-gray-700">
+                      <p>
+                        <span className="font-medium">Thời gian:</span>{' '}
+                        {dayjs(rightPanel.session.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
+                        {dayjs(rightPanel.session.endAt).format('DD/MM/YYYY HH:mm')}
+                      </p>
+                      <p>
+                        <span className="font-medium">Giảng viên yêu cầu:</span>{' '}
+                        {rightPanel.session.teachersRequired ?? 1}
+                        {' · '}
+                        <span className="font-medium">Trợ giảng yêu cầu:</span>{' '}
+                        {rightPanel.session.tasRequired ?? 1}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-white border border-gray-100 shadow-sm">
+                    <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="rounded-full gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={
+                          approvingSessionId === rightPanel.session.sessionId ||
+                          (assignmentsBySessionId[rightPanel.session.sessionId] ?? []).every((r) => {
+                            const statusText = (r.status || '').toUpperCase();
+                            return (
+                              statusText === 'APPROVED' ||
+                              statusText === '2' ||
+                              statusText === 'REJECTED' ||
+                              statusText === '3'
+                            );
+                          })
+                        }
+                        onClick={() => void handleApproveSelectedAssignments(rightPanel.session.sessionId)}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {approvingSessionId === rightPanel.session.sessionId
+                          ? 'Đang duyệt...'
+                          : 'Duyệt tất cả phân công'}
+                      </Button>
+                    </div>
+                    <div className="px-4 py-3 space-y-1 text-sm">
+                      {(() => {
+                        const rows = assignmentsBySessionId[rightPanel.session.sessionId] ?? [];
+                        if (!rows.length) {
+                          return (
+                            <p className="text-xs text-gray-500">
+                              Phiên này hiện chưa có assignment nào (hoặc chưa được Team Leader phân công).
+                            </p>
+                          );
+                        }
+                        const selectedIds =
+                          selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
+                        return rows.map((row) => {
+                          const checked = selectedIds.includes(row.assignmentId);
+                          const isTeacher = row.staffRole === 'TE' || row.staffRole === 'TEACHER';
+                          const statusText = (row.status || '').toUpperCase();
+                          const isApproved = statusText === 'APPROVED' || statusText === '2';
+                          const isRejected = statusText === 'REJECTED' || statusText === '3';
+                          const canReview = !isApproved && !isRejected;
+                          return (
+                            <div
+                              key={row.assignmentId}
+                              className={`flex items-center justify-between gap-3 py-1.5 px-2 rounded-lg transition-colors ${
+                                checked && canReview ? 'bg-sky-50' : 'bg-transparent'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span
+                                  className={`shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    isTeacher ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700'
+                                  }`}
+                                >
+                                  {isTeacher ? 'Giảng viên' : 'Trợ giảng'}
+                                </span>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
+                                    {row.avatarUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={row.avatarUrl}
+                                        alt={row.fullName}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                        }}
+                                      />
+                                    ) : (
+                                      (row.fullName || 'N')[0]
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-slate-900 truncate">
+                                      {row.fullName || '—'}
+                                    </p>
+                                    {row.email && (
+                                      <p className="text-[11px] text-slate-500 truncate">{row.email}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isApproved && (
+                                  <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] px-2 py-0.5 font-semibold">
+                                    Đã duyệt
+                                  </span>
+                                )}
+                                {isRejected && (
+                                  <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] px-2 py-0.5 font-semibold">
+                                    Đã từ chối
+                                  </span>
+                                )}
+                                {canReview && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] px-2 py-0.5"
+                                      onClick={() =>
+                                        handleOpenRejectAssignment(rightPanel.session.sessionId, row)
+                                      }
+                                    >
+                                      Từ chối
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleToggleAssignmentSelection(
+                                          rightPanel.session.sessionId,
+                                          row.assignmentId
+                                        )
+                                      }
+                                      className={`rounded-lg border text-[11px] px-2 py-0.5 ${
+                                        checked
+                                          ? 'border-sky-500 bg-sky-50 text-sky-700'
+                                          : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                                      }`}
+                                      disabled={!canReview}
+                                    >
+                                      {checked ? 'Bỏ chọn' : 'Chọn duyệt'}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
               )}
               {rightPanel.mode === 'equipment' && (
                 <RequestDetailEquipmentPanel
@@ -1039,7 +746,7 @@ export default function RequestDetail() {
           <Button
             type="button"
             className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs px-4"
-            onClick={() => void handleConfirmRejectAssignment()}
+            onClick={handleConfirmRejectAssignment}
           >
             Xác nhận từ chối
           </Button>

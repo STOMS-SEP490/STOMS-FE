@@ -83,7 +83,7 @@ export const SESSION_STATUS_LABEL: Record<number, string> = {
   6: 'Đã phân công',
   7: 'Đã hủy',
   8: 'Đang diễn ra',
-  9: 'Hoàn thành',
+  9: 'Đã hoàn thành',
 };
 
 export const EQUIPMENT_STATUS_LABEL: Record<number, string> = {
@@ -131,14 +131,26 @@ function normalizeStatusCode(
       return REQUEST_STATUS.REJECTED;
   }
   if (mapping === SESSION_STATUS_LABEL) {
-    if (s.includes('pending') || s.includes('chờ')) return SESSION_STATUS.PENDING;
-    if (s.includes('approved') || s.includes('đã duyệt')) return SESSION_STATUS.APPROVED;
-    if (s.includes('rejected') || s.includes('reject') || s.includes('từ chối'))
+    const normalized = s.replace(/\s|-/g, '_');
+    if (normalized === 'pending' || s.includes('chờ')) return SESSION_STATUS.PENDING;
+    if (normalized === 'approved' || s.includes('đã duyệt')) return SESSION_STATUS.APPROVED;
+    if (normalized === 'rejected' || s.includes('reject') || s.includes('từ chối'))
       return SESSION_STATUS.REJECTED;
-    if (s.includes('ongoing') || s.includes('đang diễn')) return SESSION_STATUS.ONGOING;
-    if (s.includes('completed') || s.includes('hoàn thành')) return SESSION_STATUS.COMPLETED;
+    if (normalized === 'assigning' || s.includes('đang phân công')) return SESSION_STATUS.ASSIGNING;
+    if (normalized === 'assignment_rejected' || s.includes('phân công bị từ chối'))
+      return SESSION_STATUS.ASSIGNMENT_REJECTED;
+    if (normalized === 'assigned' || s.includes('đã phân công')) return SESSION_STATUS.ASSIGNED;
+    if (normalized === 'cancelled' || s.includes('đã hủy')) return SESSION_STATUS.CANCELLED;
+    if (normalized === 'ongoing' || s.includes('đang diễn')) return SESSION_STATUS.ONGOING;
+    if (normalized === 'completed' || s.includes('hoàn thành')) return SESSION_STATUS.COMPLETED;
   }
   return null;
+}
+
+export function getSessionStatusLabel(status: string | number | null | undefined): string {
+  const code = normalizeStatusCode(status, SESSION_STATUS_LABEL);
+  if (!code) return String(status || '—');
+  return SESSION_STATUS_LABEL[code] ?? String(status);
 }
 
 export function getRequestStatusLabel(status: string | number | null | undefined): string {
@@ -150,11 +162,12 @@ export function getRequestStatusLabel(status: string | number | null | undefined
 export function getRequestStatusInfo(status: string | number | null | undefined): {
   label: string;
   className: string;
+  leftBarClass: string;
 } {
   const baseClass = 'bg-slate-50 text-slate-700 border-slate-200';
   const code = normalizeStatusCode(status, REQUEST_STATUS_LABEL);
   if (!code) {
-    return { label: String(status || '—'), className: baseClass };
+    return { label: String(status || '—'), className: baseClass, leftBarClass: 'border-l-slate-400' };
   }
   const label = REQUEST_STATUS_LABEL[code] ?? String(status || '—');
   const classNameByCode: Record<number, string> = {
@@ -165,6 +178,44 @@ export function getRequestStatusInfo(status: string | number | null | undefined)
     [REQUEST_STATUS.PUBLISHED]: baseClass,
     [REQUEST_STATUS.COMPLETED]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     [REQUEST_STATUS.CANCELLED]: 'bg-slate-50 text-slate-700 border-slate-200',
+  };
+  const leftBarByCode: Record<number, string> = {
+    [REQUEST_STATUS.PENDING]: 'border-l-amber-500',
+    [REQUEST_STATUS.APPROVED]: 'border-l-emerald-500',
+    [REQUEST_STATUS.REJECTED]: 'border-l-rose-500',
+    [REQUEST_STATUS.ASSIGNING]: 'border-l-sky-500',
+    [REQUEST_STATUS.PUBLISHED]: 'border-l-slate-400',
+    [REQUEST_STATUS.COMPLETED]: 'border-l-emerald-500',
+    [REQUEST_STATUS.CANCELLED]: 'border-l-slate-400',
+  };
+  return {
+    label,
+    className: classNameByCode[code] ?? baseClass,
+    leftBarClass: leftBarByCode[code] ?? 'border-l-slate-400',
+  };
+}
+
+
+export function getSessionStatusInfo(status: string | number | null | undefined): {
+  label: string;
+  className: string;
+} {
+  const baseClass = 'bg-slate-50 text-slate-700 border-slate-200';
+  const code = normalizeStatusCode(status, SESSION_STATUS_LABEL);
+  if (!code) {
+    return { label: String(status || '—'), className: baseClass };
+  }
+  const label = SESSION_STATUS_LABEL[code] ?? String(status || '—');
+  const classNameByCode: Record<number, string> = {
+    [SESSION_STATUS.PENDING]: 'bg-amber-50 text-amber-700 border-amber-200',
+    [SESSION_STATUS.APPROVED]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    [SESSION_STATUS.REJECTED]: 'bg-rose-50 text-rose-700 border-rose-200',
+    [SESSION_STATUS.ASSIGNING]: 'bg-sky-50 text-sky-700 border-sky-200',
+    [SESSION_STATUS.ASSIGNMENT_REJECTED]: 'bg-orange-50 text-orange-700 border-orange-200',
+    [SESSION_STATUS.ASSIGNED]: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    [SESSION_STATUS.CANCELLED]: 'bg-slate-50 text-slate-700 border-slate-200',
+    [SESSION_STATUS.ONGOING]: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    [SESSION_STATUS.COMPLETED]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   };
   return {
     label,

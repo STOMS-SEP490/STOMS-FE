@@ -68,6 +68,26 @@ body {
   min-height: 100vh;
 }
 
+html.no-scrollbar,
+body.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html.no-scrollbar::-webkit-scrollbar,
+body.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ẩn nút reveal password mặc định của trình duyệt (Edge, Chrome) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+input::-webkit-credentials-auto-fill-button {
+  display: none !important;
+}
+
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
@@ -105,6 +125,12 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+.main-content {
+  zoom: 0.9;
+  --content-height: calc(100vh / 0.9);
+  min-height: var(--content-height);
 }
 
 .no-scrollbar::-webkit-scrollbar {
