@@ -1,4 +1,3 @@
-import { Badge } from '@/shared/components/ui/badge';
 import { getRequestStatusInfo } from '@/constants/status';
 import { GraduationCap, Star, User } from 'lucide-react';
 

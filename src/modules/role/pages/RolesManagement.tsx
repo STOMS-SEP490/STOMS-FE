@@ -21,7 +21,7 @@ type RoleFormState = {
 type Mode = 'create' | 'edit';
 
 export default function RolesManagement() {
-  const { data, loading, search, setSearch, pageNumber, pageSize, totalItems, setPageNumber, refetch } =
+  const { data, search, setSearch, pageNumber, pageSize, totalItems, setPageNumber, refetch } =
     useRoles();
 
   const [openDialog, setOpenDialog] = useState(false);

@@ -159,7 +159,14 @@ export default function Transactions() {
   }
   return (
     <div>
-      <DataTable columns={columns} data={data} />
+      <DataTable
+        columns={columns}
+        data={data}
+        pageNumber={1}
+        pageSize={data.length}
+        totalItems={data.length}
+        onPageChange={() => {}}
+      />
     </div>
   );
 }
