@@ -1,9 +1,11 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+
 import dayjs from 'dayjs';
 import { message, Spin } from 'antd';
 import {
   X,
-  ChevronRight,
   MapPin,
   Clock,
   Calendar,
@@ -15,7 +17,6 @@ import {
   Users,
   AlertCircle,
   RotateCcw,
-  CheckCircle2,
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import { Badge } from '@/shared/components/ui/badge';
@@ -79,7 +80,6 @@ export default function TeamLeaderAssignmentsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'assigning'>('assigning');
   const [assignSelections, setAssignSelections] = useState<Record<number, number>>({});
   const [searchByAssignmentId, setSearchByAssignmentId] = useState<Record<number, string>>({});
-  const [savingAll, setSavingAll] = useState(false);
 
   const [hoveredStaff, setHoveredStaff] = useState<{
     staff: SuggestedStaff | Member;
@@ -293,60 +293,6 @@ export default function TeamLeaderAssignmentsPage() {
     setAssignSelections((prev) => ({ ...prev, [assignmentId]: memberId }));
   }, []);
 
-  const handleSaveAllAssignmentsForRequest = useCallback(async () => {
-      if (!selectedRequest) return;
-      const sessionIds = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
-      if (!sessionIds.length) {
-        message.warning('Yêu cầu này không có phiên nào của team để phân công.');
-        return;
-      }
-
-      const missingPerSession: number[] = [];
-      for (const s of selectedRequest.sessions) {
-        const detail = sessionDetailsById[s.sessionId];
-        if (!detail?.assignments?.length) continue;
-        const missingSlots = detail.assignments.filter(
-        (a) => !(assignSelections[a.assignmentId] || a.staffMemberId),
-        );
-      if (missingSlots.length > 0) missingPerSession.push(s.sessionNo);
-      }
-      if (missingPerSession.length > 0) {
-        message.warning(
-        `Vui lòng gán đủ giảng viên / trợ giảng cho tất cả slot. Còn thiếu ở phiên: ${missingPerSession.join(', ')}.`,
-        );
-        return;
-      }
-
-      try {
-        setSavingAll(true);
-        for (const s of selectedRequest.sessions) {
-          const detail = sessionDetailsById[s.sessionId];
-          if (!detail?.assignments?.length) continue;
-          const items = detail.assignments
-            .map((a) => {
-            const mid = assignSelections[a.assignmentId] ?? a.staffMemberId;
-            if (!mid) return null;
-            return { AssignmentId: a.assignmentId, StaffMemberId: mid };
-            })
-            .filter(Boolean) as { AssignmentId: number; StaffMemberId: number }[];
-          if (!items.length) continue;
-          // eslint-disable-next-line no-await-in-loop
-        await axiosClient.put('/assignments/assign-members', { items });
-        }
-        message.success('Đã hoàn tất phân công cho tất cả phiên của team trong yêu cầu này.');
-      setSessionDetailsById((prev) => {
-        const next = { ...prev };
-        for (const sid of sessionIds) delete next[sid];
-        return next;
-      });
-        await ensureSessionDetails(sessionIds);
-      } catch (err) {
-        console.error(err);
-        message.error('Hoàn tất phân công thất bại.');
-      } finally {
-        setSavingAll(false);
-      }
-  }, [assignSelections, ensureSessionDetails, selectedRequest, sessionDetailsById]);
 
   const handleApplyToOtherSessions = useCallback(
     (sessionId: number) => {

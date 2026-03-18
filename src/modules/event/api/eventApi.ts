@@ -98,25 +98,36 @@ const eventApi = {
   getEvents: async (
     params: EventFilterParams
   ): Promise<PaginationResponse<EventListItem>> => {
-    const res = await axiosClient.get<Record<string, unknown>>('/events/filter', { params });
+    const res = await axiosClient.get<Record<string, unknown>, Record<string, unknown>>(
+      '/events/filter',
+      { params }
+    );
     return mapPagedFromApi(res ?? {});
   },
 
   // GET BY ID
   getById: async (id: number): Promise<EventListItem> => {
-    const res = await axiosClient.get<Record<string, unknown>>(`/events/${id}`);
+    const res = await axiosClient.get<Record<string, unknown>, Record<string, unknown>>(
+      `/events/${id}`
+    );
     return mapEventFromApi((res ?? {}) as Record<string, unknown>);
   },
 
   // CREATE
   create: async (data: EventCreatePayload): Promise<EventListItem> => {
-    const res = await axiosClient.post<Record<string, unknown>>('/events', data);
+    const res = await axiosClient.post<Record<string, unknown>, Record<string, unknown>>(
+      '/events',
+      data
+    );
     return mapEventFromApi((res ?? {}) as Record<string, unknown>);
   },
 
   // UPDATE
   update: async (id: number, data: EventUpdatePayload): Promise<EventListItem> => {
-    const res = await axiosClient.put<Record<string, unknown>>(`/events/${id}`, data);
+    const res = await axiosClient.put<Record<string, unknown>, Record<string, unknown>>(
+      `/events/${id}`,
+      data
+    );
     return mapEventFromApi((res ?? {}) as Record<string, unknown>);
   },
 
@@ -125,14 +136,14 @@ const eventApi = {
     const res = await axiosClient.put<Record<string, unknown>>(
       `/events/${id}/activate`
     );
-    return mapEventFromApi((res ?? {}) as Record<string, unknown>);
+    return mapEventFromApi((res?.data ?? {}) as Record<string, unknown>);
   },
 
   deactivate: async (id: number): Promise<EventListItem> => {
     const res = await axiosClient.put<Record<string, unknown>>(
       `/events/${id}/deactivate`
     );
-    return mapEventFromApi((res ?? {}) as Record<string, unknown>);
+    return mapEventFromApi((res?.data ?? {}) as Record<string, unknown>);
   },
 
   // DELETE

@@ -74,9 +74,12 @@ function mapPagedFromApi<T>(
 export const attendanceApi = {
   /** GET api/attendances/filter?SessionId=... */
   async getBySession(sessionId: number): Promise<PaginationResponse<Attendance>> {
-    const res = await axiosClient.get<Record<string, unknown>>('/attendances/filter', {
-      params: { SessionId: sessionId, PageNumber: 1, PageSize: 200 },
-    });
+    const res = await axiosClient.get<Record<string, unknown>, Record<string, unknown>>(
+      '/attendances/filter',
+      {
+        params: { SessionId: sessionId, PageNumber: 1, PageSize: 200 },
+      }
+    );
     return mapPagedFromApi(res ?? {}, mapAttendanceFromApi);
   },
 
@@ -100,7 +103,10 @@ export const attendanceApi = {
         Note: x.note ?? null,
       })),
     };
-    const res = await axiosClient.post<Record<string, unknown>>('/attendance/checkin', body);
+    const res = await axiosClient.post<Record<string, unknown>, Record<string, unknown>>(
+      '/attendance/checkin',
+      body
+    );
     const raw = (res ?? {}) as Record<string, unknown>;
     const checkedInRaw =
       ((raw['checkedIn'] ?? raw['CheckedIn']) as unknown[] | undefined) ?? [];
@@ -124,7 +130,10 @@ export const attendanceApi = {
         Note: x.note ?? null,
       })),
     };
-    const res = await axiosClient.post<Record<string, unknown>>('/attendance/checkout', body);
+    const res = await axiosClient.post<Record<string, unknown>, Record<string, unknown>>(
+      '/attendance/checkout',
+      body
+    );
     const raw = (res ?? {}) as Record<string, unknown>;
     const checkedOutRaw =
       ((raw['checkedOut'] ?? raw['CheckedOut']) as unknown[] | undefined) ?? [];
@@ -146,7 +155,7 @@ export const attendanceApi = {
     memberId: number,
     params: { pageNumber?: number; pageSize?: number } = {},
   ): Promise<PaginationResponse<AttendanceHistoryItem>> {
-    const res = await axiosClient.get<Record<string, unknown>>(
+    const res = await axiosClient.get<Record<string, unknown>, Record<string, unknown>>(
       `/dashboard/users/${memberId}/attendance-history`,
       {
         params: {

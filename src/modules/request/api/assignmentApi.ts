@@ -2,7 +2,6 @@ import axiosClient from '@/shared/lib/axios';
 import type {
   AssignmentDetail,
   SuggestedStaff,
-  SuggestedStaffSkill,
 } from './type';
 
 const assignmentApi = {
