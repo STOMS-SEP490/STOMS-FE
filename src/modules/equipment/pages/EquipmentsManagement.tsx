@@ -282,19 +282,16 @@ export default function EquipmentsManagement() {
           <Eye
             size={16}
             className="text-blue-600 cursor-pointer"
-            title="Xem"
             onClick={() => handleView(row.original)}
           />
           <Pencil
             size={16}
             className="text-blue-600 cursor-pointer"
-            title="Sửa"
             onClick={() => handleEdit(row.original)}
           />
           <Trash2
             size={16}
             className="text-red-500 cursor-pointer"
-            title="Ngừng sử dụng"
             onClick={() => handleDisableClick(row.original)}
           />
         </div>

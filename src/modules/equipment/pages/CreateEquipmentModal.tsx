@@ -3,7 +3,6 @@ import { message } from 'antd';
 import equipmentApi from '../api/equipmentApi';
 import categoryApi from '@/modules/category/api/categoryApi';
 import type { CategoryListItem } from '@/modules/category/category';
-import { EQUIPMENT_STATUS_OPTIONS } from '@/constants/equipment';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -28,7 +27,6 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
   const [categoryId, setCategoryId] = useState<string>('');
   const [sponsoredBy, setSponsoredBy] = useState('');
   const [handoverMinute, setHandoverMinute] = useState('');
-  const [status, setStatus] = useState('AVAILABLE');
   const [description, setDescription] = useState('');
   const [imgLink, setImgLink] = useState('');
   const [loading, setLoading] = useState(false);
@@ -95,7 +93,6 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
     setCategoryId('');
     setSponsoredBy('');
     setHandoverMinute('');
-    setStatus('AVAILABLE');
     setDescription('');
     setImgLink('');
     setError('');

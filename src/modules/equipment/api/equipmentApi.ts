@@ -11,7 +11,7 @@ const equipmentApi = {
       '/equipment/filter',
       { params }
     )
-    return mapPagedFromApi(res ?? {}, mapEquipmentFromApi)
+    return mapPagedFromApi(res?.data ?? {}, mapEquipmentFromApi)
   },
 
   // GET BY ID
@@ -19,7 +19,7 @@ const equipmentApi = {
     const res = await axiosClient.get<Record<string, unknown>>(
       `/equipment/${id}`
     )
-    return mapEquipmentFromApi((res ?? {}) as Record<string, unknown>)
+    return mapEquipmentFromApi((res?.data ?? {}) as Record<string, unknown>)
   },
 
   // CREATE
@@ -31,7 +31,7 @@ const equipmentApi = {
       '/equipment',
       body
     )
-    return mapEquipmentFromApi((res ?? {}) as Record<string, unknown>)
+    return mapEquipmentFromApi((res?.data ?? {}) as Record<string, unknown>)
   },
 
   // UPDATE INFO
@@ -41,7 +41,7 @@ const equipmentApi = {
   ): Promise<EquipmentListItem> =>
     axiosClient
       .put<Record<string, unknown>>(`/equipment/${id}/info`, mapEquipmentToInfoUpdateBody(data))
-      .then((res) => mapEquipmentFromApi((res ?? {}) as Record<string, unknown>)),
+      .then((res) => mapEquipmentFromApi((res?.data ?? {}) as Record<string, unknown>)),
 
   // UPDATE STATUS
   updateStatus: (
@@ -50,7 +50,7 @@ const equipmentApi = {
   ): Promise<EquipmentListItem> =>
     axiosClient
       .put<Record<string, unknown>>(`/equipment/${id}/status`, { Status: data.status })
-      .then((res) => mapEquipmentFromApi((res ?? {}) as Record<string, unknown>)),
+      .then((res) => mapEquipmentFromApi((res?.data ?? {}) as Record<string, unknown>)),
 }
 
 export default equipmentApi

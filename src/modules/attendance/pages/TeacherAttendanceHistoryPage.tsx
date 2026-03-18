@@ -5,7 +5,6 @@ import 'dayjs/locale/vi';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { ChevronRight } from 'lucide-react';
-import { Button } from '@/shared/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { attendanceApi, type AttendanceHistoryItem } from '../api/attendanceApi';
 
@@ -103,7 +102,7 @@ const columns: ColumnDef<Row>[] = [
         <button
           type="button"
           className="inline-flex items-center gap-1 text-sm font-semibold text-sky-700 hover:text-sky-800"
-          onClick={() => navigate(`/teacher/attendance/${row.original.sessionId}`)}
+          onClick={() => navigate(`/teacher/attendance/${row.original.session.sessionId}`)}
         >
           Chi tiết <ChevronRight className="h-4 w-4" />
         </button>

@@ -130,14 +130,14 @@ const borrowingApi = {
       '/borrowings/filter',
       { params }
     )
-    return mapPagedFromApi(res ?? {}, mapBorrowingFromApi)
+    return mapPagedFromApi(res?.data ?? {}, mapBorrowingFromApi)
   },
 
   async getById(id: number): Promise<BorrowingListItem> {
     const res = await axiosClient.get<Record<string, unknown>>(
       `/borrowings/${id}`
     )
-    return mapBorrowingFromApi((res ?? {}) as Record<string, unknown>)
+    return mapBorrowingFromApi((res?.data ?? {}) as Record<string, unknown>)
   },
 
   async create(data: BorrowingCreatePayload): Promise<BorrowingListItem> {
@@ -157,7 +157,7 @@ const borrowingApi = {
       '/borrowings',
       body
     )
-    return mapBorrowingFromApi((res ?? {}) as Record<string, unknown>)
+    return mapBorrowingFromApi((res?.data ?? {}) as Record<string, unknown>)
   },
 }
 

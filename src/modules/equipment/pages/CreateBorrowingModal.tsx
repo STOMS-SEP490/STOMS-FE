@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { DatePicker, message } from 'antd'
 import borrowingApi from '../api/borrowingApi'
 import equipmentApi from '../api/equipmentApi'
-import userService from '@/modules/user/api/userApi'
+import memberApi from '@/modules/member/api/memberApi'
 import categoryApi from '@/modules/category/api/categoryApi'
-import type { Member, MemberDetail } from '@/modules/user/user'
+import type { Member } from '@/modules/member/member'
 import type { BorrowingCreatePayload } from '../borrowing'
 import type { EquipmentListItem } from '../equipment'
 import type { CategoryListItem } from '@/modules/category/category'
@@ -39,11 +39,9 @@ export default function CreateBorrowingModal({
   const [borrowerOptions, setBorrowerOptions] = useState<Member[]>([])
   const [borrowedByMemberId, setBorrowedByMemberId] = useState<number | null>(null)
   const [lentByMemberId, setLentByMemberId] = useState<number | null>(null)
-  const [currentLender, setCurrentLender] = useState<MemberDetail | null>(null)
   const [returnedDueDate, setReturnedDueDate] = useState<Dayjs | null>(null)
   const [description, setDescription] = useState('')
   const [note, setNote] = useState('')
-  const [equipmentRaw, setEquipmentRaw] = useState('')
   const [allEquipments, setAllEquipments] = useState<EquipmentListItem[]>([])
   const [equipmentSearch, setEquipmentSearch] = useState('')
   const [equipmentLoading, setEquipmentLoading] = useState(false)
@@ -65,7 +63,7 @@ export default function CreateBorrowingModal({
     try {
       setLoadingFlag(true)
       const isNumber = !isNaN(Number(value))
-      const res = await userService.getMembers({
+      const res = await memberApi.getMembers({
         MemberId: isNumber ? Number(value) : undefined,
         FullName: !isNumber ? value : undefined,
       })
@@ -91,8 +89,7 @@ export default function CreateBorrowingModal({
 
       ;(async () => {
         try {
-          const detail = await userService.getMemberById(parsed.memberId!)
-          setCurrentLender(detail)
+          await memberApi.getMemberById(parsed.memberId!)
         } catch {
           // ignore
         }
@@ -142,7 +139,7 @@ export default function CreateBorrowingModal({
     fetchCategories()
   }, [open])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError('')
 
@@ -196,11 +193,9 @@ export default function CreateBorrowingModal({
     setBorrowerOptions([])
     setBorrowedByMemberId(null)
     setLentByMemberId(null)
-    setCurrentLender(null)
     setReturnedDueDate(null)
     setDescription('')
     setNote('')
-    setEquipmentRaw('')
     setEquipmentSearch('')
     setSelectedEquipmentIds([])
     setError('')
