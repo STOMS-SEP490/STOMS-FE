@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import RequestCard, { getRequestType } from '@/shared/components/request/RequestCard';
-import { getRequestStatusInfo } from '@/constants/status';
+import { getRequestStatusInfo, getSessionStatusInfo } from '@/constants/status';
 import { teamApi } from '@/modules/team/api/teamApi';
 import memberApi from '@/modules/member/api/memberApi';
 import type { Member } from '@/modules/member/member';
@@ -601,14 +601,6 @@ export default function TeamLeaderAssignmentsPage() {
         </div>
       )}
 
-      {/* HEADER */}
-      <div className="bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm shrink-0">
-        <h2 className="text-xl font-semibold text-black">Trung tâm phân công</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          Quản lý phân công nhân sự cho các yêu cầu thuộc team của bạn.
-        </p>
-      </div>
-
       <div className="flex justify-start gap-3 mb-2 flex-wrap">
         <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
         <div className="flex items-center gap-3">
@@ -802,43 +794,69 @@ export default function TeamLeaderAssignmentsPage() {
               })()}
 
               {/* Session list */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {selectedRequest.sessions.length} phiên trong yêu cầu này
+                    </p>
+                  </div>
+                  <span className="text-xs text-slate-500">Nhấn để xem chi tiết</span>
                 </div>
                 {selectedRequest.sessions.length === 0 ? (
-                  <p className="text-xs text-slate-500 py-6 text-center">
+                  <p className="text-xs text-slate-500 py-10 text-center">
                     Yêu cầu này chưa có phiên nào gán cho team.
                   </p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="divide-y divide-slate-100">
                     {selectedRequest.sessions.map((session) => {
                       const stats = getSessionStats(session);
                       const isActive = activeSession?.sessionId === session.sessionId;
                       const title = `Phiên ${session.sessionNo}`;
+                      const sessionStatusInfo = getSessionStatusInfo(session.status);
                       return (
                         <div
                           key={session.sessionId}
                           role="button"
                           tabIndex={0}
                           onClick={() => setActiveSession(session)}
-                          className={`w-full border rounded-lg bg-white px-4 py-2.5 transition cursor-pointer ${
-                            isActive
-                              ? 'bg-sky-50/80 border-sky-300 shadow-sm'
-                              : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                          className={`w-full px-5 py-4 transition cursor-pointer ${
+                            isActive ? 'bg-sky-50/60' : 'hover:bg-slate-50/80'
                           }`}
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-1.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs text-sky-600 font-medium">
-                                {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
-                              </span>
-                              <span className="text-xs text-slate-500">Dạy học</span>
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[11px] text-slate-500">Phiên dạy</span>
+                                <span className="text-[11px] font-medium text-slate-700">{title}</span>
+                              </div>
+                              <div className="mt-2 flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+                                <span className="inline-flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  {dayjs(session.startAt).format('DD/MM/YYYY')}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPin className="w-3.5 h-3.5" />
+                                  {session.location || '—'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
                               <span
-                                className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
+                                className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
+                              >
+                                {sessionStatusInfo.label}
+                              </span>
+                              <span
+                                className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
                                   stats.total > 0 && stats.filled === stats.total
-                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                    : 'bg-amber-50 text-amber-800 border border-amber-200'
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : 'bg-amber-50 text-amber-800 border-amber-200'
                                 }`}
                               >
                                 {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
@@ -849,24 +867,6 @@ export default function TeamLeaderAssignmentsPage() {
                                     : 'Chưa gán đủ'}
                               </span>
                             </div>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 hover:text-sky-700 shrink-0"
-                            >
-                              Chi tiết
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">
-                            {title}
-                          </p>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span>{session.location || '—'}</span>
-                            <span className="text-slate-300">•</span>
-                            <span className="text-slate-600">
-                              {dayjs(session.startAt).format('DD/MM/YYYY')}
-                            </span>
                           </div>
                         </div>
                       );

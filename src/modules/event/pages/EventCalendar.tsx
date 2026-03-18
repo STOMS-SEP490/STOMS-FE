@@ -11,7 +11,8 @@ import { useCalendarEvents } from '@/modules/event/hooks/useCalendarEvents';
 import sessionService from '@/modules/request/api/sessionApi';
 import type { SessionDetail } from '@/modules/request/api/type';
 import SessionDetailPopover from './SessionDetailPopover';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { CalendarDays, List } from 'lucide-react';
 
 const locales = { vi };
 
@@ -65,7 +66,7 @@ function getEventStyle(event: CalendarEvent) {
       backgroundColor: bg,
       color: '#0f172a',
       border: '1px solid rgba(148, 163, 184, 0.7)',
-      borderRadius: '14px',
+      borderRadius: '8px',
       boxShadow: '0 6px 14px rgba(15, 23, 42, 0.08)',
       padding: 0,
       overflow: 'hidden',
@@ -81,7 +82,10 @@ export default function EventCalendar() {
   const [detailSession, setDetailSession] = useState<SessionDetail | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const location = useLocation();
-  const isTeacherSchedule = location.pathname.startsWith('/teacher/timetable');
+  const navigate = useNavigate();
+
+  const basePath = '/teacher/timetable';
+  const isAssignments = location.pathname.includes('/timetable/assignments');
 
   const { defaultDate, scrollToTime } = useMemo(() => {
     const d = new Date();
@@ -119,28 +123,28 @@ export default function EventCalendar() {
         onView: (view: string) => void;
         label: string;
       }) => (
-        <div className="rbc-custom-toolbar flex flex-wrap items-center justify-between gap-4 bg-white px-4 py-3 rounded-t-xl border-b border-gray-200">
-          <div className="flex items-center gap-3">
+        <div className="rbc-custom-toolbar flex flex-wrap items-center justify-between gap-3 bg-white px-3 py-2 rounded-t-xl border-b border-gray-200">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => props.onNavigate('TODAY')}
-              className="px-4 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-sm font-medium text-gray-800"
+              className="px-3 py-1.5 rounded-md bg-white border border-gray-200 hover:bg-gray-50 text-xs font-medium text-gray-800"
             >
               Hôm nay
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => props.onNavigate('PREV')}
-                className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-600"
+                className="p-1.5 rounded-md bg-white border border-gray-200 hover:bg-gray-50 text-gray-600"
                 aria-label="Trước"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M15 18l-6-6 6-6" />
                 </svg>
               </button>
               <div className="relative inline-flex items-center justify-center">
-                <span className="text-sm text-gray-800 font-medium px-2">
+                <span className="text-xs text-gray-800 font-medium px-1.5">
                   {formattedRange}
                 </span>
                 <DatePicker
@@ -157,30 +161,61 @@ export default function EventCalendar() {
               <button
                 type="button"
                 onClick={() => props.onNavigate('NEXT')}
-                className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-600"
+                className="p-1.5 rounded-md bg-white border border-gray-200 hover:bg-gray-50 text-gray-600"
                 aria-label="Sau"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18l6-6-6-6" />
                 </svg>
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1">
-            {(['year', 'week', 'month', 'day'] as const).map((v) => (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white p-0.5">
               <button
-                key={v}
                 type="button"
-                onClick={() => props.onView(v)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  view === v
-                    ? 'bg-gray-100 text-gray-900 border border-gray-200'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                onClick={() => navigate(basePath)}
+                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors ${
+                  !isAssignments
+                    ? 'bg-sky-50 border-sky-200 text-sky-700'
+                    : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
                 }`}
+                title="Xem dạng thời khóa biểu"
               >
-                {CALENDAR_MESSAGES[v]}
+                <CalendarDays className="w-3 h-3" />
+                <span>Thời khóa biểu</span>
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => navigate(`${basePath}/assignments`)}
+                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors ${
+                  isAssignments
+                    ? 'bg-sky-50 border-sky-200 text-sky-700'
+                    : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                }`}
+                title="Xem dạng bảng phân công"
+              >
+                <List className="w-3 h-3" />
+                <span>Danh sách</span>
+              </button>
+            </div>
+            <div className="h-4 w-px bg-gray-200" />
+            <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white p-0.5">
+              {(['week', 'month', 'day'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => props.onView(v)}
+                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                    view === v
+                      ? 'bg-gray-100 text-gray-900 border border-gray-200'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  {CALENDAR_MESSAGES[v]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       ),
@@ -191,9 +226,9 @@ export default function EventCalendar() {
               <span className="text-xs font-semibold text-slate-900 truncate">
                 {event.title}
               </span>
-              {event.unassigned && (
-                <span className="ml-1 inline-flex items-center rounded-full bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap">
-                  Chưa phân công
+              {(event.status !== null && event.status !== undefined) && (
+                <span className={`ml-1 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap border ${event.statusClassName || 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+                  {event.statusLabel}
                 </span>
               )}
             </div>
@@ -209,7 +244,7 @@ export default function EventCalendar() {
         </div>
       ),
     }),
-    [view, formattedRange]
+    [view, formattedRange, isAssignments, navigate]
   );
 
   const handleSelectEvent = async (event: CalendarEvent, e?: React.SyntheticEvent) => {
@@ -227,7 +262,7 @@ export default function EventCalendar() {
   };
 
   const calendarContent = (
-    <div className="relative flex-1 min-h-0">
+    <div className="event-calendar-scroll relative flex-1 min-h-0 event-calendar-fixed">
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
           <span className="text-sm text-gray-500">Đang tải lịch...</span>
@@ -258,34 +293,9 @@ export default function EventCalendar() {
     </div>
   );
 
-  if (isTeacherSchedule) {
-    return (
-      <div className="flex flex-col overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
-        {calendarContent}
-        <SessionDetailPopover
-          open={detailOpen}
-          anchorRect={anchorRect}
-          onClose={() => {
-            setDetailOpen(false);
-            setDetailSession(null);
-            setAnchorRect(null);
-          }}
-          session={detailSession}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col p-6 gap-4 bg-[#f3f4f6] overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
-      <div className="bg-white px-6 py-4 rounded-xl border shadow-sm flex flex-col gap-1 shrink-0">
-        <h2 className="text-xl font-semibold text-gray-900">Theo dõi lịch trình</h2>
-        <p className="text-xs text-gray-500">
-          Theo dõi các tất cả các phiên trong lịch trình.
-        </p>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex-1 min-h-0 flex flex-col">
+    <div className="flex flex-col bg-[#f3f4f6] overflow-hidden p-6" style={{ height: 'var(--content-height, 100vh)' }}>
+      <div className="bg-white overflow-hidden flex-1 min-h-0 flex flex-col rounded-xl border shadow-sm">
         {calendarContent}
       </div>
 

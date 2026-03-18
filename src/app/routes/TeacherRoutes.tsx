@@ -7,18 +7,11 @@ import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeaching
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage';
 import TeacherAttendanceHistoryPage from '@/modules/attendance/pages/TeacherAttendanceHistoryPage';
-import TeacherScheduleLayout from '@/app/layouts/TeacherScheduleLayout';
 
 const TeacherRoutes = [
   { path: 'events', element: <EventsManagement /> },
-  {
-    path: 'timetable',
-    element: <TeacherScheduleLayout />,
-    children: [
-      { index: true, element: <EventCalendar /> },
-      { path: 'assignments', element: <TeacherAssignments /> },
-    ],
-  },
+  { path: 'timetable', element: <EventCalendar /> },
+  { path: 'timetable/assignments', element: <TeacherAssignments /> },
   { path: 'teaching-history', element: <TeacherTeachingHistoryPage /> },
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'contracts/:id', element: <ContractsManagement /> },
