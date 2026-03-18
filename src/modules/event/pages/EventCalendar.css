@@ -78,6 +78,48 @@
   color: #374151;
   border-bottom: 1px solid #e5e7eb;
   background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+}
+
+.rbc-time-header-content {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.rbc-time-header {
+  align-items: stretch;
+  border-bottom: 1px solid #e5e7eb;
+  height: 44px;
+}
+
+.rbc-time-header-content {
+  align-items: stretch;
+  height: 44px;
+}
+
+.rbc-time-header-content > .rbc-row {
+  border-bottom: none;
+  min-height: 44px;
+  height: 44px;
+  align-items: stretch;
+}
+
+.rbc-time-header-gutter,
+.rbc-time-header .rbc-time-header-gutter {
+  min-height: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rbc-time-header .rbc-header {
+  height: 44px;
+  line-height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .rbc-row-segment {
@@ -89,9 +131,30 @@
   padding: 0;
 }
 
+.rbc-month-view .rbc-event {
+  width: 100%;
+  margin: 0;
+}
+
 .rbc-event {
   padding: 0;
-  border-radius: 12px;
+  border-radius: 8px;
+  min-height: 80px;
+}
+
+.rbc-custom-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.event-calendar-scroll {
+  overflow-y: auto;
+  height: 100%;
+}
+
+.event-calendar-scroll .rbc-calendar {
+  min-height: 720px;
 }
 
 .rbc-event:focus {

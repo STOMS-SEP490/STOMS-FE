@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, CheckSquare, Copy, Share2, Calendar, Hash, List, MapPin, AlertCircle, ChevronRight } from 'lucide-react';
-import { message } from 'antd';
+import { Plus, X, CheckCircle2, Copy, Share2, Calendar, Hash, List, MapPin, AlertCircle, ChevronRight } from 'lucide-react';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';
@@ -11,549 +8,59 @@ import { getRequestStatusInfo } from '@/constants/status';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import type { RequestListItem, RequestSessionSummary } from '../request';
-import { requestApi } from '../api/requestApi';
-import { sessionApi } from '../api/sessionApi';
-import { teamSessionApi } from '@/modules/team/api/teamSessionApi';
-import { useProgramCoordinatorId } from '../hooks/useProgramCoordinatorId';
+import type { RequestSessionSummary } from '../request';
 import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
-import assignmentApi from '../api/assignmentApi';
-
-type SessionWithFlags = RequestSessionSummary & {
-  reservationId?: number | null;
-  teamAssigned?: boolean;
-  equipmentReserved?: boolean;
-};
-
-type SessionAssignmentRow = {
-  assignmentId: number;
-  staffMemberId: number;
-  staffRole: string;
-  status?: string;
-  fullName: string;
-  email: string;
-  avatarUrl: string;
-};
-
-type RightPanelState =
-  | { mode: 'team'; session: SessionWithFlags }
-  | { mode: 'detail'; session: SessionWithFlags }
-  | { mode: 'assignment'; session: SessionWithFlags }
-  | { mode: 'equipment' }
-  | null;
-
-type RequestLayoutOutletContext = {
-  refreshRequestSidebar?: () => void;
-  viewMode?: 'request' | 'assignment';
-};
+import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
+import type { RequestLayoutOutletContext, SessionWithFlags } from '../requestDetail.types';
 
 export default function RequestDetail() {
   const { id } = useParams<{ id: string }>();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
-  const [request, setRequest] = useState<RequestListItem | null>(null);
-  const [sessions, setSessions] = useState<SessionWithFlags[]>([]);
-  const [rightPanel, setRightPanel] = useState<RightPanelState>(null);
-  const [loading, setLoading] = useState(false);
-  const [suggestedTeamIdsBySessionId, setSuggestedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
-  const [uiAssignedTeamIdsBySessionId, setUiAssignedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
-  const [assignmentsBySessionId, setAssignmentsBySessionId] = useState<Record<number, SessionAssignmentRow[]>>({});
-  const [selectedAssignmentIdsBySessionId, setSelectedAssignmentIdsBySessionId] = useState<Record<number, number[]>>(
-    {}
-  );
-  const createdByMemberId = useProgramCoordinatorId();
-  const [approveOpen, setApproveOpen] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
-  const [approvingSessionId, setApprovingSessionId] = useState<number | null>(null);
-  const [rejectAssignmentState, setRejectAssignmentState] = useState<{
-    open: boolean;
-    assignmentId: number | null;
-    sessionId: number | null;
-    displayName: string;
-  }>({ open: false, assignmentId: null, sessionId: null, displayName: '' });
-  const [rejectAssignmentReason, setRejectAssignmentReason] = useState('');
-  const [, setRejectAssignmentLoading] = useState(false);
-
-  useEffect(() => {
-    if (!id) return;
-    // Khi chuyển sang request khác từ sidebar, reset panel và state phụ trước khi load dữ liệu mới
-    setRightPanel(null);
-    setSessions([]);
-    setUiAssignedTeamIdsBySessionId({});
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const detail = await requestApi.getById(Number(id));
-        setRequest(detail);
-
-        const nextUiAssigned: Record<number, number[]> = {};
-        const mappedSessions: SessionWithFlags[] =
-          detail.sessions?.map((s) => {
-            const anyS = s as RequestSessionSummary & {
-              reservationId?: number | null;
-              ReservationId?: number | null;
-              teamId?: number | null;
-              TeamId?: number | null;
-              teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
-              TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
-            };
-            const reservationId = anyS.reservationId ?? anyS.ReservationId ?? null;
-            const fromSessions =
-              anyS.teamSessions ?? anyS.TeamSessions ?? [];
-            const backendTeamIds = fromSessions
-              .map((ts) => ts.teamId ?? ts.TeamId)
-              .filter((id): id is number => typeof id === 'number' && id > 0);
-            const singleTeamId = anyS.teamId ?? anyS.TeamId;
-            const initialTeamIds =
-              backendTeamIds.length > 0
-                ? backendTeamIds
-                : typeof singleTeamId === 'number' && singleTeamId > 0
-                  ? [singleTeamId]
-                  : [];
-
-            const teamAssigned =
-              initialTeamIds.length > 0 || s.status?.toLowerCase() === 'approved';
-
-            if (initialTeamIds.length > 0) nextUiAssigned[s.sessionId] = initialTeamIds;
-
-            return {
-              ...s,
-              reservationId,
-              teamAssigned,
-              equipmentReserved: reservationId != null,
-            };
-          }) ?? [];
-        setSessions(mappedSessions);
-        setUiAssignedTeamIdsBySessionId(nextUiAssigned);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchData();
-  }, [id]);
-
-  useEffect(() => {
-    // Preload team-suggestions cho tất cả session để "gán cho tất cả" chỉ chạy UI, không gọi API lúc toggle.
-    if (sessions.length === 0) return;
-    let cancelled = false;
-    const run = async () => {
-      try {
-        const pairs = await Promise.all(
-          sessions.map(async (s) => {
-            try {
-              const teams = await sessionApi.suggestTeams(s.sessionId);
-              return [s.sessionId, teams.map((t) => t.teamId) as number[]] as const;
-            } catch {
-              return [s.sessionId, [] as number[]] as const;
-            }
-          })
-        );
-        if (cancelled) return;
-        const map: Record<number, number[]> = {};
-        for (const [sid, ids] of pairs) map[sid] = ids;
-        setSuggestedTeamIdsBySessionId(map);
-      } catch {
-        // ignore
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessions]);
-
-  // Khi ở tab Duyệt phân công, load assignment cho các phiên (nếu chưa có)
-  // và enrich bằng assignmentApi.getById để luôn có đủ thông tin GV / TA
-  useEffect(() => {
-    if (viewMode !== 'assignment') return;
-    if (!sessions.length) return;
-    const missingIds = sessions
-      .map((s) => s.sessionId)
-      .filter((sid) => !assignmentsBySessionId[sid]);
-    if (!missingIds.length) return;
-    let cancelled = false;
-    const run = async () => {
-      try {
-        const details = await Promise.all(
-          missingIds.map(async (sid) => {
-            try {
-              const d = await sessionApi.getById(sid);
-              const baseAssignments = (d.assignments ?? []).filter(
-                (a) => a && a.assignmentId
-              );
-              if (!baseAssignments.length) {
-                return { sessionId: d.sessionId, rows: [] as SessionAssignmentRow[] };
-              }
-
-              const rows = await Promise.all(
-                baseAssignments.map(async (a: any) => {
-                  try {
-                    const full = await assignmentApi.getById(a.assignmentId);
-                    const staff = full.staffMember;
-                    return {
-                      assignmentId: full.assignmentId,
-                      staffMemberId: full.staffMemberId,
-                      staffRole: (full.staffRole || '').toUpperCase(),
-                      status: full.status,
-                      fullName: staff?.fullName || '—',
-                      email: staff?.userEmail || '',
-                      avatarUrl: staff?.avatarUrl || '',
-                    } satisfies SessionAssignmentRow;
-                  } catch {
-                    const staff = a.staffMember ?? a.StaffMember ?? null;
-                    const staffUser = staff?.user ?? staff?.User ?? null;
-                    return {
-                      assignmentId: Number(a.assignmentId),
-                      staffMemberId: Number(a.staffMemberId ?? 0),
-                      staffRole: String(a.staffRole ?? '').toUpperCase(),
-                      status: String(a.status ?? ''),
-                      fullName: staff?.fullName || staff?.FullName || '—',
-                      email: staffUser?.email ?? staffUser?.Email ?? '',
-                      avatarUrl: staff?.avatarUrl || staff?.AvatarUrl || '',
-                    } satisfies SessionAssignmentRow;
-                  }
-                })
-              );
-
-              return { sessionId: d.sessionId, rows };
-            } catch {
-              return { sessionId: sid, rows: [] as SessionAssignmentRow[] };
-            }
-          })
-        );
-        if (cancelled) return;
-        setAssignmentsBySessionId((prev) => {
-          const next = { ...prev };
-          details.forEach((d) => {
-            next[d.sessionId] = d.rows;
-          });
-          return next;
-        });
-      } catch {
-        // ignore
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [viewMode, sessions, assignmentsBySessionId]);
-
-  const handleAssignSession = useCallback((sessionId: number, teamIds: number[]) => {
-    setUiAssignedTeamIdsBySessionId((prev) => ({ ...prev, [sessionId]: teamIds }));
-    setSessions((prev) =>
-      prev.map((s) => (s.sessionId === sessionId ? { ...s, teamAssigned: teamIds.length > 0 } : s))
-    );
-  }, []);
-
-  const handleAssignAllUi = useCallback((args: { sessionIds: number[]; teamId: number }) => {
-    const { sessionIds, teamId } = args;
-    if (sessionIds.length === 0 || !teamId) {
-      return;
-    }
-    setUiAssignedTeamIdsBySessionId((prev) => {
-      const next = { ...prev };
-      for (const sid of sessionIds) next[sid] = [teamId];
-      return next;
-    });
-    setSessions((prev) =>
-      prev.map((s) => (sessionIds.includes(s.sessionId) ? { ...s, teamAssigned: true } : s))
-    );
-  }, []);
-
-  const handleClearAllUi = useCallback((sessionIds: number[]) => {
-    if (sessionIds.length === 0) return;
-    setUiAssignedTeamIdsBySessionId((prev) => {
-      const next = { ...prev };
-      for (const sid of sessionIds) delete next[sid];
-      return next;
-    });
-    setSessions((prev) =>
-      prev.map((s) => (sessionIds.includes(s.sessionId) ? { ...s, teamAssigned: false } : s))
-    );
-  }, []);
-
-  const handleQuantitiesChange = useCallback(
-    (sessionId: number, data: { teachersRequired: number; tasRequired: number }) => {
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.sessionId === sessionId
-            ? { ...s, teachersRequired: data.teachersRequired, tasRequired: data.tasRequired }
-            : s
-        )
-      );
-    },
-    []
-  );
-
-  const refreshDetail = useCallback(async () => {
-    if (!id) return;
-    try {
-      setLoading(true);
-      const detail = await requestApi.getById(Number(id));
-      setRequest(detail);
-      const nextUiAssigned: Record<number, number[]> = {};
-      const mappedSessions: SessionWithFlags[] =
-        detail.sessions?.map((s) => {
-          const anyS = s as RequestSessionSummary & {
-            reservationId?: number | null;
-            ReservationId?: number | null;
-            teamId?: number | null;
-            TeamId?: number | null;
-            teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
-            TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
-          };
-          const reservationId = anyS.reservationId ?? anyS.ReservationId ?? null;
-          const fromSessions = anyS.teamSessions ?? anyS.TeamSessions ?? [];
-          const backendTeamIds = fromSessions
-            .map((ts) => ts.teamId ?? ts.TeamId)
-            .filter((tid): tid is number => typeof tid === 'number' && tid > 0);
-          const singleTeamId = anyS.teamId ?? anyS.TeamId;
-          const initialTeamIds =
-            backendTeamIds.length > 0
-              ? backendTeamIds
-              : typeof singleTeamId === 'number' && singleTeamId > 0
-                ? [singleTeamId]
-                : [];
-
-          const teamAssigned =
-            initialTeamIds.length > 0 || s.status?.toLowerCase() === 'approved';
-
-          if (initialTeamIds.length > 0) nextUiAssigned[s.sessionId] = initialTeamIds;
-
-          return {
-            ...s,
-            reservationId,
-            teamAssigned,
-            equipmentReserved: reservationId != null,
-          };
-        }) ?? [];
-      setSessions(mappedSessions);
-      setUiAssignedTeamIdsBySessionId(nextUiAssigned);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  const handleApproveClick = useCallback(() => {
-    if (!request || !id) return;
-    setApproveOpen(true);
-  }, [id, request]);
-
-  const handleToggleAssignmentSelection = useCallback((sessionId: number, assignmentId: number) => {
-    setSelectedAssignmentIdsBySessionId((prev) => {
-      const current = prev[sessionId] ?? [];
-      const exists = current.includes(assignmentId);
-      const nextForSession = exists ? current.filter((id) => id !== assignmentId) : [...current, assignmentId];
-      return { ...prev, [sessionId]: nextForSession };
-    });
-  }, []);
-
-  const handleApproveSelectedAssignments = useCallback(
-    async (sessionId: number) => {
-      const rows = assignmentsBySessionId[sessionId] ?? [];
-      if (!rows.length) {
-        message.warning('Phiên này chưa có assignment nào để duyệt.');
-        return;
-      }
-      const selected = selectedAssignmentIdsBySessionId[sessionId] ?? [];
-      const ids = (selected.length ? selected : rows.map((r) => r.assignmentId)).filter((id) => id > 0);
-      if (!ids.length) {
-        message.warning('Vui lòng chọn ít nhất một assignment để duyệt.');
-        return;
-      }
-      try {
-        setApprovingSessionId(sessionId);
-        await assignmentApi.approve(ids);
-        message.success('Đã duyệt các assignment đã chọn.');
-        // reload assignments cho phiên này
-        const detail = await sessionApi.getById(sessionId);
-        const rowsReload: SessionAssignmentRow[] =
-          (detail.assignments ?? [])
-            .filter((a) => a && a.assignmentId && a.staffMemberId)
-            .map((a) => ({
-              assignmentId: a!.assignmentId,
-              staffMemberId: a!.staffMemberId,
-              staffRole: (a!.staffRole || '').toUpperCase(),
-              status: a!.status,
-              fullName: a!.staffMember?.fullName || '—',
-              email: a!.staffMember?.userEmail || '',
-              avatarUrl: a!.staffMember?.avatarUrl || '',
-            })) ?? [];
-        setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
-        setSelectedAssignmentIdsBySessionId((prev) => ({ ...prev, [sessionId]: [] }));
-        await refreshDetail();
-      } catch (err) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const msg = (err as any)?.message || 'Duyệt phân công thất bại.';
-        message.error(msg);
-      } finally {
-        setApprovingSessionId(null);
-      }
-    },
-    [assignmentsBySessionId, selectedAssignmentIdsBySessionId, refreshDetail]
-  );
-
-  const handleOpenRejectAssignment = useCallback(
-    (sessionId: number, row: SessionAssignmentRow) => {
-      setRejectAssignmentState({
-        open: true,
-        assignmentId: row.assignmentId,
-        sessionId,
-        displayName: row.fullName || `Assignment #${row.assignmentId}`,
-      });
-      setRejectAssignmentReason('');
-    },
-    []
-  );
-
-  const handleConfirmRejectAssignment = async () => {
-    if (!rejectAssignmentState.open || !rejectAssignmentState.assignmentId || !rejectAssignmentState.sessionId) {
-      return;
-    }
-    const trimmed = rejectAssignmentReason.trim();
-    if (!trimmed) {
-      message.warning('Vui lòng nhập lý do từ chối assignment.');
-      return;
-    }
-    try {
-      setRejectAssignmentLoading(true);
-      await assignmentApi.reject(rejectAssignmentState.assignmentId, trimmed);
-      message.success('Đã từ chối assignment.');
-      const detail = await sessionApi.getById(rejectAssignmentState.sessionId);
-      const rowsReload: SessionAssignmentRow[] =
-        (detail.assignments ?? [])
-          .filter((a) => a && a.assignmentId && a.staffMemberId)
-          .map((a) => ({
-            assignmentId: a!.assignmentId,
-            staffMemberId: a!.staffMemberId,
-            staffRole: (a!.staffRole || '').toUpperCase(),
-            status: a!.status,
-            fullName: a!.staffMember?.fullName || '—',
-            email: a!.staffMember?.userEmail || '',
-            avatarUrl: a!.staffMember?.avatarUrl || '',
-          })) ?? [];
-      setAssignmentsBySessionId((prev) => ({ ...prev, [rejectAssignmentState.sessionId!]: rowsReload }));
-      setSelectedAssignmentIdsBySessionId((prev) => {
-        const current = prev[rejectAssignmentState.sessionId!] ?? [];
-        return {
-          ...prev,
-          [rejectAssignmentState.sessionId!]: current.filter((id) => id !== rejectAssignmentState.assignmentId),
-        };
-      });
-      setRejectAssignmentState({ open: false, assignmentId: null, sessionId: null, displayName: '' });
-      setRejectAssignmentReason('');
-      await refreshDetail();
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Từ chối assignment thất bại.';
-      message.error(msg);
-    } finally {
-      setRejectAssignmentLoading(false);
-    }
-  };
-
-  const handleConfirmApprove = useCallback(async () => {
-    if (!id || sessions.length === 0) return;
-    try {
-      setActionLoading(true);
-      // 1) Gán đội lên BE cho từng session trước (PUT team-sessions/bulk)
-      for (const s of sessions) {
-        const teamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
-        if (teamIds.length === 0) {
-          message.error(`Phiên ${s.sessionNo} chưa có đội gán.`);
-          return;
-        }
-        const teachersRequired = (s as SessionWithFlags).teachersRequired ?? 1;
-        const tasRequired = (s as SessionWithFlags).tasRequired ?? 1;
-        const items = teamIds.map((teamId) => ({
-          teamId,
-          teachersRequired: typeof teachersRequired === 'number' ? teachersRequired : 1,
-          tasRequired: typeof tasRequired === 'number' ? tasRequired : 1,
-        }));
-        await teamSessionApi.replaceForSession(s.sessionId, items);
-      }
-      // 2) Sau khi gán xong mới duyệt yêu cầu
-      await requestApi.approve(Number(id), { approvedByMemberId: createdByMemberId || undefined });
-      message.success('Đã gán đội và duyệt yêu cầu');
-      setApproveOpen(false);
-      setRightPanel(null);
-      await refreshDetail();
-      refreshRequestSidebar?.();
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Gán đội hoặc duyệt yêu cầu thất bại';
-      message.error(msg);
-    } finally {
-      setActionLoading(false);
-    }
-  }, [createdByMemberId, id, refreshDetail, sessions, uiAssignedTeamIdsBySessionId]);
-
-  const handleRejectClick = useCallback(() => {
-    if (!request || !id) return;
-    setRejectReason('');
-    setRejectOpen(true);
-  }, [id, request]);
-
-  const handleConfirmReject = useCallback(async () => {
-    if (!id) return;
-    const trimmed = rejectReason.trim();
-    if (!trimmed) {
-      message.warning('Vui lòng nhập lý do từ chối');
-      return;
-    }
-    try {
-      setActionLoading(true);
-      await requestApi.reject(Number(id), {
-        reason: trimmed,
-        approvedByMemberId: createdByMemberId || undefined,
-      });
-      message.success('Đã từ chối yêu cầu');
-      setRejectOpen(false);
-      setRejectReason('');
-      setRightPanel(null);
-      await refreshDetail();
-      refreshRequestSidebar?.();
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Từ chối yêu cầu thất bại';
-      message.error(msg);
-    } finally {
-      setActionLoading(false);
-    }
-  }, [createdByMemberId, id, rejectReason, refreshDetail]);
-
-  const handleEquipmentSuccess = useCallback(async () => {
-    if (!request) return;
-    const detail = await requestApi.getById(Number(request.requestId));
-    setRequest(detail);
-    const mapped: SessionWithFlags[] =
-      detail.sessions?.map((s) => {
-        const anyS = s as RequestSessionSummary & {
-          reservationId?: number | null;
-          ReservationId?: number | null;
-          status?: string;
-        };
-        const reservationId = anyS.reservationId ?? anyS.ReservationId ?? null;
-        return {
-          ...s,
-          reservationId,
-          teamAssigned: anyS.status?.toLowerCase() === 'approved',
-          equipmentReserved: reservationId != null,
-        };
-      }) ?? [];
-    setSessions(mapped);
-  }, [request]);
-
-  const assignedCount = useMemo(
-    () => sessions.filter((s) => s.teamAssigned).length,
-    [sessions]
-  );
+  const {
+    request,
+    sessions,
+    rightPanel,
+    setRightPanel,
+    loading,
+    suggestedTeamIdsBySessionId,
+    uiAssignedTeamIdsBySessionId,
+    assignmentsBySessionId,
+    selectedAssignmentIdsBySessionId,
+    approveOpen,
+    setApproveOpen,
+    rejectOpen,
+    setRejectOpen,
+    rejectReason,
+    setRejectReason,
+    actionLoading,
+    approvingSessionId,
+    rejectAssignmentState,
+    setRejectAssignmentState,
+    rejectAssignmentReason,
+    setRejectAssignmentReason,
+    createdByMemberId,
+    assignedCount,
+    handleAssignSession,
+    handleAssignAllUi,
+    handleClearAllUi,
+    handleQuantitiesChange,
+    handleApproveClick,
+    handleToggleAssignmentSelection,
+    handleApproveSelectedAssignments,
+    handleOpenRejectAssignment,
+    handleConfirmRejectAssignment,
+    handleConfirmApprove,
+    handleRejectClick,
+    handleConfirmReject,
+    handleEquipmentSuccess,
+  } = useRequestDetailManager({
+    id,
+    viewMode,
+    refreshRequestSidebar,
+  });
 
   if (!id) {
     return <div className="text-sm text-black">Không tìm thấy mã yêu cầu.</div>;
@@ -577,7 +84,7 @@ export default function RequestDetail() {
 
   return (
     <div className="bg-slate-50" style={{ minHeight: 'calc(var(--content-height, 100vh) - 64px)' }}>
-      <div className="mx-auto max-w-6xl px-4 pb-6 space-y-4 text-black">
+      <div className="mx-auto max-w-6xl px-4 pb-0 mb-0 space-y-4 text-black">
         {/* HEADER CARD — title + 3 icon (sao chép, chia sẻ, lịch) + 2 pill cùng hàng; info 3 cột */}
         <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
           {/* Hàng 1: Tên request, 3 icon, 2 pill */}
@@ -586,13 +93,25 @@ export default function RequestDetail() {
               {request.requestName ?? request.requestCode}
             </h5>
             <div className="flex items-center gap-1 shrink-0">
-              <button type="button" className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100" title="Sao chép mã">
+              <button
+                type="button"
+                className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                title="Sao chép mã"
+              >
                 <Copy className="w-4 h-4" />
               </button>
-              <button type="button" className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100" title="Chia sẻ">
+              <button
+                type="button"
+                className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                title="Chia sẻ"
+              >
                 <Share2 className="w-4 h-4" />
               </button>
-              <button type="button" className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 hover:border-slate-300" title="Xem trong lịch">
+              <button
+                type="button"
+                className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 hover:border-slate-300"
+                title="Xem trong lịch"
+              >
                 <Calendar className="w-4 h-4" />
               </button>
             </div>
@@ -600,10 +119,12 @@ export default function RequestDetail() {
               <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
                 {typeInfo.label}
               </span>
-              <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}>
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}
+              >
                 {statusInfo.label}
               </span>
-          </div>
+            </div>
           </div>
           {/* Info: Mã yêu cầu, Ngày gửi, Số lượng phiên */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100">
@@ -619,19 +140,21 @@ export default function RequestDetail() {
               <div>
                 <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày gửi</p>
                 <p className="font-semibold text-sm text-slate-900 mt-0.5">
-                  {request.createdAt ? dayjs(request.createdAt).format('DD/MM/YYYY') : dayjs(request.startDate).format('DD/MM/YYYY')}
-          </p>
-        </div>
-          </div>
+                  {request.createdAt
+                    ? dayjs(request.createdAt).format('DD/MM/YYYY')
+                    : dayjs(request.startDate).format('DD/MM/YYYY')}
+                </p>
+              </div>
+            </div>
             <div className="flex items-start gap-3">
               <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
               <div>
                 <p className="text-[11px] text-slate-500 uppercase tracking-wide">Số lượng phiên</p>
                 <p className="font-semibold text-sm text-slate-900 mt-0.5">{sessionCount} phiên</p>
               </div>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* MAIN CONTENT */}
       {viewMode === 'assignment' ? (
@@ -657,7 +180,6 @@ export default function RequestDetail() {
               <div className="space-y-3">
                 {sessions.map((session) => {
                   const rows = assignmentsBySessionId[session.sessionId] ?? [];
-                  const selectedIds = selectedAssignmentIdsBySessionId[session.sessionId] ?? [];
                   const pendingCount = rows.filter((r) => {
                     const statusText = (r.status || '').toUpperCase();
                     return statusText !== 'APPROVED' && statusText !== '2' && statusText !== 'REJECTED' && statusText !== '3';
@@ -724,23 +246,18 @@ export default function RequestDetail() {
             <TabsTrigger value="attachments">Tệp đính kèm</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
+          <TabsContent value="overview" className="space-y-4 mb-0">
           {/* WARNING BOX + PROGRESS — Figma: cam, tiến độ gắn đội, nút Từ chối */}
-          <div className="space-y-3 mb-4">
+          <div className="space-y-3">
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex items-start gap-2 min-w-0">
                 <span className="text-amber-600 shrink-0 mt-0.5">⚠</span>
                 <div>
                   <p className="text-sm text-amber-800">
-                    Vui lòng gắn đội cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn {Math.max(0, sessions.length - assignedCount)} phiên chưa được gắn đội phụ trách.
+                    Vui lòng gắn đội cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn{' '}
+                    {Math.max(0, sessions.length - assignedCount)} phiên chưa được gắn đội phụ trách.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {}}
-                    className="text-xs font-medium text-amber-700 underline mt-1"
-                  >
-                    Xem phiên chưa gắn
-                  </button>
+                  <span className="text-xs font-medium text-amber-700 mt-1">Xem phiên chưa gắn</span>
                 </div>
               </div>
             </div>
@@ -749,8 +266,8 @@ export default function RequestDetail() {
                 <span className="text-sm font-medium text-slate-700">Tiến độ gắn đội</span>
                 <span className="text-sm font-semibold text-slate-800 tabular-nums">
                   {assignedCount}/{sessions.length || 0} phiên
-              </span>
-            </div>
+                </span>
+              </div>
               <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-sky-500 transition-all duration-300"
@@ -820,8 +337,8 @@ export default function RequestDetail() {
                       : `Phiên ${session.sessionNo}`;
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
                   return (
-                  <div
-                    key={session.sessionId}
+                    <div
+                      key={session.sessionId}
                       className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-1.5">
@@ -832,7 +349,7 @@ export default function RequestDetail() {
                           <span className="text-xs text-slate-500">Dạy học</span>
                           <span
                             className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
-                            session.teamAssigned
+                              session.teamAssigned
                                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 : 'bg-amber-50 text-amber-800 border border-amber-200'
                             }`}
@@ -841,18 +358,16 @@ export default function RequestDetail() {
                             {session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
                           </span>
                         </div>
-                      <button
-                        type="button"
+                        <button
+                          type="button"
                           onClick={() => setRightPanel({ mode: 'detail', session })}
                           className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 hover:text-sky-700 shrink-0"
-                      >
-                        Chi tiết
+                        >
+                          Chi tiết
                           <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">
-                        {sessionTitle}
-                      </p>
+                        </button>
+                      </div>
+                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">{sessionTitle}</p>
                       <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
                         <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span>{location}</span>
@@ -862,7 +377,7 @@ export default function RequestDetail() {
                             <span className="text-slate-600">{teamCount} đội</span>
                           </>
                         )}
-                  </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -958,15 +473,14 @@ export default function RequestDetail() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 pt-0">
+            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
                 <>
                   {/* Thông tin phiên + Danh sách thiết bị: luôn hiển thị, kể cả khi đã gắn đội / đã duyệt */}
                 <RequestSessionDetailPanel
                   session={rightPanel.session}
                   requestCode={request.requestCode ?? ''}
-                  assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                  />
+                />
                   <div className="mt-6">
                     {rightPanel.session.teamAssigned ? (
                       <RequestDetailTeamSummary
@@ -976,7 +490,6 @@ export default function RequestDetail() {
                     ) : (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
-                        requestCode={request.requestCode ?? ''}
                         sessionsCount={sessions.length}
                         allSessions={sessions.map((s) => ({
                           sessionId: s.sessionId,
@@ -998,7 +511,6 @@ export default function RequestDetail() {
               {rightPanel.mode === 'team' && (
                 <RequestDetailTeamPanel
                   session={rightPanel.session}
-                  requestCode={request.requestCode ?? ''}
                   sessionsCount={sessions.length}
                   allSessions={sessions.map((s) => ({
                     sessionId: s.sessionId,
@@ -1234,7 +746,7 @@ export default function RequestDetail() {
           <Button
             type="button"
             className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs px-4"
-            onClick={() => void handleConfirmRejectAssignment()}
+            onClick={handleConfirmRejectAssignment}
           >
             Xác nhận từ chối
           </Button>

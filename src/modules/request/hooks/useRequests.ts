@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { requestApi } from '../api/requestApi';
 import type { RequestListItem } from '../request';
+import requestApi from '../api/requestApi';
 
 export const useRequests = (
   pageNumber: number,

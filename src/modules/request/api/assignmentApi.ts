@@ -1,37 +1,11 @@
 import axiosClient from '@/shared/lib/axios';
+import type {
+  AssignmentDetail,
+  SuggestedStaff,
+  SuggestedStaffSkill,
+} from './type';
 
-export type AssignmentDetail = {
-  assignmentId: number;
-  sessionId: number;
-  staffMemberId: number;
-  staffRole: string;
-  status: string;
-  staffMember?: {
-    memberId: number;
-    fullName: string;
-    avatarUrl: string;
-    userEmail?: string;
-  } | null;
-};
-
-export type SuggestedStaffSkill = {
-  skillId: number;
-  skillName: string;
-};
-
-export type SuggestedStaff = {
-  memberId: number;
-  userId: number;
-  fullName: string;
-  roleName: string;
-  email?: string;
-  avatarUrl: string;
-  skills?: SuggestedStaffSkill[];
-  skillMatchCount: number;
-  assignmentCountIn30Days: number;
-};
-
-export const assignmentApi = {
+const assignmentApi = {
   getById: async (id: number): Promise<AssignmentDetail> => {
     const res = await axiosClient.get(`/assignments/${id}`);
     const raw: any = res ?? {};

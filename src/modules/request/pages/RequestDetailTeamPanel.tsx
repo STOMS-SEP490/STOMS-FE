@@ -6,7 +6,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
 import type { Team } from '@/modules/team/team';
-import { sessionApi } from '../api/sessionApi';
+import sessionService from '../api/sessionApi';
 
 export type SessionForTeam = {
   sessionNo: number;
@@ -18,7 +18,6 @@ export type SessionForTeam = {
 
 type Props = {
   session: SessionForTeam & { sessionId: number };
-  requestCode: string;
   sessionsCount: number;
   allSessions: Array<{
     sessionId: number;
@@ -36,7 +35,6 @@ type Props = {
 
 export default function RequestDetailTeamPanel({
   session,
-  requestCode,
   sessionsCount,
   allSessions,
   suggestedTeamIdsBySessionId,
@@ -70,7 +68,7 @@ export default function RequestDetailTeamPanel({
       setLoading(true);
       setError(null);
       try {
-        const teams = await sessionApi.suggestTeams(session.sessionId);
+        const teams = await sessionService.suggestTeams(session.sessionId);
         setSuggestedTeams(teams);
       } catch (err: unknown) {
         const msg =

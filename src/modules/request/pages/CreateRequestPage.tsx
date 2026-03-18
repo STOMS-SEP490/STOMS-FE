@@ -24,7 +24,6 @@ import { Label } from '@/shared/components/ui/label'
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/shared/lib/utils'
 
-import { requestApi } from '../api/requestApi'
 import type { CreateRequestPayload } from '../request'
 import type { SubjectListItem } from '@/modules/subject/subject'
 import type { SourceType, SessionFormItem, AttachmentFormItem } from '../createRequestTypes'
@@ -34,6 +33,7 @@ import { useRequestEventSource } from '../hooks/useRequestEventSource'
 import { useLoadRequestSessions } from '../hooks/useLoadRequestSessions'
 import { useCreateRequestSchedule } from '../hooks/useCreateRequestSchedule'
 import { useProgramCoordinatorId } from '../hooks/useProgramCoordinatorId'
+import requestApi from '../api/requestApi'
 
 export default function CreateRequestPage() {
   const navigate = useNavigate()
