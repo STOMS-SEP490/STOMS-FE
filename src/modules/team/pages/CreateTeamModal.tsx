@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { message } from 'antd';
-import userService from '@/modules/user/api/userApi';
-import teamService from '../services/teamService';
-import type { Member } from '@/modules/user/user';
+import memberApi from '@/modules/member/api/memberApi';
+import { teamApi } from '@/modules/team/api/teamApi';
+import type { Member } from '@/modules/member/member';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -30,7 +30,7 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
     try {
       setSearching(true);
       const isNumber = !isNaN(Number(searchValue));
-      const res = await userService.getMembers({
+      const res = await memberApi.getMembers({
         MemberId: isNumber ? Number(searchValue) : undefined,
         FullName: !isNumber ? searchValue : undefined,
       });
@@ -48,7 +48,7 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
     message.success('Đã chọn trưởng nhóm');
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     const name = teamName.trim();
@@ -62,7 +62,7 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
     }
     try {
       setLoading(true);
-      await teamService.createTeam({ teamName: name, leaderMemberId });
+      await teamApi.create({ teamName: name, leaderMemberId });
       message.success('Tạo nhóm thành công');
       setTeamName('');
       setLeaderMemberId(null);
