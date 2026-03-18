@@ -461,6 +461,11 @@ export default function EventsManagement() {
     {
       accessorKey: 'eventCode',
       header: 'Mã sự kiện',
+      cell: ({ row }) => (
+        <span className="font-semibold text-gray-900">
+          {row.original.eventCode}
+        </span>
+      ),
     },
     {
       accessorKey: 'eventName',

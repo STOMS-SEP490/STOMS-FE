@@ -44,7 +44,7 @@ export function Dialog({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl flex items-start justify-between gap-4">
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl flex items-start justify-between gap-4">
           <div>
             <h2 id="dialog-title" className="text-lg font-semibold text-black">
               {title}
