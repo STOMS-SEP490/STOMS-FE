@@ -84,7 +84,9 @@ export default function EventCalendar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const basePath = '/teacher/timetable';
+  const isTeamLeaderArea = location.pathname.startsWith('/tl/');
+  const timetablePath = isTeamLeaderArea ? '/tl/timetable' : '/teacher/timetable';
+  const assignmentsPath = `${timetablePath}/assignments`;
   const isAssignments = location.pathname.includes('/timetable/assignments');
 
   const { defaultDate, scrollToTime } = useMemo(() => {
@@ -174,7 +176,7 @@ export default function EventCalendar() {
             <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white p-0.5">
               <button
                 type="button"
-                onClick={() => navigate(basePath)}
+                onClick={() => navigate(timetablePath)}
                 className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors ${
                   !isAssignments
                     ? 'bg-sky-50 border-sky-200 text-sky-700'
@@ -187,7 +189,7 @@ export default function EventCalendar() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate(`${basePath}/assignments`)}
+                onClick={() => navigate(assignmentsPath)}
                 className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors ${
                   isAssignments
                     ? 'bg-sky-50 border-sky-200 text-sky-700'
@@ -244,7 +246,7 @@ export default function EventCalendar() {
         </div>
       ),
     }),
-    [view, formattedRange, isAssignments, navigate]
+    [view, formattedRange, isAssignments, navigate, timetablePath, assignmentsPath]
   );
 
   const handleSelectEvent = async (event: CalendarEvent, e?: React.SyntheticEvent) => {

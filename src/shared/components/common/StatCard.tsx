@@ -16,7 +16,7 @@ export function StatCard({ icon, label, value, sub, variant = 'blue', className 
 
   return (
     <div
-      className={cn('bg-white rounded-xl border p-4 flex gap-4 items-center shadow-sm', className)}
+      className={cn('bg-white rounded-xl border border-border p-4 flex gap-4 items-center shadow-sm', className)}
     >
       <div className={cn('p-3 rounded-lg', colorStyle)}>{icon}</div>
 

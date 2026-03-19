@@ -88,7 +88,7 @@ export default function Sidebar() {
   return (
     <aside
       className={`
-        h-screen bg-[#F6F8FB] border-r
+        h-screen bg-[#F6F8FB] border-r border-border
         transition-all duration-300
         ${collapsed ? 'w-[72px] px-1.5' : 'w-72 px-5'}
         py-5 flex flex-col
