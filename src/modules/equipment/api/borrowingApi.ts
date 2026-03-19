@@ -10,7 +10,6 @@ const borrowingApi = {
   async getBorrowings(
     params?: BorrowingFilterParams
   ): Promise<PaginationResponse<BorrowingListItem>> {
-    // axios interceptor đã return response.data => res chính là body
     const res = await axiosClient.get<
       PaginationResponse<BorrowingListItem>,
       PaginationResponse<BorrowingListItem>

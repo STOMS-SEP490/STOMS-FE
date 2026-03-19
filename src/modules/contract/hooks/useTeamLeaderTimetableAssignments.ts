@@ -12,18 +12,18 @@ export type TeamLeaderTimetableAssignmentRow = {
   status?: string;
 };
 
-function normalizePublishedTeamSessions(raw: PublishedTeamSession[]): TeamLeaderTimetableAssignmentRow[] {
+function normalizeSessionsToRows(raw: PublishedTeamSession[]): TeamLeaderTimetableAssignmentRow[] {
   return (raw ?? [])
+    .filter((s) => Number(s.sessionId) > 0)
     .map((s) => ({
-      sessionId: Number(s.sessionId ?? 0),
+      sessionId: s.sessionId,
       sessionNo: s.sessionNo,
       requestId: s.requestId,
       startAt: s.startAt,
       endAt: s.endAt,
       location: s.location,
       status: s.status,
-    }))
-    .filter((x) => !!x.sessionId);
+    }));
 }
 
 export function useTeamLeaderTimetableAssignments(params?: { pageSize?: number }) {
@@ -37,8 +37,10 @@ export function useTeamLeaderTimetableAssignments(params?: { pageSize?: number }
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+
       const memberId =
-        Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || undefined;
+        Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) ||
+        undefined;
       let teamId: number | undefined;
       if (memberId) {
         try {
@@ -49,8 +51,14 @@ export function useTeamLeaderTimetableAssignments(params?: { pageSize?: number }
         }
       }
 
-      const res = await sessionApi.getFilter({ teamId, pageNumber: 1, pageSize: 500 });
-      let rows = normalizePublishedTeamSessions(res.items ?? []);
+      const res = await sessionApi.getFilter({
+        teamId,
+        statuses: ['ASSIGNED', 'ONGOING', 'COMPLETED'],
+        pageNumber: 1,
+        pageSize: 500,
+      });
+
+      let rows = normalizeSessionsToRows(res.items ?? []);
 
       const keyword = search.trim().toLowerCase();
       if (keyword) {

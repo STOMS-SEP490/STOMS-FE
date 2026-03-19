@@ -1,9 +1,9 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 
 import dayjs from 'dayjs';
-import { message, Spin } from 'antd';
+import { Spin } from 'antd';
 import {
   X,
   MapPin,
@@ -30,351 +30,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select';
-import RequestCard, { getRequestType } from '@/shared/components/request/RequestCard';
-import { getRequestStatusInfo, getSessionStatusInfo } from '@/constants/status';
-import { teamApi } from '@/modules/team/api/teamApi';
-import memberApi from '@/modules/member/api/memberApi';
-import type { Member } from '@/modules/member/member';
-import axiosClient from '@/shared/lib/axios';
+import RequestCard from '@/shared/components/request/RequestCard';
+import { getSessionStatusInfo } from '@/constants/status';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
-import requestApi from '@/modules/request/api/requestApi';
-import sessionApi from '@/modules/request/api/sessionApi';
-import assignmentApi from '@/modules/request/api/assignmentApi';
-
-type TeamSessionLite = {
-  sessionId: number;
-  requestId: number;
-  sessionNo: number;
-  startAt: string;
-  endAt: string;
-  location: string;
-  status: string;
-};
-
-type TeamRequestItem = {
-  requestId: number;
-  requestCode: string;
-  requestName: string;
-  customerName?: string | null;
-  subjectId?: number | null;
-  courseId?: number | null;
-  eventId?: number | null;
-  status: string;
-  startDate?: string;
-  sessions: TeamSessionLite[];
-};
+import { useTeamLeaderAssignmentsPage } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
 
 export default function TeamLeaderAssignmentsPage() {
-  const [loading, setLoading] = useState(true);
-  const [requests, setRequests] = useState<TeamRequestItem[]>([]);
-  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
-
-  const [sessionDetailsById, setSessionDetailsById] = useState<Record<number, SessionDetail>>({});
-  const [teamMembers, setTeamMembers] = useState<Member[]>([]);
-  const [suggestedByAssignmentId, setSuggestedByAssignmentId] = useState<
-    Record<number, SuggestedStaff[]>
-  >({});
-
-  const [search, setSearch] = useState('');
-  const [onlyNeedsAction, setOnlyNeedsAction] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'assigning'>('assigning');
-  const [assignSelections, setAssignSelections] = useState<Record<number, number>>({});
-  const [searchByAssignmentId, setSearchByAssignmentId] = useState<Record<number, string>>({});
+  const {
+    loading,
+    filteredRequests,
+    selectedRequestId,
+    setSelectedRequestId,
+    selectedRequest,
+    selectedRequestTypeInfo,
+    selectedRequestStatusInfo,
+    search,
+    setSearch,
+    onlyNeedsAction,
+    setOnlyNeedsAction,
+    statusFilter,
+    setStatusFilter,
+    activeSession,
+    setActiveSession,
+    sessionDetailsById,
+    suggestedByAssignmentId,
+    assignSelections,
+    searchByAssignmentId,
+    setSearchByAssignmentId,
+    handleSelectStaff,
+    handleApplyToOtherSessions,
+    getSessionStats,
+  } = useTeamLeaderAssignmentsPage();
 
   const [hoveredStaff, setHoveredStaff] = useState<{
-    staff: SuggestedStaff | Member;
+    staff: SuggestedStaff;
     rect: DOMRect;
   } | null>(null);
-
-  // Panel state — click session to open right panel
-  const [activeSession, setActiveSession] = useState<TeamSessionLite | null>(null);
-
-  /* ───────── Data loading ───────── */
-
-  const loadInitial = useCallback(async () => {
-    try {
-      setLoading(true);
-      const rawUser = JSON.parse(localStorage.getItem('user') || '{}') as { memberId?: number };
-      const memberId = Number(rawUser?.memberId || 0) || undefined;
-      if (!memberId) {
-        setRequests([]);
-        return;
-      }
-
-      const teamsRes = await teamApi.getTeams({
-        pageNumber: 1,
-        pageSize: 20,
-        leaderMemberId: memberId,
-      });
-      const firstTeam = teamsRes.items?.[0];
-      if (!firstTeam?.teamId) {
-        setRequests([]);
-        return;
-      }
-
-      const teamId = firstTeam.teamId;
-
-      const sessionsRaw: any[] = await axiosClient.get(`/sessions/by-team/${teamId}`);
-      const liteSessions: TeamSessionLite[] = (sessionsRaw ?? []).map((s: any) => ({
-        sessionId: Number(s.sessionId ?? 0),
-        requestId: Number(s.requestId ?? 0),
-        sessionNo: Number(s.sessionNo ?? 0),
-        startAt: String(s.startAt ?? ''),
-        endAt: String(s.endAt ?? ''),
-        location: String(s.location ?? ''),
-        status: String(s.status ?? ''),
-      }));
-
-      const sessionsByRequest = new Map<number, TeamSessionLite[]>();
-      liteSessions.forEach((s) => {
-        if (!s.requestId) return;
-        const list = sessionsByRequest.get(s.requestId) ?? [];
-        list.push(s);
-        sessionsByRequest.set(s.requestId, list);
-      });
-
-      const requestIds = Array.from(sessionsByRequest.keys());
-      const requestsDetail = await Promise.all(
-        requestIds.map(async (id) => {
-          try {
-            const r = await requestApi.getById(id);
-            return {
-              requestId: r.requestId,
-              requestCode: r.requestCode,
-              requestName: r.requestName,
-              customerName: r.customerName,
-              subjectId: r.subjectId,
-              courseId: r.courseId,
-              eventId: r.eventId,
-              status: r.status,
-              startDate: r.startDate,
-              sessions: sessionsByRequest.get(id) ?? [],
-            } as TeamRequestItem;
-          } catch {
-            return null;
-          }
-        }),
-      );
-      const validRequests = requestsDetail.filter(Boolean) as TeamRequestItem[];
-      setRequests(validRequests);
-      if (validRequests.length) setSelectedRequestId(validRequests[0].requestId);
-
-      const membersRes = await memberApi.getMembers({
-        pageNumber: 1,
-        pageSize: 200,
-        TeamId: teamId,
-      });
-      setTeamMembers(membersRes.items ?? []);
-    } catch (err) {
-      console.error(err);
-      message.error('Không tải được dữ liệu phân công cho team.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadInitial();
-  }, [loadInitial]);
-
-  /* ───────── Derived data ───────── */
-
-  const filteredRequests = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const base = !q
-      ? requests
-      : requests.filter(
-          (r) =>
-            r.requestCode.toLowerCase().includes(q) ||
-            (r.requestName ?? '').toLowerCase().includes(q),
-        );
-    if (statusFilter === 'assigning' || onlyNeedsAction) {
-      return base.filter((r) =>
-        r.sessions.some((s) => String(s.status ?? '').toLowerCase() === 'assigning'),
-      );
-    }
-    return base;
-  }, [requests, search, onlyNeedsAction, statusFilter]);
-
-  const selectedRequest = useMemo(
-    () => requests.find((r) => r.requestId === selectedRequestId) ?? null,
-    [requests, selectedRequestId],
-  );
-
-  const selectedRequestTypeInfo = useMemo(() => {
-    if (!selectedRequest) return null;
-    return getRequestType({
-      subjectId: selectedRequest.subjectId,
-      courseId: selectedRequest.courseId,
-      eventId: selectedRequest.eventId,
-    });
-  }, [selectedRequest]);
-
-  const selectedRequestStatusInfo = useMemo(() => {
-    if (!selectedRequest?.status) return null;
-    return getRequestStatusInfo(selectedRequest.status);
-  }, [selectedRequest]);
-
-  /* ───────── Session details + suggestions ───────── */
-
-  const ensureSessionDetails = useCallback(
-    async (sessionIds: number[]) => {
-      const missing = sessionIds.filter((id) => !sessionDetailsById[id]);
-      if (!missing.length) return;
-      try {
-        const details = await Promise.all(
-          missing.map(async (id) => {
-            try {
-              const s = await sessionApi.getById(id);
-              return [id, s] as const;
-            } catch {
-              return null;
-            }
-          }),
-        );
-        const next: Record<number, SessionDetail> = {};
-        details.forEach((p) => {
-          if (!p) return;
-          next[p[0]] = p[1];
-        });
-        if (Object.keys(next).length) {
-          setSessionDetailsById((prev) => ({ ...prev, ...next }));
-        }
-
-        const allAssignments = Object.values(next)
-          .flatMap((d) => d.assignments ?? [])
-          .filter(Boolean) as any[];
-        const uniqueAssignmentIds = Array.from(
-          new Set(
-            allAssignments
-              .map((a) => a?.assignmentId)
-              .filter((x): x is number => typeof x === 'number' && x > 0),
-          ),
-        );
-        if (uniqueAssignmentIds.length) {
-          const suggestionPairs = await Promise.all(
-            uniqueAssignmentIds.map(async (id) => {
-              try {
-                const list = await assignmentApi.suggestStaff(id);
-                return [id, list] as const;
-              } catch {
-                return null;
-              }
-            }),
-          );
-          const sug: Record<number, SuggestedStaff[]> = {};
-          suggestionPairs.forEach((p) => {
-            if (!p) return;
-            sug[p[0]] = p[1];
-          });
-          if (Object.keys(sug).length) {
-            setSuggestedByAssignmentId((prev) => ({ ...prev, ...sug }));
-          }
-        }
-      } catch (err) {
-        console.error(err);
-        message.error('Không tải được chi tiết phiên.');
-      }
-    },
-    [sessionDetailsById],
-  );
-
-  useEffect(() => {
-    if (!selectedRequest) return;
-    const ids = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
-    if (ids.length) {
-      void ensureSessionDetails(ids);
-    }
-  }, [selectedRequest, ensureSessionDetails]);
-
-  /* ───────── Assignment handlers ───────── */
-
-  const handleSelectStaff = useCallback((assignmentId: number, memberId: number) => {
-    setAssignSelections((prev) => ({ ...prev, [assignmentId]: memberId }));
-  }, []);
-
-
-  const handleApplyToOtherSessions = useCallback(
-    (sessionId: number) => {
-      const baseDetail = sessionDetailsById[sessionId];
-      if (!baseDetail?.assignments?.length || !selectedRequest) return;
-
-      const baseAssignments = baseDetail.assignments;
-      const baseSelectedByRole: Record<string, number[]> = {};
-      baseAssignments.forEach((a) => {
-        const mid = assignSelections[a.assignmentId] || a.staffMemberId;
-        if (!mid) return;
-        const roleKey = String(a.staffRole ?? '')
-          .toUpperCase()
-          .includes('TA')
-          ? 'TA'
-          : 'TE';
-        if (!baseSelectedByRole[roleKey]) baseSelectedByRole[roleKey] = [];
-        if (!baseSelectedByRole[roleKey].includes(mid))
-          baseSelectedByRole[roleKey].push(mid);
-      });
-      if (!Object.keys(baseSelectedByRole).length) {
-        message.warning('Vui lòng chọn ít nhất một nhân sự trong phiên hiện tại trước.');
-        return;
-      }
-
-      const nextSelections: Record<number, number> = { ...assignSelections };
-      selectedRequest.sessions
-        .filter((s) => s.sessionId !== sessionId)
-        .forEach((s) => {
-          const detail = sessionDetailsById[s.sessionId];
-          if (!detail?.assignments?.length) return;
-          const usedPerRole: Record<string, number[]> = {};
-          detail.assignments.forEach((a) => {
-            const roleKey = String(a.staffRole ?? '')
-              .toUpperCase()
-              .includes('TA')
-              ? 'TA'
-              : 'TE';
-            const candidates = baseSelectedByRole[roleKey];
-            if (!candidates?.length) return;
-            const suggestionList = suggestedByAssignmentId[a.assignmentId] ?? [];
-            const sourceList: { memberId: number }[] = suggestionList.length
-                ? suggestionList
-                : teamMembers;
-            const usedForRole = usedPerRole[roleKey] ?? [];
-            const memberToApply = candidates.find(
-              (id) => !usedForRole.includes(id) && sourceList.some((m) => m.memberId === id),
-            );
-            if (memberToApply) {
-              nextSelections[a.assignmentId] = memberToApply;
-              usedPerRole[roleKey] = [...usedForRole, memberToApply];
-            }
-          });
-        });
-      setAssignSelections(nextSelections);
-      message.success('Đã áp dụng phân công từ phiên hiện tại cho các phiên khác.');
-    },
-    [assignSelections, selectedRequest, sessionDetailsById, suggestedByAssignmentId, teamMembers],
-  );
-
-  /* ───────── Helper: session stats ───────── */
-
-  const getSessionStats = useCallback(
-    (s: TeamSessionLite) => {
-      const detail = sessionDetailsById[s.sessionId];
-      const assignments = detail?.assignments ?? [];
-      const total = assignments.length;
-      const filled = assignments.filter(
-        (a) => !!(assignSelections[a.assignmentId] || a.staffMemberId),
-      ).length;
-      return { total, filled, detail, assignments };
-    },
-    [sessionDetailsById, assignSelections],
-  );
+  // (logic/data layer moved to hook)
 
   /* ───────── Render helpers ───────── */
 
-  const renderMemberOption = (m: Member | SuggestedStaff) => {
-    const subText =
-      'user' in m
-        ? (m as Member).user?.email || '—'
-        : (m as SuggestedStaff).email ?? (m as SuggestedStaff).roleName ?? '—';
+  const renderMemberOption = (m: SuggestedStaff) => {
+    const subText = m.email ?? m.roleName ?? '—';
     return (
     <div className="flex items-center gap-2">
       <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
@@ -402,12 +99,7 @@ export default function TeamLeaderAssignmentsPage() {
   };
 
   const handleStaffHover = useCallback(
-    (staff: SuggestedStaff | Member, e: React.MouseEvent) => {
-      const isSuggested = 'skillMatchCount' in staff;
-      if (!isSuggested) {
-        setHoveredStaff(null);
-        return;
-      }
+    (staff: SuggestedStaff, e: React.MouseEvent) => {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       setHoveredStaff({ staff, rect });
     },
@@ -456,25 +148,13 @@ export default function TeamLeaderAssignmentsPage() {
             const searchText = searchByAssignmentId[a.assignmentId]?.toLowerCase() || '';
 
             const suggestedList = (suggestedByAssignmentId[a.assignmentId] ?? []).filter(
-                                      (m) =>
+              (m: SuggestedStaff) =>
                 (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
-                                        (!searchText ||
-                                          m.fullName?.toLowerCase().includes(searchText) ||
+                (!searchText ||
+                  m.fullName?.toLowerCase().includes(searchText) ||
                   m.roleName?.toLowerCase().includes(searchText) ||
                   m.email?.toLowerCase().includes(searchText)),
-                                    );
-
-                                    const fallbackList =
-                                      !suggestedByAssignmentId[a.assignmentId] ||
-                                      suggestedByAssignmentId[a.assignmentId]?.length === 0
-                                        ? teamMembers.filter(
-                                            (m) =>
-                      (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
-                                              (!searchText ||
-                        m.fullName?.toLowerCase().includes(searchText) ||
-                        m.user?.email?.toLowerCase().includes(searchText)),
-                                          )
-                                        : [];
+            );
 
                                     return (
               <div key={a.assignmentId} className={`rounded-lg bg-white px-3 py-2 border ${slotBorder} shadow-sm`}>
@@ -499,18 +179,7 @@ export default function TeamLeaderAssignmentsPage() {
                                                 }
                                               />
                                             </div>
-                                            {suggestedList.map((m) => (
-                                              <SelectItem
-                                                key={m.memberId}
-                                                value={String(m.memberId)}
-                                                className="text-xs py-1.5"
-                        onMouseEnter={(e) => handleStaffHover(m, e)}
-                        onMouseLeave={() => setHoveredStaff(null)}
-                                              >
-                                                {renderMemberOption(m)}
-                                              </SelectItem>
-                                            ))}
-                                            {fallbackList.map((m) => (
+                                            {suggestedList.map((m: SuggestedStaff) => (
                                               <SelectItem
                                                 key={m.memberId}
                                                 value={String(m.memberId)}
@@ -540,7 +209,10 @@ export default function TeamLeaderAssignmentsPage() {
   };
 
   return (
-    <div className="flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
+    <div
+      className="flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
           <Spin tip="Đang tải dữ liệu phân công cho team..." />
@@ -580,9 +252,9 @@ export default function TeamLeaderAssignmentsPage() {
         </div>
       </div>
 
-      <div className="flex gap-4">
+        <div className="flex gap-4 flex-1 min-h-0">
         {/* Sidebar */}
-        <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <div className="flex justify-between items-center p-4 border-b border-slate-200">
             <div className="min-w-0">
               <h2 className="font-semibold text-base text-black truncate">Danh sách yêu cầu</h2>
@@ -594,7 +266,7 @@ export default function TeamLeaderAssignmentsPage() {
               {filteredRequests.length}
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
                 Chưa có yêu cầu nào có phiên của team này.
@@ -623,7 +295,8 @@ export default function TeamLeaderAssignmentsPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 overflow-y-auto no-scrollbar">
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {!selectedRequest ? (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
               <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
@@ -633,7 +306,7 @@ export default function TeamLeaderAssignmentsPage() {
               <p className="text-xs text-gray-500 mt-1">để xem danh sách phiên và phân công nhân sự.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 flex flex-col min-h-0 flex-1">
               {/* Request header */}
               <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
                 <div className="flex flex-wrap items-center gap-3">
@@ -740,7 +413,7 @@ export default function TeamLeaderAssignmentsPage() {
               })()}
 
               {/* Session list */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0 flex-1">
                 <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
@@ -750,81 +423,85 @@ export default function TeamLeaderAssignmentsPage() {
                   </div>
                   <span className="text-xs text-slate-500">Nhấn để xem chi tiết</span>
                 </div>
-                {selectedRequest.sessions.length === 0 ? (
-                  <p className="text-xs text-slate-500 py-10 text-center">
-                    Yêu cầu này chưa có phiên nào gán cho team.
-                  </p>
-                ) : (
-                  <div className="divide-y divide-slate-100">
-                    {selectedRequest.sessions.map((session) => {
-                      const stats = getSessionStats(session);
-                      const isActive = activeSession?.sessionId === session.sessionId;
-                      const title = `Phiên ${session.sessionNo}`;
-                      const sessionStatusInfo = getSessionStatusInfo(session.status);
-                      return (
-                        <div
-                          key={session.sessionId}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setActiveSession(session)}
-                          className={`w-full px-5 py-4 transition cursor-pointer ${
-                            isActive ? 'bg-sky-50/60' : 'hover:bg-slate-50/80'
-                          }`}
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[11px] text-slate-500">Phiên dạy</span>
-                                <span className="text-[11px] font-medium text-slate-700">{title}</span>
+                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+                  {selectedRequest.sessions.length === 0 ? (
+                    <p className="text-xs text-slate-500 py-10 text-center">
+                      Yêu cầu này chưa có phiên nào gán cho team.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {selectedRequest.sessions.map((session) => {
+                        const stats = getSessionStats(session);
+                        const isActive = activeSession?.sessionId === session.sessionId;
+                        const title = `Phiên ${session.sessionNo}`;
+                        const sessionStatusInfo = getSessionStatusInfo(session.status);
+                        return (
+                          <div
+                            key={session.sessionId}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setActiveSession(session)}
+                            className={`w-full px-5 py-4 transition cursor-pointer ${
+                              isActive ? 'bg-sky-50/60' : 'hover:bg-slate-50/80'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-[11px] text-slate-500">Phiên dạy</span>
+                                  <span className="text-[11px] font-medium text-slate-700">{title}</span>
+                                </div>
+                                <div className="mt-2 flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+                                  <span className="inline-flex items-center gap-1">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    {dayjs(session.startAt).format('HH:mm')} -{' '}
+                                    {dayjs(session.endAt).format('HH:mm')}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <Calendar className="w-3.5 h-3.5" />
+                                    {dayjs(session.startAt).format('DD/MM/YYYY')}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    {session.location || '—'}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="mt-2 flex items-center gap-3 text-xs text-slate-600 flex-wrap">
-                                <span className="inline-flex items-center gap-1">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
+                                >
+                                  {sessionStatusInfo.label}
                                 </span>
-                                <span className="inline-flex items-center gap-1">
-                                  <Calendar className="w-3.5 h-3.5" />
-                                  {dayjs(session.startAt).format('DD/MM/YYYY')}
-                                </span>
-                                <span className="inline-flex items-center gap-1">
-                                  <MapPin className="w-3.5 h-3.5" />
-                                  {session.location || '—'}
+                                <span
+                                  className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
+                                    stats.total > 0 && stats.filled === stats.total
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}
+                                >
+                                  {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                                  {stats.total === 0
+                                    ? 'Chưa có slot'
+                                    : stats.filled === stats.total
+                                      ? 'Đã gán đủ'
+                                      : 'Chưa gán đủ'}
                                 </span>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
-                              >
-                                {sessionStatusInfo.label}
-                              </span>
-                              <span
-                                className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
-                                  stats.total > 0 && stats.filled === stats.total
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                    : 'bg-amber-50 text-amber-800 border-amber-200'
-                                }`}
-                              >
-                                {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
-                                {stats.total === 0
-                                  ? 'Chưa có slot'
-                                  : stats.filled === stats.total
-                                    ? 'Đã gán đủ'
-                                    : 'Chưa gán đủ'}
-                              </span>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
                               </div>
 
       </div>
+          </div>
 
       {/* ─── RIGHT: Session detail + assignment panel (slide-over overlay) ─── */}
       {activeSession && (
