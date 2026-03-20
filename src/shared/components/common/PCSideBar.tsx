@@ -16,11 +16,12 @@ import {
   Menu,
   LogOut,
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { logout } from '@/modules/auth/pages/Logout';
 
 export default function PCSidebar() {
   const [collapsed, setCollapsed] = useState(true);
+  const navigate = useNavigate();
 
   const menus = useMemo(
     () => [
@@ -44,6 +45,7 @@ export default function PCSidebar() {
 
   const handleLogout = async () => {
     await logout();
+    navigate('/login');
   };
 
   return (
