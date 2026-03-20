@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MapPin, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { SessionDetail } from '@/modules/request/api/sessionApi';
+import type { SessionDetail } from '@/modules/request/api/type';
 import { Badge } from '@/shared/components/ui/badge';
 import { useSessionDetailPopover } from '@/modules/event/hooks/useSessionDetailPopover';
 import { useCurrentUser } from '@/shared/hooks/useCurrentUser';

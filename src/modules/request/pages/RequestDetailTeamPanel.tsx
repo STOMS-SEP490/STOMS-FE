@@ -6,7 +6,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
 import type { Team } from '@/modules/team/team';
-import { sessionApi } from '../api/sessionApi';
+import sessionService from '../api/sessionApi';
 
 export type SessionForTeam = {
   sessionNo: number;
@@ -18,7 +18,6 @@ export type SessionForTeam = {
 
 type Props = {
   session: SessionForTeam & { sessionId: number };
-  requestCode: string;
   sessionsCount: number;
   allSessions: Array<{
     sessionId: number;
@@ -27,6 +26,7 @@ type Props = {
   }>;
   suggestedTeamIdsBySessionId?: Record<number, number[]>;
   currentAssignedTeamIds?: number[];
+  onEnsureSuggestedTeamIdsForSessions?: (sessionIds: number[]) => Promise<Record<number, number[]>>;
   onClose: () => void;
   onAssignSession: (sessionId: number, teamIds: number[]) => void;
   onAssignAllUi: (args: { sessionIds: number[]; teamId: number }) => void;
@@ -36,11 +36,11 @@ type Props = {
 
 export default function RequestDetailTeamPanel({
   session,
-  requestCode,
   sessionsCount,
   allSessions,
   suggestedTeamIdsBySessionId,
   currentAssignedTeamIds,
+  onEnsureSuggestedTeamIdsForSessions,
   onClose,
   onAssignSession,
   onAssignAllUi,
@@ -50,6 +50,7 @@ export default function RequestDetailTeamPanel({
   const [suggestedTeams, setSuggestedTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bulkSuggestionsLoading, setBulkSuggestionsLoading] = useState(false);
   const [teamSearch, setTeamSearch] = useState('');
   const [addedTeamIds, setAddedTeamIds] = useState<number[]>([]);
   const [teachersRequired, setTeachersRequired] = useState(() =>
@@ -70,7 +71,7 @@ export default function RequestDetailTeamPanel({
       setLoading(true);
       setError(null);
       try {
-        const teams = await sessionApi.suggestTeams(session.sessionId);
+        const teams = await sessionService.suggestTeams(session.sessionId);
         setSuggestedTeams(teams);
       } catch (err: unknown) {
         const msg =
@@ -185,7 +186,7 @@ export default function RequestDetailTeamPanel({
     allSessions.length > 0 &&
     allSessions.every((s) => Array.isArray(suggestedTeamIdsBySessionId?.[s.sessionId]));
 
-  const canAssignAll = sessionsCount > 0 && addedTeamIds.length > 0 && !loading && suggestionsReady;
+  const canAssignAll = sessionsCount > 0 && addedTeamIds.length > 0 && !loading && !bulkSuggestionsLoading;
   const handleAssignAllSwitch = useCallback(
     async (checked: boolean) => {
       if (!checked) {
@@ -204,19 +205,31 @@ export default function RequestDetailTeamPanel({
         return;
       }
       if (addedTeamIds.length === 0) return;
-      if (!suggestionsReady) {
-        message.info('Đang tải gợi ý đội cho các phiên, vui lòng thử lại sau vài giây.');
-        return;
-      }
 
       // Yêu cầu: gán cùng 1 team cho các phiên, nhưng chỉ những phiên có suggestion trùng.
       // Chọn team ưu tiên là team đầu tiên người dùng chọn.
       const chosenTeamId = addedTeamIds[0];
 
+      let bySessionId = suggestedTeamIdsBySessionId ?? {};
+      if (!suggestionsReady) {
+        if (!onEnsureSuggestedTeamIdsForSessions) {
+          message.info('Chưa sẵn sàng gợi ý đội, vui lòng thử lại sau.');
+          return;
+        }
+        try {
+          setBulkSuggestionsLoading(true);
+          message.info('Đang tải gợi ý đội cho các phiên...');
+          const sessionIds = allSessions.map((s) => s.sessionId).filter((id) => id > 0);
+          bySessionId = await onEnsureSuggestedTeamIdsForSessions(sessionIds);
+        } finally {
+          setBulkSuggestionsLoading(false);
+        }
+      }
+
       try {
         const eligibleSessions = allSessions
           .filter((s) => {
-            const ids = suggestedTeamIdsBySessionId?.[s.sessionId] ?? [];
+            const ids = bySessionId?.[s.sessionId] ?? [];
             return ids.some((id) => Number(id) === Number(chosenTeamId));
           })
           .map((s) => s.sessionId);
@@ -246,6 +259,8 @@ export default function RequestDetailTeamPanel({
       onAssignAllUi,
       onClearAllUi,
       suggestedTeamIdsBySessionId,
+      onEnsureSuggestedTeamIdsForSessions,
+      suggestionsReady,
     ]
   );
 
@@ -514,7 +529,7 @@ export default function RequestDetailTeamPanel({
         <Switch
           className="!rounded-[15px] shrink-0"
           checked={assignAllEnabled}
-          disabled={!canAssignAll || loading}
+          disabled={!canAssignAll}
           onCheckedChange={handleAssignAllSwitch}
         />
       </div>

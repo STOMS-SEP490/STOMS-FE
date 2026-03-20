@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Clock4, UserCircle2 } from 'lucide-react';
 import { message, Spin } from 'antd';
-import { sessionApi, type SessionDetail } from '@/modules/request/api/sessionApi';
 import { attendanceApi, type Attendance } from '../api/attendanceApi';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
+import type { SessionDetail } from '@/modules/request/api/type';
+import sessionApi from '@/modules/request/api/sessionApi';
 
 type Participant = {
   memberId: number;

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { Clock, Calendar, MapPin, Hash, GraduationCap, Users } from 'lucide-react';
-import { reservationApi, type ReservedEquipmentItem } from '../api/reservationApi';
+import reservationService from '../api/reservationApi';
+import type { ReservedEquipmentItem } from '../api/type';
 import { ImageOff } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
 import type { RequestSessionSummary } from '../request';
@@ -12,13 +13,11 @@ export type SessionDetailProps = {
     teamAssigned?: boolean;
   };
   requestCode: string;
-  assignedTeamIds?: number[];
 };
 
 export default function RequestSessionDetailPanel({
   session,
   requestCode,
-  assignedTeamIds,
 }: SessionDetailProps) {
   const [reservedEquipments, setReservedEquipments] = useState<ReservedEquipmentItem[]>([]);
   const [reservedLoading, setReservedLoading] = useState(false);
@@ -33,7 +32,7 @@ export default function RequestSessionDetailPanel({
       setReservedLoading(true);
       setReservedError(null);
       try {
-        const detail = await reservationApi.getById(session.reservationId!);
+        const detail = await reservationService.getById(session.reservationId!);
         setReservedEquipments(detail.equipment);
       } catch (err: unknown) {
         const msg =

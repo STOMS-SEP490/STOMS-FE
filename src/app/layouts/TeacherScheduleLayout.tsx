@@ -48,9 +48,7 @@ export default function TeacherScheduleLayout() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
-        <Outlet />
-      </div>
+      <Outlet />
     </div>
   );
 }

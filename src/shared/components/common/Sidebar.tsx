@@ -21,7 +21,6 @@ import {
 import { logout } from '@/modules/auth/pages/Logout';
 
 import { NavLink, useNavigate } from 'react-router-dom';
-import authService from '@/modules/auth/api/authApi';
 import memberApi from '@/modules/member/api/memberApi';
 
 export default function Sidebar() {
@@ -84,12 +83,13 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     await logout();
+    navigate('/login');
   };
 
   return (
     <aside
       className={`
-        h-screen bg-[#F6F8FB] border-r
+        h-screen bg-[#F6F8FB] border-r border-border
         transition-all duration-300
         ${collapsed ? 'w-[72px] px-1.5' : 'w-72 px-5'}
         py-5 flex flex-col

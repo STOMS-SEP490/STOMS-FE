@@ -1,23 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { useCallback, useState } from 'react';
+
+
 import dayjs from 'dayjs';
-import { message, Spin } from 'antd';
+import { Spin } from 'antd';
 import {
   X,
-  ChevronRight,
   MapPin,
   Clock,
   Calendar,
   Hash,
+  List,
+  Copy,
+  Share2,
   GraduationCap,
   Users,
   AlertCircle,
   RotateCcw,
-  CheckCircle2,
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
+import { Switch } from '@/shared/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -26,379 +31,46 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import RequestCard from '@/shared/components/request/RequestCard';
-import { requestApi } from '@/modules/request/api/requestApi';
-import { sessionApi, type SessionDetail } from '@/modules/request/api/sessionApi';
-import { teamApi } from '@/modules/team/api/teamApi';
-import memberApi from '@/modules/member/api/memberApi';
-import type { Member } from '@/modules/member/member';
-import axiosClient from '@/shared/lib/axios';
-import { assignmentApi, type SuggestedStaff } from '@/modules/request/api/assignmentApi';
-
-type TeamSessionLite = {
-  sessionId: number;
-  requestId: number;
-  sessionNo: number;
-  startAt: string;
-  endAt: string;
-  location: string;
-  status: string;
-};
-
-type TeamRequestItem = {
-  requestId: number;
-  requestCode: string;
-  requestName: string;
-  customerName?: string | null;
-  subjectId?: number | null;
-  courseId?: number | null;
-  eventId?: number | null;
-  status: string;
-  startDate?: string;
-  sessions: TeamSessionLite[];
-};
+import { getSessionStatusInfo } from '@/constants/status';
+import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
+import { useTeamLeaderAssignmentsPage } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
 
 export default function TeamLeaderAssignmentsPage() {
-  const [loading, setLoading] = useState(true);
-  const [requests, setRequests] = useState<TeamRequestItem[]>([]);
-  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
-
-  const [sessionDetailsById, setSessionDetailsById] = useState<Record<number, SessionDetail>>({});
-  const [teamMembers, setTeamMembers] = useState<Member[]>([]);
-  const [suggestedByAssignmentId, setSuggestedByAssignmentId] = useState<
-    Record<number, SuggestedStaff[]>
-  >({});
-
-  const [search, setSearch] = useState('');
-  const [assignSelections, setAssignSelections] = useState<Record<number, number>>({});
-  const [searchByAssignmentId, setSearchByAssignmentId] = useState<Record<number, string>>({});
-  const [savingAll, setSavingAll] = useState(false);
+  const {
+    loading,
+    filteredRequests,
+    selectedRequestId,
+    setSelectedRequestId,
+    selectedRequest,
+    selectedRequestTypeInfo,
+    selectedRequestStatusInfo,
+    search,
+    setSearch,
+    onlyNeedsAction,
+    setOnlyNeedsAction,
+    statusFilter,
+    setStatusFilter,
+    activeSession,
+    setActiveSession,
+    sessionDetailsById,
+    suggestedByAssignmentId,
+    assignSelections,
+    searchByAssignmentId,
+    setSearchByAssignmentId,
+    handleSelectStaff,
+    handleApplyToOtherSessions,
+    getSessionStats,
+  } = useTeamLeaderAssignmentsPage();
 
   const [hoveredStaff, setHoveredStaff] = useState<{
-    staff: SuggestedStaff | Member;
+    staff: SuggestedStaff;
     rect: DOMRect;
   } | null>(null);
+  // (logic/data layer moved to hook)
 
-  // Panel state — click session to open right panel
-  const [activeSession, setActiveSession] = useState<TeamSessionLite | null>(null);
 
-  /* ───────── Data loading ───────── */
-
-  const loadInitial = useCallback(async () => {
-    try {
-      setLoading(true);
-      const rawUser = JSON.parse(localStorage.getItem('user') || '{}') as { memberId?: number };
-      const memberId = Number(rawUser?.memberId || 0) || undefined;
-      if (!memberId) {
-        setRequests([]);
-        return;
-      }
-
-      const teamsRes = await teamApi.getTeams({
-        pageNumber: 1,
-        pageSize: 20,
-        leaderMemberId: memberId,
-      });
-      const firstTeam = teamsRes.items?.[0];
-      if (!firstTeam?.teamId) {
-        setRequests([]);
-        return;
-      }
-
-      const teamId = firstTeam.teamId;
-
-      const sessionsRaw: any[] = await axiosClient.get(`/sessions/by-team/${teamId}`);
-      const liteSessions: TeamSessionLite[] = (sessionsRaw ?? []).map((s: any) => ({
-        sessionId: Number(s.sessionId ?? 0),
-        requestId: Number(s.requestId ?? 0),
-        sessionNo: Number(s.sessionNo ?? 0),
-        startAt: String(s.startAt ?? ''),
-        endAt: String(s.endAt ?? ''),
-        location: String(s.location ?? ''),
-        status: String(s.status ?? ''),
-      }));
-
-      const sessionsByRequest = new Map<number, TeamSessionLite[]>();
-      liteSessions.forEach((s) => {
-        if (!s.requestId) return;
-        const list = sessionsByRequest.get(s.requestId) ?? [];
-        list.push(s);
-        sessionsByRequest.set(s.requestId, list);
-      });
-
-      const requestIds = Array.from(sessionsByRequest.keys());
-      const requestsDetail = await Promise.all(
-        requestIds.map(async (id) => {
-          try {
-            const r = await requestApi.getById(id);
-            return {
-              requestId: r.requestId,
-              requestCode: r.requestCode,
-              requestName: r.requestName,
-              customerName: r.customerName,
-              subjectId: r.subjectId,
-              courseId: r.courseId,
-              eventId: r.eventId,
-              status: r.status,
-              startDate: r.startDate,
-              sessions: sessionsByRequest.get(id) ?? [],
-            } as TeamRequestItem;
-          } catch {
-            return null;
-          }
-        }),
-      );
-      const validRequests = requestsDetail.filter(Boolean) as TeamRequestItem[];
-      setRequests(validRequests);
-      if (validRequests.length) setSelectedRequestId(validRequests[0].requestId);
-
-      const membersRes = await memberApi.getMembers({
-        pageNumber: 1,
-        pageSize: 200,
-        TeamId: teamId,
-      });
-      setTeamMembers(membersRes.items ?? []);
-    } catch (err) {
-      console.error(err);
-      message.error('Không tải được dữ liệu phân công cho team.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadInitial();
-  }, [loadInitial]);
-
-  /* ───────── Derived data ───────── */
-
-  const filteredRequests = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return requests;
-    return requests.filter(
-      (r) =>
-        r.requestCode.toLowerCase().includes(q) || (r.requestName ?? '').toLowerCase().includes(q),
-    );
-  }, [requests, search]);
-
-  const selectedRequest = useMemo(
-    () => requests.find((r) => r.requestId === selectedRequestId) ?? null,
-    [requests, selectedRequestId],
-  );
-
-  /* ───────── Session details + suggestions ───────── */
-
-  const ensureSessionDetails = useCallback(
-    async (sessionIds: number[]) => {
-      const missing = sessionIds.filter((id) => !sessionDetailsById[id]);
-      if (!missing.length) return;
-      try {
-        const details = await Promise.all(
-          missing.map(async (id) => {
-            try {
-              const s = await sessionApi.getById(id);
-              return [id, s] as const;
-            } catch {
-              return null;
-            }
-          }),
-        );
-        const next: Record<number, SessionDetail> = {};
-        details.forEach((p) => {
-          if (!p) return;
-          next[p[0]] = p[1];
-        });
-        if (Object.keys(next).length) {
-          setSessionDetailsById((prev) => ({ ...prev, ...next }));
-        }
-
-        const allAssignments = Object.values(next)
-          .flatMap((d) => d.assignments ?? [])
-          .filter(Boolean) as any[];
-        const uniqueAssignmentIds = Array.from(
-          new Set(
-            allAssignments
-              .map((a) => a?.assignmentId)
-              .filter((x): x is number => typeof x === 'number' && x > 0),
-          ),
-        );
-        if (uniqueAssignmentIds.length) {
-          const suggestionPairs = await Promise.all(
-            uniqueAssignmentIds.map(async (id) => {
-              try {
-                const list = await assignmentApi.suggestStaff(id);
-                return [id, list] as const;
-              } catch {
-                return null;
-              }
-            }),
-          );
-          const sug: Record<number, SuggestedStaff[]> = {};
-          suggestionPairs.forEach((p) => {
-            if (!p) return;
-            sug[p[0]] = p[1];
-          });
-          if (Object.keys(sug).length) {
-            setSuggestedByAssignmentId((prev) => ({ ...prev, ...sug }));
-          }
-        }
-      } catch (err) {
-        console.error(err);
-        message.error('Không tải được chi tiết phiên.');
-      }
-    },
-    [sessionDetailsById],
-  );
-
-  useEffect(() => {
-    if (!selectedRequest) return;
-    const ids = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
-    if (ids.length) {
-      void ensureSessionDetails(ids);
-    }
-  }, [selectedRequest, ensureSessionDetails]);
-
-  /* ───────── Assignment handlers ───────── */
-
-  const handleSelectStaff = useCallback((assignmentId: number, memberId: number) => {
-    setAssignSelections((prev) => ({ ...prev, [assignmentId]: memberId }));
-  }, []);
-
-  const handleSaveAllAssignmentsForRequest = useCallback(async () => {
-      if (!selectedRequest) return;
-      const sessionIds = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
-      if (!sessionIds.length) {
-        message.warning('Yêu cầu này không có phiên nào của team để phân công.');
-        return;
-      }
-
-      const missingPerSession: number[] = [];
-      for (const s of selectedRequest.sessions) {
-        const detail = sessionDetailsById[s.sessionId];
-        if (!detail?.assignments?.length) continue;
-        const missingSlots = detail.assignments.filter(
-        (a) => !(assignSelections[a.assignmentId] || a.staffMemberId),
-        );
-      if (missingSlots.length > 0) missingPerSession.push(s.sessionNo);
-      }
-      if (missingPerSession.length > 0) {
-        message.warning(
-        `Vui lòng gán đủ giảng viên / trợ giảng cho tất cả slot. Còn thiếu ở phiên: ${missingPerSession.join(', ')}.`,
-        );
-        return;
-      }
-
-      try {
-        setSavingAll(true);
-        for (const s of selectedRequest.sessions) {
-          const detail = sessionDetailsById[s.sessionId];
-          if (!detail?.assignments?.length) continue;
-          const items = detail.assignments
-            .map((a) => {
-            const mid = assignSelections[a.assignmentId] ?? a.staffMemberId;
-            if (!mid) return null;
-            return { AssignmentId: a.assignmentId, StaffMemberId: mid };
-            })
-            .filter(Boolean) as { AssignmentId: number; StaffMemberId: number }[];
-          if (!items.length) continue;
-          // eslint-disable-next-line no-await-in-loop
-        await axiosClient.put('/assignments/assign-members', { items });
-        }
-        message.success('Đã hoàn tất phân công cho tất cả phiên của team trong yêu cầu này.');
-      setSessionDetailsById((prev) => {
-        const next = { ...prev };
-        for (const sid of sessionIds) delete next[sid];
-        return next;
-      });
-        await ensureSessionDetails(sessionIds);
-      } catch (err) {
-        console.error(err);
-        message.error('Hoàn tất phân công thất bại.');
-      } finally {
-        setSavingAll(false);
-      }
-  }, [assignSelections, ensureSessionDetails, selectedRequest, sessionDetailsById]);
-
-  const handleApplyToOtherSessions = useCallback(
-    (sessionId: number) => {
-      const baseDetail = sessionDetailsById[sessionId];
-      if (!baseDetail?.assignments?.length || !selectedRequest) return;
-
-      const baseAssignments = baseDetail.assignments;
-      const baseSelectedByRole: Record<string, number[]> = {};
-      baseAssignments.forEach((a) => {
-        const mid = assignSelections[a.assignmentId] || a.staffMemberId;
-        if (!mid) return;
-        const roleKey = String(a.staffRole ?? '')
-          .toUpperCase()
-          .includes('TA')
-          ? 'TA'
-          : 'TE';
-        if (!baseSelectedByRole[roleKey]) baseSelectedByRole[roleKey] = [];
-        if (!baseSelectedByRole[roleKey].includes(mid))
-          baseSelectedByRole[roleKey].push(mid);
-      });
-      if (!Object.keys(baseSelectedByRole).length) {
-        message.warning('Vui lòng chọn ít nhất một nhân sự trong phiên hiện tại trước.');
-        return;
-      }
-
-      const nextSelections: Record<number, number> = { ...assignSelections };
-      selectedRequest.sessions
-        .filter((s) => s.sessionId !== sessionId)
-        .forEach((s) => {
-          const detail = sessionDetailsById[s.sessionId];
-          if (!detail?.assignments?.length) return;
-          const usedPerRole: Record<string, number[]> = {};
-          detail.assignments.forEach((a) => {
-            const roleKey = String(a.staffRole ?? '')
-              .toUpperCase()
-              .includes('TA')
-              ? 'TA'
-              : 'TE';
-            const candidates = baseSelectedByRole[roleKey];
-            if (!candidates?.length) return;
-            const suggestionList = suggestedByAssignmentId[a.assignmentId] ?? [];
-            const sourceList: { memberId: number }[] = suggestionList.length
-                ? suggestionList
-                : teamMembers;
-            const usedForRole = usedPerRole[roleKey] ?? [];
-            const memberToApply = candidates.find(
-              (id) => !usedForRole.includes(id) && sourceList.some((m) => m.memberId === id),
-            );
-            if (memberToApply) {
-              nextSelections[a.assignmentId] = memberToApply;
-              usedPerRole[roleKey] = [...usedForRole, memberToApply];
-            }
-          });
-        });
-      setAssignSelections(nextSelections);
-      message.success('Đã áp dụng phân công từ phiên hiện tại cho các phiên khác.');
-    },
-    [assignSelections, selectedRequest, sessionDetailsById, suggestedByAssignmentId, teamMembers],
-  );
-
-  /* ───────── Helper: session stats ───────── */
-
-  const getSessionStats = useCallback(
-    (s: TeamSessionLite) => {
-      const detail = sessionDetailsById[s.sessionId];
-      const assignments = detail?.assignments ?? [];
-      const total = assignments.length;
-      const filled = assignments.filter(
-        (a) => !!(assignSelections[a.assignmentId] || a.staffMemberId),
-      ).length;
-      return { total, filled, detail, assignments };
-    },
-    [sessionDetailsById, assignSelections],
-  );
-
-  /* ───────── Render helpers ───────── */
-
-  const renderMemberOption = (m: Member | SuggestedStaff) => {
-    const subText =
-      'user' in m
-        ? (m as Member).user?.email || '—'
-        : (m as SuggestedStaff).email ?? (m as SuggestedStaff).roleName ?? '—';
+  const renderMemberOption = (m: SuggestedStaff) => {
+    const subText = m.email ?? m.roleName ?? '—';
     return (
     <div className="flex items-center gap-2">
       <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
@@ -426,12 +98,7 @@ export default function TeamLeaderAssignmentsPage() {
   };
 
   const handleStaffHover = useCallback(
-    (staff: SuggestedStaff | Member, e: React.MouseEvent) => {
-      const isSuggested = 'skillMatchCount' in staff;
-      if (!isSuggested) {
-        setHoveredStaff(null);
-        return;
-      }
+    (staff: SuggestedStaff, e: React.MouseEvent) => {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       setHoveredStaff({ staff, rect });
     },
@@ -480,25 +147,13 @@ export default function TeamLeaderAssignmentsPage() {
             const searchText = searchByAssignmentId[a.assignmentId]?.toLowerCase() || '';
 
             const suggestedList = (suggestedByAssignmentId[a.assignmentId] ?? []).filter(
-                                      (m) =>
+              (m: SuggestedStaff) =>
                 (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
-                                        (!searchText ||
-                                          m.fullName?.toLowerCase().includes(searchText) ||
+                (!searchText ||
+                  m.fullName?.toLowerCase().includes(searchText) ||
                   m.roleName?.toLowerCase().includes(searchText) ||
                   m.email?.toLowerCase().includes(searchText)),
-                                    );
-
-                                    const fallbackList =
-                                      !suggestedByAssignmentId[a.assignmentId] ||
-                                      suggestedByAssignmentId[a.assignmentId]?.length === 0
-                                        ? teamMembers.filter(
-                                            (m) =>
-                      (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
-                                              (!searchText ||
-                        m.fullName?.toLowerCase().includes(searchText) ||
-                        m.user?.email?.toLowerCase().includes(searchText)),
-                                          )
-                                        : [];
+            );
 
                                     return (
               <div key={a.assignmentId} className={`rounded-lg bg-white px-3 py-2 border ${slotBorder} shadow-sm`}>
@@ -523,18 +178,7 @@ export default function TeamLeaderAssignmentsPage() {
                                                 }
                                               />
                                             </div>
-                                            {suggestedList.map((m) => (
-                                              <SelectItem
-                                                key={m.memberId}
-                                                value={String(m.memberId)}
-                                                className="text-xs py-1.5"
-                        onMouseEnter={(e) => handleStaffHover(m, e)}
-                        onMouseLeave={() => setHoveredStaff(null)}
-                                              >
-                                                {renderMemberOption(m)}
-                                              </SelectItem>
-                                            ))}
-                                            {fallbackList.map((m) => (
+                                            {suggestedList.map((m: SuggestedStaff) => (
                                               <SelectItem
                                                 key={m.memberId}
                                                 value={String(m.memberId)}
@@ -555,28 +199,60 @@ export default function TeamLeaderAssignmentsPage() {
     );
   };
 
-  /* ───────── Render ───────── */
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setOnlyNeedsAction(false);
+    setStatusFilter('assigning');
+  };
 
   return (
-    <div className="flex flex-col p-6 gap-4 bg-[#f3f4f6] overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
+    <div
+      className="flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
           <Spin tip="Đang tải dữ liệu phân công cho team..." />
         </div>
       )}
 
-      {/* HEADER */}
-      <div className="bg-white px-6 py-4 rounded-xl border shadow-sm shrink-0">
-        <h2 className="text-xl font-semibold text-black">Phân công nhân sự cho team</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          Chọn yêu cầu bên trái → xem danh sách phiên → bấm phiên để phân công nhân sự.
-        </p>
+      <div className="flex justify-start gap-3 mb-2 flex-wrap">
+        <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
+        <div className="flex items-center gap-3">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | 'assigning')}>
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[160px]">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="assigning">Đang phân công</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
+            onClick={handleResetFilters}
+          >
+            <RotateCcw size={16} />
+          </Button>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              className="!rounded-[15px]"
+              checked={onlyNeedsAction}
+              onCheckedChange={setOnlyNeedsAction}
+            />
+            <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
+          </div>
+        </div>
       </div>
 
-      {/* MAIN 2-COLUMN LAYOUT */}
-      <div className="flex gap-4 flex-1 min-h-0">
-        {/* ─── LEFT: Request list ─── */}
-        <div className="w-[340px] shrink-0 bg-white border rounded-xl overflow-hidden flex flex-col">
+        <div className="flex gap-4 flex-1 min-h-0">
+        {/* Sidebar */}
+        <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <div className="flex justify-between items-center p-4 border-b border-slate-200">
             <div className="min-w-0">
               <h2 className="font-semibold text-base text-black truncate">Danh sách yêu cầu</h2>
@@ -586,21 +262,14 @@ export default function TeamLeaderAssignmentsPage() {
             </div>
             <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1 shrink-0">
               {filteredRequests.length}
-                                  </span>
-                                </div>
-          <div className="px-3 pt-2 pb-3 border-b border-slate-100">
-            <HoverSearch
-              value={search}
-              onChange={setSearch}
-              placeholder="Tìm theo mã hoặc tên yêu cầu..."
-            />
+            </span>
           </div>
-          <div className="flex-1 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
                 Chưa có yêu cầu nào có phiên của team này.
-                                    </div>
-                                  )}
+              </div>
+            )}
             {filteredRequests.map((r) => (
               <RequestCard
                 key={r.requestId}
@@ -623,10 +292,11 @@ export default function TeamLeaderAssignmentsPage() {
           </div>
         </div>
 
-        {/* ─── MIDDLE: Session list ─── */}
-        <div className="flex-1 min-w-0 overflow-y-auto no-scrollbar">
+        {/* Content */}
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {!selectedRequest ? (
-            <div className="bg-white rounded-xl border shadow-sm p-8 text-center">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
               <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
                 <span className="text-2xl text-slate-400">📋</span>
               </div>
@@ -634,43 +304,81 @@ export default function TeamLeaderAssignmentsPage() {
               <p className="text-xs text-gray-500 mt-1">để xem danh sách phiên và phân công nhân sự.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 flex flex-col min-h-0 flex-1">
               {/* Request header */}
-              <div className="bg-white rounded-xl px-6 py-4 shadow-sm border">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h5 className="text-lg font-bold text-slate-800">
-                      {selectedRequest.requestName || selectedRequest.requestCode}
-                    </h5>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Mã: {selectedRequest.requestCode} · {selectedRequest.sessions.length} phiên
-                    </p>
+              <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
+                    {selectedRequest.requestName || selectedRequest.requestCode}
+                  </h5>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      title="Sao chép mã"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      title="Chia sẻ"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 hover:border-slate-300"
+                      title="Xem trong lịch"
+                    >
+                      <Calendar className="w-4 h-4" />
+                    </button>
                   </div>
-                  {(() => {
-                    const allFilled = selectedRequest.sessions.every((s) => {
-                      const detail = sessionDetailsById[s.sessionId];
-                      const assignments = detail?.assignments ?? [];
-                      return assignments.length > 0 && assignments.every((a) => !!a.staffMemberId);
-                    });
-                    if (allFilled) return null;
-                    return (
-                      <Button
-                        type="button"
-                        disabled={savingAll}
-                        className="rounded-lg bg-[#2197C0] hover:bg-[#208AAE] text-white text-xs px-4 shrink-0"
-                        onClick={() => void handleSaveAllAssignmentsForRequest()}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {selectedRequestTypeInfo && (
+                      <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
+                        {selectedRequestTypeInfo.label}
+                      </span>
+                    )}
+                    {selectedRequestStatusInfo && (
+                      <span
+                        className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${selectedRequestStatusInfo.className}`}
                       >
-                        {savingAll ? (
-                          'Đang lưu...'
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                            Hoàn tất phân công
-                          </>
-                        )}
-                      </Button>
-                    );
-                  })()}
+                        {selectedRequestStatusInfo.label}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100">
+                  <div className="flex items-start gap-3">
+                    <Hash className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] text-slate-500 uppercase tracking-wide">Mã yêu cầu</p>
+                      <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                        {selectedRequest.requestCode}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày gửi</p>
+                      <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                        {selectedRequest.startDate
+                          ? dayjs(selectedRequest.startDate).format('DD/MM/YYYY')
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] text-slate-500 uppercase tracking-wide">Số lượng phiên</p>
+                      <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                        {selectedRequest.sessions.length} phiên
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -685,7 +393,7 @@ export default function TeamLeaderAssignmentsPage() {
                 });
                 const progress = totalSlots === 0 ? 0 : Math.min(1, filledSlots / totalSlots);
                 return (
-                  <div className="bg-white rounded-xl border shadow-sm p-4">
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-medium text-slate-700">Tiến độ phân công</span>
                       <span className="text-sm font-semibold text-slate-800 tabular-nums">
@@ -703,83 +411,95 @@ export default function TeamLeaderAssignmentsPage() {
               })()}
 
               {/* Session list */}
-              <div className="bg-white rounded-xl border shadow-sm p-4">
-                <h3 className="text-sm font-semibold text-slate-900 mb-3">Danh sách phiên học</h3>
-                {selectedRequest.sessions.length === 0 ? (
-                  <p className="text-xs text-slate-500 py-6 text-center">
-                    Yêu cầu này chưa có phiên nào gán cho team.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedRequest.sessions.map((session) => {
-                      const stats = getSessionStats(session);
-                      const isActive = activeSession?.sessionId === session.sessionId;
-                                    return (
-                                      <div
-                          key={session.sessionId}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setActiveSession(session)}
-                          className={`w-full border rounded-lg px-4 py-2.5 transition cursor-pointer ${
-                            isActive
-                              ? 'bg-sky-50/80 border-sky-300 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-                          }`}
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-1.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs text-sky-600 font-medium">
-                                {dayjs(session.startAt).format('HH:mm')} -{' '}
-                                {dayjs(session.endAt).format('HH:mm')}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                {dayjs(session.startAt).format('DD/MM/YYYY')}
-                              </span>
-                              <span
-                                className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
-                                  stats.total > 0 && stats.filled === stats.total
-                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                    : stats.filled > 0
-                                      ? 'bg-sky-50 text-sky-800 border border-sky-200'
-                                      : 'bg-amber-50 text-amber-800 border border-amber-200'
-                                }`}
-                              >
-                                {stats.total === 0 && (
-                                  <AlertCircle className="w-3 h-3 shrink-0" />
-                                )}
-                                {stats.total === 0
-                                  ? 'Chưa có slot'
-                                  : stats.filled === stats.total
-                                    ? 'Đã gán đủ'
-                                    : `${stats.filled}/${stats.total} slot`}
-                              </span>
-                                            </div>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 hover:text-sky-700 shrink-0"
-                            >
-                              Chi tiết
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">
-                            Phiên {session.sessionNo}
-                          </p>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span>{session.location || '—'}</span>
-                          </div>
-                                      </div>
-                                    );
-                                  })}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0 flex-1">
+                <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {selectedRequest.sessions.length} phiên trong yêu cầu này
+                    </p>
+                  </div>
+                  <span className="text-xs text-slate-500">Nhấn để xem chi tiết</span>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+                  {selectedRequest.sessions.length === 0 ? (
+                    <p className="text-xs text-slate-500 py-10 text-center">
+                      Yêu cầu này chưa có phiên nào gán cho team.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {selectedRequest.sessions.map((session) => {
+                        const stats = getSessionStats(session);
+                        const isActive = activeSession?.sessionId === session.sessionId;
+                        const title = `Phiên ${session.sessionNo}`;
+                        const sessionStatusInfo = getSessionStatusInfo(session.status);
+                        return (
+                          <div
+                            key={session.sessionId}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setActiveSession(session)}
+                            className={`w-full px-5 py-4 transition cursor-pointer ${
+                              isActive ? 'bg-sky-50/60' : 'hover:bg-slate-50/80'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-[11px] text-slate-500">Phiên dạy</span>
+                                  <span className="text-[11px] font-medium text-slate-700">{title}</span>
                                 </div>
-                )}
+                                <div className="mt-2 flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+                                  <span className="inline-flex items-center gap-1">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    {dayjs(session.startAt).format('HH:mm')} -{' '}
+                                    {dayjs(session.endAt).format('HH:mm')}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <Calendar className="w-3.5 h-3.5" />
+                                    {dayjs(session.startAt).format('DD/MM/YYYY')}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    {session.location || '—'}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
+                                >
+                                  {sessionStatusInfo.label}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
+                                    stats.total > 0 && stats.filled === stats.total
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}
+                                >
+                                  {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                                  {stats.total === 0
+                                    ? 'Chưa có slot'
+                                    : stats.filled === stats.total
+                                      ? 'Đã gán đủ'
+                                      : 'Chưa gán đủ'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
                               </div>
 
       </div>
+          </div>
 
       {/* ─── RIGHT: Session detail + assignment panel (slide-over overlay) ─── */}
       {activeSession && (

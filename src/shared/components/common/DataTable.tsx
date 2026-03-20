@@ -1,4 +1,13 @@
-import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table';
+import { useState } from 'react';
+import {
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type SortingState,
+} from '@tanstack/react-table';
+import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Button } from '../ui/button';
 
@@ -23,6 +32,7 @@ export function DataTable<TData, TValue>({
   onPageChange,
 }: DataTableProps<TData, TValue>) {
   const totalPages = Math.ceil(totalItems / pageSize);
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   const table = useReactTable({
     data,
@@ -32,25 +42,62 @@ export function DataTable<TData, TValue>({
         pageIndex: pageNumber - 1,
         pageSize,
       },
+      sorting,
     },
+    onSortingChange: setSorting,
     manualPagination: true,
     pageCount: totalPages,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
   return (
     <div className="space-y-4">
       {/* TABLE */}
-      <div className="rounded-md border bg-white">
+      <div className="rounded-md bg-white">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const canSort = header.column.getCanSort();
+                  const sortDir = header.column.getIsSorted();
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder ? null : canSort ? (
+                        <div className="flex items-center gap-1">
+                          <div className="min-w-0 truncate">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={header.column.getToggleSortingHandler()}
+                            className="h-7 w-7 shrink-0 text-slate-500 hover:text-slate-900"
+                            title={
+                              sortDir === 'asc'
+                                ? 'Đang sắp xếp tăng dần'
+                                : sortDir === 'desc'
+                                  ? 'Đang sắp xếp giảm dần'
+                                  : 'Sắp xếp'
+                            }
+                          >
+                            {sortDir === 'asc' ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : sortDir === 'desc' ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronsUpDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        flexRender(header.column.columnDef.header, header.getContext())
+                      )}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             ))}
           </TableHeader>

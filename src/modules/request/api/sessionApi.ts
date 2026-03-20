@@ -1,113 +1,137 @@
 import axiosClient from '@/shared/lib/axios';
 import type { Team } from '@/modules/team/team';
+import type { PaginationResponse } from '@/shared/types/api';
+import type { SessionDetail } from './type';
 
-export type SessionDetail = {
+export type PublishedTeamSession = {
   sessionId: number;
-  requestId: number;
-  sessionNo: number;
-  startAt: string;
-  endAt: string;
-  notes: string;
-  status: string;
-  location: string;
-  isOnline: boolean | null;
-  teachersRequired?: number | null;
-  tasRequired?: number | null;
-  assignments?: {
-    assignmentId: number;
-    staffRole: string;
-    status?: string;
-    staffMemberId: number;
-    staffMember?: {
-      memberId: number;
-      fullName: string;
-      avatarUrl: string;
-      userEmail?: string;
-    } | null;
-  }[] | null;
+  requestId?: number;
+  sessionNo?: number;
+  startAt?: string;
+  endAt?: string;
+  location?: string;
+  status?: string;
+  isOnline?: boolean | null;
+  // API có thể trả thêm attendances (nhất là với session đã Completed),
+  // dùng để hiển thị tên người điểm danh.
+  attendances?: Array<{
+    attendanceByMemberId?: number | null;
+  }>;
 };
 
-export const sessionApi = {
-  suggestTeams: async (sessionId: number): Promise<Team[]> => {
-    const is404 = (err: unknown) => {
-      if (!err || typeof err !== 'object') return false;
-      const anyErr = err as any;
-      return (
-        anyErr?.status === 404 ||
-        anyErr?.statusCode === 404 ||
-        anyErr?.response?.status === 404 ||
-        anyErr?.response?.statusCode === 404
-      );
-    };
+function mapPublishedTeamSessionFromApi(raw: Record<string, unknown>): PublishedTeamSession {
+  const isOnlineRaw = raw['isOnline'] ?? raw['IsOnline'] ?? null;
+  const attendancesRaw = (raw['attendances'] ?? raw['Attendances'] ?? []) as Record<string, unknown>[];
+  return {
+    sessionId: Number(raw['sessionId'] ?? raw['SessionId'] ?? 0),
+    requestId: Number(raw['requestId'] ?? raw['RequestId'] ?? 0) || undefined,
+    sessionNo: Number(raw['sessionNo'] ?? raw['SessionNo'] ?? 0) || undefined,
+    startAt:
+      (raw['startAt'] ?? raw['StartAt']) != null
+        ? String(raw['startAt'] ?? raw['StartAt'])
+        : undefined,
+    endAt:
+      (raw['endAt'] ?? raw['EndAt']) != null
+        ? String(raw['endAt'] ?? raw['EndAt'])
+        : undefined,
+    location:
+      (raw['location'] ?? raw['Location']) != null
+        ? String(raw['location'] ?? raw['Location'])
+        : undefined,
+    status:
+      (raw['status'] ?? raw['Status']) != null
+        ? String(raw['status'] ?? raw['Status'])
+        : undefined,
+    isOnline: isOnlineRaw == null ? null : Boolean(isOnlineRaw),
+    attendances: Array.isArray(attendancesRaw)
+      ? attendancesRaw.map((a) => {
+          const v = a['attendanceByMemberId'] ?? a['AttendanceByMemberId'] ?? null;
+          const num = v != null ? Number(v) : null;
+          return { attendanceByMemberId: num && num > 0 ? num : null };
+        })
+      : undefined,
+  };
+}
 
-    const attempts: Array<() => Promise<Team[]>> = [
-      () => axiosClient.get(`/sessions/${sessionId}/team-suggestions`),
-      () => axiosClient.get('/sessions/suggest-team', { params: { sessionId } }),
-      () => axiosClient.get('/sessions/suggest-teams', { params: { sessionId } }),
-      () => axiosClient.get(`/sessions/${sessionId}/suggest-team`),
-      () => axiosClient.get(`/sessions/${sessionId}/suggest-teams`),
-    ];
+export type SessionFilterParams = {
+  sessionId?: number;
+  requestId?: number;
+  sessionNo?: number;
+  statuses?: (string | number)[];
+  subjectSessionId?: number;
+  eventSessionId?: number;
+  location?: string;
+  isOnline?: boolean;
+  borrowingId?: number;
+  reservationId?: number;
+  teamId?: number;
+  memberId?: number;
+  pageNumber?: number;
+  pageSize?: number;
+};
 
-    let lastErr: unknown;
-    for (const run of attempts) {
-      try {
-        return await run();
-      } catch (err) {
-        lastErr = err;
-        if (!is404(err)) break;
-      }
-    }
-    throw lastErr;
+function toSessionFilterQuery(params: SessionFilterParams): Record<string, unknown> {
+  return {
+    SessionId: params.sessionId,
+    RequestId: params.requestId,
+    SessionNo: params.sessionNo,
+    Statuses: params.statuses?.map((x) => String(x)),
+    SubjectSessionId: params.subjectSessionId,
+    EventSessionId: params.eventSessionId,
+    Location: params.location,
+    IsOnline: params.isOnline,
+    BorrowingId: params.borrowingId,
+    ReservationId: params.reservationId,
+    TeamId: params.teamId,
+    MemberId: params.memberId,
+    PageNumber: params.pageNumber,
+    PageSize: params.pageSize,
+  };
+}
+
+const sessionApi = {
+  // SUGGEST TEAMS
+  suggestTeams: (sessionId: number): Promise<Team[]> => {
+    return axiosClient.get(`/sessions/${sessionId}/team-suggestions`);
   },
 
-  getById: async (id: number): Promise<SessionDetail> => {
-    const res = await axiosClient.get('/sessions/' + id);
-    const raw: any = res ?? {};
-    const assignmentsRaw: any[] = raw.assignments ?? raw.Assignments ?? [];
+  // GET BY ID
+  getById: (id: number): Promise<SessionDetail> => {
+    return axiosClient.get(`/sessions/${id}`);
+  },
+
+  /** GET /api/sessions/filter */
+  async getFilter(
+    params: SessionFilterParams = {},
+  ): Promise<PaginationResponse<PublishedTeamSession>> {
+    const res = await axiosClient.get('/sessions/filter', {
+      params: toSessionFilterQuery(params),
+      // Serialize array params as repeated query keys:
+      // Statuses=ASSIGNED&Statuses=ONGOING&Statuses=COMPLETED
+      paramsSerializer: (rawParams) => {
+        const usp = new URLSearchParams();
+        Object.entries(rawParams).forEach(([key, value]) => {
+          if (value == null) return;
+          if (Array.isArray(value)) {
+            value.forEach((v) => usp.append(key, String(v)));
+          } else {
+            usp.append(key, String(value));
+          }
+        });
+        return usp.toString();
+      },
+    });
+    const raw = (res as unknown as Record<string, unknown>) ?? {};
+    const itemsRaw = (raw['items'] ?? raw['Items'] ?? []) as Record<string, unknown>[];
     return {
-      sessionId: Number(raw.sessionId ?? raw.SessionId ?? 0),
-      requestId: Number(raw.requestId ?? raw.RequestId ?? 0),
-      sessionNo: Number(raw.sessionNo ?? raw.SessionNo ?? 0),
-      startAt: String(raw.startAt ?? raw.StartAt ?? ''),
-      endAt: String(raw.endAt ?? raw.EndAt ?? ''),
-      notes: String(raw.notes ?? raw.Notes ?? ''),
-      status: String(raw.status ?? raw.Status ?? ''),
-      location: String(raw.location ?? raw.Location ?? ''),
-      isOnline:
-        raw.isOnline !== undefined
-          ? Boolean(raw.isOnline)
-          : raw.IsOnline !== undefined
-            ? Boolean(raw.IsOnline)
-            : null,
-      teachersRequired:
-        raw.teachersRequired != null || raw.TeachersRequired != null
-          ? Number(raw.teachersRequired ?? raw.TeachersRequired)
-          : null,
-      tasRequired:
-        raw.tasRequired != null || raw.TasRequired != null
-          ? Number(raw.tasRequired ?? raw.TasRequired)
-          : null,
-      assignments: assignmentsRaw?.length
-        ? assignmentsRaw.map((a) => {
-            const staff = a.staffMember ?? a.StaffMember ?? null;
-            const staffUser = staff?.user ?? staff?.User ?? null;
-            return {
-              assignmentId: Number(a.assignmentId ?? a.AssignmentId ?? 0),
-              staffRole: String(a.staffRole ?? a.StaffRole ?? ''),
-              status: String(a.status ?? a.Status ?? ''),
-              staffMemberId: Number(a.staffMemberId ?? a.StaffMemberId ?? 0),
-              staffMember: staff
-                ? {
-                    memberId: Number(staff.memberId ?? staff.MemberId ?? 0),
-                    fullName: String(staff.fullName ?? staff.FullName ?? ''),
-                    avatarUrl: String(staff.avatarUrl ?? staff.AvatarUrl ?? ''),
-                    userEmail: staffUser?.email ?? staffUser?.Email,
-                  }
-                : null,
-            };
-          })
-        : null,
+      pageNumber: Number(raw['pageNumber'] ?? raw['PageNumber'] ?? 1),
+      pageSize: Number(raw['pageSize'] ?? raw['PageSize'] ?? itemsRaw.length),
+      totalItems: Number(raw['totalItems'] ?? raw['TotalItems'] ?? itemsRaw.length),
+      totalPages: Number(raw['totalPages'] ?? raw['TotalPages'] ?? 1),
+      items: itemsRaw.map(mapPublishedTeamSessionFromApi),
     };
   },
 };
+
+export default sessionApi;
 

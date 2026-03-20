@@ -4,9 +4,9 @@ import { Check, ImageOff, Plus, Search, X } from 'lucide-react';
 import { message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { reservationApi } from '../api/reservationApi';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { EquipmentListItem } from '@/modules/equipment/equipment';
+import reservationApi from '../api/reservationApi';
 
 export type SessionOption = {
   sessionId: number;

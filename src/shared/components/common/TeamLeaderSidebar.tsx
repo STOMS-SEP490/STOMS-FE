@@ -60,7 +60,7 @@ export default function TeamLeaderSidebar() {
   return (
     <aside
       className={`
-        h-screen bg-[#F6F8FB] border-r
+        h-screen bg-[#F6F8FB] border-r border-border
         transition-all duration-300
         ${collapsed ? 'w-[72px] px-1.5' : 'w-72 px-5'}
         py-5 flex flex-col
@@ -173,7 +173,10 @@ export default function TeamLeaderSidebar() {
 
       <div className="mt-auto pt-4">
         <button
-          onClick={async () => logout()}
+          onClick={async () => {
+            await logout();
+            navigate('/login');
+          }}
           className="w-full flex items-center justify-center gap-2 
                      py-3 rounded-xl text-red-600 
                      hover:bg-red-50 transition"

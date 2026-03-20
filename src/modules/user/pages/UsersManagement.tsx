@@ -207,7 +207,7 @@ export default function UserManagement() {
   return (
     <div className=" p-6 space-y-6 ">
       {/* HEADER */}
-      <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
+      <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border border-border shadow-sm items-center">
         <div>
           <h2 className="text-xl font-semibold text-black">Quản lý tài khoản</h2>
           <p className="text-xs text-gray-500">Quản lý tài khoản người dùng trong hệ thống</p>

@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Clock, CalendarDays, MapPin } from 'lucide-react';
+import { CalendarDays, List } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
-import { StatCard } from '@/shared/components/common/StatCard';
 import HoverSearch from '@/shared/components/ui/search';
 import teachingHistoryApi from '../api/teachingHistoryApi';
 import type { TeachingScheduleItem } from '../teachingHistory';
 import { sessionDisplayName } from '../teachingHistory';
-import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 function formatDateTime(value?: string) {
   if (!value) return '—';
@@ -43,11 +42,10 @@ export default function TeacherAssignments() {
   const [pageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [search, setSearch] = useState('');
+  const navigate = useNavigate();
 
   const memberId =
     Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || undefined;
-  const location = useLocation();
-  const isInSchedule = location.pathname.startsWith('/teacher/timetable');
 
   const columns: ColumnDef<TeachingScheduleItem>[] = [
     {
@@ -125,28 +123,8 @@ export default function TeacherAssignments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, pageNumber, pageSize]);
 
-  if (isInSchedule) {
-    return (
-      <div className="relative">
-        {loading && (
-          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
-            <span className="text-sm text-muted-foreground">Đang tải phân công...</span>
-          </div>
-        )}
-        <DataTable
-          columns={columns}
-          data={items}
-          pageNumber={pageNumber}
-          pageSize={pageSize}
-          totalItems={totalItems}
-          onPageChange={(page) => setPageNumber(page)}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="relative p-6 space-y-6">
+    <div className="relative p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
           <span className="text-sm text-muted-foreground">Đang tải phân công...</span>
@@ -155,33 +133,36 @@ export default function TeacherAssignments() {
 
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Phân công giảng dạy</h2>
+          <h2 className="text-xl font-semibold text-black">Thời khóa biểu & phân công</h2>
           <p className="text-xs text-gray-500">
-            Danh sách các buổi dạy mà bạn được phân công.
+            Xem lịch dạy theo dạng lịch hoặc danh sách phân công.
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white p-0.5">
+            <button
+              type="button"
+              onClick={() => navigate('/teacher/timetable')}
+              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+              title="Xem dạng thời khóa biểu"
+            >
+              <CalendarDays className="w-3 h-3" />
+              <span>Thời khóa biểu</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/teacher/timetable/assignments')}
+              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors bg-sky-50 border-sky-200 text-sky-700"
+              title="Xem dạng bảng phân công"
+            >
+              <List className="w-3 h-3" />
+              <span>Danh sách</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-2">
-        <StatCard
-          icon={<CalendarDays />}
-          label="Tổng buổi"
-          value={totalItems.toString()}
-          sub="trong danh sách hiện tại"
-        />
-        <StatCard
-          icon={<Clock />}
-          label="Buổi online"
-          value={items.filter((x) => x.isOnline).length.toString()}
-          sub="trong danh sách hiện tại"
-        />
-        <StatCard
-          icon={<MapPin />}
-          label="Buổi offline"
-          value={items.filter((x) => x.isOnline === false).length.toString()}
-          sub="trong danh sách hiện tại"
-        />
-      </div>
+     
 
       <div className="flex justify-end gap-3 mb-2">
         <HoverSearch
