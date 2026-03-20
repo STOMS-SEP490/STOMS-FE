@@ -20,6 +20,5 @@ export const logout = async () => {
   } finally {
     // luôn clear local
     localStorage.clear();
-    window.location.href = '/login';
   }
 };
