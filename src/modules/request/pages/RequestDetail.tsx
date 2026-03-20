@@ -479,7 +479,11 @@ export default function RequestDetail() {
                 <>
                   {/* Thông tin phiên + Danh sách thiết bị: luôn hiển thị, kể cả khi đã gắn đội / đã duyệt */}
                 <RequestSessionDetailPanel
-                  session={rightPanel.session}
+                  // Tránh trường hợp rightPanel.session bị "chụp" lúc chưa có reservationId.
+                  // Luôn ưu tiên session mới nhất từ state `sessions`.
+                  session={
+                    sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                  }
                   requestCode={request.requestCode ?? ''}
                 />
                   <div className="mt-6">

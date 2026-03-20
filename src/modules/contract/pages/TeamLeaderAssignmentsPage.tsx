@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 
 import dayjs from 'dayjs';
@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import RequestCard from '@/shared/components/request/RequestCard';
-import { getSessionStatusInfo } from '@/constants/status';
+import { getTeamLeaderRequestStatusInfo } from '@/constants/status';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
 import { useTeamLeaderAssignmentsPage } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
 
@@ -59,6 +59,8 @@ export default function TeamLeaderAssignmentsPage() {
     setSearchByAssignmentId,
     handleSelectStaff,
     handleApplyToOtherSessions,
+    autoAssigning,
+    applyingToOtherSessions,
     getSessionStats,
   } = useTeamLeaderAssignmentsPage();
 
@@ -67,6 +69,48 @@ export default function TeamLeaderAssignmentsPage() {
     rect: DOMRect;
   } | null>(null);
   // (logic/data layer moved to hook)
+
+  const isTLNeedsAction = (req: { sessions?: Array<{ status?: string | number | null }> } | null) => {
+    // TL cần thao tác khi trong request vẫn còn session ở trạng thái "chờ phân công".
+    const sessions = req?.sessions ?? [];
+    if (!sessions.length) return false;
+    return sessions.some((s) => {
+      const st = String(s.status ?? '').toLowerCase();
+      return st === 'assigning' || st === 'pending';
+    });
+  };
+
+  // Sort phiên học theo trạng thái để mặc định hiển thị đúng thứ tự (áp dụng cho detail).
+  const sortedDetailSessions = useMemo(() => {
+    const sessions = selectedRequest?.sessions ?? [];
+    const priorityOfStatus = (status?: string | number | null) => {
+      const s = String(status ?? '').toLowerCase();
+      if (s.includes('pending') || s.includes('chờ')) return 0;
+      if (s.includes('approved') || s.includes('đã duyệt')) return 1;
+      if (s.includes('assignment_rejected') || s.includes('phân công bị từ chối')) return 2;
+      if (s.includes('assigning') || s.includes('đang phân công')) return 2;
+      if (s.includes('assigned') || s.includes('đã phân công')) return 3;
+      if (s.includes('ongoing') || s.includes('đang diễn')) return 4;
+      if (s.includes('completed') || s.includes('hoàn thành')) return 5;
+      if (s.includes('cancelled') || s.includes('đã hủy')) return 6;
+      return 999;
+    };
+
+    return [...sessions].sort((a, b) => {
+      const pa = priorityOfStatus(a.status);
+      const pb = priorityOfStatus(b.status);
+      if (pa !== pb) return pa - pb;
+      const ta = a.startAt ? new Date(a.startAt).getTime() : NaN;
+      const tb = b.startAt ? new Date(b.startAt).getTime() : NaN;
+      if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb;
+      return (a.sessionNo ?? 0) - (b.sessionNo ?? 0);
+    });
+  }, [selectedRequest]);
+
+  // Tránh tooltip detail bị "dính" lại khi đổi request hoặc đóng panel.
+  useEffect(() => {
+    setHoveredStaff(null);
+  }, [selectedRequestId, activeSession?.sessionId]);
 
 
   const renderMemberOption = (m: SuggestedStaff) => {
@@ -110,6 +154,7 @@ export default function TeamLeaderAssignmentsPage() {
     roleLabel: string,
     requiredCount: number,
     colorScheme: 'sky' | 'amber',
+    sessionId: number,
   ) => {
     const borderColor = colorScheme === 'sky' ? 'border-sky-100' : 'border-amber-100';
     const bgGradient =
@@ -159,7 +204,7 @@ export default function TeamLeaderAssignmentsPage() {
               <div key={a.assignmentId} className={`rounded-lg bg-white px-3 py-2 border ${slotBorder} shadow-sm`}>
                                         <Select
                                           value={selectedId ? String(selectedId) : undefined}
-                  onValueChange={(value) => handleSelectStaff(a.assignmentId, Number(value))}
+                  onValueChange={(value) => handleSelectStaff(sessionId, a.assignmentId, Number(value))}
                                         >
                                           <SelectTrigger className="h-9 w-full text-xs border-none shadow-none px-0">
                     <SelectValue placeholder={placeholder} />
@@ -280,7 +325,8 @@ export default function TeamLeaderAssignmentsPage() {
                 courseId={r.courseId}
                 eventId={r.eventId}
                 status={r.status}
-                showNeedsAction
+                statusInfoOverride={getTeamLeaderRequestStatusInfo(r.status)}
+                showNeedsAction={isTLNeedsAction(r)}
                 isActive={r.requestId === selectedRequestId}
                 onClick={() => {
                   setSelectedRequestId(r.requestId);
@@ -419,7 +465,7 @@ export default function TeamLeaderAssignmentsPage() {
                       {selectedRequest.sessions.length} phiên trong yêu cầu này
                     </p>
                   </div>
-                  <span className="text-xs text-slate-500">Nhấn để xem chi tiết</span>
+                  <div />
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
                   {selectedRequest.sessions.length === 0 ? (
@@ -428,11 +474,17 @@ export default function TeamLeaderAssignmentsPage() {
                     </p>
                   ) : (
                     <div className="divide-y divide-slate-100">
-                      {selectedRequest.sessions.map((session) => {
+                      {sortedDetailSessions.map((session) => {
                         const stats = getSessionStats(session);
                         const isActive = activeSession?.sessionId === session.sessionId;
                         const title = `Phiên ${session.sessionNo}`;
-                        const sessionStatusInfo = getSessionStatusInfo(session.status);
+                        const normalizedSessionStatus = String(session.status ?? '')
+                          .toLowerCase()
+                          .replace(/\s|-/g, '_');
+                        const isAssignmentRejected =
+                          normalizedSessionStatus === 'assignment_rejected' ||
+                          normalizedSessionStatus === 'assignmentrejected' ||
+                          normalizedSessionStatus.includes('assignment_reject');
                         return (
                           <div
                             key={session.sessionId}
@@ -466,25 +518,29 @@ export default function TeamLeaderAssignmentsPage() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span
-                                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
-                                >
-                                  {sessionStatusInfo.label}
-                                </span>
-                                <span
-                                  className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
-                                    stats.total > 0 && stats.filled === stats.total
-                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                      : 'bg-amber-50 text-amber-800 border-amber-200'
-                                  }`}
-                                >
-                                  {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
-                                  {stats.total === 0
-                                    ? 'Chưa có slot'
-                                    : stats.filled === stats.total
-                                      ? 'Đã gán đủ'
-                                      : 'Chưa gán đủ'}
-                                </span>
+                                {isAssignmentRejected ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold border bg-rose-50 text-rose-700 border-rose-200"
+                                  >
+                                    <AlertCircle className="w-3 h-3 shrink-0" />
+                                    Cần gán người lại
+                                  </span>
+                                ) : (
+                                  <span
+                                    className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
+                                      stats.total > 0 && stats.filled === stats.total
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                                    }`}
+                                  >
+                                    {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                                    {stats.total === 0
+                                      ? 'Chưa có slot'
+                                      : stats.filled === stats.total
+                                        ? 'Đã gán đủ'
+                                        : 'Chưa gán đủ'}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -644,8 +700,14 @@ export default function TeamLeaderAssignmentsPage() {
                       </div>
                     ) : (
                       <>
-                        {renderSlotPicker(teacherSlots, 'Giảng viên', teachersRequired, 'sky')}
-                        {renderSlotPicker(taSlots, 'Trợ giảng', tasRequired, 'amber')}
+                        {renderSlotPicker(
+                          teacherSlots,
+                          'Giảng viên',
+                          teachersRequired,
+                          'sky',
+                          activeSession.sessionId,
+                        )}
+                        {renderSlotPicker(taSlots, 'Trợ giảng', tasRequired, 'amber', activeSession.sessionId)}
 
                         {/* Progress */}
                               {totalSlots > 0 && (
@@ -676,6 +738,7 @@ export default function TeamLeaderAssignmentsPage() {
                                 onClick={() =>
                                   handleApplyToOtherSessions(activeSession.sessionId)
                                 }
+                                  disabled={autoAssigning || applyingToOtherSessions}
                               >
                                 <RotateCcw className="w-3 h-3 inline mr-1" />
                                 Áp dụng cho các phiên khác

@@ -24,7 +24,10 @@ export default function RequestSessionDetailPanel({
   const [reservedError, setReservedError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!session.reservationId) {
+    const rawReservationId = (session as { reservationId?: number | string | null }).reservationId;
+    const reservationId = rawReservationId != null ? Number(rawReservationId) : NaN;
+
+    if (!reservationId || Number.isNaN(reservationId) || reservationId <= 0) {
       setReservedEquipments([]);
       return;
     }
@@ -32,7 +35,7 @@ export default function RequestSessionDetailPanel({
       setReservedLoading(true);
       setReservedError(null);
       try {
-        const detail = await reservationService.getById(session.reservationId!);
+        const detail = await reservationService.getById(reservationId);
         setReservedEquipments(detail.equipment);
       } catch (err: unknown) {
         const msg =

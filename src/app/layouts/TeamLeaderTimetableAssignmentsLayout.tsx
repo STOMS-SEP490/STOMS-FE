@@ -19,6 +19,7 @@ type TeamLeaderTimetableAssignmentsLayoutContext = {
   search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   setPageNumber: Dispatch<SetStateAction<number>>;
+  refetch: () => Promise<void>;
 };
 
 export default function TeamLeaderTimetableAssignmentsLayout() {
@@ -31,7 +32,7 @@ export default function TeamLeaderTimetableAssignmentsLayout() {
     [location.pathname],
   );
 
-  const statuses = isAttendanceTab ? ['ONGOING'] : ['ASSIGNED', 'COMPLETED'];
+  const statuses = isAttendanceTab ? ['ONGOING', 'ASSIGNED'] : ['ASSIGNED', 'ONGOING', 'COMPLETED'];
 
   const {
     items,
@@ -42,7 +43,8 @@ export default function TeamLeaderTimetableAssignmentsLayout() {
     search,
     setSearch,
     setPageNumber,
-  } = useTeamLeaderTimetableAssignments({ pageSize: 10, statuses });
+    refetch,
+  } = useTeamLeaderTimetableAssignments({ pageSize: 10, statuses, todayOnly: isAttendanceTab });
 
   return (
     <div className="relative min-h-[var(--content-height,100vh)] bg-gradient-to-br from-slate-50 via-white to-sky-50 p-6">
@@ -110,6 +112,7 @@ export default function TeamLeaderTimetableAssignmentsLayout() {
           search,
           setSearch,
           setPageNumber,
+          refetch,
         } satisfies TeamLeaderTimetableAssignmentsLayoutContext}
       />
     </div>

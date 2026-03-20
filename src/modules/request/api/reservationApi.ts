@@ -20,7 +20,17 @@ const reservationApi = {
 
   getById: async (id: number): Promise<ReservationDetail> => {
     const raw = (await axiosClient.get<any>(`/reservations/${id}`))?.data ?? {};
-    const equipRaw: any[] = raw.equipmentReservations ?? raw.EquipmentReservations ?? [];
+    // Support multiple BE field names / nesting styles.
+    // Some BEs return { equipmentReservations: [{ equipment: {...} }] }
+    // Others return { equipment: [{...}] } or similar.
+    const equipRaw: any[] =
+      raw.equipmentReservations ??
+      raw.EquipmentReservations ??
+      raw.equipmentReservation ??
+      raw.EquipmentReservation ??
+      raw.equipment ??
+      raw.Equipment ??
+      [];
     return {
       reservationId: Number(raw.reservationId ?? raw.ReservationId ?? id),
       startAt:
@@ -32,12 +42,16 @@ const reservationApi = {
           ? String(raw.endAt ?? raw.EndAt)
           : null,
       equipment: equipRaw.map((er) => {
-        const eq = er.equipment ?? er.Equipment ?? {};
+        const eq = er?.equipment ?? er?.Equipment ?? er ?? {};
         const equipmentId =
           eq.equipmentId ??
+          eq.equipment_id ??
           eq.EquipmentId ??
+          eq.EquipmentID ??
           er.equipmentId ??
           er.EquipmentId ??
+          er.equipment_id ??
+          er.EquipmentID ??
           0;
         return {
           equipmentId: Number(equipmentId),
