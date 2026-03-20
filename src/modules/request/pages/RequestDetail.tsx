@@ -26,6 +26,7 @@ export default function RequestDetail() {
     setRightPanel,
     loading,
     suggestedTeamIdsBySessionId,
+    ensureSuggestedTeamIdsForSessions,
     uiAssignedTeamIdsBySessionId,
     assignmentsBySessionId,
     selectedAssignmentIdsBySessionId,
@@ -498,6 +499,7 @@ export default function RequestDetail() {
                         }))}
                         suggestedTeamIdsBySessionId={suggestedTeamIdsBySessionId}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                        onEnsureSuggestedTeamIdsForSessions={ensureSuggestedTeamIdsForSessions}
                         onClose={() => setRightPanel(null)}
                         onAssignSession={handleAssignSession}
                         onAssignAllUi={handleAssignAllUi}
@@ -519,6 +521,7 @@ export default function RequestDetail() {
                   }))}
                   suggestedTeamIdsBySessionId={suggestedTeamIdsBySessionId}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                  onEnsureSuggestedTeamIdsForSessions={ensureSuggestedTeamIdsForSessions}
                   onClose={() => setRightPanel(null)}
                   onAssignSession={handleAssignSession}
                   onAssignAllUi={handleAssignAllUi}

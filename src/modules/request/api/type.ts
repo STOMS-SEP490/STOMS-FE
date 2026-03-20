@@ -55,6 +55,11 @@ export type SessionDetail = {
       userEmail?: string;
     } | null;
   }[] | null;
+  // Một số API session có thể trả danh sách attendances kèm attendanceByMemberId.
+  // Dùng để lấy đúng "người điểm danh" chung cho session (không lấy từ JWT).
+  attendances?: {
+    attendanceByMemberId?: number | null;
+  }[];
 };
 
 export type AssignmentDetail = {

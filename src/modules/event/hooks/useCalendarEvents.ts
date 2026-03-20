@@ -95,6 +95,7 @@ export function useCalendarEvents() {
 
           const sessionsRes = await sessionApi.getFilter({
             teamId,
+            statuses: ['ASSIGNED', 'ONGOING', 'COMPLETED'],
             pageNumber: 1,
             pageSize: 500,
           });
