@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { BarChart3, Laptop, Menu, LogOut } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/modules/auth/pages/Logout'
 
 // Sidebar riêng cho Equipment Manager nhưng UI giống hệt Sidebar manager
 export default function EquipmentSidebar() {
   const [collapsed, setCollapsed] = useState(true)
+  const navigate = useNavigate()
 
   const menus = useMemo(
     () => [
@@ -17,6 +18,7 @@ export default function EquipmentSidebar() {
 
   const handleLogout = async () => {
     await logout()
+    navigate('/login')
   }
 
   return (
