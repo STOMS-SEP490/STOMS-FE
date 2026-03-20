@@ -69,7 +69,8 @@ export const useRequestDetailManager = (params: {
   const [suggestedTeamIdsBySessionId, setSuggestedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
   const [uiAssignedTeamIdsBySessionId, setUiAssignedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
   const [assignmentsBySessionId, setAssignmentsBySessionId] = useState<Record<number, SessionAssignmentRow[]>>({});
-  const suggestedTeamsInFlightRef = useRef<Record<number, Promise<number[]>>>({});
+  // Chứa promise đang fetch gợi ý team; sessionId chưa được tạo promise thì có thể undefined.
+  const suggestedTeamsInFlightRef = useRef<Record<number, Promise<number[]> | undefined>>({});
   const [selectedAssignmentIdsBySessionId, setSelectedAssignmentIdsBySessionId] = useState<Record<number, number[]>>(
     {}
   );
