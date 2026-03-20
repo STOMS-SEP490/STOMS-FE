@@ -68,7 +68,6 @@ export default function TeamLeaderAssignmentsPage() {
   } | null>(null);
   // (logic/data layer moved to hook)
 
-  /* ───────── Render helpers ───────── */
 
   const renderMemberOption = (m: SuggestedStaff) => {
     const subText = m.email ?? m.roleName ?? '—';
@@ -200,7 +199,6 @@ export default function TeamLeaderAssignmentsPage() {
     );
   };
 
-  /* ───────── Render ───────── */
 
   const handleResetFilters = () => {
     setSearch('');

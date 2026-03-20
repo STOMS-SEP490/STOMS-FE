@@ -1,22 +1,16 @@
 import { useMemo, useState } from 'react';
 import {
-  CalendarDays,
-  CheckCircle2,
-  Clock,
-  List,
   LogIn,
   LogOut,
-  MapPin,
   UserCheck,
   X,
 } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
-import { StatCard } from '@/shared/components/common/StatCard';
 import HoverSearch from '@/shared/components/ui/search';
 import { getSessionStatusInfo } from '@/constants/status';
-import { useNavigate } from 'react-router-dom';
-import { useTeamLeaderTimetableAssignments, type TeamLeaderTimetableAssignmentRow } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
+import { useOutletContext } from 'react-router-dom';
+import type { TeamLeaderTimetableAssignmentRow } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
 import sessionApi from '@/modules/request/api/sessionApi';
 import attendanceApi from '../../request/api/attendanceApi';
 import memberApi from '@/modules/request/api/memberApi';
@@ -32,15 +26,6 @@ function formatDate(value?: string) {
   return new Date(value).toLocaleDateString('vi-VN');
 }
 
-function formatRange(value?: string) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('vi-VN', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-  });
-}
-
 function getInitials(name?: string) {
   if (!name) return 'NA';
   const parts = name.trim().split(/\s+/);
@@ -48,25 +33,36 @@ function getInitials(name?: string) {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
+type TeamLeaderTimetableAssignmentsOutletContext = {
+  statuses: string[];
+  isAttendanceTab: boolean;
+  items: TeamLeaderTimetableAssignmentRow[];
+  loading: boolean;
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  search: string;
+  setSearch: (value: string) => void;
+  setPageNumber: (page: number) => void;
+};
+
 export default function TeamLeaderTimetableAssignments() {
   const {
+    isAttendanceTab,
     items,
     loading,
     pageNumber,
     pageSize,
     totalItems,
-    search,
-    setSearch,
     setPageNumber,
-    onlineCount,
-    offlineCount,
-  } = useTeamLeaderTimetableAssignments({ pageSize: 10 });
-  const navigate = useNavigate();
+  } = useOutletContext<TeamLeaderTimetableAssignmentsOutletContext>();
   const [activeSession, setActiveSession] = useState<TeamLeaderTimetableAssignmentRow | null>(null);
   const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(null);
   const [memberNotes, setMemberNotes] = useState<Record<number, string>>({});
   const [attendanceItems, setAttendanceItems] = useState<AttendanceItem[]>([]);
   const [membersById, setMembersById] = useState<Record<number, MemberDetail>>({});
+  const [attendanceByMemberFullName, setAttendanceByMemberFullName] = useState<string>('');
+  const [attendanceByMemberIdForSession, setAttendanceByMemberIdForSession] = useState<number | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [actionMode, setActionMode] = useState<'delegate' | 'checkin' | 'checkout' | null>(null);
@@ -138,6 +134,15 @@ export default function TeamLeaderTimetableAssignments() {
       {
         id: 'status',
         header: 'Trạng thái',
+        accessorFn: (row) => row.status ?? '',
+        sortingFn: (rowA, rowB, columnId) => {
+          const order: Record<string, number> = { ASSIGNED: 0, ONGOING: 1, COMPLETED: 2 };
+          const a = String(rowA.getValue(columnId) ?? '').toUpperCase();
+          const b = String(rowB.getValue(columnId) ?? '').toUpperCase();
+          const pa = order[a] ?? 999;
+          const pb = order[b] ?? 999;
+          return pa - pb;
+        },
         cell: ({ row }) => {
           const info = getSessionStatusInfo(row.original.status);
           return (
@@ -150,128 +155,200 @@ export default function TeamLeaderTimetableAssignments() {
       {
         id: 'actions',
         header: 'Điểm danh',
+        enableSorting: false,
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                setActiveSession(row.original);
-                setActionMode('delegate');
-                setMemberNotes({});
-                setMemberSearch('');
-                setSelectedMemberIds([]);
-                const memberId = getCurrentMemberId();
-                const detail = await sessionApi.getById(row.original.sessionId);
-                setSessionDetail(detail);
-                const attendance = await attendanceApi.getFilter({
-                  sessionId: row.original.sessionId,
-                  attendanceByMemberId: memberId ?? undefined,
-                  pageNumber: 1,
-                  pageSize: 100,
-                });
-                const memberIds = (attendance.items ?? []).map((item) => item.memberId);
-                const memberDetails = await Promise.all(
-                  memberIds.map(async (id) => ({
-                    id,
-                    detail: await memberApi.getById(id),
-                  })),
-                );
-                const map = memberDetails.reduce<Record<number, MemberDetail>>(
-                  (acc, item) => {
-                    acc[item.id] = item.detail;
-                    return acc;
-                  },
-                  {},
-                );
-                setMembersById(map);
-                setAttendanceItems(attendance.items ?? []);
-              }}
-              className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
-              title="Ủy quyền điểm danh cho member trong phiên này"
-            >
-              <UserCheck className="h-3 w-3" />
-              Ủy quyền
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                setActiveSession(row.original);
-                setActionMode('checkin');
-                setMemberNotes({});
-                setMemberSearch('');
-                setSelectedMemberIds([]);
-                const memberId = getCurrentMemberId();
-                const detail = await sessionApi.getById(row.original.sessionId);
-                setSessionDetail(detail);
-                const attendance = await attendanceApi.getFilter({
-                  sessionId: row.original.sessionId,
-                  attendanceByMemberId: memberId ?? undefined,
-                  pageNumber: 1,
-                  pageSize: 100,
-                });
-                const memberIds = (attendance.items ?? []).map((item) => item.memberId);
-                const memberDetails = await Promise.all(
-                  memberIds.map(async (id) => ({
-                    id,
-                    detail: await memberApi.getById(id),
-                  })),
-                );
-                const map = memberDetails.reduce<Record<number, MemberDetail>>(
-                  (acc, item) => {
-                    acc[item.id] = item.detail;
-                    return acc;
-                  },
-                  {},
-                );
-                setMembersById(map);
-                setAttendanceItems(attendance.items ?? []);
-              }}
-              className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
-              title="Check-in member cho phiên này"
-            >
-              <LogIn className="h-3 w-3" />
-              Check-in
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                setActiveSession(row.original);
-                setActionMode('checkout');
-                setMemberNotes({});
-                setMemberSearch('');
-                setSelectedMemberIds([]);
-                const memberId = getCurrentMemberId();
-                const detail = await sessionApi.getById(row.original.sessionId);
-                setSessionDetail(detail);
-                const attendance = await attendanceApi.getFilter({
-                  sessionId: row.original.sessionId,
-                  attendanceByMemberId: memberId ?? undefined,
-                  pageNumber: 1,
-                  pageSize: 100,
-                });
-                const memberIds = (attendance.items ?? []).map((item) => item.memberId);
-                const memberDetails = await Promise.all(
-                  memberIds.map(async (id) => ({
-                    id,
-                    detail: await memberApi.getById(id),
-                  })),
-                );
-                const map = memberDetails.reduce<Record<number, MemberDetail>>(
-                  (acc, item) => {
-                    acc[item.id] = item.detail;
-                    return acc;
-                  },
-                  {},
-                );
-                setMembersById(map);
-                setAttendanceItems(attendance.items ?? []);
-              }}
-              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
-              title="Check-out member cho phiên này"
-            >
-              <LogOut className="h-3 w-3" />
-              Check-out
-            </button>
+            {(() => {
+              const statusUpper = String(row.original.status ?? '').toUpperCase();
+              // Đã hoàn thành thì không còn cho phép ủy quyền điểm danh
+              const canDelegate = !isAttendanceTab && statusUpper.includes('ASSIGNED');
+              const canCheckin = isAttendanceTab && statusUpper.includes('ONGOING');
+              const canCheckout = isAttendanceTab && statusUpper.includes('ONGOING');
+              const isCompleted = !isAttendanceTab && statusUpper.includes('COMPLETED');
+              const attendanceTakerName = row.original.attendanceByMemberFullName;
+
+              return (
+                <>
+                  {canDelegate &&
+                    (row.original.attendanceByMemberId != null && row.original.attendanceByMemberId > 0 ? (
+                      <span className="inline-flex w-fit items-center gap-0.5 justify-self-end rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 whitespace-nowrap">
+                        <UserCheck className="h-3 w-3" />
+                        Đã được ủy quyền
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setActiveSession(row.original);
+                          setActionMode('delegate');
+                          setMemberNotes({});
+                          setMemberSearch('');
+                          setSelectedMemberIds([]);
+                          setAttendanceByMemberFullName('');
+                          const detail = await sessionApi.getById(row.original.sessionId);
+                          setSessionDetail(detail);
+                          const jwtMemberId = getCurrentMemberId();
+                          const attendanceByMemberIdFromSession =
+                            detail.attendances?.[0]?.attendanceByMemberId ?? null;
+                          const attendanceByMemberId = attendanceByMemberIdFromSession ?? jwtMemberId;
+                          setAttendanceByMemberIdForSession(attendanceByMemberId);
+                          const attendance = await attendanceApi.getFilter({
+                            sessionId: row.original.sessionId,
+                            attendanceByMemberId: attendanceByMemberId ?? undefined,
+                            pageNumber: 1,
+                            pageSize: 100,
+                          });
+                          const memberIds = (attendance.items ?? []).map((item) => item.memberId);
+                          const memberDetails = await Promise.all(
+                            memberIds.map(async (id) => ({
+                              id,
+                              detail: await memberApi.getById(id),
+                            })),
+                          );
+                          const map = memberDetails.reduce<Record<number, MemberDetail>>(
+                            (acc, item) => {
+                              acc[item.id] = item.detail;
+                              return acc;
+                            },
+                            {},
+                          );
+                          setMembersById(map);
+                          setAttendanceItems(attendance.items ?? []);
+                        }}
+                        className="inline-flex w-fit items-center gap-0.5 justify-self-end rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100 whitespace-nowrap"
+                        title="Ủy quyền điểm danh cho member trong phiên này"
+                      >
+                        <UserCheck className="h-3 w-3" />
+                        Ủy quyền
+                      </button>
+                    ))}
+
+                  {isCompleted && (
+                    <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                      Điểm danh bởi {attendanceTakerName || '—'}
+                    </span>
+                  )}
+
+                  {canCheckin && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setActiveSession(row.original);
+                        setActionMode('checkin');
+                        setMemberNotes({});
+                        setMemberSearch('');
+                        setSelectedMemberIds([]);
+                        setAttendanceByMemberFullName('');
+                        const detail = await sessionApi.getById(row.original.sessionId);
+                        setSessionDetail(detail);
+                        const jwtMemberId = getCurrentMemberId();
+                        const attendanceByMemberIdFromSession = detail.attendances?.[0]?.attendanceByMemberId ?? null;
+                        const attendanceByMemberId = attendanceByMemberIdFromSession ?? jwtMemberId;
+                        setAttendanceByMemberIdForSession(attendanceByMemberId);
+                        const attendance = await attendanceApi.getFilter({
+                          sessionId: row.original.sessionId,
+                          attendanceByMemberId: attendanceByMemberId ?? undefined,
+                          pageNumber: 1,
+                          pageSize: 100,
+                        });
+                        const memberIds = (attendance.items ?? []).map((item) => item.memberId);
+
+                        if (attendanceByMemberId) {
+                          try {
+                            const by = await memberApi.getById(attendanceByMemberId);
+                            setAttendanceByMemberFullName(by.fullName || by.userEmail || '');
+                          } catch {
+                            setAttendanceByMemberFullName('');
+                          }
+                        } else {
+                          setAttendanceByMemberFullName('');
+                        }
+
+                        const memberDetails = await Promise.all(
+                          memberIds.map(async (id) => ({
+                            id,
+                            detail: await memberApi.getById(id),
+                          })),
+                        );
+                        const map = memberDetails.reduce<Record<number, MemberDetail>>(
+                          (acc, item) => {
+                            acc[item.id] = item.detail;
+                            return acc;
+                          },
+                          {},
+                        );
+                        setMembersById(map);
+                        setAttendanceItems(attendance.items ?? []);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
+                      title="Check-in member cho phiên này"
+                    >
+                      <LogIn className="h-3 w-3" />
+                      Check-in
+                    </button>
+                  )}
+
+                  {canCheckout && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setActiveSession(row.original);
+                        setActionMode('checkout');
+                        setMemberNotes({});
+                        setMemberSearch('');
+                        setSelectedMemberIds([]);
+                        setAttendanceByMemberFullName('');
+                        const detail = await sessionApi.getById(row.original.sessionId);
+                        setSessionDetail(detail);
+                        const jwtMemberId = getCurrentMemberId();
+                        const attendanceByMemberIdFromSession = detail.attendances?.[0]?.attendanceByMemberId ?? null;
+                        const attendanceByMemberId = attendanceByMemberIdFromSession ?? jwtMemberId;
+                        setAttendanceByMemberIdForSession(attendanceByMemberId);
+                        const attendance = await attendanceApi.getFilter({
+                          sessionId: row.original.sessionId,
+                          attendanceByMemberId: attendanceByMemberId ?? undefined,
+                          pageNumber: 1,
+                          pageSize: 100,
+                        });
+                        const memberIds = (attendance.items ?? []).map((item) => item.memberId);
+
+                        if (attendanceByMemberId) {
+                          try {
+                            const by = await memberApi.getById(attendanceByMemberId);
+                            setAttendanceByMemberFullName(by.fullName || by.userEmail || '');
+                          } catch {
+                            setAttendanceByMemberFullName('');
+                          }
+                        } else {
+                          setAttendanceByMemberFullName('');
+                        }
+
+                        const memberDetails = await Promise.all(
+                          memberIds.map(async (id) => ({
+                            id,
+                            detail: await memberApi.getById(id),
+                          })),
+                        );
+                        const map = memberDetails.reduce<Record<number, MemberDetail>>(
+                          (acc, item) => {
+                            acc[item.id] = item.detail;
+                            return acc;
+                          },
+                          {},
+                        );
+                        setMembersById(map);
+                        setAttendanceItems(attendance.items ?? []);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
+                      title="Check-out member cho phiên này"
+                    >
+                      <LogOut className="h-3 w-3" />
+                      Check-out
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         ),
       },
@@ -286,102 +363,14 @@ export default function TeamLeaderTimetableAssignments() {
   );
 
   return (
-    <div className="relative min-h-[var(--content-height,100vh)] bg-gradient-to-br from-slate-50 via-white to-sky-50 p-6">
+    <div className="relative">
       {loading && (
         <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-sm">
           <span className="text-sm text-muted-foreground">Đang tải danh sách...</span>
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-sky-600">
-              <CheckCircle2 className="h-4 w-4" />
-              Timetable Assignments
-            </div>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">Quản lý phân công & điểm danh</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Theo dõi phiên dạy, ủy quyền điểm danh và check-in/check-out cho member theo từng buổi.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
-            <button
-              type="button"
-              onClick={() => navigate('/tl/timetable')}
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors text-slate-500 hover:bg-slate-50"
-              title="Xem dạng thời khóa biểu"
-            >
-              <CalendarDays className="h-4 w-4" />
-              Lịch
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/tl/timetable/assignments')}
-              className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 shadow-sm"
-              title="Xem dạng bảng phân công"
-            >
-              <List className="h-4 w-4" />
-              Danh sách
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <StatCard icon={<CalendarDays />} label="Tổng buổi" value={totalItems.toString()} sub="theo bộ lọc hiện tại" />
-            <StatCard icon={<Clock />} label="Buổi online" value={onlineCount.toString()} sub="trong trang hiện tại" />
-            <StatCard icon={<MapPin />} label="Buổi offline" value={offlineCount.toString()} sub="trong trang hiện tại" />
-          </div>
-
-          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-              <UserCheck className="h-4 w-4 text-emerald-500" />
-              Hành động nhanh
-            </div>
-            <p className="text-xs text-slate-500">
-              Ủy quyền điểm danh cho member hoặc tự check-in/check-out khi không ủy quyền.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                <UserCheck className="h-3 w-3" />
-                Ủy quyền
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700">
-                <LogIn className="h-3 w-3" />
-                Check-in
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700">
-                <LogOut className="h-3 w-3" />
-                Check-out
-              </span>
-            </div>
-            <div className="text-xs text-slate-500">
-              Mẹo: bấm vào từng phiên để thao tác nhanh cho member trong buổi đó.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_auto]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">Danh sách phiên cần xử lý</h3>
-              <p className="text-xs text-slate-500">
-                Chọn phiên để ủy quyền điểm danh hoặc check-in/check-out nhanh cho member.
-              </p>
-            </div>
-            <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo phiên/địa điểm/trạng thái..." />
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-3 text-xs text-slate-500">
-          Hiển thị tuần {formatRange(items[0]?.startAt)} – {formatRange(items[items.length - 1]?.endAt)}
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mt-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <DataTable
           columns={columns}
           data={items}
@@ -403,6 +392,8 @@ export default function TeamLeaderTimetableAssignments() {
             setActionMode(null);
             setActiveSession(null);
             setSessionDetail(null);
+            setAttendanceByMemberIdForSession(null);
+            setAttendanceByMemberFullName('');
           }}
         />
         <aside
@@ -434,6 +425,8 @@ export default function TeamLeaderTimetableAssignments() {
                   setActionMode(null);
                   setActiveSession(null);
                   setSessionDetail(null);
+                  setAttendanceByMemberIdForSession(null);
+                  setAttendanceByMemberFullName('');
                 }}
               >
                 <X className="h-4 w-4" />
@@ -473,7 +466,7 @@ export default function TeamLeaderTimetableAssignments() {
                         }
                         const attendanceList = await attendanceApi.getFilter({
                           sessionId: activeSession.sessionId,
-                          attendanceByMemberId: getCurrentMemberId() ?? undefined,
+                          attendanceByMemberId: attendanceByMemberIdForSession ?? undefined,
                           pageNumber: 1,
                           pageSize: 100,
                         });
@@ -491,7 +484,7 @@ export default function TeamLeaderTimetableAssignments() {
                 )}
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div className="mt-0 flex flex-wrap items-center gap-3 bg-white px-4 py-3">
                 <HoverSearch
                   value={memberSearch}
                   onChange={setMemberSearch}
@@ -547,6 +540,8 @@ export default function TeamLeaderTimetableAssignments() {
                   const memberEmail = member?.userEmail ?? cachedMember?.userEmail ?? 'Không có email';
                   const isCheckedIn = !!attendance.checkinAt;
                   const isCheckedOut = !!attendance.checkoutAt;
+                  const isAuthorizedDelegate =
+                    attendanceByMemberIdForSession != null && attendanceByMemberIdForSession === memberId;
                   return (
                     <div
                       key={attendance.attendanceId}
@@ -566,34 +561,42 @@ export default function TeamLeaderTimetableAssignments() {
                       </div>
 
                       {actionMode === 'delegate' ? (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (!activeSession) return;
-                            setIsSubmitting(true);
-                            try {
-                              await attendanceApi.delegate({
-                                sessionId: activeSession.sessionId,
-                                delegateToMemberId: memberId,
-                              });
-                              const attendanceList = await attendanceApi.getFilter({
-                                sessionId: activeSession.sessionId,
-                                attendanceByMemberId: memberId,
-                                pageNumber: 1,
-                                pageSize: 100,
-                              });
-                              setAttendanceItems(attendanceList.items ?? []);
-                              setActionMode(null);
-                            } finally {
-                              setIsSubmitting(false);
-                            }
-                          }}
-                          className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
-                          disabled={isSubmitting}
-                        >
-                          <UserCheck className="h-4 w-4" />
-                          Ủy quyền
-                        </button>
+                        isAuthorizedDelegate ? (
+                          <span className="inline-flex w-fit justify-self-end items-center gap-0.5 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 whitespace-nowrap">
+                            <UserCheck className="h-3 w-3" />
+                            Đã được ủy quyền
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!activeSession) return;
+                              setIsSubmitting(true);
+                              try {
+                                await attendanceApi.delegate({
+                                  sessionId: activeSession.sessionId,
+                                  delegateToMemberId: memberId,
+                                });
+                                const attendanceList = await attendanceApi.getFilter({
+                                  sessionId: activeSession.sessionId,
+                                  attendanceByMemberId:
+                                    attendanceByMemberIdForSession ?? undefined,
+                                  pageNumber: 1,
+                                  pageSize: 100,
+                                });
+                                setAttendanceItems(attendanceList.items ?? []);
+                                setActionMode(null);
+                              } finally {
+                                setIsSubmitting(false);
+                              }
+                            }}
+                            className="inline-flex w-fit justify-self-end items-center gap-0.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100 whitespace-nowrap"
+                            disabled={isSubmitting}
+                          >
+                            <UserCheck className="h-3 w-3" />
+                            Ủy quyền
+                          </button>
+                        )
                       ) : (
                         <div className="grid w-full grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                           <input
@@ -611,6 +614,11 @@ export default function TeamLeaderTimetableAssignments() {
                             {actionMode === 'checkin' && isCheckedIn ? (
                               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
                                 {formatDateTime(attendance.checkinAt ?? undefined)}
+                                {attendanceByMemberFullName ? (
+                                  <span className="text-[11px] font-semibold text-emerald-700 whitespace-nowrap">
+                                    • {attendanceByMemberFullName}
+                                  </span>
+                                ) : null}
                               </span>
                             ) : actionMode === 'checkout' && !isCheckedIn ? (
                               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
@@ -619,6 +627,11 @@ export default function TeamLeaderTimetableAssignments() {
                             ) : actionMode === 'checkout' && isCheckedOut ? (
                               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
                                 Đã check-out lúc {formatDateTime(attendance.checkoutAt ?? undefined)}
+                                {attendanceByMemberFullName ? (
+                                  <span className="text-[11px] font-semibold text-emerald-700 whitespace-nowrap">
+                                    • {attendanceByMemberFullName}
+                                  </span>
+                                ) : null}
                               </span>
                             ) : (
                               <span className="text-xs text-slate-400">&nbsp;</span>

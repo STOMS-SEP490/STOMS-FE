@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Clock, CalendarDays, MapPin, List } from 'lucide-react';
+import { CalendarDays, List } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
-import { StatCard } from '@/shared/components/common/StatCard';
 import HoverSearch from '@/shared/components/ui/search';
 import teachingHistoryApi from '../api/teachingHistoryApi';
 import type { TeachingScheduleItem } from '../teachingHistory';
@@ -163,26 +162,7 @@ export default function TeacherAssignments() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-2">
-        <StatCard
-          icon={<CalendarDays />}
-          label="Tổng buổi"
-          value={totalItems.toString()}
-          sub="trong danh sách hiện tại"
-        />
-        <StatCard
-          icon={<Clock />}
-          label="Buổi online"
-          value={items.filter((x) => x.isOnline).length.toString()}
-          sub="trong danh sách hiện tại"
-        />
-        <StatCard
-          icon={<MapPin />}
-          label="Buổi offline"
-          value={items.filter((x) => x.isOnline === false).length.toString()}
-          sub="trong danh sách hiện tại"
-        />
-      </div>
+     
 
       <div className="flex justify-end gap-3 mb-2">
         <HoverSearch

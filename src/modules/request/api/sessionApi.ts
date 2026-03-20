@@ -12,10 +12,16 @@ export type PublishedTeamSession = {
   location?: string;
   status?: string;
   isOnline?: boolean | null;
+  // API có thể trả thêm attendances (nhất là với session đã Completed),
+  // dùng để hiển thị tên người điểm danh.
+  attendances?: Array<{
+    attendanceByMemberId?: number | null;
+  }>;
 };
 
 function mapPublishedTeamSessionFromApi(raw: Record<string, unknown>): PublishedTeamSession {
   const isOnlineRaw = raw['isOnline'] ?? raw['IsOnline'] ?? null;
+  const attendancesRaw = (raw['attendances'] ?? raw['Attendances'] ?? []) as Record<string, unknown>[];
   return {
     sessionId: Number(raw['sessionId'] ?? raw['SessionId'] ?? 0),
     requestId: Number(raw['requestId'] ?? raw['RequestId'] ?? 0) || undefined,
@@ -37,6 +43,13 @@ function mapPublishedTeamSessionFromApi(raw: Record<string, unknown>): Published
         ? String(raw['status'] ?? raw['Status'])
         : undefined,
     isOnline: isOnlineRaw == null ? null : Boolean(isOnlineRaw),
+    attendances: Array.isArray(attendancesRaw)
+      ? attendancesRaw.map((a) => {
+          const v = a['attendanceByMemberId'] ?? a['AttendanceByMemberId'] ?? null;
+          const num = v != null ? Number(v) : null;
+          return { attendanceByMemberId: num && num > 0 ? num : null };
+        })
+      : undefined,
   };
 }
 

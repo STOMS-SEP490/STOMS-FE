@@ -10,6 +10,10 @@ export type TeamLeaderTimetableAssignmentRow = {
   endAt?: string;
   location?: string;
   status?: string;
+  // Với session đã Completed: attendanceByMemberId sẽ chỉ 1 người điểm danh chung,
+  // lấy từ attendance đầu tiên là đủ.
+  attendanceByMemberId?: number | null;
+  attendanceByMemberFullName?: string;
 };
 
 function normalizeSessionsToRows(raw: PublishedTeamSession[]): TeamLeaderTimetableAssignmentRow[] {
@@ -23,15 +27,19 @@ function normalizeSessionsToRows(raw: PublishedTeamSession[]): TeamLeaderTimetab
       endAt: s.endAt,
       location: s.location,
       status: s.status,
+      attendanceByMemberId:
+        (s.attendances ?? [])[0]?.attendanceByMemberId ?? null,
     }));
 }
 
-export function useTeamLeaderTimetableAssignments(params?: { pageSize?: number }) {
+export function useTeamLeaderTimetableAssignments(params?: { pageSize?: number; statuses?: string[] }) {
   const [items, setItems] = useState<TeamLeaderTimetableAssignmentRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [search, setSearch] = useState('');
   const pageSize = params?.pageSize ?? 10;
+  const statuses = params?.statuses ?? ['ASSIGNED', 'ONGOING', 'COMPLETED'];
+  const statusesKey = statuses.join(',');
   const [totalItems, setTotalItems] = useState(0);
 
   const fetchData = useCallback(async () => {
@@ -53,7 +61,7 @@ export function useTeamLeaderTimetableAssignments(params?: { pageSize?: number }
 
       const res = await sessionApi.getFilter({
         teamId,
-        statuses: ['ASSIGNED', 'ONGOING', 'COMPLETED'],
+        statuses,
         pageNumber: 1,
         pageSize: 500,
       });
@@ -70,9 +78,39 @@ export function useTeamLeaderTimetableAssignments(params?: { pageSize?: number }
         });
       }
 
+      // Enrich "người điểm danh" cho session Completed
+      const shouldShowAttendanceTaker = statuses.some((s) => String(s).toUpperCase().includes('COMPLETED'));
       setTotalItems(rows.length);
       const start = (pageNumber - 1) * pageSize;
-      setItems(rows.slice(start, start + pageSize));
+      let pageRows = rows.slice(start, start + pageSize);
+
+      if (shouldShowAttendanceTaker) {
+        const ids = Array.from(
+          new Set(
+            pageRows
+              .map((r) => r.attendanceByMemberId)
+              .filter((x): x is number => x != null && x > 0),
+          ),
+        );
+        const byNameMap = new Map<number, string>();
+        await Promise.all(
+          ids.map(async (id) => {
+            try {
+              const detail = await memberApi.getById(id);
+              byNameMap.set(id, detail.fullName || detail.userEmail || '');
+            } catch {
+              // Ignore
+            }
+          }),
+        );
+        pageRows = pageRows.map((r) => ({
+          ...r,
+          attendanceByMemberFullName:
+            r.attendanceByMemberId != null ? byNameMap.get(r.attendanceByMemberId) : undefined,
+        }));
+      }
+
+      setItems(pageRows);
     } catch (err) {
       console.error('fetch teamleader timetable assignments error', err);
       setItems([]);
@@ -80,7 +118,7 @@ export function useTeamLeaderTimetableAssignments(params?: { pageSize?: number }
     } finally {
       setLoading(false);
     }
-  }, [pageNumber, pageSize, search]);
+  }, [pageNumber, pageSize, search, statusesKey]);
 
   useEffect(() => {
     void fetchData();
