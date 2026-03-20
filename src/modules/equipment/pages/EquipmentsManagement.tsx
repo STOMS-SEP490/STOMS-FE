@@ -12,8 +12,8 @@ import {
 import type { EquipmentListItem } from '@/modules/equipment/equipment';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
-import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useEquipments } from '../hooks/useEquipments';
 import CreateEquipmentModal from './CreateEquipmentModal';
 import { useCategories } from '@/modules/category/hooks/useCategories';
@@ -31,9 +31,13 @@ import EditEquipmentModal from './EditEquipmentModal';
 
 export default function EquipmentsManagement() {
   const context = useOutletContext<{ position?: string }>()
+  const [searchParams, setSearchParams] = useSearchParams();
   const [openCreateModal, setOpenCreateModal] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailEquipment, setDetailEquipment] = useState<EquipmentListItem | null>(null)
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false);
   const [editOpen, setEditOpen] = useState(false)
   const [editEquipment, setEditEquipment] = useState<EquipmentListItem | null>(null)
   const [disableOpen, setDisableOpen] = useState(false)
@@ -59,6 +63,46 @@ export default function EquipmentsManagement() {
   } = useEquipments()
   const { data: categories } = useCategories()
   const categoryNameById = new Map(categories.map((c) => [c.categoryId, c.categoryName]))
+
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const equipmentIdFromUrl = searchParams.get('equipmentId');
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setDetailOpen(false);
+    setDetailEquipment(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('equipmentId');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!equipmentIdFromUrl) return;
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const equipmentId = Number(equipmentIdFromUrl);
+    if (!equipmentId || Number.isNaN(equipmentId)) return;
+
+    // Nếu đang mở đúng thiết bị thì không gọi API lại
+    if (detailOpen && detailEquipment?.equipmentId === equipmentId) return;
+
+    (async () => {
+      try {
+        const full = await equipmentApi.getById(equipmentId);
+        setDetailEquipment(full);
+        setDetailOpen(true);
+      } catch {
+        message.error('Không tải được thông tin thiết bị');
+      }
+    })();
+  }, [openDetailFromUrl, equipmentIdFromUrl, detailOpen, detailEquipment?.equipmentId]);
 
   const handleView = async (item: EquipmentListItem) => {
     try {
@@ -385,7 +429,7 @@ export default function EquipmentsManagement() {
     <div className="relative">
       <EquipmentDetailSidebar
         open={detailOpen}
-        onClose={() => setDetailOpen(false)}
+        onClose={closeDetailFromUrl}
         equipment={detailEquipment}
         categoryName={
           detailEquipment

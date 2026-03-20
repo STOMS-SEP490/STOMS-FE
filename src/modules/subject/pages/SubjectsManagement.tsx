@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { Eye, Pencil, Power, PowerOff, Trash2, Plus } from 'lucide-react'
 import { DataTable } from '@/shared/components/common/DataTable'
 import HoverSearch from '@/shared/components/ui/search'
 import { Button } from '@/shared/components/ui/button'
-import { Dialog } from '@/shared/components/ui/dialog'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import { Switch } from '@/shared/components/ui/switch'
-import { message, Modal } from 'antd'
+import { Drawer, message, Modal } from 'antd'
 import type { SkillListItem } from '@/modules/skill/skill'
 import skillApi from '@/modules/skill/api/skillApi'
 import type { TopicListItem } from '@/modules/topic/topic'
@@ -43,6 +42,59 @@ export default function SubjectsManagement() {
     setPageNumber,
     refetch,
   } = useSubjects()
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  const openDetailFromUrl = searchParams.get('openDetail')
+  const subjectIdFromUrl = searchParams.get('subjectId')
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false)
+
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailSubject, setDetailSubject] = useState<SubjectListItem | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const lastOpenedSubjectIdRef = useRef<number | null>(null)
+
+  const closeDetailFromUrl = () => {
+    if (openDetailFromUrl === '1') {
+      skipNextAutoOpenRef.current = true
+    }
+    setDetailOpen(false)
+    setDetailSubject(null)
+    setDetailLoading(false)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('openDetail')
+      next.delete('subjectId')
+      return next
+    })
+  }
+
+  const openDetailById = async (id: number) => {
+    try {
+      setDetailLoading(true)
+      const full = await subjectApi.getById(id)
+      setDetailSubject(full)
+      lastOpenedSubjectIdRef.current = id
+      setDetailOpen(true)
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === 'object' && 'response' in e
+          ? ((e as { response?: { data?: { message?: string } } }).response?.data?.message ??
+              null)
+          : null
+      message.error(msg ?? 'Không tải được chi tiết môn học')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const activeSubjectSkills = useMemo(() => {
+    if (!detailSubject) return []
+    return (detailSubject.subjectSkills ?? []).filter((ss: any) =>
+      ss?.isActive === undefined ? true : ss.isActive === true,
+    )
+  }, [detailSubject])
 
   const [openEdit, setOpenEdit] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
@@ -79,6 +131,7 @@ export default function SubjectsManagement() {
 
   const openEditModal = async (s: SubjectListItem) => {
     setIsCreating(false)
+    setShowAddSkill(false)
     try {
       // luôn lấy bản chi tiết mới nhất để có đủ subjectSkills
       const detail = await subjectApi.getById(s.subjectId)
@@ -143,6 +196,7 @@ export default function SubjectsManagement() {
   const openCreateModal = () => {
     setIsCreating(true)
     setEditingSubject(null)
+    setShowAddSkill(false)
     setSubjectCode('')
     setSubjectName('')
     setDescription('')
@@ -224,8 +278,16 @@ export default function SubjectsManagement() {
           subjectSessions,
         }
 
-        await subjectApi.create(payload)
+        const created = await subjectApi.create(payload)
+
+        // Gán kỹ năng đã chọn khi tạo môn (pendingSkillIdsToAdd)
+        if (pendingSkillIdsToAdd.length > 0) {
+          const toAddSkillIds = Array.from(new Set(pendingSkillIdsToAdd))
+          await subjectSkillApi.assignBulk(created.subjectId, toAddSkillIds)
+        }
+
         message.success('Tạo môn học thành công')
+        setPendingSkillIdsToAdd([])
         setOpenEdit(false)
         await refetch()
         return
@@ -352,97 +414,26 @@ export default function SubjectsManagement() {
     })
   }
 
-  const handleView = async (s: SubjectListItem) => {
-    try {
-      const detail = await subjectApi.getById(s.subjectId)
-      const activeSubjectSkills =
-        (detail.subjectSkills ?? []).filter((ss: any) =>
-          ss?.isActive === undefined ? true : ss.isActive === true,
-        )
-
-      Modal.info({
-        title: `Môn học ${detail.subjectCode}`,
-        width: 720,
-        content: (
-          <div className="stoms-scrollbar space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-            <div>
-              <div className="text-xs text-gray-500">Tên môn học</div>
-              <div className="text-sm font-medium">{detail.subjectName || '—'}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Mô tả</div>
-              <div className="text-sm">{detail.description || '—'}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Chủ đề</div>
-                <div className="text-sm font-medium">{detail.topicName ?? detail.topicId ?? '—'}</div>
-              </div>
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Số buổi</div>
-                <div className="text-sm font-medium">{detail.numberOfSession}</div>
-              </div>
-            </div>
-            <div className="pt-2">
-              <div className="text-xs text-gray-500">Trạng thái</div>
-              <div className="text-sm">{detail.isActive ? 'Đang hoạt động' : 'Vô hiệu hóa'}</div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Số khóa học đang dùng môn này</div>
-                <div className="text-sm font-medium">
-                  {detail.courseSubjects ? detail.courseSubjects.length : 0}
-                </div>
-              </div>
-              {activeSubjectSkills.length > 0 && (
-                <div className="rounded-md border p-2">
-                  <div className="text-xs text-gray-500 mb-1">Kỹ năng liên quan</div>
-                  <div className="flex flex-wrap gap-1">
-                    {activeSubjectSkills.map((ss) => (
-                      <span
-                        key={`${ss.subjectId}-${ss.skillId}`}
-                        className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs border border-blue-100"
-                      >
-                        {ss.skill?.skillName ?? `Skill #${ss.skillId}`}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {detail.subjectSessions && detail.subjectSessions.length > 0 && (
-              <div className="pt-3 space-y-2">
-                <div className="text-xs font-semibold text-gray-600 uppercase">
-                  Danh sách buổi học trong môn
-                </div>
-                <div className="border rounded-md divide-y">
-                  {detail.subjectSessions.map((session) => (
-                    <div key={session.subjectSessionId} className="px-3 py-2 flex gap-3 items-start">
-                      <div className="w-10 text-xs font-semibold text-gray-700">
-                        Buổi {session.sessionNo}
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="text-sm font-medium">{session.title}</div>
-                        <div className="text-xs text-gray-500">
-                          Thời lượng: {session.duration || '—'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ),
-        okText: 'Đóng',
-      })
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Không tải được chi tiết môn học'
-      message.error(msg)
-    }
+  const handleView = (s: SubjectListItem) => {
+    void openDetailById(s.subjectId)
   }
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return
+    if (!subjectIdFromUrl) return
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false
+      return
+    }
+
+    const id = Number(subjectIdFromUrl)
+    if (!id || Number.isNaN(id)) return
+
+    if (detailOpen && lastOpenedSubjectIdRef.current === id) return
+
+    void openDetailById(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDetailFromUrl, subjectIdFromUrl])
 
   const columns = useMemo<ColumnDef<SubjectListItem>[]>(() => [
     {
@@ -545,16 +536,106 @@ export default function SubjectsManagement() {
         />
       </div>
 
-      <Dialog
+      <Drawer
+        open={detailOpen}
+        onClose={closeDetailFromUrl}
+        placement="right"
+        width={720}
+        title={detailSubject ? `Môn học ${detailSubject.subjectCode}` : 'Chi tiết môn học'}
+      >
+        {detailLoading && !detailSubject ? (
+          <div className="text-sm text-gray-500">Đang tải chi tiết...</div>
+        ) : detailSubject ? (
+          <div className="stoms-scrollbar space-y-3 max-h-[70vh] overflow-y-auto pr-2">
+            <div>
+              <div className="text-xs text-gray-500">Tên môn học</div>
+              <div className="text-sm font-medium">{detailSubject.subjectName || '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Mô tả</div>
+              <div className="text-sm">{detailSubject.description || '—'}</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="rounded-md border p-2">
+                <div className="text-xs text-gray-500">Chủ đề</div>
+                <div className="text-sm font-medium">
+                  {detailSubject.topicName ?? detailSubject.topicId ?? '—'}
+                </div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-xs text-gray-500">Số buổi</div>
+                <div className="text-sm font-medium">{detailSubject.numberOfSession}</div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <div className="text-xs text-gray-500">Trạng thái</div>
+              <div className="text-sm">{detailSubject.isActive ? 'Đang hoạt động' : 'Vô hiệu hóa'}</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="rounded-md border p-2">
+                <div className="text-xs text-gray-500">Số khóa học đang dùng môn này</div>
+                <div className="text-sm font-medium">
+                  {detailSubject.courseSubjects ? detailSubject.courseSubjects.length : 0}
+                </div>
+              </div>
+
+              {activeSubjectSkills.length > 0 && (
+                <div className="rounded-md border p-2">
+                  <div className="text-xs text-gray-500 mb-1">Kỹ năng liên quan</div>
+                  <div className="flex flex-wrap gap-1">
+                    {activeSubjectSkills.map((ss: any) => (
+                      <span
+                        key={`${ss.subjectId}-${ss.skillId}`}
+                        className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs border border-blue-100"
+                      >
+                        {ss.skill?.skillName ?? `Skill #${ss.skillId}`}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {detailSubject.subjectSessions && detailSubject.subjectSessions.length > 0 && (
+              <div className="pt-3 space-y-2">
+                <div className="text-xs font-semibold text-gray-600 uppercase">
+                  Danh sách buổi học trong môn
+                </div>
+                <div className="border rounded-md divide-y">
+                  {detailSubject.subjectSessions.map((session) => (
+                    <div
+                      key={session.subjectSessionId}
+                      className="px-3 py-2 flex gap-3 items-start"
+                    >
+                      <div className="w-10 text-xs font-semibold text-gray-700">
+                        Buổi {session.sessionNo}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <div className="text-sm font-medium">{session.title}</div>
+                        <div className="text-xs text-gray-500">
+                          Thời lượng: {session.duration || '—'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500">Không có dữ liệu.</div>
+        )}
+      </Drawer>
+
+      <Drawer
         open={openEdit}
         onClose={closeEditModal}
+        placement="right"
+        width={520}
         title={isCreating ? 'Tạo môn học' : 'Cập nhật môn học'}
-        description={
-          isCreating
-            ? 'Tạo mới một môn học trong hệ thống.'
-            : 'Chỉnh sửa thông tin cơ bản của môn học.'
-        }
-        className="max-w-[520px]"
       >
         <div className="space-y-4">
           <div className="space-y-2">
@@ -595,7 +676,7 @@ export default function SubjectsManagement() {
             </div>
           )}
 
-          {!isCreating && editingSubject && (
+          {(isCreating || editingSubject) && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Kỹ năng của môn học</Label>
@@ -611,56 +692,83 @@ export default function SubjectsManagement() {
                   Thêm kỹ năng
                 </Button>
               </div>
-              <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
-                {subjectSkills.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Môn học chưa có kỹ năng nào. Nhấn &quot;Thêm kỹ năng&quot; để gán.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {subjectSkills.map((ss) => {
-                      const skillName =
-                        ss.skillName ??
-                        allSkills.find((s) => s.skillId === ss.skillId)?.skillName ??
-                        `Skill #${ss.skillId}`;
-                      const isActive = ss.isActive ?? true;
-                      return (
-                        <div
-                          key={`${ss.subjectId}-${ss.skillId}`}
-                          className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
-                        >
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-black">{skillName}</span>
-                            <span className="text-xs text-gray-500">ID: {ss.skillId}</span>
+
+              {isCreating ? (
+                <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
+                  {pendingSkillIdsToAdd.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Chưa chọn kỹ năng nào. Nhấn &quot;Thêm kỹ năng&quot; để gán.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {pendingSkillIdsToAdd.map((id) => {
+                        const skillName =
+                          allSkills.find((s) => s.skillId === id)?.skillName ?? `Skill #${id}`
+                        return (
+                          <span
+                            key={id}
+                            className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs border border-blue-100"
+                          >
+                            {skillName}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
+                  {subjectSkills.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Môn học chưa có kỹ năng nào. Nhấn &quot;Thêm kỹ năng&quot; để gán.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {subjectSkills.map((ss) => {
+                        const skillName =
+                          ss.skillName ??
+                          allSkills.find((s) => s.skillId === ss.skillId)?.skillName ??
+                          `Skill #${ss.skillId}`;
+                        const isActive = ss.isActive ?? true;
+                        return (
+                          <div
+                            key={`${ss.subjectId}-${ss.skillId}`}
+                            className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-black">{skillName}</span>
+                              <span className="text-xs text-gray-500">ID: {ss.skillId}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500">
+                                {isActive ? 'Đang dùng' : 'Đang tắt'}
+                              </span>
+                              <Switch
+                                checked={isActive}
+                                onCheckedChange={(checked) => {
+                                  setSubjectSkills((prev) =>
+                                    prev.map((item) =>
+                                      item.subjectId === ss.subjectId &&
+                                      item.skillId === ss.skillId
+                                        ? { ...item, isActive: checked }
+                                        : item,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">
-                              {isActive ? 'Đang dùng' : 'Đang tắt'}
-                            </span>
-                            <Switch
-                              checked={isActive}
-                              onCheckedChange={(checked) => {
-                                setSubjectSkills((prev) =>
-                                  prev.map((item) =>
-                                    item.subjectId === ss.subjectId && item.skillId === ss.skillId
-                                      ? { ...item, isActive: checked }
-                                      : item,
-                                  ),
-                                );
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {/* Popup thêm kỹ năng: chọn nhiều, bấm Lưu mới gọi assignBulk */}
-          {!isCreating && editingSubject && showAddSkill && (
+          {showAddSkill && (isCreating || editingSubject) && (
             <div className="space-y-2 rounded-md border bg-white p-3">
               <div className="flex items-center justify-between">
                 <Label>Thêm kỹ năng cho môn</Label>
@@ -670,7 +778,6 @@ export default function SubjectsManagement() {
                   size="sm"
                   onClick={() => {
                     setShowAddSkill(false);
-                    setPendingSkillIdsToAdd([]);
                   }}
                 >
                   Đóng
@@ -684,12 +791,13 @@ export default function SubjectsManagement() {
                   <p className="text-sm text-muted-foreground">Đang tải kỹ năng...</p>
                 ) : (
                   <div className="space-y-2">
-                    {allSkills
-                      .filter(
-                        (skill) =>
-                          !subjectSkills.some((ss) => ss.skillId === skill.skillId),
-                      )
-                      .map((skill) => {
+                    {(isCreating
+                      ? allSkills
+                      : allSkills.filter(
+                          (skill) =>
+                            !subjectSkills.some((ss) => ss.skillId === skill.skillId),
+                        )
+                    ).map((skill) => {
                         const checked = pendingSkillIdsToAdd.includes(skill.skillId);
                         return (
                           <label
@@ -713,7 +821,7 @@ export default function SubjectsManagement() {
                           </label>
                         );
                       })}
-                    {allSkills.filter(
+                    {!isCreating && allSkills.filter(
                       (skill) => !subjectSkills.some((ss) => ss.skillId === skill.skillId),
                     ).length === 0 && (
                       <p className="text-sm text-muted-foreground">
@@ -835,7 +943,7 @@ export default function SubjectsManagement() {
             {submitting ? (isCreating ? 'Đang tạo...' : 'Đang lưu...') : isCreating ? 'Tạo' : 'Lưu'}
           </Button>
         </div>
-      </Dialog>
+      </Drawer>
     </div>
   )
 }
