@@ -551,19 +551,22 @@ export default function ManagerDashboard() {
                   <BarChart
                     data={requestSummaryData}
                     margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
-                    barCategoryGap="45%"
+                    barCategoryGap="65%"
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis
-                      dataKey="key"
-                      tick={{ fontSize: 11 }}
-                      tickMargin={8}
-                      interval={0}
-                      minTickGap={0}
-                      tickLine={false}
-                      axisLine={false}
-                      padding={{ left: 10, right: 10 }}
-                    />
+  dataKey="key"
+  tick={{ fontSize: 11 }}
+  tickMargin={12}
+  interval={0}
+  minTickGap={0}
+  tickLine={false}
+  axisLine={false}
+  padding={{ left: 10, right: 10 }}
+  angle={-25}
+  textAnchor="end"
+  height={60}
+/>
                     <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                     <Tooltip
                       formatter={(value: any) =>
