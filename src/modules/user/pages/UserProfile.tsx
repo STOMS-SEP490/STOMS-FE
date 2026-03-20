@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -19,6 +21,17 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Dialog } from '@/shared/components/ui/dialog';
+import { dashboardApi, type DashboardRangeParams } from '@/modules/dashboard/api/dashboardApi';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
 
 export default function UserProfile() {
   const { user } = useAuth();
@@ -42,6 +55,7 @@ export default function UserProfile() {
   const [bankCode, setBankCode] = useState('');
   const [bankName, setBankName] = useState('');
   const [skillNames, setSkillNames] = useState<string[]>([]);
+  const [workloadRange, setWorkloadRange] = useState<NonNullable<DashboardRangeParams['range']>>('thismonth');
 
   const cacheAvatarUrl = (avatarUrl?: string | null) => {
     if (avatarUrl && avatarUrl.trim()) {
@@ -139,6 +153,64 @@ export default function UserProfile() {
 
   const roleId = Number(userDetail?.roleId ?? user.role);
   const roleLabel = ROLE_MAP[roleId] ?? `Vai trò ${roleId || ''}`;
+
+  const { data: workload } = useQuery({
+    queryKey: ['dashboard', 'user-workload', memberDetail?.memberId ?? 0, workloadRange],
+    queryFn: () => dashboardApi.getUserWorkload(memberDetail!.memberId, { range: workloadRange }),
+    enabled: Boolean(memberDetail?.memberId),
+  });
+
+  const formatPercent = (x?: number) => {
+    const v = Number(x ?? 0);
+    const sign = v > 0 ? '+' : '';
+    return `${sign}${v.toFixed(1)}%`;
+  };
+
+  const workloadChartData = workload
+    ? ([
+        {
+          key: 'hours',
+          label: 'Giờ giảng',
+          value: Number(workload.totalTeachingHours ?? 0),
+          changePercent: Number(workload.totalTeachingHoursChangePercent ?? 0),
+        },
+        {
+          key: 'completed',
+          label: 'Hoàn thành',
+          value: Number(workload.completedSessions ?? 0),
+          changePercent: Number(workload.completedSessionsChangePercent ?? 0),
+        },
+        {
+          key: 'canceled',
+          label: 'Bị hủy',
+          value: Number(workload.canceledSessions ?? 0),
+          changePercent: Number(workload.canceledSessionsChangePercent ?? 0),
+        },
+        {
+          key: 'income',
+          label: 'Thu nhập (VND)',
+          value: Number(workload.estimatedIncome ?? 0),
+          changePercent: Number(workload.estimatedIncomeChangePercent ?? 0),
+        },
+      ] as const)
+    : [];
+
+  const workloadIsEmpty = Boolean(
+    workload &&
+      workloadChartData.every((x) => {
+        const v = Number(x.value ?? 0);
+        return !Number.isFinite(v) || v === 0;
+      }),
+  );
+
+  const formatWorkloadValue = (key: (typeof workloadChartData)[number]['key'], v: unknown) => {
+    const n = Number(v ?? 0);
+    if (key === 'income') {
+      return n.toLocaleString('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
+    }
+    if (key === 'hours') return `${n.toFixed(1)}h`;
+    return `${n}`;
+  };
 
   const handleAvatarFile = async (file: File | null) => {
     if (!file) return;
@@ -264,6 +336,28 @@ export default function UserProfile() {
     }
   };
 
+  const WorkloadItem = (props: { label: string; value: React.ReactNode; changePercent: number; tone: 'green' | 'blue' | 'amber' | 'rose' }) => {
+    const toneMap = {
+      green: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      blue: 'bg-sky-50 text-sky-700 border-sky-100',
+      amber: 'bg-amber-50 text-amber-700 border-amber-100',
+      rose: 'bg-rose-50 text-rose-700 border-rose-100',
+    } as const;
+    return (
+      <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] text-slate-500 font-medium">{props.label}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900 truncate">{props.value}</p>
+            <span className={`mt-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${toneMap[props.tone]}`}>
+              {formatPercent(props.changePercent)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -274,39 +368,6 @@ export default function UserProfile() {
           </p>
         </div>
       </div>
-
-      <Card className="max-w-3xl">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <div>
-            <CardTitle className="text-lg">Thông tin tài khoản</CardTitle>
-            <CardDescription>Chi tiết tài khoản đăng nhập hiện tại.</CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100">
-              {roleLabel}
-            </Badge>
-            <Button variant="outline" onClick={() => setOpenChangePassword(true)}>
-              Đổi mật khẩu
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4">
-          <Field label="User ID" value={userDetail?.userId ?? user.id} />
-          <Field label="Email" value={userDetail?.email ?? user.email} />
-          <Field
-            label="Trạng thái"
-            value={
-              userDetail?.isActive ? (
-                <span className="text-green-600">Đang hoạt động</span>
-              ) : (
-                <span className="text-red-600">Đã khóa</span>
-              )
-            }
-          />
-          <Field label="Ngày tạo" value={userDetail?.createdAt ? formatDateTime(userDetail.createdAt) : '—'} />
-          <Field label="Cập nhật lần cuối" value={userDetail?.updatedAt ? formatDateTime(userDetail.updatedAt) : '—'} />
-        </CardContent>
-      </Card>
 
       <Dialog
         open={openChangePassword}
@@ -382,7 +443,48 @@ export default function UserProfile() {
         </form>
       </Dialog>
 
-      <Card className="max-w-3xl">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-lg">Thông tin tài khoản</CardTitle>
+                <CardDescription>Chi tiết tài khoản đăng nhập hiện tại.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100">
+                  {roleLabel}
+                </Badge>
+                <Button variant="outline" onClick={() => setOpenChangePassword(true)}>
+                  Đổi mật khẩu
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <Field label="User ID" value={userDetail?.userId ?? user.id} />
+              <Field label="Email" value={userDetail?.email ?? user.email} />
+              <Field
+                label="Trạng thái"
+                value={
+                  userDetail?.isActive ? (
+                    <span className="text-green-600">Đang hoạt động</span>
+                  ) : (
+                    <span className="text-red-600">Đã khóa</span>
+                  )
+                }
+              />
+              <Field
+                label="Ngày tạo"
+                value={userDetail?.createdAt ? formatDateTime(userDetail.createdAt) : '—'}
+              />
+              <Field
+                label="Cập nhật lần cuối"
+                value={userDetail?.updatedAt ? formatDateTime(userDetail.updatedAt) : '—'}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -538,7 +640,109 @@ export default function UserProfile() {
             </div>
           )}
         </CardContent>
-      </Card>
+          </Card>
+        </div>
+
+        <div className="lg:sticky lg:top-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-sky-600" />
+                  Workload của tôi
+                </CardTitle>
+                <CardDescription>
+                  Thống kê hiệu suất giảng dạy của bạn theo khoảng thời gian.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">Khoảng:</span>
+                <select
+                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-sky-400"
+                  value={workloadRange}
+                  onChange={(e) =>
+                    setWorkloadRange(e.target.value as NonNullable<DashboardRangeParams['range']>)
+                  }
+                  disabled={!memberDetail?.memberId}
+                >
+                  <option value="today">Hôm nay</option>
+                  <option value="thisweek">Tuần này</option>
+                  <option value="thismonth">Tháng này</option>
+                  <option value="last3months">3 tháng gần đây</option>
+                  <option value="last6months">6 tháng gần đây</option>
+                  <option value="1year">1 năm gần đây</option>
+                </select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!memberDetail?.memberId ? (
+                <div className="text-sm text-gray-500">
+                  Tài khoản này chưa có thông tin thành viên nên không thể thống kê workload.
+                </div>
+              ) : !workload ? (
+                <div className="text-sm text-gray-500">Đang tải workload...</div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative h-56 rounded-xl border border-slate-200 bg-white p-3">
+                    {workloadIsEmpty && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/75 backdrop-blur-[1px]">
+                        <div className="text-sm text-slate-500">Chưa có dữ liệu trong khoảng này</div>
+                      </div>
+                    )}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={workloadChartData} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="label" tick={{ fontSize: 12 }} interval={0} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip
+                          formatter={(value: any, _name: any, props: any) => {
+                            const key = props?.payload?.key as (typeof workloadChartData)[number]['key'];
+                            return formatWorkloadValue(key, value);
+                          }}
+                          labelFormatter={(label) => `Chỉ số: ${label}`}
+                        />
+                        <Legend />
+                        <Bar dataKey="value" name="Giá trị" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <WorkloadItem
+                      label="Tổng giờ giảng"
+                      value={`${Number(workload.totalTeachingHours ?? 0).toFixed(1)}h`}
+                      changePercent={workload.totalTeachingHoursChangePercent ?? 0}
+                      tone="blue"
+                    />
+                    <WorkloadItem
+                      label="Phiên hoàn thành"
+                      value={workload.completedSessions ?? 0}
+                      changePercent={workload.completedSessionsChangePercent ?? 0}
+                      tone="green"
+                    />
+                    <WorkloadItem
+                      label="Phiên bị hủy"
+                      value={workload.canceledSessions ?? 0}
+                      changePercent={workload.canceledSessionsChangePercent ?? 0}
+                      tone="rose"
+                    />
+                    <WorkloadItem
+                      label="Thu nhập ước tính"
+                      value={Number(workload.estimatedIncome ?? 0).toLocaleString('vi-VN', {
+                        style: 'currency',
+                        currency: 'VND',
+                        maximumFractionDigits: 0,
+                      })}
+                      changePercent={workload.estimatedIncomeChangePercent ?? 0}
+                      tone="amber"
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

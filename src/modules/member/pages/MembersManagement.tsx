@@ -90,7 +90,7 @@ export default function MembersManagement() {
           />
           <div>
             <p className="font-medium text-sm">{row.original.fullName}</p>
-            <p className="text-xs text-gray-500">{row.original.user.email}</p>
+            <p className="text-xs text-gray-500">{row.original.user?.email ?? '—'}</p>
           </div>
         </div>
       ),
@@ -99,7 +99,7 @@ export default function MembersManagement() {
       id: 'role',
       header: 'Vai trò',
       cell: ({ row }) => {
-        const roleId = row.original.user.roleId;
+        const roleId = Number(row.original.user?.roleId ?? 0);
         const roleName = ROLE_MAP[roleId] ?? `Vai trò ${roleId || ''}`;
         const roleColorMap: Record<number, string> = {
           1: 'bg-purple-100 text-purple-700',
@@ -118,7 +118,7 @@ export default function MembersManagement() {
       id: 'status',
       header: 'Trạng thái',
       cell: ({ row }) =>
-        row.original.user.isActive ? (
+        row.original.user?.isActive ? (
           <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
         ) : (
           <Badge className="bg-red-100 text-red-600">Vô hiệu hóa</Badge>
