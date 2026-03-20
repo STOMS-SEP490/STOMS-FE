@@ -44,6 +44,8 @@ export type RequestSessionSummary = {
   startAt: string;
   endAt: string;
   status: string;
+  location?: string;
+  isOnline?: boolean | null;
   teachersRequired?: number | null;
   tasRequired?: number | null;
 };
@@ -71,5 +73,6 @@ export type RequestFilterParams = {
   pageNumber?: number;
   pageSize?: number;
   requestId?: number;
-  status?: string;
+  statuses?: string[];
+  teamId?: number;
 };

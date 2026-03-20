@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message } from 'antd';
 import type { RequestListItem, RequestSessionSummary } from '../request';
 import requestService from '../api/requestApi';
@@ -69,6 +69,8 @@ export const useRequestDetailManager = (params: {
   const [suggestedTeamIdsBySessionId, setSuggestedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
   const [uiAssignedTeamIdsBySessionId, setUiAssignedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
   const [assignmentsBySessionId, setAssignmentsBySessionId] = useState<Record<number, SessionAssignmentRow[]>>({});
+  // Chứa promise đang fetch gợi ý team; sessionId chưa được tạo promise thì có thể undefined.
+  const suggestedTeamsInFlightRef = useRef<Record<number, Promise<number[]> | undefined>>({});
   const [selectedAssignmentIdsBySessionId, setSelectedAssignmentIdsBySessionId] = useState<Record<number, number[]>>(
     {}
   );
@@ -91,6 +93,7 @@ export const useRequestDetailManager = (params: {
     setRightPanel(null);
     setSessions([]);
     setUiAssignedTeamIdsBySessionId({});
+    setSuggestedTeamIdsBySessionId({});
 
     const fetchData = async () => {
       try {
@@ -108,34 +111,63 @@ export const useRequestDetailManager = (params: {
     void fetchData();
   }, [id]);
 
-  useEffect(() => {
-    if (sessions.length === 0) return;
-    let cancelled = false;
-    const run = async () => {
-      try {
-        const pairs = await Promise.all(
-          sessions.map(async (s) => {
-            try {
-              const teams = await sessionService.suggestTeams(s.sessionId);
-              return [s.sessionId, teams.map((t) => t.teamId) as number[]] as const;
-            } catch {
-              return [s.sessionId, [] as number[]] as const;
-            }
-          })
-        );
-        if (cancelled) return;
-        const map: Record<number, number[]> = {};
-        for (const [sid, ids] of pairs) map[sid] = ids;
-        setSuggestedTeamIdsBySessionId(map);
-      } catch {
-        // ignore
+  const ensureSuggestedTeamIdsForSessions = useCallback(
+    async (sessionIds: number[]) => {
+      const unique = Array.from(new Set(sessionIds)).filter((id) => id > 0);
+      if (!unique.length) return {};
+
+      // Build result using already-cached values first.
+      const result: Record<number, number[]> = {};
+      const toFetch: number[] = [];
+
+      for (const sid of unique) {
+        const cached = suggestedTeamIdsBySessionId[sid];
+        if (Array.isArray(cached)) {
+          result[sid] = cached;
+          continue;
+        }
+
+        const inFlight = suggestedTeamsInFlightRef.current[sid];
+        if (inFlight) continue; // we will await below
+        toFetch.push(sid);
       }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessions]);
+
+      // Start missing requests (if any).
+      for (const sid of toFetch) {
+        suggestedTeamsInFlightRef.current[sid] = (async () => {
+          try {
+            const teams = await sessionService.suggestTeams(sid);
+            return teams.map((t) => t.teamId) as number[];
+          } catch {
+            return [] as number[];
+          } finally {
+            delete suggestedTeamsInFlightRef.current[sid];
+          }
+        })();
+      }
+
+      // Await promises for anything that isn't cached yet.
+      const pending = unique
+        .filter((sid) => !Array.isArray(suggestedTeamIdsBySessionId[sid]) || suggestedTeamsInFlightRef.current[sid])
+        .map(async (sid) => {
+          const cached = suggestedTeamIdsBySessionId[sid];
+          if (Array.isArray(cached)) return [sid, cached] as const;
+          const p = suggestedTeamsInFlightRef.current[sid];
+          if (!p) return [sid, [] as number[]] as const;
+          const ids = await p;
+          return [sid, ids] as const;
+        });
+
+      const pairs = await Promise.all(pending);
+      const fetchedMap: Record<number, number[]> = {};
+      for (const [sid, ids] of pairs) fetchedMap[sid] = ids;
+
+      setSuggestedTeamIdsBySessionId((prev) => ({ ...prev, ...fetchedMap }));
+      Object.assign(result, fetchedMap);
+      return result;
+    },
+    [suggestedTeamIdsBySessionId]
+  );
 
   useEffect(() => {
     if (viewMode !== 'assignment') return;
@@ -268,6 +300,7 @@ export const useRequestDetailManager = (params: {
       const { mappedSessions, nextUiAssigned } = mapSessionsWithFlags(detail);
       setSessions(mappedSessions);
       setUiAssignedTeamIdsBySessionId(nextUiAssigned);
+      setSuggestedTeamIdsBySessionId({});
     } finally {
       setLoading(false);
     }
@@ -478,6 +511,7 @@ export const useRequestDetailManager = (params: {
         };
       }) ?? [];
     setSessions(mapped);
+    setSuggestedTeamIdsBySessionId({});
   }, [request]);
 
   const assignedCount = useMemo(
@@ -522,5 +556,6 @@ export const useRequestDetailManager = (params: {
     handleRejectClick,
     handleConfirmReject,
     handleEquipmentSuccess,
+    ensureSuggestedTeamIdsForSessions,
   };
 };

@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { CalendarEvent, EventListItem } from '@/modules/event/event';
 import eventApi from '@/modules/event/api/eventApi';
-import { teamApi } from '@/modules/team/api/teamApi';
-import axiosClient from '@/shared/lib/axios';
 import teachingHistoryApi from '@/modules/contract/api/teachingHistoryApi';
 import { sessionDisplayName } from '@/modules/contract/teachingHistory';
 import { getSessionStatusInfo } from '@/constants/status';
+import sessionApi from '@/modules/request/api/sessionApi';
+import memberApi from '@/modules/request/api/memberApi';
 
 function buildCalendarEvents(items: EventListItem[]): CalendarEvent[] {
   const result: CalendarEvent[] = [];
@@ -79,43 +79,42 @@ export function useCalendarEvents() {
         }
         // 2) Thời khóa biểu TEAM LEADER: hiển thị toàn bộ session mà team đó được gán
         else if (isTeamLeaderTimetable) {
-          const rawUser = JSON.parse(localStorage.getItem('user') || '{}') as {
-            memberId?: number;
-          };
-          const memberId = Number(rawUser?.memberId || 0) || undefined;
-          if (!memberId) {
-            setEvents([]);
-            return;
+          const memberId =
+            Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) ||
+            undefined;
+
+          let teamId: number | undefined;
+          if (memberId) {
+            try {
+              const me = await memberApi.getById(memberId);
+              teamId = me.teamId != null ? Number(me.teamId) : undefined;
+            } catch {
+              teamId = undefined;
+            }
           }
 
-          // Tìm team mà member này là leader
-          const teamsRes = await teamApi.getTeams({
+          const sessionsRes = await sessionApi.getFilter({
+            teamId,
+            statuses: ['ASSIGNED', 'ONGOING', 'COMPLETED'],
             pageNumber: 1,
-            pageSize: 20,
-            leaderMemberId: memberId,
+            pageSize: 500,
           });
-          const firstTeam = teamsRes.items?.[0];
-          if (!firstTeam?.teamId) {
-            setEvents([]);
-            return;
-          }
-
-          const sessionsRaw: any[] = await axiosClient.get(`/sessions/by-team/${firstTeam.teamId}`);
+          const sessionsRaw = sessionsRes.items ?? [];
           const mapped: CalendarEvent[] =
             (sessionsRaw ?? []).flatMap((s: any) => {
-              const startRaw = s.startAt ?? s.StartAt;
-              const endRaw = s.endAt ?? s.EndAt;
+              const startRaw = s.startAt ?? (s as any).StartAt;
+              const endRaw = s.endAt ?? (s as any).EndAt;
               if (!startRaw || !endRaw) return [];
               const start = new Date(startRaw);
               const end = new Date(endRaw);
-              const statusRaw = s.status ?? s.Status ?? null;
+              const statusRaw = s.status ?? (s as any).Status ?? null;
               const statusInfo = getSessionStatusInfo(statusRaw);
               return {
-                id: s.sessionId ?? s.SessionId,
-                title: `Phiên ${s.sessionNo ?? s.SessionNo ?? ''}`.trim(),
+                id: s.sessionId ?? (s as any).SessionId,
+                title: `Phiên ${s.sessionNo ?? (s as any).SessionNo ?? ''}`.trim(),
                 start,
                 end,
-                resource: s.location ?? s.Location ?? undefined,
+                resource: s.location ?? (s as any).Location ?? undefined,
                 color: '#0ea5e9',
                 status: statusRaw,
                 statusLabel: statusInfo.label,

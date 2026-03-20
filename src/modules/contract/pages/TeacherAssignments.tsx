@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Clock, CalendarDays, MapPin } from 'lucide-react';
+import { CalendarDays, List } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
-import { StatCard } from '@/shared/components/common/StatCard';
 import HoverSearch from '@/shared/components/ui/search';
 import teachingHistoryApi from '../api/teachingHistoryApi';
 import type { TeachingScheduleItem } from '../teachingHistory';
 import { sessionDisplayName } from '../teachingHistory';
+import { useNavigate } from 'react-router-dom';
 
 function formatDateTime(value?: string) {
   if (!value) return '—';
@@ -42,6 +42,7 @@ export default function TeacherAssignments() {
   const [pageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [search, setSearch] = useState('');
+  const navigate = useNavigate();
 
   const memberId =
     Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || undefined;
@@ -137,28 +138,31 @@ export default function TeacherAssignments() {
             Xem lịch dạy theo dạng lịch hoặc danh sách phân công.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white p-0.5">
+            <button
+              type="button"
+              onClick={() => navigate('/teacher/timetable')}
+              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+              title="Xem dạng thời khóa biểu"
+            >
+              <CalendarDays className="w-3 h-3" />
+              <span>Thời khóa biểu</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/teacher/timetable/assignments')}
+              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors bg-sky-50 border-sky-200 text-sky-700"
+              title="Xem dạng bảng phân công"
+            >
+              <List className="w-3 h-3" />
+              <span>Danh sách</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-2">
-        <StatCard
-          icon={<CalendarDays />}
-          label="Tổng buổi"
-          value={totalItems.toString()}
-          sub="trong danh sách hiện tại"
-        />
-        <StatCard
-          icon={<Clock />}
-          label="Buổi online"
-          value={items.filter((x) => x.isOnline).length.toString()}
-          sub="trong danh sách hiện tại"
-        />
-        <StatCard
-          icon={<MapPin />}
-          label="Buổi offline"
-          value={items.filter((x) => x.isOnline === false).length.toString()}
-          sub="trong danh sách hiện tại"
-        />
-      </div>
+     
 
       <div className="flex justify-end gap-3 mb-2">
         <HoverSearch

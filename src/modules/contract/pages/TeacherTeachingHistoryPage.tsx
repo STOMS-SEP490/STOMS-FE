@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Funnel, MapPin, Globe, ChevronRight, FileText, PlusCircle, CalendarDays, Clock } from 'lucide-react';
 import dayjs from 'dayjs';
@@ -7,7 +7,6 @@ import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import teachingHistoryApi from '@/modules/contract/api/teachingHistoryApi';
 import type { TeachingHistoryItem } from '@/modules/contract/teachingHistory';
 import { sessionDisplayName } from '@/modules/contract/teachingHistory';
 import { StatCard } from '@/shared/components/common/StatCard';
@@ -16,8 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import contractApi from '../api/contractApi';
 import type { ContractListItem } from '../contract';
 import ContractDetailSidebar from './ContractDetailSidebar';
-import { taskReportApi } from '@/modules/task-report/api/taskReportApi';
-import type { TaskReport } from '@/modules/task-report/taskReport';
+import { useTeacherTeachingHistory } from '@/modules/contract/hooks/useTeacherTeachingHistory';
 
 function formatDate(value?: string) {
   if (!value) return '—';
@@ -31,67 +29,25 @@ function formatTimeRange(start?: string, end?: string) {
 
 export default function TeacherTeachingHistoryPage() {
   const navigate = useNavigate();
-  const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
+  const {
+    items,
+    loading,
+    pageNumber,
+    pageSize,
+    totalItems,
+    search,
+    hasContract,
+    reportsBySession,
+    setPageNumber,
+    setSearch,
+    setHasContract,
+  } = useTeacherTeachingHistory({ pageSize: 8 });
 
-  const [items, setItems] = useState<TeachingHistoryItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize] = useState(8);
-  const [totalItems, setTotalItems] = useState(0);
-  const [search, setSearch] = useState('');
-  const [hasContract, setHasContract] = useState<'all' | 'yes' | 'no'>('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [createSessionId, setCreateSessionId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContract, setDetailContract] = useState<ContractListItem | null>(null);
   const [detailRoleLabel, setDetailRoleLabel] = useState<string | null>(null);
-  const [reportsBySession, setReportsBySession] = useState<Record<number, TaskReport[]>>({});
-
-  useEffect(() => {
-    const run = async () => {
-      if (!memberId) return;
-      try {
-        setLoading(true);
-        const res = await teachingHistoryApi.getSessionsByMember(memberId, {
-          hasContract: hasContract === 'all' ? undefined : hasContract === 'yes',
-          pageNumber,
-          pageSize,
-        });
-        let rows = res.items ?? [];
-        const q = search.trim().toLowerCase();
-        if (q) {
-          rows = rows.filter((x) => sessionDisplayName(x).toLowerCase().includes(q));
-        }
-        setItems(rows);
-        setTotalItems(res.totalItems ?? rows.length);
-
-        // load task reports cho các session trong trang hiện tại
-        const sessionIds = rows.map((x) => x.sessionId).filter((id) => !!id);
-        if (sessionIds.length) {
-          const reportRes = await taskReportApi.getAll({
-            pageNumber: 1,
-            pageSize: 500,
-            sessionId: undefined,
-            userId: undefined,
-          });
-          const bySession: Record<number, TaskReport[]> = {};
-          (reportRes.items ?? []).forEach((r) => {
-            if (!r.sessionId) return;
-            if (!bySession[r.sessionId]) bySession[r.sessionId] = [];
-            bySession[r.sessionId].push(r);
-          });
-          setReportsBySession(bySession);
-        } else {
-          setReportsBySession({});
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    void run();
-  }, [hasContract, memberId, pageNumber, pageSize, search]);
 
   const columns: ColumnDef<TeachingHistoryItem>[] = useMemo(() => {
     const base: ColumnDef<TeachingHistoryItem>[] = [
@@ -266,7 +222,7 @@ export default function TeacherTeachingHistoryPage() {
     ];
 
     return base;
-  }, [navigate]);
+  }, [navigate, reportsBySession]);
 
   const totalWithContract = useMemo(
     () => items.filter((x) => x.contract?.contractId != null).length,
