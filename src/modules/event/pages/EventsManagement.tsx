@@ -20,7 +20,7 @@ import {
   Power,
   PowerOff,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { message, Modal } from 'antd';
 import eventApi from '@/modules/event/api/eventApi';
 import eventSessionApi from '@/modules/event/api/eventSessionApi';
@@ -33,6 +33,7 @@ import topicApi from '@/modules/topic/api/topicApi';
 import eventSessionSkillApi from '@/modules/event/api/eventSessionSkillApi';
 import eventSessionTopicApi from '@/modules/event/api/eventSessionTopicApi';
 import { Switch } from '@/shared/components/ui/switch';
+import { useSearchParams } from 'react-router-dom';
 
 type EditableEventSession = {
   eventSessionId?: number;
@@ -115,15 +116,68 @@ export default function EventsManagement() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailEvent, setDetailEvent] = useState<EventListItem | null>(null);
 
-  const handleViewDetail = async (e: EventListItem) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const eventIdFromUrl = searchParams.get('eventId');
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false);
+  const lastOpenedEventIdRef = useRef<number | null>(null);
+
+  const closeDetailFromUrl = () => {
+    if (openDetailFromUrl === '1') {
+      skipNextAutoOpenRef.current = true;
+    }
+    setDetailOpen(false);
+    setDetailEvent(null);
+
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('eventId');
+      return next;
+    });
+  };
+
+  const openDetailById = async (id: number) => {
     try {
-      const full = await eventApi.getById(e.eventId);
+      const full = await eventApi.getById(id);
       setDetailEvent(full);
+      lastOpenedEventIdRef.current = id;
       setDetailOpen(true);
     } catch {
       message.error('Không tải được thông tin sự kiện');
     }
   };
+
+  const handleViewDetail = async (e: EventListItem) => {
+    try {
+      const full = await eventApi.getById(e.eventId);
+      setDetailEvent(full);
+      setDetailOpen(true);
+      lastOpenedEventIdRef.current = e.eventId;
+    } catch {
+      message.error('Không tải được thông tin sự kiện');
+    }
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!eventIdFromUrl) return;
+
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const id = Number(eventIdFromUrl);
+    if (!id || Number.isNaN(id)) return;
+
+    if (detailOpen && lastOpenedEventIdRef.current === id) return;
+
+    void openDetailById(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDetailFromUrl, eventIdFromUrl]);
 
   const openCreate = () => {
     setMode('create');
@@ -639,10 +693,7 @@ export default function EventsManagement() {
 
       <EventDetailSidebar
         open={detailOpen}
-        onClose={() => {
-          setDetailOpen(false);
-          setDetailEvent(null);
-        }}
+        onClose={closeDetailFromUrl}
         event={detailEvent}
       />
 

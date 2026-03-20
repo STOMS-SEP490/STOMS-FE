@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Power, PowerOff, Plus, X } from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Modal, message } from 'antd';
+import { Drawer, Modal, message } from 'antd';
 import courseApi from '@/modules/course/api/courseApi';
 import courseSubjectApi from '@/modules/course/api/courseSubjectApi';
 import type { CourseListItem } from '../courseType';
@@ -47,6 +47,46 @@ export default function CoursesManagement() {
   const [pendingSubjectIdsToAdd, setPendingSubjectIdsToAdd] = useState<number[]>([]);
   const [showAddSubject, setShowAddSubject] = useState(false);
 
+  // Auto-open detail drawer từ query param trong URL
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const courseIdFromUrl = searchParams.get('courseId');
+  const skipNextAutoOpenRef = useRef(false);
+  const lastOpenedCourseIdRef = useRef<number | null>(null);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailCourse, setDetailCourse] = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const closeDetailFromUrl = () => {
+    if (openDetailFromUrl === '1') {
+      skipNextAutoOpenRef.current = true;
+    }
+    setDetailOpen(false);
+    setDetailCourse(null);
+    setDetailLoading(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('courseId');
+      return next;
+    });
+  };
+
+  const openDetailById = async (id: number) => {
+    try {
+      setDetailLoading(true);
+      const detail = await courseApi.getById(id);
+      setDetailCourse(detail);
+      lastOpenedCourseIdRef.current = id;
+      setDetailOpen(true);
+    } catch (e: any) {
+      message.error(getErrorMessage(e?.response?.data ?? e));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const fetchCourses = async () => {
     try {
       setLoading(true);
@@ -74,6 +114,22 @@ export default function CoursesManagement() {
       .then((res) => setAllSubjects(res.items ?? []))
       .catch(() => setAllSubjects([]));
   }, []);
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!courseIdFromUrl) return;
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const id = Number(courseIdFromUrl);
+    if (!id || Number.isNaN(id)) return;
+    if (detailOpen && lastOpenedCourseIdRef.current === id) return;
+
+    void openDetailById(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDetailFromUrl, courseIdFromUrl]);
 
   const openCreateModal = () => {
     setIsCreating(true);
@@ -238,64 +294,7 @@ export default function CoursesManagement() {
   };
 
   const handleView = async (c: CourseListItem) => {
-    try {
-      const detail: any = await courseApi.getById(c.courseId);
-      Modal.info({
-        title: `Khóa học ${detail.courseCode}`,
-        width: 680,
-        content: (
-          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-            <div>
-              <div className="text-xs text-gray-500">Tên khóa học</div>
-              <div className="text-sm font-medium">{detail.courseName}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Trạng thái</div>
-                <div className="text-sm">
-                  {detail.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-                </div>
-              </div>
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Cập nhật lần cuối</div>
-                <div className="text-sm">
-                  {detail.updatedAt ? dayjs(detail.updatedAt).format('DD/MM/YYYY') : '—'}
-                </div>
-              </div>
-            </div>
-            <div className="pt-2">
-              <div className="text-xs text-gray-500 mb-1">Môn học trong khóa</div>
-              {detail.courseSubjects && detail.courseSubjects.length > 0 ? (
-                <div className="space-y-2">
-                  {detail.courseSubjects.map((cs: any) => (
-                    <div key={cs.subjectId} className="rounded-md border p-2 space-y-1">
-                      <div className="text-sm font-medium">
-                        {cs.subject?.subjectCode} - {cs.subject?.subjectName ?? cs.subjectName ?? `Môn #${cs.subjectId}`}
-                      </div>
-                      {cs.subject?.subjectSessions && cs.subject.subjectSessions.length > 0 && (
-                        <div className="pl-3 border-l border-gray-200 mt-1 space-y-1">
-                          {cs.subject.subjectSessions.map((ss: any) => (
-                            <div key={ss.subjectSessionId} className="text-xs text-gray-600">
-                              Buổi {ss.sessionNo}: {ss.title ?? '—'}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500">Chưa có môn học nào trong khóa.</div>
-              )}
-            </div>
-          </div>
-        ),
-        okText: 'Đóng',
-      });
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Không tải được chi tiết khóa học';
-      message.error(msg);
-    }
+    await openDetailById(c.courseId);
   };
 
   const columns = useMemo<ColumnDef<CourseListItem>[]>(
@@ -432,6 +431,84 @@ export default function CoursesManagement() {
           onPageChange={(page) => setPageNumber(page)}
         />
       </div>
+
+      <Drawer
+        open={detailOpen}
+        onClose={closeDetailFromUrl}
+        placement="right"
+        width={680}
+        title={
+          detailCourse ? `Khóa học ${detailCourse.courseCode}` : 'Chi tiết khóa học'
+        }
+      >
+        {detailLoading && !detailCourse ? (
+          <div className="text-sm text-gray-500">Đang tải chi tiết...</div>
+        ) : detailCourse ? (
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
+            <div>
+              <div className="text-xs text-gray-500">Tên khóa học</div>
+              <div className="text-sm font-medium">{detailCourse.courseName}</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-md border p-2">
+                <div className="text-xs text-gray-500">Trạng thái</div>
+                <div className="text-sm">
+                  {detailCourse.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                </div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-xs text-gray-500">Cập nhật lần cuối</div>
+                <div className="text-sm">
+                  {detailCourse.updatedAt
+                    ? dayjs(detailCourse.updatedAt).format('DD/MM/YYYY')
+                    : '—'}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <div className="text-xs text-gray-500 mb-1">Môn học trong khóa</div>
+              {detailCourse.courseSubjects && detailCourse.courseSubjects.length > 0 ? (
+                <div className="space-y-2">
+                  {detailCourse.courseSubjects.map((cs: any) => (
+                    <div
+                      key={cs.subjectId}
+                      className="rounded-md border p-2 space-y-1"
+                    >
+                      <div className="text-sm font-medium">
+                        {cs.subject?.subjectCode} -{' '}
+                        {cs.subject?.subjectName ??
+                          cs.subjectName ??
+                          `Môn #${cs.subjectId}`}
+                      </div>
+
+                      {cs.subject?.subjectSessions && cs.subject.subjectSessions.length > 0 && (
+                        <div className="pl-3 border-l border-gray-200 mt-1 space-y-1">
+                          {cs.subject.subjectSessions.map((ss: any) => (
+                            <div
+                              key={ss.subjectSessionId}
+                              className="text-xs text-gray-600"
+                            >
+                              Buổi {ss.sessionNo}: {ss.title ?? '—'}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">
+                  Chưa có môn học nào trong khóa.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500">Không có dữ liệu.</div>
+        )}
+      </Drawer>
 
       {/* Sidebar upsert (giống detail) */}
       {openEdit && (

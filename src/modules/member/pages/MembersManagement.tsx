@@ -10,13 +10,14 @@ import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus, Power, PowerOff, RotateCcw } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { message, Modal } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import MemberDetailSidebar from './MemberDetailSidebar';
 import CreateMemberModal from './CreateMemberModal';
 import MemberEditModal from './MemberEditModal';
 import { ROLE_MAP } from '@/constants/role';
+import { useSearchParams } from 'react-router-dom';
 
 export default function MembersManagement() {
   const {
@@ -36,6 +37,39 @@ export default function MembersManagement() {
     setFilterTeamId,
     resetFilters,
   } = useMembers();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const memberIdFromUrl = searchParams.get('memberId');
+
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setOpenDetail(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('memberId');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!memberIdFromUrl) return;
+
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const memberId = Number(memberIdFromUrl);
+    if (!memberId || Number.isNaN(memberId)) return;
+    if (openDetail && selectedMember?.memberId === memberId) return;
+
+    handleViewMember(memberId);
+  }, [openDetailFromUrl, memberIdFromUrl, openDetail, selectedMember?.memberId, handleViewMember]);
 
   const [openCreate, setOpenCreate] = useState(false);
   const [editMemberId, setEditMemberId] = useState<number | null>(null);
@@ -203,7 +237,7 @@ export default function MembersManagement() {
           onPageChange={(page) => setPageNumber(page)}
         />
 
-        <MemberDetailSidebar open={openDetail} onClose={() => setOpenDetail(false)} member={selectedMember} />
+        <MemberDetailSidebar open={openDetail} onClose={closeDetailFromUrl} member={selectedMember} />
 
         <CreateMemberModal open={openCreate} onClose={() => setOpenCreate(false)} onCreated={refetchMembers} />
 

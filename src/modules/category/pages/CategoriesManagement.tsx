@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus } from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
@@ -23,6 +23,25 @@ export default function CategoriesManagement() {
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryListItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCategory, setDetailCategory] = useState<CategoryListItem | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const categoryIdFromUrl = searchParams.get('categoryId');
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setDetailOpen(false);
+    setDetailCategory(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('categoryId');
+      return next;
+    });
+  };
 
   const {
     data,
@@ -50,6 +69,31 @@ export default function CategoriesManagement() {
       message.error('Không tải được thông tin danh mục');
     }
   };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!categoryIdFromUrl) return;
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const id = Number(categoryIdFromUrl);
+    if (!id || Number.isNaN(id)) return;
+
+    if (detailOpen && detailCategory?.categoryId === id) return;
+
+    (async () => {
+      try {
+        const full = await categoryApi.getById(id);
+        setDetailCategory(full);
+        setDetailOpen(true);
+      } catch {
+        message.error('Không tải được thông tin danh mục');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDetailFromUrl, categoryIdFromUrl, detailOpen, detailCategory?.categoryId]);
 
   const handleDeleteConfirm = async () => {
     if (!categoryToDelete) return;
@@ -167,10 +211,7 @@ export default function CategoriesManagement() {
       )}
       <CategoryDetailSidebar
         open={detailOpen}
-        onClose={() => {
-          setDetailOpen(false);
-          setDetailCategory(null);
-        }}
+        onClose={closeDetailFromUrl}
         category={detailCategory}
       />
       <EditCategoryModal

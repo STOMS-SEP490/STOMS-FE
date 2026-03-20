@@ -1,6 +1,6 @@
 import { RotateCcw, Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import CreateTeamModal from './CreateTeamModal';
 import EditTeamModal from './EditTeamModal';
@@ -12,6 +12,7 @@ import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Dialog } from '@/shared/components/ui/dialog';
+import { useSearchParams } from 'react-router-dom';
 
 export default function TeamsManagement() {
   const [pageNumber, setPageNumber] = useState(1);
@@ -32,6 +33,48 @@ export default function TeamsManagement() {
     search,
     refreshKey
   );
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const teamIdFromUrl = searchParams.get('teamId');
+
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setDetailOpen(false);
+    setDetailTeam(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('teamId');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!teamIdFromUrl) return;
+
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const teamId = Number(teamIdFromUrl);
+    if (!teamId || Number.isNaN(teamId)) return;
+    if (detailOpen && detailTeam?.teamId === teamId) return;
+
+    (async () => {
+      try {
+        const full = await teamService.getTeamById(teamId);
+        setDetailTeam(full);
+        setDetailOpen(true);
+      } catch {
+        message.error('Không tải được thông tin nhóm');
+      }
+    })();
+  }, [openDetailFromUrl, teamIdFromUrl, detailOpen, detailTeam?.teamId]);
 
   const handleView = async (team: Team) => {
     try {
@@ -216,8 +259,7 @@ export default function TeamsManagement() {
       <TeamDetailSidebar
         open={detailOpen}
         onClose={() => {
-          setDetailOpen(false);
-          setDetailTeam(null);
+          closeDetailFromUrl();
         }}
         team={detailTeam}
       />
