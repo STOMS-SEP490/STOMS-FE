@@ -25,6 +25,7 @@ import RequestDetail from '@/modules/request/pages/RequestDetail';
 import MembersManagement from '@/modules/member/pages/MembersManagement';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import TaskReportsManagement from '@/modules/task-report/pages/TaskReportsManagement';
+import ManagerDashboard from '@/modules/dashboard/pages/ManagerDashboard';
 
 const RequestPlaceholder = () => (
   <div className="p-6 text-sm text-gray-500">
@@ -33,7 +34,7 @@ const RequestPlaceholder = () => (
 );
 
 const ManagerRoutes = [
-  // { path: 'dashboard', element: <ManagerDashboard /> },
+  { path: 'dashboard', element: <ManagerDashboard /> },
   { path: 'events', element: <EventsManagement /> },
   { path: 'timetable', element: <EventCalendar /> },
   {

@@ -22,7 +22,8 @@ import {
   PowerOff,
   RotateCcw,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { message, Modal } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import UserCreateForm from './UserCreateForm';
@@ -43,6 +44,48 @@ export default function UserManagement() {
   const [filterEmail, setFilterEmail] = useState('');
   const [filterRoleId, setFilterRoleId] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const userIdFromUrl = searchParams.get('userId');
+
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setOpenDetail(false);
+    setSelectedUser(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('userId');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!userIdFromUrl) return;
+
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const userId = Number(userIdFromUrl);
+    if (!userId || Number.isNaN(userId)) return;
+    if (openDetail && selectedUser?.userId === userId) return;
+
+    (async () => {
+      try {
+        const user = await userService.getUserById(userId);
+        setSelectedUser(user);
+        setOpenDetail(true);
+      } catch {
+        message.error('Không tải được thông tin tài khoản');
+      }
+    })();
+  }, [openDetailFromUrl, userIdFromUrl, openDetail, selectedUser?.userId]);
 
   const fetchUsers = async () => {
     try {
@@ -307,7 +350,7 @@ export default function UserManagement() {
 
       <UserDetailDrawer
         open={openDetail}
-        onClose={() => setOpenDetail(false)}
+        onClose={closeDetailFromUrl}
         user={selectedUser}
       />
 

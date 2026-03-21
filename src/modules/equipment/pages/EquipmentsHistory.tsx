@@ -11,7 +11,7 @@ import {
 import type { BorrowingListItem } from '@/modules/equipment/borrowing';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, RotateCcw } from 'lucide-react';
-import { useLocation, useOutletContext } from 'react-router-dom';
+import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useBorrowings } from '../hooks/useBorrowings';
 import {
   BORROWING_STATUS_OPTIONS,
@@ -19,7 +19,7 @@ import {
   getBorrowingStatusColor,
 } from '@/constants/borrowing';
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import borrowingApi from '../api/borrowingApi';
 import CreateBorrowingModal from './CreateBorrowingModal';
 import BorrowingDetailSidebar from './BorrowingDetailSidebar';
@@ -155,6 +155,25 @@ export default function EquipmentsHistory() {
     null
   );
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const borrowingIdFromUrl = searchParams.get('borrowingId');
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setDetailOpen(false);
+    setDetailBorrowing(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('borrowingId');
+      return next;
+    });
+  };
+
   const openCreate = context?.createBorrowingOpen ?? createOpenLocal;
   const setOpenCreate =
     context?.setCreateBorrowingOpen ?? setCreateOpenLocal;
@@ -169,6 +188,37 @@ export default function EquipmentsHistory() {
       console.error('get borrowing detail error');
     }
   };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!borrowingIdFromUrl) return;
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const id = Number(borrowingIdFromUrl);
+    if (!id || Number.isNaN(id)) return;
+
+    if (detailOpen && detailBorrowing?.borrowingId === id) return;
+
+    (async () => {
+      try {
+        const full = await borrowingApi.getById(id);
+        setDetailBorrowing(full);
+        setDetailOpen(true);
+      } catch {
+        // eslint-disable-next-line no-console
+        console.error('get borrowing detail from url error');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    openDetailFromUrl,
+    borrowingIdFromUrl,
+    detailOpen,
+    detailBorrowing?.borrowingId,
+  ]);
 
   const isEquipmentManager = location.pathname.startsWith('/em/');
 
@@ -219,7 +269,7 @@ export default function EquipmentsHistory() {
     <>
       <BorrowingDetailSidebar
         open={detailOpen}
-        onClose={() => setDetailOpen(false)}
+        onClose={closeDetailFromUrl}
         borrowing={detailBorrowing}
       />
       <CreateBorrowingModal

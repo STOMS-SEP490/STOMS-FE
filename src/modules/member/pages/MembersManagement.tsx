@@ -10,13 +10,14 @@ import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus, Power, PowerOff, RotateCcw } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { message, Modal } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import MemberDetailSidebar from './MemberDetailSidebar';
 import CreateMemberModal from './CreateMemberModal';
 import MemberEditModal from './MemberEditModal';
 import { ROLE_MAP } from '@/constants/role';
+import { useSearchParams } from 'react-router-dom';
 
 export default function MembersManagement() {
   const {
@@ -36,6 +37,39 @@ export default function MembersManagement() {
     setFilterTeamId,
     resetFilters,
   } = useMembers();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const memberIdFromUrl = searchParams.get('memberId');
+
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setOpenDetail(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('memberId');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!memberIdFromUrl) return;
+
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const memberId = Number(memberIdFromUrl);
+    if (!memberId || Number.isNaN(memberId)) return;
+    if (openDetail && selectedMember?.memberId === memberId) return;
+
+    handleViewMember(memberId);
+  }, [openDetailFromUrl, memberIdFromUrl, openDetail, selectedMember?.memberId, handleViewMember]);
 
   const [openCreate, setOpenCreate] = useState(false);
   const [editMemberId, setEditMemberId] = useState<number | null>(null);
@@ -90,7 +124,7 @@ export default function MembersManagement() {
           />
           <div>
             <p className="font-medium text-sm">{row.original.fullName}</p>
-            <p className="text-xs text-gray-500">{row.original.user.email}</p>
+            <p className="text-xs text-gray-500">{row.original.user?.email ?? '—'}</p>
           </div>
         </div>
       ),
@@ -99,7 +133,7 @@ export default function MembersManagement() {
       id: 'role',
       header: 'Vai trò',
       cell: ({ row }) => {
-        const roleId = row.original.user.roleId;
+        const roleId = Number(row.original.user?.roleId ?? 0);
         const roleName = ROLE_MAP[roleId] ?? `Vai trò ${roleId || ''}`;
         const roleColorMap: Record<number, string> = {
           1: 'bg-purple-100 text-purple-700',
@@ -118,7 +152,7 @@ export default function MembersManagement() {
       id: 'status',
       header: 'Trạng thái',
       cell: ({ row }) =>
-        row.original.user.isActive ? (
+        row.original.user?.isActive ? (
           <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
         ) : (
           <Badge className="bg-red-100 text-red-600">Vô hiệu hóa</Badge>
@@ -203,7 +237,7 @@ export default function MembersManagement() {
           onPageChange={(page) => setPageNumber(page)}
         />
 
-        <MemberDetailSidebar open={openDetail} onClose={() => setOpenDetail(false)} member={selectedMember} />
+        <MemberDetailSidebar open={openDetail} onClose={closeDetailFromUrl} member={selectedMember} />
 
         <CreateMemberModal open={openCreate} onClose={() => setOpenCreate(false)} onCreated={refetchMembers} />
 

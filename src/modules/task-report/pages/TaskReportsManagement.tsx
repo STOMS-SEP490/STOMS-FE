@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, RotateCcw } from 'lucide-react';
 import { Drawer, message, Spin } from 'antd';
+import { useSearchParams } from 'react-router-dom';
 
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Badge } from '@/shared/components/ui/badge';
@@ -35,6 +36,54 @@ export default function TaskReportsManagement() {
   const [openView, setOpenView] = useState(false);
   const [viewTaskReport, setViewTaskReport] = useState<TaskReport | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const taskReportIdFromUrl = searchParams.get('taskReportId');
+
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setOpenView(false);
+    setViewTaskReport(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('taskReportId');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!taskReportIdFromUrl) return;
+
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const taskReportId = Number(taskReportIdFromUrl);
+    if (!taskReportId || Number.isNaN(taskReportId)) return;
+    if (openView && viewTaskReport?.taskReportId === taskReportId) return;
+
+    (async () => {
+      try {
+        setOpenView(true);
+        setViewTaskReport(null);
+        setViewLoading(true);
+
+        const detail = await taskReportApi.getById(taskReportId);
+        setViewTaskReport(detail);
+      } catch {
+        message.error('Không tải được chi tiết báo cáo');
+        setOpenView(false);
+      } finally {
+        setViewLoading(false);
+      }
+    })();
+  }, [openDetailFromUrl, taskReportIdFromUrl, openView, viewTaskReport?.taskReportId]);
 
   const selectedRequestIdNum =
     filterRequestId !== 'all' ? Number(filterRequestId) : null;
@@ -324,8 +373,7 @@ export default function TaskReportsManagement() {
       <Drawer
         open={openView}
         onClose={() => {
-          setOpenView(false);
-          setViewTaskReport(null);
+          closeDetailFromUrl();
         }}
         placement="right"
         width={540}
