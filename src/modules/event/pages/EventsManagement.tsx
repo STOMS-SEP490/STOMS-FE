@@ -1,4 +1,5 @@
 import { DataTable } from '@/shared/components/common/DataTable';
+import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -33,7 +34,7 @@ import topicApi from '@/modules/topic/api/topicApi';
 import eventSessionSkillApi from '@/modules/event/api/eventSessionSkillApi';
 import eventSessionTopicApi from '@/modules/event/api/eventSessionTopicApi';
 import { Switch } from '@/shared/components/ui/switch';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 
 type EditableEventSession = {
   eventSessionId?: number;
@@ -54,6 +55,10 @@ type EditableEventSession = {
 };
 
 export default function EventsManagement() {
+  const location = useLocation();
+  const readOnly =
+    location.pathname.startsWith('/tl/') || location.pathname.startsWith('/teacher/');
+
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(10);
@@ -75,18 +80,20 @@ export default function EventsManagement() {
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
 
   useEffect(() => {
+    if (readOnly) return;
     skillApi
       .getSkills({ pageSize: 500 })
       .then((res) => setAllSkills(res.items ?? []))
       .catch(() => setAllSkills([]));
-  }, []);
+  }, [readOnly]);
 
   useEffect(() => {
+    if (readOnly) return;
     topicApi
       .getTopics({ pageNumber: 1, pageSize: 500 })
       .then((res) => setAllTopics(res.items ?? []))
       .catch(() => setAllTopics([]));
-  }, []);
+  }, [readOnly]);
 
   const fetchEvents = async () => {
     try {
@@ -524,6 +531,14 @@ export default function EventsManagement() {
     {
       accessorKey: 'eventName',
       header: 'Tên sự kiện',
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <div className="font-medium text-gray-900 truncate">{row.original.eventName}</div>
+          <div className="text-xs text-gray-500 truncate">
+            {row.original.description?.trim() || '—'}
+          </div>
+        </div>
+      ),
     },
     {
       id: 'status',
@@ -554,6 +569,9 @@ export default function EventsManagement() {
       enableSorting: false,
       cell: ({ row }) => {
         const ev = row.original;
+        if (readOnly) {
+          return <TableTextAction onClick={() => void handleViewDetail(ev)} />;
+        }
         return (
           <div className="flex items-center gap-2">
             <Eye
@@ -590,16 +608,77 @@ export default function EventsManagement() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <>
+      {readOnly ? (
+        <div
+          className="p-6 bg-slate-50 flex flex-col gap-3 min-h-0 overflow-hidden"
+          style={{ height: 'var(--content-height, 100vh)' }}
+        >
+          <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold text-black">Danh sách sự kiện</h2>
+              <p className="text-xs text-gray-500">Xem thông tin các sự kiện trong hệ thống</p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 min-[900px]:gap-3">
+              <HoverSearch
+                value={search}
+                onChange={(v) => {
+                  setSearch(v);
+                  setPageNumber(1);
+                }}
+                placeholder="Tìm theo tên hoặc mã sự kiện..."
+              />
+              <Select
+                value={statusFilter}
+                onValueChange={(v: 'all' | 'active' | 'inactive') => {
+                  setStatusFilter(v);
+                  setPageNumber(1);
+                }}
+              >
+                <SelectTrigger className="h-9 w-[160px] border-slate-200 bg-white text-sm">
+                  <SelectValue placeholder="Trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="active">Hoạt động</SelectItem>
+                  <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="secondary"
+                className="h-9 border-slate-200 bg-white"
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setStatusFilter('all');
+                  setPageNumber(1);
+                }}
+              >
+                <RotateCcw size={16} />
+              </Button>
+            </div>
+          </div>
+
+          <div className="relative flex w-full min-w-0 flex-1 min-h-0 flex-col bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+            <DataTable
+              comfortable
+              fillHeight
+              columns={columns}
+              data={events}
+              pageNumber={pageNumber}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={(page) => setPageNumber(page)}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="p-6 space-y-6">
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">
-            Quản lý sự kiện
-          </h2>
-          <p className="text-xs text-gray-500">
-            Quản lý các sự kiện trong hệ thống
-          </p>
+          <h2 className="text-xl font-semibold text-black">Quản lý sự kiện</h2>
+          <p className="text-xs text-gray-500">Quản lý các sự kiện trong hệ thống</p>
         </div>
 
         <Button
@@ -611,7 +690,7 @@ export default function EventsManagement() {
         </Button>
       </div>
 
-      {/* STATS */}
+      {/* STATS — chỉ manager */}
       <div className="grid grid-cols-4 gap-4 mb-2">
         <StatCard
           icon={<BookOpen />}
@@ -629,10 +708,7 @@ export default function EventsManagement() {
         <StatCard
           icon={<Clock />}
           label="Tổng buổi"
-          value={events.reduce(
-            (sum, e) => sum + e.numberOfSession,
-            0
-          )}
+          value={events.reduce((sum, e) => sum + e.numberOfSession, 0)}
           sub="tổng số buổi"
         />
         <StatCard
@@ -690,6 +766,8 @@ export default function EventsManagement() {
           onPageChange={(page) => setPageNumber(page)}
         />
       </div>
+        </div>
+      )}
 
       <EventDetailSidebar
         open={detailOpen}
@@ -697,7 +775,7 @@ export default function EventsManagement() {
         event={detailEvent}
       />
 
-      {openUpsert && (
+      {!readOnly && openUpsert && (
         <div
           className="fixed inset-0 bg-black/30 z-40 h-full"
           onClick={closeUpsert}
@@ -705,6 +783,7 @@ export default function EventsManagement() {
         />
       )}
 
+      {!readOnly && (
       <div
         className={`fixed top-0 right-0 h-full w-[820px] max-w-[95vw] bg-[#f3f4f6] z-50
         transition-transform duration-300
@@ -1063,6 +1142,7 @@ export default function EventsManagement() {
           </div>
         </div>
       </div>
-    </div>
+      )}
+    </>
   );
 }

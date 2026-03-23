@@ -4,7 +4,7 @@ import borrowingApi from '../api/borrowingApi'
 
 const SEARCH_DEBOUNCE_MS = 400
 
-export function useBorrowings() {
+export function useBorrowings(options?: { borrowedByMemberId?: number }) {
   const [data, setData] = useState<BorrowingListItem[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -40,6 +40,7 @@ export function useBorrowings() {
         status: status || undefined,
         description: search.trim() || undefined,
         note: search.trim() || undefined,
+        borrowedByMemberId: options?.borrowedByMemberId,
       })
       setData(res.items ?? [])
       setTotalItems(res.totalItems ?? 0)
@@ -48,7 +49,7 @@ export function useBorrowings() {
     } finally {
       setLoading(false)
     }
-  }, [pageNumber, pageSize, search, status])
+  }, [pageNumber, pageSize, search, status, options?.borrowedByMemberId])
 
   useEffect(() => {
     const searchChanged = prevSearchRef.current !== search

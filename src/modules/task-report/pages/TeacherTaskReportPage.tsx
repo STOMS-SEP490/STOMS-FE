@@ -433,42 +433,50 @@ export default function TeacherTaskReportPage() {
 
   return (
     <div className="flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
-      {/* Header */}
-      <div className="bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>
-        <p className="text-xs text-gray-500">Ghi báo cáo cho các phiên đã hoàn thành. Chọn yêu cầu bên trái rồi bấm vào phiên để xem chi tiết.</p>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
-        <DatePicker
-          format="DD/MM/YYYY"
-          placeholder="Từ ngày"
-          value={filterFrom}
-          onChange={(d) => setFilterFrom(d)}
-          className="w-[140px] [&_.ant-picker-input>input]:text-black"
-        />
-        <span className="text-gray-400">→</span>
-        <DatePicker
-          format="DD/MM/YYYY"
-          placeholder="Đến ngày"
-          value={filterTo}
-          onChange={(d) => setFilterTo(d)}
-          className="w-[140px] [&_.ant-picker-input>input]:text-black"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
-          onClick={clearFilter}
-        >
-          <RotateCcw size={16} />
-        </Button>
-        {(filterFrom || filterTo) && (
-          <span className="text-xs text-gray-500">Chỉ hiển thị phiên trong khoảng đã chọn</span>
-        )}
+      {/* Header + bộ lọc cùng một thẻ (đồng bộ teacher/events, teaching-history…) */}
+      <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>
+          <p className="text-xs text-gray-500">
+            Ghi báo cáo cho các phiên đã hoàn thành. Chọn yêu cầu bên trái rồi bấm vào phiên để xem chi tiết.
+          </p>
+        </div>
+        <div className="flex min-w-0 flex-col items-stretch gap-2 min-[900px]:items-end">
+          <div className="flex flex-wrap items-center justify-end gap-2 min-[900px]:gap-3">
+            <HoverSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Tìm theo mã hoặc tên yêu cầu..."
+            />
+            <DatePicker
+              format="DD/MM/YYYY"
+              placeholder="Từ ngày"
+              value={filterFrom}
+              onChange={(d) => setFilterFrom(d)}
+              className="w-[140px] [&_.ant-picker-input>input]:text-black"
+            />
+            <span className="text-gray-400">→</span>
+            <DatePicker
+              format="DD/MM/YYYY"
+              placeholder="Đến ngày"
+              value={filterTo}
+              onChange={(d) => setFilterTo(d)}
+              className="w-[140px] [&_.ant-picker-input>input]:text-black"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0 border-slate-200 bg-white text-gray-600 hover:bg-gray-50"
+              onClick={clearFilter}
+            >
+              <RotateCcw size={16} />
+            </Button>
+          </div>
+          {(filterFrom || filterTo) && (
+            <span className="text-right text-xs text-gray-500">Chỉ hiển thị phiên trong khoảng đã chọn</span>
+          )}
+        </div>
       </div>
 
       {/* Two-column layout — fills remaining height */}

@@ -132,18 +132,7 @@ export default function TeamLeaderTimetableAssignments() {
       {
         id: 'status',
         header: 'Trạng thái',
-        accessorFn: (row) => row.status ?? '',
-        sortingFn: (rowA, rowB, columnId) => {
-          // Tab điểm danh ưu tiên ONGOING lên trước.
-          const order: Record<string, number> = isAttendanceTab
-            ? { ONGOING: 0, ASSIGNED: 1, COMPLETED: 2 }
-            : { ASSIGNED: 0, ONGOING: 1, COMPLETED: 2 };
-          const a = String(rowA.getValue(columnId) ?? '').toUpperCase();
-          const b = String(rowB.getValue(columnId) ?? '').toUpperCase();
-          const pa = order[a] ?? 999;
-          const pb = order[b] ?? 999;
-          return pa - pb;
-        },
+        enableSorting: false,
         cell: ({ row }) => {
           const info = getSessionStatusInfo(row.original.status);
           let label = info.label;
@@ -612,14 +601,13 @@ export default function TeamLeaderTimetableAssignments() {
   );
 
   return (
-    <div className="relative">
-      {loading && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-sm">
-          <span className="text-sm text-muted-foreground">Đang tải danh sách...</span>
-        </div>
-      )}
-
-      <div className="mt-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {loading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-sm">
+            <span className="text-sm text-muted-foreground">Đang tải danh sách...</span>
+          </div>
+        )}
         <DataTable
           columns={columns}
           data={items}
@@ -627,6 +615,9 @@ export default function TeamLeaderTimetableAssignments() {
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(page) => setPageNumber(page)}
+          fillHeight
+          comfortable
+          tableGap="tight"
         />
       </div>
 

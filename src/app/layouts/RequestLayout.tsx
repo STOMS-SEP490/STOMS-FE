@@ -4,17 +4,23 @@ import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Switch } from '@/shared/components/ui/switch';
 import { RotateCcw } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 export default function RequestLayout() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [onlyPending, setOnlyPending] = useState(false);
   const [search, setSearch] = useState('');
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
   const [typeFilter, setTypeFilter] = useState<'all' | 'event' | 'subject' | 'course'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'assigning'>('all');
-  const [viewMode, setViewMode] = useState<'request' | 'assignment'>('request');
+  const viewMode = useMemo<'request' | 'assignment'>(
+    () => (location.pathname.includes('/requests/assignments') ? 'assignment' : 'request'),
+    [location.pathname]
+  );
+  const requestBasePath = viewMode === 'assignment' ? '/manager/requests/assignments' : '/manager/requests';
 
   const handleResetFilters = () => {
     setSearch('');
@@ -34,6 +40,16 @@ export default function RequestLayout() {
     };
   }, []);
 
+  useEffect(() => {
+    if (viewMode === 'assignment') {
+      setOnlyPending(false);
+      setStatusFilter('assigning');
+      return;
+    }
+
+    setStatusFilter((prev) => (prev === 'assigning' ? 'all' : prev));
+  }, [viewMode]);
+
   return (
     <div
       className="p-6 bg-slate-50 flex flex-col gap-1 min-h-0 overflow-hidden"
@@ -41,38 +57,33 @@ export default function RequestLayout() {
     >
       {/* HEADER */}
 
-      <div className="bg-white px-6 py-4 mb-2 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="bg-white px-6 py-4 mb-0 rounded-2xl border border-slate-200 shadow-sm">
         <h2 className="text-xl font-semibold text-black">Trung tâm phê duyệt</h2>
         <p className="text-xs text-gray-500">
           Quản lý phê duyệt yêu cầu và phê duyệt phân công nhân sự
         </p>
       </div>
 
-      <div className="flex justify-between items-center mb-2">
+      <div className="px-4 pb-2 mb-1 pt-0">
         <Tabs
           value={viewMode}
           onValueChange={(v) => {
             const mode = v as 'request' | 'assignment';
-            setViewMode(mode);
             if (mode === 'assignment') {
               setOnlyPending(false);
               setStatusFilter('assigning');
-            } else {
-              setStatusFilter('all');
+              navigate('/manager/requests/assignments');
+              return;
             }
+            setStatusFilter('all');
+            navigate('/manager/requests');
           }}
         >
-          <TabsList className="bg-transparent border-0 shadow-none p-0 h-8 gap-3">
-            <TabsTrigger
-              value="request"
-              className="h-7 rounded-none text-xs px-0 data-[state=active]:font-semibold data-[state=active]:text-black data-[state=active]:border-b-2 data-[state=active]:border-sky-500"
-            >
+          <TabsList>
+            <TabsTrigger value="request">
               Duyệt yêu cầu
             </TabsTrigger>
-            <TabsTrigger
-              value="assignment"
-              className="h-7 rounded-none text-xs px-0 data-[state=active]:font-semibold data-[state=active]:text-black data-[state=active]:border-b-2 data-[state=active]:border-sky-500"
-            >
+            <TabsTrigger value="assignment">
               Duyệt phân công
             </TabsTrigger>
           </TabsList>
@@ -109,17 +120,7 @@ export default function RequestLayout() {
               </SelectContent>
             </Select>
           ) : (
-            <Select
-              value="assigning"
-              disabled
-            >
-              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[160px] opacity-70">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="assigning">Đang phân công</SelectItem>
-              </SelectContent>
-            </Select>
+            <></>
           )}
 
           {/* Reset Button */}
@@ -149,6 +150,7 @@ export default function RequestLayout() {
         {/* Sidebar */}
         <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <RequestSidebar
+            basePath={requestBasePath}
             search={search}
             onlyPending={onlyPending}
             typeFilter={typeFilter}

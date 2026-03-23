@@ -9,6 +9,8 @@ import sessionApi from '@/modules/request/api/sessionApi';
 import assignmentApi from '@/modules/request/api/assignmentApi';
 import memberApi from '@/modules/request/api/memberApi';
 
+type TeamLeaderAssignmentsTab = 'assigning' | 'rejected';
+
 export type TeamSessionLite = {
   sessionId: number;
   requestId: number;
@@ -49,6 +51,7 @@ export function useTeamLeaderAssignmentsPage() {
   const [search, setSearch] = useState('');
   const [onlyNeedsAction, setOnlyNeedsAction] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'assigning'>('assigning');
+  const [activeTab, setActiveTab] = useState<TeamLeaderAssignmentsTab>('assigning');
   const [assignSelections, setAssignSelections] = useState<Record<number, number>>({});
   const [searchByAssignmentId, setSearchByAssignmentId] = useState<Record<number, string>>({});
 
@@ -83,7 +86,7 @@ export function useTeamLeaderAssignmentsPage() {
   const [activeSession, setActiveSession] = useState<TeamSessionLite | null>(null);
 
   /* ───────── Data loading ───────── */
-  const loadInitial = useCallback(async () => {
+  const loadInitial = useCallback(async (tab: TeamLeaderAssignmentsTab) => {
     try {
       setLoading(true);
       const rawUser = JSON.parse(localStorage.getItem('user') || '{}') as { memberId?: number };
@@ -118,34 +121,105 @@ export function useTeamLeaderAssignmentsPage() {
         return;
       }
 
-      // Lấy các request đã được duyệt/đang phân công của team này
-      const approvedRequests = await requestApi.getRequests({
-        teamId,
-        statuses: ['APPROVED', 'ASSIGNING'],
-        pageNumber: 1,
-        pageSize: 200,
-      });
+      let validRequests: TeamRequestItem[] = [];
 
-      const validRequests: TeamRequestItem[] = (approvedRequests.items ?? []).map((r) => ({
-        requestId: r.requestId,
-        requestCode: r.requestCode,
-        requestName: r.requestName,
-        customerName: r.customerName,
-        subjectId: r.subjectId,
-        courseId: r.courseId,
-        eventId: r.eventId,
-        status: r.status,
-        startDate: r.startDate,
-        sessions: (r.sessions ?? []).map((s) => ({
-          sessionId: s.sessionId,
+      if (tab === 'assigning') {
+        // Tab "Yêu cầu chờ phân công": lấy theo request.
+        const approvedRequests = await requestApi.getRequests({
+          teamId,
+          statuses: ['ASSIGNING', 'APPROVED'],
+          pageNumber: 1,
+          pageSize: 200,
+        });
+
+        validRequests = (approvedRequests.items ?? []).map((r) => ({
           requestId: r.requestId,
-          sessionNo: s.sessionNo,
-          startAt: s.startAt,
-          endAt: s.endAt,
-          location: s.location ?? '',
-          status: s.status,
-        })),
-      }));
+          requestCode: r.requestCode,
+          requestName: r.requestName,
+          customerName: r.customerName,
+          subjectId: r.subjectId,
+          courseId: r.courseId,
+          eventId: r.eventId,
+          status: r.status,
+          startDate: r.startDate,
+          sessions: (r.sessions ?? []).map((s) => ({
+            sessionId: s.sessionId,
+            requestId: r.requestId,
+            sessionNo: s.sessionNo,
+            startAt: s.startAt,
+            endAt: s.endAt,
+            location: s.location ?? '',
+            status: s.status,
+          })),
+        }));
+      } else {
+        // Tab "Yêu cầu bị từ chối": lấy theo session rồi gom nhóm về request để render sidebar trái.
+        const rejectedSessionsRes = await sessionApi.getFilter({
+          teamId,
+          statuses: ['ASSIGNMENT_REJECTED'],
+          pageNumber: 1,
+          pageSize: 500,
+        });
+
+        const rejectedSessions = (rejectedSessionsRes.items ?? []).filter(
+          (s) => Number(s.sessionId) > 0 && Number(s.requestId) > 0,
+        );
+        const requestIds = Array.from(
+          new Set(rejectedSessions.map((s) => Number(s.requestId)).filter((id) => id > 0)),
+        );
+
+        const requestDetailPairs = await Promise.all(
+          requestIds.map(async (rid) => {
+            try {
+              const req = await requestApi.getById(rid);
+              return [rid, req] as const;
+            } catch {
+              return null;
+            }
+          }),
+        );
+
+        const requestById: Record<number, Awaited<ReturnType<typeof requestApi.getById>>> = {};
+        requestDetailPairs.forEach((p) => {
+          if (!p) return;
+          requestById[p[0]] = p[1];
+        });
+
+        const groupedByRequest = rejectedSessions.reduce<Record<number, TeamSessionLite[]>>((acc, s) => {
+          const rid = Number(s.requestId);
+          if (!rid) return acc;
+          if (!acc[rid]) acc[rid] = [];
+          acc[rid].push({
+            sessionId: Number(s.sessionId),
+            requestId: rid,
+            sessionNo: Number(s.sessionNo ?? 0),
+            startAt: String(s.startAt ?? ''),
+            endAt: String(s.endAt ?? ''),
+            location: String(s.location ?? ''),
+            status: String(s.status ?? 'ASSIGNMENT_REJECTED'),
+          });
+          return acc;
+        }, {});
+
+        validRequests = Object.entries(groupedByRequest).map(([ridRaw, sessions]) => {
+          const rid = Number(ridRaw);
+          const req = requestById[rid];
+          return {
+            requestId: rid,
+            requestCode: req?.requestCode ?? `REQ-${rid}`,
+            requestName: req?.requestName ?? `Yêu cầu #${rid}`,
+            customerName: req?.customerName ?? null,
+            subjectId: req?.subjectId ?? null,
+            courseId: req?.courseId ?? null,
+            eventId: req?.eventId ?? null,
+            // Tab rejected lấy nguồn từ Session.Status=ASSIGNMENT_REJECTED,
+            // nên set status tổng hợp để không bị loại bởi filter theo request.status.
+            status: 'ASSIGNMENT_REJECTED',
+            startDate: req?.startDate,
+            sessions: sessions.sort((a, b) => (a.sessionNo ?? 0) - (b.sessionNo ?? 0)),
+          };
+        });
+      }
 
       setRequests(validRequests);
       if (validRequests.length) setSelectedRequestId(validRequests[0].requestId);
@@ -158,11 +232,21 @@ export function useTeamLeaderAssignmentsPage() {
   }, []);
 
   useEffect(() => {
-    void loadInitial();
-  }, [loadInitial]);
+    void loadInitial(activeTab);
+  }, [loadInitial, activeTab]);
 
   /* ───────── Derived data ───────── */
   const filteredRequests = useMemo(() => {
+    const isAssigningTabRequest = (status?: string) => {
+      const s = String(status ?? '').toUpperCase();
+      return s.includes('APPROVED') || s.includes('ASSIGNING') || s === '3' || s === '4';
+    };
+
+    const isRejectedTabRequest = (status?: string) => {
+      const s = String(status ?? '').toUpperCase();
+      return s.includes('ASSIGNMENT_REJECTED') || s === '5' || s.includes('REJECTED') || s === '2';
+    };
+
     const q = search.trim().toLowerCase();
     const base = !q
       ? requests
@@ -171,8 +255,13 @@ export function useTeamLeaderAssignmentsPage() {
             r.requestCode.toLowerCase().includes(q) || (r.requestName ?? '').toLowerCase().includes(q),
         );
 
-    if (statusFilter === 'assigning' || onlyNeedsAction) {
-      return base.filter((r) =>
+    const tabFiltered =
+      activeTab === 'rejected'
+        ? base.filter((r) => isRejectedTabRequest(r.status))
+        : base.filter((r) => isAssigningTabRequest(r.status));
+
+    if (activeTab === 'assigning' && onlyNeedsAction) {
+      return tabFiltered.filter((r) =>
         r.sessions.some((s) => {
           const st = String(s.status ?? '').toLowerCase();
           return st === 'assigning' || st === 'pending';
@@ -180,13 +269,27 @@ export function useTeamLeaderAssignmentsPage() {
       );
     }
 
-    return base;
-  }, [requests, search, onlyNeedsAction, statusFilter]);
+    return tabFiltered;
+  }, [requests, search, onlyNeedsAction, statusFilter, activeTab]);
 
   const selectedRequest = useMemo(
     () => requests.find((r) => r.requestId === selectedRequestId) ?? null,
     [requests, selectedRequestId],
   );
+
+  // Đồng bộ selectedRequestId với filteredRequests theo tab/search/filter
+  useEffect(() => {
+    if (!filteredRequests.length) {
+      setSelectedRequestId(null);
+      return;
+    }
+    setSelectedRequestId((prev) => {
+      if (prev == null) return filteredRequests[0].requestId;
+      if (filteredRequests.some((r) => r.requestId === prev)) return prev;
+      return filteredRequests[0].requestId;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, search, onlyNeedsAction, statusFilter, filteredRequests]);
 
   const selectedRequestTypeInfo = useMemo(() => {
     if (!selectedRequest) return null;
@@ -228,7 +331,7 @@ export function useTeamLeaderAssignmentsPage() {
 
       let totalItems = 0;
 
-      for (const [sid, detail] of pairs) {
+      for (const [, detail] of pairs) {
         const assignments = detail.assignments ?? [];
         const itemsForSession: { assignmentId: number; staffMemberId: number }[] = [];
 
@@ -264,7 +367,7 @@ export function useTeamLeaderAssignmentsPage() {
       message.success('Đã gửi phân công.');
 
       // Refresh status theo BE (request/session status sẽ chuyển bước)
-      await loadInitial();
+      await loadInitial(activeTab);
       setActiveSession(null);
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -280,6 +383,7 @@ export function useTeamLeaderAssignmentsPage() {
     sessionApi,
     assignmentApi,
     loadInitial,
+    activeTab,
   ]);
 
   const refreshSessionInRequestState = useCallback((detail: SessionDetail) => {
@@ -677,7 +781,7 @@ export function useTeamLeaderAssignmentsPage() {
   const handleResetFilters = () => {
     setSearch('');
     setOnlyNeedsAction(false);
-    setStatusFilter('assigning');
+    setStatusFilter(activeTab === 'assigning' ? 'assigning' : 'all');
   };
 
   return {
@@ -694,6 +798,8 @@ export function useTeamLeaderAssignmentsPage() {
     selectedRequestStatusInfo,
     search,
     setSearch,
+    activeTab,
+    setActiveTab,
     onlyNeedsAction,
     setOnlyNeedsAction,
     statusFilter,

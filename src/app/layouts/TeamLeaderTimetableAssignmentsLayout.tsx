@@ -44,14 +44,17 @@ export default function TeamLeaderTimetableAssignmentsLayout() {
     setSearch,
     setPageNumber,
     refetch,
-  } = useTeamLeaderTimetableAssignments({ pageSize: 10, statuses, todayOnly: isAttendanceTab });
+  } = useTeamLeaderTimetableAssignments({ pageSize: 8, statuses, todayOnly: isAttendanceTab });
 
   return (
-    <div className="relative min-h-[var(--content-height,100vh)] bg-gradient-to-br from-slate-50 via-white to-sky-50 p-6">
-      <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+    <div
+      className="flex flex-col gap-3 min-h-0 overflow-hidden p-6 bg-slate-50"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
+      <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div>
-            <h2 className=" text-2xl font-semibold text-slate-900">Quản lý phân công & điểm danh</h2>
+            <h2 className="text-2xl font-semibold text-slate-900">Quản lý phân công & điểm danh</h2>
             <p className="mt-1 text-sm text-slate-500">
               Theo dõi phiên dạy, ủy quyền điểm danh và check-in/check-out cho member theo từng buổi.
             </p>
@@ -81,40 +84,46 @@ export default function TeamLeaderTimetableAssignmentsLayout() {
         </div>
       </div>
 
-      <div className="px-6 py-2 mb-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="shrink-0 px-2 py-1">
         <Tabs value={isAttendanceTab ? 'attendance' : 'assignment'}>
-          <TabsList className="bg-transparent border-0 shadow-none p-0 h-8 gap-3">
-            <TabsTrigger value="assignment" onClick={() => navigate(basePath)}>
-              PHÂN CÔNG
-            </TabsTrigger>
-            <TabsTrigger value="attendance" onClick={() => navigate(`${basePath}/attendance`)}>
-              ĐIỂM DANH
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabsList className="bg-transparent border-0 shadow-none p-0 h-8 gap-3">
+              <TabsTrigger value="assignment" onClick={() => navigate(basePath)}>
+                PHÂN CÔNG
+              </TabsTrigger>
+              <TabsTrigger value="attendance" onClick={() => navigate(`${basePath}/attendance`)}>
+                ĐIỂM DANH
+              </TabsTrigger>
+            </TabsList>
+            <HoverSearch
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setPageNumber(1);
+              }}
+              placeholder="Tìm theo phiên/địa điểm/trạng thái..."
+            />
+          </div>
         </Tabs>
-
-        <HoverSearch
-          value={search}
-          onChange={setSearch}
-          placeholder="Tìm theo phiên/địa điểm/trạng thái..."
-        />
       </div>
 
-      <Outlet
-        context={{
-          statuses,
-          isAttendanceTab,
-          items,
-          loading,
-          pageNumber,
-          pageSize,
-          totalItems,
-          search,
-          setSearch,
-          setPageNumber,
-          refetch,
-        } satisfies TeamLeaderTimetableAssignmentsLayoutContext}
-      />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <Outlet
+          context={{
+            statuses,
+            isAttendanceTab,
+            items,
+            loading,
+            pageNumber,
+            pageSize,
+            totalItems,
+            search,
+            setSearch,
+            setPageNumber,
+            refetch,
+          } satisfies TeamLeaderTimetableAssignmentsLayoutContext}
+        />
+      </div>
     </div>
   );
 }

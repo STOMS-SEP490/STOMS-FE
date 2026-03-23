@@ -324,29 +324,33 @@ export default function EventCalendar() {
   );
 
   const handleSelectEvent = async (event: CalendarEvent, e?: React.SyntheticEvent) => {
-    const isMonthView = view === Views.MONTH;
-    if (isMonthView && isTimetableRoute) {
-      setActiveEventId(event.id);
-      setMonthPopoverSelectedId(event.id);
+    setActiveEventId(event.id);
+    const idNum = Number(event.id);
 
-      const target = (e?.currentTarget || e?.target) as HTMLElement | undefined;
-      if (target?.getBoundingClientRect) setMonthPopoverAnchorRect(target.getBoundingClientRect());
+    if (!idNum || Number.isNaN(idNum)) {
+      // Fallback: giữ behavior cũ nếu không map được sang `sessionId`.
+      if (view === Views.MONTH && isTimetableRoute) {
+        setMonthPopoverSelectedId(event.id);
 
-      // Google Calendar: click 1 item trong ô ngày -> popup hiển thị danh sách các item trong cùng ngày.
-      const nextEvents = events.filter((ev) => isSameDay(ev.start, event.start));
-      setMonthPopoverEvents(nextEvents);
-      setMonthPopoverOpen(true);
+        const target = (e?.currentTarget || e?.target) as HTMLElement | undefined;
+        if (target?.getBoundingClientRect) setMonthPopoverAnchorRect(target.getBoundingClientRect());
 
-      // Không mở popup detail nặng trong month-view
-      setDetailOpen(false);
-      setDetailSession(null);
-      setAnchorRect(null);
+        // Popup danh sách phiên cùng ngày (dùng khi không mở detail theo id).
+        const nextEvents = events.filter((ev) => isSameDay(ev.start, event.start));
+        setMonthPopoverEvents(nextEvents);
+        setMonthPopoverOpen(true);
+
+        setDetailOpen(false);
+        setDetailSession(null);
+        setAnchorRect(null);
+      }
       return;
     }
 
-    setActiveEventId(event.id);
-    const idNum = Number(event.id);
-    if (!idNum || Number.isNaN(idNum)) return;
+    // Month-view: bấm vào phiên cụ thể => mở SessionDetailPopover (như ảnh 1).
+    setMonthPopoverOpen(false);
+    setMonthPopoverEvents([]);
+    setMonthPopoverSelectedId(null);
     try {
       const target = (e?.currentTarget || e?.target) as HTMLElement | undefined;
       if (target?.getBoundingClientRect) setAnchorRect(target.getBoundingClientRect());
@@ -425,9 +429,25 @@ export default function EventCalendar() {
           setMonthPopoverSelectedId(null);
           setMonthPopoverAnchorRect(null);
         }}
-        onSelect={(id: string | number) => {
+        onSelect={async (id: string | number) => {
           setMonthPopoverSelectedId(id);
           setActiveEventId(id);
+
+          const idNum = Number(id);
+          if (!idNum || Number.isNaN(idNum)) return;
+
+          try {
+            // Dùng anchor của popover list để đặt popover detail.
+            if (monthPopoverAnchorRect) setAnchorRect(monthPopoverAnchorRect);
+            const session = await sessionService.getById(idNum);
+            setDetailSession(session);
+            setDetailOpen(true);
+
+            setMonthPopoverOpen(false);
+            setMonthPopoverEvents([]);
+          } catch (err) {
+            console.error('fetch session detail from month list error', err);
+          }
         }}
       />
     </div>

@@ -28,12 +28,6 @@ const mapSessionsWithFlags = (detail: RequestListItem) => {
       const rawReservationId =
         anyS.reservationId ??
         anyS.ReservationId ??
-        // some BEs may return different casing/underscores
-        anyS.reservationID ??
-        anyS.ReservationID ??
-        anyS.reservation_id ??
-        anyS.Reservation_id ??
-        anyS.Reservation_Id ??
         null;
 
       const parsed = rawReservationId != null ? Number(rawReservationId) : NaN;
@@ -522,11 +516,6 @@ export const useRequestDetailManager = (params: {
         const rawReservationId =
           anyS.reservationId ??
           anyS.ReservationId ??
-          anyS.reservationID ??
-          anyS.ReservationID ??
-          anyS.reservation_id ??
-          anyS.Reservation_id ??
-          anyS.Reservation_Id ??
           null;
 
         const parsed = rawReservationId != null ? Number(rawReservationId) : NaN;
