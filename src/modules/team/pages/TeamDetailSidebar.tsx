@@ -100,11 +100,11 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
                   >
                     <div>
                       <p className="font-medium text-gray-900">{m.fullName}</p>
-                      <p className="text-xs text-gray-500">{m.user?.email}</p>
+                      <p className="text-xs text-gray-500">{m.email}</p>
                     </div>
                     <span className="text-xs text-gray-500">
                       {(() => {
-                        const roleId = m.user?.roleId;
+                        const roleId = m.roleId;
                         switch (roleId) {
                           case 6:
                             return 'Quản lý thiết bị';
