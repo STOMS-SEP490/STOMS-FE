@@ -1,26 +1,23 @@
-export type Member = {
-  memberId: number;
-  fullName: string;
-  avatarUrl: string | null;
-  phone: string;
-  address: string;
-  createdAt: string;
-  team: {
-    teamId: number;
-    teamName: string;
-  };
-  user: {
-    userId: number;
-    email: string;
-    isActive: boolean;
-    roleId: number;
-  };
+/** Team kèm trong MemberResponse */
+export type MemberTeam = {
+  teamId: number;
+  teamName: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  leaderMemberId?: number | null;
+  leaderMemberName?: string | null;
+  teamSessions?: unknown[];
+  teamTopics?: unknown[];
 };
 
+/**
+ * GET /members/filter (items) & GET /members/:id — cùng schema MemberResponse.
+ * Email / role / trạng thái user nằm phẳng ở root, không bọc trong `user`.
+ */
 export type MemberDetail = {
   memberId: number;
   userId: number;
-  teamId: number | null;
+  teamId: number;
   avatarUrl: string | null;
   fullName: string;
   phone: string;
@@ -32,13 +29,14 @@ export type MemberDetail = {
   createdAt: string;
   updatedAt: string;
   assignments: unknown[];
-  user: {
-    userId: number;
-    email: string;
-    isActive: boolean;
-    createdAt: string;
-    updatedAt: string;
-    lockedAt: string | null;
-    roleId: number;
-  };
+  team: MemberTeam | null;
+  email: string | null;
+  isActive: boolean;
+  userCreatedAt: string | null;
+  userUpdatedAt: string | null;
+  userLockedAt: string | null;
+  roleId: number;
 };
+
+/** Bảng danh sách dùng cùng kiểu chi tiết */
+export type Member = MemberDetail;

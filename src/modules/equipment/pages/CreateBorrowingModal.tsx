@@ -273,7 +273,7 @@ export default function CreateBorrowingModal({
                       {m.fullName}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {m.user?.email}
+                      {m.email ?? '—'}
                     </div>
                   </div>
                 </button>

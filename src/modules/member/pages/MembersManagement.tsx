@@ -80,7 +80,7 @@ export default function MembersManagement() {
   }, []);
 
   const handleBan = (member: Member) => {
-    const isActive = member.user?.isActive ?? true;
+    const isActive = member.isActive ?? true;
     Modal.confirm({
       title: isActive ? 'Vô hiệu hóa tài khoản?' : 'Kích hoạt lại tài khoản?',
       content: isActive
@@ -90,7 +90,7 @@ export default function MembersManagement() {
       cancelText: 'Hủy',
       onOk: async () => {
         try {
-          const userId = member.user?.userId;
+          const userId = member.userId;
           if (!userId) {
             message.error('Không tìm thấy tài khoản');
             return;
@@ -124,7 +124,7 @@ export default function MembersManagement() {
           />
           <div>
             <p className="font-medium text-sm">{row.original.fullName}</p>
-            <p className="text-xs text-gray-500">{row.original.user?.email ?? '—'}</p>
+            <p className="text-xs text-gray-500">{row.original.email ?? '—'}</p>
           </div>
         </div>
       ),
@@ -133,7 +133,7 @@ export default function MembersManagement() {
       id: 'role',
       header: 'Vai trò',
       cell: ({ row }) => {
-        const roleId = Number(row.original.user?.roleId ?? 0);
+        const roleId = Number(row.original.roleId ?? 0);
         const roleName = ROLE_MAP[roleId] ?? `Vai trò ${roleId || ''}`;
         const roleColorMap: Record<number, string> = {
           1: 'bg-purple-100 text-purple-700',
@@ -152,7 +152,7 @@ export default function MembersManagement() {
       id: 'status',
       header: 'Trạng thái',
       cell: ({ row }) =>
-        row.original.user?.isActive ? (
+        row.original.isActive ? (
           <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
         ) : (
           <Badge className="bg-red-100 text-red-600">Vô hiệu hóa</Badge>
@@ -169,7 +169,7 @@ export default function MembersManagement() {
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex gap-3">
-          {row.original.user?.isActive ? (
+          {row.original.isActive ? (
             <button type="button" onClick={() => handleBan(row.original)} title="Vô hiệu hóa">
               <PowerOff size={16} className="text-red-500 cursor-pointer" />
             </button>

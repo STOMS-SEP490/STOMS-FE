@@ -135,7 +135,7 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
           a!.staffMember?.fullName ??
           '—',
         email:
-          membersById[a!.staffMemberId]?.user?.email ??
+          membersById[a!.staffMemberId]?.email ??
           assignmentById[a!.assignmentId]?.staffMember?.userEmail ??
           a!.staffMember?.userEmail ??
           '',
