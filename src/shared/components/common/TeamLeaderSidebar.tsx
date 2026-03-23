@@ -10,6 +10,7 @@ import {
 import { NavLink, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
 import { logout } from '@/modules/auth/pages/Logout';
+import NotificationBell from '@/shared/components/common/NotificationBell';
 
 export default function TeamLeaderSidebar() {
   const [collapsed, setCollapsed] = useState(true);
@@ -67,17 +68,22 @@ export default function TeamLeaderSidebar() {
       `}
     >
       {!collapsed && (
-        <div className="w-full flex items-center justify-between mb-4">
-          <div className="flex items-center gap-1">
-            <img src="/img/logo.png" alt="logo" className="w-13 h-10" />
-            <span className="text-sm font-bold text-slate-700">STOMS</span>
+        <div className="w-full flex items-center justify-between mb-4 gap-2 min-w-0">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <img src="/img/logo.png" alt="logo" className="w-13 h-10 shrink-0" />
+            <span className="text-sm font-bold text-slate-700 truncate">STOMS</span>
           </div>
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="rounded-md hover:bg-gray-200 transition"
-          >
-            <Menu size={20} color="black" />
-          </button>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <NotificationBell />
+            <button
+              type="button"
+              onClick={() => setCollapsed(!collapsed)}
+              className="rounded-md hover:bg-gray-200 transition p-1"
+              aria-label="Thu gọn menu"
+            >
+              <Menu size={20} color="black" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -112,12 +118,17 @@ export default function TeamLeaderSidebar() {
       )}
 
       {collapsed && (
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="rounded-md hover:bg-gray-200 transition mb-4"
-        >
-          <Menu size={20} color="black" />
-        </button>
+        <div className="flex flex-col items-center gap-1.5 mb-4 w-full">
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="rounded-md hover:bg-gray-200 transition p-1"
+            aria-label="Mở rộng menu"
+          >
+            <Menu size={20} color="black" />
+          </button>
+          <NotificationBell variant="sidebarCollapsed" />
+        </div>
       )}
 
       <div className="overflow-y-auto no-scrollbar relative">
