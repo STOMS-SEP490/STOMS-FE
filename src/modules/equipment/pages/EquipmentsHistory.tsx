@@ -1,4 +1,5 @@
 import { DataTable } from '@/shared/components/common/DataTable';
+import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import {
@@ -10,7 +11,7 @@ import {
 } from '@/shared/components/ui/select';
 import type { BorrowingListItem } from '@/modules/equipment/borrowing';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useBorrowings } from '../hooks/useBorrowings';
 import {
@@ -115,13 +116,7 @@ const columns = (
     header: 'Thao tác',
     enableSorting: false,
     cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <Eye
-          size={16}
-          className="text-blue-600 cursor-pointer"
-          onClick={() => onView(row.original)}
-        />
-      </div>
+      <TableTextAction onClick={() => void onView(row.original)} />
     ),
   },
 ];
@@ -132,7 +127,11 @@ type OutletContext = {
   setCreateBorrowingOpen?: (open: boolean) => void;
 };
 
-export default function EquipmentsHistory() {
+type Props = {
+  borrowedByMemberId?: number;
+};
+
+export default function EquipmentsHistory({ borrowedByMemberId }: Props = {}) {
   const context = useOutletContext<OutletContext>();
   const location = useLocation();
   const {
@@ -148,7 +147,7 @@ export default function EquipmentsHistory() {
     totalItems,
     setPageNumber,
     refetch,
-  } = useBorrowings();
+  } = useBorrowings({ borrowedByMemberId });
   const [createOpenLocal, setCreateOpenLocal] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailBorrowing, setDetailBorrowing] = useState<BorrowingListItem | null>(
@@ -280,7 +279,7 @@ export default function EquipmentsHistory() {
           refetch();
         }}
       />
-      <div className="relative">
+      <div className="relative h-full flex flex-col">
         {loading && (
           <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
             <span className="text-sm text-muted-foreground">Đang tải...</span>
@@ -293,6 +292,7 @@ export default function EquipmentsHistory() {
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(page) => setPageNumber(page)}
+          fillHeight
         />
       </div>
     </>

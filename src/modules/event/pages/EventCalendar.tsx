@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { format, parse, startOfWeek, getDay, isSameDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { DatePicker } from 'antd';
 import dayjs from 'dayjs';
@@ -11,6 +11,7 @@ import { useCalendarEvents } from '@/modules/event/hooks/useCalendarEvents';
 import sessionService from '@/modules/request/api/sessionApi';
 import type { SessionDetail } from '@/modules/request/api/type';
 import SessionDetailPopover from './SessionDetailPopover';
+import MonthDayEventsPopover from './MonthDayEventsPopover.tsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, List } from 'lucide-react';
 
@@ -37,7 +38,7 @@ const CALENDAR_MESSAGES = {
   time: 'Giờ',
   event: 'Sự kiện',
   noEventsInRange: 'Không có sự kiện trong khoảng thời gian này.',
-  showMore: (count: number) => `+${count} thêm`,
+  showMore: (count: number) => `+${count} mục khác`,
 };
 
 // Palette pastel cho các block event (theo ảnh bạn gửi)
@@ -53,12 +54,18 @@ const EVENT_PASTEL_COLORS = [
   '#b6dce4',
 ];
 
-function getEventStyle(event: CalendarEvent) {
+function getEventStyle(
+  event: CalendarEvent,
+  activeEventId: string | number | null,
+  calendarView: string,
+) {
   const baseColors = EVENT_PASTEL_COLORS;
   // Dùng id hoặc title để chia màu ổn định
   const key = typeof event.id === 'number' ? event.id : String(event.id || event.title || '').length;
   const idx = Math.abs(Number(key)) % baseColors.length;
   const bg = baseColors[idx] || '#cad7e6';
+  const isActive = activeEventId != null && String(event.id) === String(activeEventId);
+  const isMonth = calendarView === Views.MONTH;
 
   return {
     style: {
@@ -66,10 +73,13 @@ function getEventStyle(event: CalendarEvent) {
       backgroundColor: bg,
       color: '#0f172a',
       border: '1px solid rgba(148, 163, 184, 0.7)',
-      borderRadius: '8px',
+      borderRadius: isMonth ? '9999px' : '8px',
       boxShadow: '0 6px 14px rgba(15, 23, 42, 0.08)',
       padding: 0,
       overflow: 'hidden',
+      // Khi có nhiều event cùng ngày-cùng giờ, click event nào thì event đó nổi lên trên.
+      position: 'relative',
+      zIndex: isActive ? 50 : 2,
     },
   };
 }
@@ -78,9 +88,15 @@ export default function EventCalendar() {
   const [view, setView] = useState<string>(Views.DAY);
   const [date, setDate] = useState(new Date());
   const { events, loading } = useCalendarEvents();
+  const [activeEventId, setActiveEventId] = useState<string | number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailSession, setDetailSession] = useState<SessionDetail | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+
+  const [monthPopoverOpen, setMonthPopoverOpen] = useState(false);
+  const [monthPopoverAnchorRect, setMonthPopoverAnchorRect] = useState<DOMRect | null>(null);
+  const [monthPopoverEvents, setMonthPopoverEvents] = useState<CalendarEvent[]>([]);
+  const [monthPopoverSelectedId, setMonthPopoverSelectedId] = useState<string | number | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -88,6 +104,7 @@ export default function EventCalendar() {
   const timetablePath = isTeamLeaderArea ? '/tl/timetable' : '/teacher/timetable';
   const assignmentsPath = `${timetablePath}/assignments`;
   const isAssignments = location.pathname.includes('/timetable/assignments');
+  const isTimetableRoute = location.pathname.includes('/timetable');
 
   const { defaultDate, scrollToTime } = useMemo(() => {
     const d = new Date();
@@ -99,6 +116,17 @@ export default function EventCalendar() {
 
   const onNavigate = useCallback((newDate: Date) => setDate(newDate), []);
   const onView = useCallback((newView: string) => setView(newView), []);
+
+  useEffect(() => {
+    setMonthPopoverOpen(false);
+    setMonthPopoverEvents([]);
+    setMonthPopoverSelectedId(null);
+    setMonthPopoverAnchorRect(null);
+
+    setDetailOpen(false);
+    setDetailSession(null);
+    setAnchorRect(null);
+  }, [view, date, isTimetableRoute]);
 
   const formattedRange = useMemo(() => {
     if (view === 'month') {
@@ -223,35 +251,106 @@ export default function EventCalendar() {
       ),
       event: ({ event }: { event: CalendarEvent }) => (
         <div className="rbc-event-content h-full flex flex-col">
-          <div className="px-2.5 pt-1.5 pb-1 flex-1 flex flex-col gap-0.5">
-            <div className="flex items-start justify-between gap-1">
-              <span className="text-xs font-semibold text-slate-900 truncate">
-                {event.title}
-              </span>
-              {(event.status !== null && event.status !== undefined) && (
-                <span className={`ml-1 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap border ${event.statusClassName || 'bg-amber-100 text-amber-700 border-amber-200'}`}>
-                  {event.statusLabel}
+          <div
+            className={`${
+              view === Views.MONTH ? 'px-1.5 py-0.5' : 'px-2.5 pt-1.5 pb-1 flex-1'
+            } flex flex-col gap-0.5`}
+          >
+            {view === Views.MONTH ? (
+              <div className="flex items-center gap-2 h-full">
+                {/* Chấm tròn + 1 dòng thời gian như Google Calendar */}
+                <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
+                <span className="text-[11px] font-semibold text-slate-900 truncate">
+                  {dayjs(event.start).format('hA')} ({event.title?.trim() ? event.title : 'Không có tiêu đề'})
                 </span>
-              )}
-            </div>
-            <span className="text-[11px] text-slate-800">
-              {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}
-            </span>
-            {event.resource && (
-              <span className="text-[11px] text-slate-600 truncate">
-                {event.resource}
-              </span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between gap-1">
+                  <span className="text-xs font-semibold text-slate-900 truncate">{event.title}</span>
+                  {(event.status !== null && event.status !== undefined) && (
+                    <span
+                      className={`ml-1 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap border ${
+                        event.statusClassName || 'bg-amber-100 text-amber-700 border-amber-200'
+                      }`}
+                    >
+                      {event.statusLabel}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-800 leading-tight">
+                  {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}
+                </span>
+                {event.resource && (
+                  <span className="text-[11px] text-slate-600 truncate">{event.resource}</span>
+                )}
+              </>
             )}
           </div>
         </div>
       ),
+      // Khi quá số hàng hiển thị trong 1 ô ngày ở month-view, hiển thị "+N thêm"
+      // và mở popup full danh sách phiên.
+      month: {
+        showMore: (props: any) => {
+          const count: number = props?.count ?? 0;
+          const dayEvents: CalendarEvent[] = (props?.events ?? props?.remainingEvents ?? []) as CalendarEvent[];
+          // Mặc định lịch sẽ cho `events` là toàn bộ sự kiện của ngày.
+          // Nếu không có, fallback vào remainingEvents.
+          const safeEvents = (Array.isArray(dayEvents) ? dayEvents : []) as CalendarEvent[];
+          return (
+            <button
+              type="button"
+              className="rbc-show-more inline-flex items-center justify-center w-full h-full px-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-50 rounded-full"
+              onClick={(e) => {
+                const target = e.currentTarget as HTMLElement;
+                setMonthPopoverAnchorRect(target.getBoundingClientRect());
+                setMonthPopoverSelectedId(null);
+                setMonthPopoverEvents(safeEvents);
+                setMonthPopoverOpen(true);
+
+                setDetailOpen(false);
+                setDetailSession(null);
+                setAnchorRect(null);
+              }}
+            >
+              +{count} mục khác
+            </button>
+          );
+        },
+      },
     }),
-    [view, formattedRange, isAssignments, navigate, timetablePath, assignmentsPath]
+    [view, formattedRange, isAssignments, navigate, timetablePath, assignmentsPath, events]
   );
 
   const handleSelectEvent = async (event: CalendarEvent, e?: React.SyntheticEvent) => {
+    setActiveEventId(event.id);
     const idNum = Number(event.id);
-    if (!idNum || Number.isNaN(idNum)) return;
+
+    if (!idNum || Number.isNaN(idNum)) {
+      // Fallback: giữ behavior cũ nếu không map được sang `sessionId`.
+      if (view === Views.MONTH && isTimetableRoute) {
+        setMonthPopoverSelectedId(event.id);
+
+        const target = (e?.currentTarget || e?.target) as HTMLElement | undefined;
+        if (target?.getBoundingClientRect) setMonthPopoverAnchorRect(target.getBoundingClientRect());
+
+        // Popup danh sách phiên cùng ngày (dùng khi không mở detail theo id).
+        const nextEvents = events.filter((ev) => isSameDay(ev.start, event.start));
+        setMonthPopoverEvents(nextEvents);
+        setMonthPopoverOpen(true);
+
+        setDetailOpen(false);
+        setDetailSession(null);
+        setAnchorRect(null);
+      }
+      return;
+    }
+
+    // Month-view: bấm vào phiên cụ thể => mở SessionDetailPopover (như ảnh 1).
+    setMonthPopoverOpen(false);
+    setMonthPopoverEvents([]);
+    setMonthPopoverSelectedId(null);
     try {
       const target = (e?.currentTarget || e?.target) as HTMLElement | undefined;
       if (target?.getBoundingClientRect) setAnchorRect(target.getBoundingClientRect());
@@ -264,7 +363,11 @@ export default function EventCalendar() {
   };
 
   const calendarContent = (
-    <div className="event-calendar-scroll relative flex-1 min-h-0 event-calendar-fixed">
+    <div
+      className={`event-calendar-scroll relative flex-1 min-h-0 event-calendar-fixed ${
+        isTeamLeaderArea ? 'event-calendar-scroll--tl' : ''
+      }`}
+    >
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
           <span className="text-sm text-gray-500">Đang tải lịch...</span>
@@ -287,10 +390,13 @@ export default function EventCalendar() {
         scrollToTime={scrollToTime}
         messages={CALENDAR_MESSAGES}
         components={customComponents}
-        eventPropGetter={getEventStyle}
+        eventPropGetter={(event: CalendarEvent) => getEventStyle(event, activeEventId, view)}
         showMultiDayTimes
         culture="vi"
         style={{ height: '100%' }}
+        maxRows={view === Views.MONTH ? 1 : 999}
+        popup={view === Views.MONTH ? false : undefined}
+        doShowMoreDrillDown={view === Views.MONTH ? false : undefined}
       />
     </div>
   );
@@ -310,6 +416,39 @@ export default function EventCalendar() {
           setAnchorRect(null);
         }}
         session={detailSession}
+      />
+
+      <MonthDayEventsPopover
+        open={monthPopoverOpen}
+        anchorRect={monthPopoverAnchorRect}
+        events={monthPopoverEvents}
+        selectedId={monthPopoverSelectedId}
+        onClose={() => {
+          setMonthPopoverOpen(false);
+          setMonthPopoverEvents([]);
+          setMonthPopoverSelectedId(null);
+          setMonthPopoverAnchorRect(null);
+        }}
+        onSelect={async (id: string | number) => {
+          setMonthPopoverSelectedId(id);
+          setActiveEventId(id);
+
+          const idNum = Number(id);
+          if (!idNum || Number.isNaN(idNum)) return;
+
+          try {
+            // Dùng anchor của popover list để đặt popover detail.
+            if (monthPopoverAnchorRect) setAnchorRect(monthPopoverAnchorRect);
+            const session = await sessionService.getById(idNum);
+            setDetailSession(session);
+            setDetailOpen(true);
+
+            setMonthPopoverOpen(false);
+            setMonthPopoverEvents([]);
+          } catch (err) {
+            console.error('fetch session detail from month list error', err);
+          }
+        }}
       />
     </div>
   );

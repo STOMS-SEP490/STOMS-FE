@@ -16,6 +16,8 @@ export type PublishedTeamSession = {
   // dùng để hiển thị tên người điểm danh.
   attendances?: Array<{
     attendanceByMemberId?: number | null;
+    checkinAt?: string | null;
+    checkoutAt?: string | null;
   }>;
 };
 
@@ -47,7 +49,13 @@ function mapPublishedTeamSessionFromApi(raw: Record<string, unknown>): Published
       ? attendancesRaw.map((a) => {
           const v = a['attendanceByMemberId'] ?? a['AttendanceByMemberId'] ?? null;
           const num = v != null ? Number(v) : null;
-          return { attendanceByMemberId: num && num > 0 ? num : null };
+          const checkinAtRaw = a['checkinAt'] ?? a['CheckinAt'] ?? null;
+          const checkoutAtRaw = a['checkoutAt'] ?? a['CheckoutAt'] ?? null;
+          return {
+            attendanceByMemberId: num && num > 0 ? num : null,
+            checkinAt: checkinAtRaw != null ? String(checkinAtRaw) : null,
+            checkoutAt: checkoutAtRaw != null ? String(checkoutAtRaw) : null,
+          };
         })
       : undefined,
   };

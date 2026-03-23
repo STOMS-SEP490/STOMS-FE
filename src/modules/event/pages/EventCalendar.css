@@ -134,12 +134,31 @@
 .rbc-month-view .rbc-event {
   width: 100%;
   margin: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.rbc-month-view .rbc-event-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .rbc-event {
   padding: 0;
   border-radius: 8px;
+}
+
+/* Week/Day: giữ độ cao tối thiểu để block event nhìn rõ */
+.rbc-time-view .rbc-event {
   min-height: 80px;
+}
+
+/* Month: giống Google Calendar, event dạng "chip" không cao */
+.rbc-month-view .rbc-event {
+  min-height: 26px;
 }
 
 .rbc-custom-toolbar {
@@ -153,8 +172,10 @@
   height: 100%;
 }
 
-.event-calendar-scroll .rbc-calendar {
-  min-height: 720px;
+.event-calendar-scroll--tl .rbc-calendar {
+  /* 8:00 -> 20:00 = 12 giờ. Mỗi timeslot ~ 30 phút, CSS .rbc-timeslot-group min-height=48px
+     => khoảng 12 giờ * 2 slot/giờ * 48px = 1152px (cộng lề/border). */
+  min-height: 1160px;
 }
 
 .rbc-event:focus {

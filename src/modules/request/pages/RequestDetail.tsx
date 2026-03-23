@@ -1,6 +1,6 @@
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, Copy, Share2, Calendar, Hash, List, MapPin, AlertCircle, ChevronRight } from 'lucide-react';
+import { Plus, X, CheckCircle2, Copy, Share2, Calendar, Hash, List, MapPin, AlertCircle } from 'lucide-react';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';
@@ -13,6 +13,7 @@ import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
+import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext, SessionWithFlags } from '../requestDetail.types';
 
@@ -359,14 +360,11 @@ export default function RequestDetail() {
                             {session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
                           </span>
                         </div>
-                        <button
-                          type="button"
+                        <TableTextAction
                           onClick={() => setRightPanel({ mode: 'detail', session })}
-                          className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 hover:text-sky-700 shrink-0"
-                        >
-                          Chi tiết
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
+                          className="text-xs text-sky-600 hover:text-sky-700 shrink-0"
+                          chevronClassName="w-3.5 h-3.5"
+                        />
                       </div>
                       <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">{sessionTitle}</p>
                       <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
@@ -479,7 +477,11 @@ export default function RequestDetail() {
                 <>
                   {/* Thông tin phiên + Danh sách thiết bị: luôn hiển thị, kể cả khi đã gắn đội / đã duyệt */}
                 <RequestSessionDetailPanel
-                  session={rightPanel.session}
+                  // Tránh trường hợp rightPanel.session bị "chụp" lúc chưa có reservationId.
+                  // Luôn ưu tiên session mới nhất từ state `sessions`.
+                  session={
+                    sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                  }
                   requestCode={request.requestCode ?? ''}
                 />
                   <div className="mt-6">

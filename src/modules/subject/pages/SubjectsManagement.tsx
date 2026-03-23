@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { Eye, Pencil, Power, PowerOff, Trash2, Plus } from 'lucide-react'
+import { Pencil, Power, PowerOff, Trash2, Plus } from 'lucide-react'
 import { DataTable } from '@/shared/components/common/DataTable'
+import { TableTextAction } from '@/shared/components/common/TableTextAction'
+import { Badge } from '@/shared/components/ui/badge'
 import HoverSearch from '@/shared/components/ui/search'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
@@ -439,6 +441,7 @@ export default function SubjectsManagement() {
     {
       accessorKey: 'subjectCode',
       header: 'MÃ MÔN HỌC',
+      cell: ({ row }) => <div className="text-sm font-medium">{row.original.subjectCode}</div>,
     },
     {
       accessorKey: 'subjectName',
@@ -447,19 +450,12 @@ export default function SubjectsManagement() {
     {
       accessorKey: 'isActive',
       header: 'TRẠNG THÁI',
-      cell: ({ row }) => (
-        <div className="text-sm">
-          {row.original.isActive ? (
-            <span className="inline-flex items-center rounded-full bg-green-50 text-green-700 px-2 py-0.5 border border-green-100">
-              Đang hoạt động
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 px-2 py-0.5 border border-gray-200">
-              Vô hiệu hóa
-            </span>
-          )}
-        </div>
-      ),
+      cell: ({ row }) =>
+        row.original.isActive ? (
+          <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
+        ) : (
+          <Badge className="bg-orange-100 text-orange-600">Ngừng hoạt động</Badge>
+        ),
     },
     {
       accessorKey: 'createdAt',
@@ -474,9 +470,7 @@ export default function SubjectsManagement() {
       header: 'THAO TÁC',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => handleView(row.original)} title="Xem">
-            <Eye className="w-4 h-4 text-gray-800" />
-          </Button>
+          <TableTextAction onClick={() => handleView(row.original)} />
           <Button variant="ghost" size="icon" onClick={() => openEditModal(row.original)} title="Sửa">
             <Pencil className="w-4 h-4 text-blue-600" />
           </Button>
@@ -503,7 +497,10 @@ export default function SubjectsManagement() {
         <HoverSearch
           placeholder="Tìm môn học..."
           value={search}
-          onChange={setSearch}
+          onChange={(v) => {
+            setSearch(v)
+            setPageNumber(1)
+          }}
         />
       </div>
     )

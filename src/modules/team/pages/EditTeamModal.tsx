@@ -79,9 +79,9 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
 
         const isInThisTeam = (m: any) => Number(m?.team?.teamId) === Number(team.teamId);
         const isNoTeam = (m: any) => m?.team == null || m?.team?.teamId == null;
-        const isTeamLeaderRole = (m: any) => Number(m?.user?.roleId) === 2;
+        const isTeamLeaderRole = (m: any) => Number(m?.roleId) === 2;
         const isTeacherOrTa = (m: any) => {
-          const roleId = Number(m?.user?.roleId);
+          const roleId = Number(m?.roleId);
           return roleId === 4 || roleId === 5;
         };
 
@@ -350,11 +350,11 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
                     </Avatar>
                     <div className="flex-1">
                       <div className="font-medium text-black">{m.fullName}</div>
-                      <div className="text-xs text-black/60">{m.user?.email}</div>
+                      <div className="text-xs text-black/60">{m.email}</div>
                     </div>
                     <span className="text-xs text-gray-500">
                       {(() => {
-                        const roleId = m.user?.roleId;
+                        const roleId = m.roleId;
                         switch (roleId) {
                           case 6:
                             return 'Quản lý thiết bị';

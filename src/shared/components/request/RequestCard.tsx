@@ -1,6 +1,8 @@
 import { getRequestStatusInfo } from '@/constants/status';
 import { GraduationCap, Star, User } from 'lucide-react';
 
+type RequestStatusInfo = ReturnType<typeof getRequestStatusInfo>;
+
 export function getRequestType(item: {
   subjectId?: number | null;
   courseId?: number | null;
@@ -11,13 +13,12 @@ export function getRequestType(item: {
   return { label: 'Khác', icon: GraduationCap };
 }
 
-function StatusPill({ status }: { status: string | number }) {
-  const info = getRequestStatusInfo(status);
+function StatusPill({ statusInfo }: { statusInfo: RequestStatusInfo }) {
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap shrink-0 rounded-full px-3 py-1 text-[11px] font-medium border ${info.className}`}
+      className={`inline-flex items-center whitespace-nowrap shrink-0 rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}
     >
-      {info.label}
+      {statusInfo.label}
     </span>
   );
 }
@@ -31,6 +32,8 @@ export type RequestCardProps = {
   courseId?: number | null;
   eventId?: number | null;
   status?: string | number | null;
+  /** Override hiển thị trạng thái (dùng khi cùng 1 status code nhưng diễn giải khác nhau theo màn hình) */
+  statusInfoOverride?: RequestStatusInfo | null;
   /** Hiển thị "Cần xử lý" khi trạng thái chờ duyệt */
   showNeedsAction?: boolean;
   isActive?: boolean;
@@ -49,6 +52,7 @@ export default function RequestCard({
   courseId,
   eventId,
   status,
+  statusInfoOverride,
   showNeedsAction = false,
   isActive = false,
   isHovered = false,
@@ -58,8 +62,12 @@ export default function RequestCard({
   hintText = 'Bấm để xem chi tiết',
 }: RequestCardProps) {
   const typeInfo = getRequestType({ subjectId, courseId, eventId });
-  const statusInfo = status != null && String(status).trim() !== '' ? getRequestStatusInfo(status) : null;
-  const isPending = status != null && String(status).toLowerCase().includes('chờ');
+  const statusInfo =
+    statusInfoOverride ??
+    (status != null && String(status).trim() !== '' ? getRequestStatusInfo(status) : null);
+
+  // Dựa theo nhãn hiển thị để "Cần xử lý" đúng với mapping theo màn hình.
+  const isPending = !!statusInfo?.label?.toLowerCase().includes('chờ');
 
   return (
     <div
@@ -100,9 +108,7 @@ export default function RequestCard({
             )}
           </div>
         </div>
-        {statusInfo && (
-          <StatusPill status={status!} />
-        )}
+        {statusInfo && <StatusPill statusInfo={statusInfo} />}
       </div>
       {(isActive || isHovered) && hintText && (
         <div className="mt-2 text-[11px] text-slate-500">{hintText}</div>

@@ -1,7 +1,3 @@
-// Hệ thống status/tình trạng dùng chung cho nhiều màn hình.
-// Các constant này chỉ gom mapping mã số <-> key tiếng Anh + nhãn hiển thị tiếng Việt.
-
-// -------------------- BORROWING / EQUIPMENT BORROWING / EQUIPMENT --------------------
 
 export const BORROWING_STATUS = {
   BORROWED: 1,
@@ -25,7 +21,6 @@ export const EQUIPMENT_BORROWING_STATUS = {
   LOST: 4,
 } as const;
 
-// -------------------- TRANSACTION / EXPENSE --------------------
 
 export const TRANSACTION_TYPE = {
   EXPENSE: 1,
@@ -38,7 +33,6 @@ export const EXPENSE_STATUS = {
   REJECTED: 3,
 } as const;
 
-// -------------------- REQUEST / SESSION --------------------
 
 export const REQUEST_STATUS = {
   PENDING: 1,
@@ -62,7 +56,6 @@ export const SESSION_STATUS = {
   COMPLETED: 9,
 } as const;
 
-// -------------------- LABEL HELPERS (VN) --------------------
 
 export const REQUEST_STATUS_LABEL: Record<number, string> = {
   1: 'Chờ duyệt',
@@ -112,7 +105,6 @@ export const EXPENSE_STATUS_LABEL: Record<number, string> = {
   3: 'Từ chối',
 };
 
-// -------------------- HELPERS --------------------
 
 function normalizeStatusCode(
   status: string | number | null | undefined,
@@ -129,6 +121,14 @@ function normalizeStatusCode(
     if (s.includes('approved') || s.includes('đã duyệt')) return REQUEST_STATUS.APPROVED;
     if (s.includes('rejected') || s.includes('reject') || s.includes('từ chối'))
       return REQUEST_STATUS.REJECTED;
+    if (s.includes('assigning') || s.includes('đang phân công'))
+      return REQUEST_STATUS.ASSIGNING;
+    if (s.includes('published') || s.includes('đã công bố'))
+      return REQUEST_STATUS.PUBLISHED;
+    if (s.includes('completed') || s.includes('hoàn thành') || s.includes('done') || s.includes('finished'))
+      return REQUEST_STATUS.COMPLETED;
+    if (s.includes('cancelled') || s.includes('canceled') || s.includes('đã hủy'))
+      return REQUEST_STATUS.CANCELLED;
   }
   if (mapping === SESSION_STATUS_LABEL) {
     const normalized = s.replace(/\s|-/g, '_');
@@ -193,6 +193,36 @@ export function getRequestStatusInfo(status: string | number | null | undefined)
     className: classNameByCode[code] ?? baseClass,
     leftBarClass: leftBarByCode[code] ?? 'border-l-slate-400',
   };
+}
+
+export function getTeamLeaderRequestStatusInfo(
+  status: string | number | null | undefined
+): {
+  label: string;
+  className: string;
+  leftBarClass: string;
+} {
+  const base = getRequestStatusInfo(status);
+  const code = normalizeStatusCode(status, REQUEST_STATUS_LABEL);
+  if (!code) return base;
+
+  if (code === REQUEST_STATUS.APPROVED) {
+    return {
+      label: 'Chờ phân công',
+      className: 'bg-amber-50 text-amber-700 border-amber-200',
+      leftBarClass: 'border-l-amber-500',
+    };
+  }
+
+  if (code === REQUEST_STATUS.ASSIGNING) {
+    return {
+      label: 'Chờ duyệt',
+      className: 'bg-sky-50 text-sky-700 border-sky-200',
+      leftBarClass: 'border-l-sky-500',
+    };
+  }
+
+  return base;
 }
 
 

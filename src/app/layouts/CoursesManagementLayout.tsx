@@ -6,6 +6,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 export default function CoursesLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const isManager = location.pathname.startsWith('/manager/');
+  const isTeacher = location.pathname.startsWith('/teacher/');
+  const basePath = isManager ? '/manager/courses' : isTeacher ? '/teacher/courses' : '/tl/courses';
 
   const currentTab = location.pathname.includes('subjects') ? 'subjects' : 'courses';
 
@@ -36,13 +39,15 @@ export default function CoursesLayout() {
         <Tabs value={currentTab}>
           <div className="flex items-center justify-between">
             <TabsList>
-              <TabsTrigger value="courses" onClick={() => navigate('/manager/courses')}>
+              <TabsTrigger value="courses" onClick={() => navigate(basePath)}>
                 KHÓA HỌC
               </TabsTrigger>
 
-              <TabsTrigger value="subjects" onClick={() => navigate('/manager/courses/subjects')}>
-                MÔN HỌC
-              </TabsTrigger>
+              {isManager && (
+                <TabsTrigger value="subjects" onClick={() => navigate('/manager/courses/subjects')}>
+                  MÔN HỌC
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <Outlet context={{ position: 'toolbar' }} />

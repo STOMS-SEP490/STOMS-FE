@@ -125,7 +125,7 @@ export default function RequestsManagement() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-[2px]">
       <div className="flex justify-between bg-white px-6 py-4 rounded-xl border shadow-sm items-center">
         <div>
           <h2 className="text-xl font-semibold text-black">
@@ -145,7 +145,7 @@ export default function RequestsManagement() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-[2px]">
         <StatCard
           icon={<BookOpen />}
           label="Tổng yêu cầu"
@@ -168,7 +168,9 @@ export default function RequestsManagement() {
         />
       </div>
 
-      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+      <div
+        className="bg-white rounded-xl border shadow-sm px-6 py-4 max-h-[calc(100vh-260px)] overflow-y-auto"
+      >
         <DataTable
           columns={columns}
           data={data}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+  import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import RequestCard from './RequestCard';
@@ -9,6 +9,7 @@ function isPendingStatus(status: string | undefined): boolean {
 }
 
 export type RequestSidebarProps = {
+  basePath?: string;
   search?: string;
   onlyPending?: boolean;
   typeFilter?: 'all' | 'event' | 'subject' | 'course';
@@ -17,6 +18,7 @@ export type RequestSidebarProps = {
 };
 
 export default function RequestSidebar({
+  basePath = '/manager/requests',
   search = '',
   onlyPending = false,
   typeFilter = 'all',
@@ -60,9 +62,9 @@ export default function RequestSidebar({
   // mà URL vẫn đang ở /requests/:id thì điều hướng về trang placeholder
   useEffect(() => {
     if (!loading && filtered.length === 0 && id) {
-      navigate('/manager/requests');
+      navigate(basePath);
     }
-  }, [filtered.length, id, loading, navigate]);
+  }, [basePath, filtered.length, id, loading, navigate]);
 
   return (
     <div className="text-black h-full">
@@ -102,7 +104,7 @@ export default function RequestSidebar({
                 showNeedsAction={isPendingStatus(item.status)}
                 isActive={id === String(item.requestId)}
                 isHovered={hoveredId === item.requestId}
-                onClick={() => navigate(`/manager/requests/${item.requestId}`)}
+                onClick={() => navigate(`${basePath}/${item.requestId}`)}
                 onMouseEnter={() => setHoveredId(item.requestId)}
                 onMouseLeave={() => setHoveredId(null)}
               />

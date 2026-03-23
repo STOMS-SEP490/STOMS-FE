@@ -7,9 +7,21 @@ import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeaching
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage';
 import TeacherAttendanceHistoryPage from '@/modules/attendance/pages/TeacherAttendanceHistoryPage';
+import AvailableEquipmentsPage from '@/modules/equipment/pages/AvailableEquipmentsPage';
+import CoursesReadonlyPage from '@/modules/course/pages/CoursesReadonlyPage';
+import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout';
+import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
 
 const TeacherRoutes = [
   { path: 'events', element: <EventsManagement /> },
+  {
+    path: 'courses',
+    element: <CoursesReadonlyLayout />,
+    children: [
+      { index: true, element: <CoursesReadonlyPage /> },
+      { path: 'subjects', element: <SubjectsReadonlyPage /> },
+    ],
+  },
   { path: 'timetable', element: <EventCalendar /> },
   { path: 'timetable/assignments', element: <TeacherAssignments /> },
   { path: 'teaching-history', element: <TeacherTeachingHistoryPage /> },
@@ -18,6 +30,7 @@ const TeacherRoutes = [
   { path: 'fund-contributions', element: <TeacherContributionHistoryPage /> },
   { path: 'attendance-history', element: <TeacherAttendanceHistoryPage /> },
   { path: 'tasks', element: <TeacherTaskReportPage /> },
+  { path: 'equipments', element: <AvailableEquipmentsPage /> },
   { path: 'profile', element: <UserProfile /> },
 ];
 
