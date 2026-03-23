@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import RequestCard from './RequestCard';
 
+const REQUEST_APPROVAL_STATUSES = ['PENDING', 'REJECTED', 'APPROVED'] as const;
+
 function isPendingStatus(status: string | undefined): boolean {
   const s = (status ?? '').toLowerCase();
   return s === 'pending' || s.includes('chờ') || s.includes('pending');
@@ -28,7 +30,18 @@ export default function RequestSidebar({
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey);
+  const apiStatuses = (() => {
+    if (onlyPending) return ['PENDING'];
+    if (statusFilter === 'pending') return ['PENDING'];
+    if (statusFilter === 'approved') return ['APPROVED'];
+    if (statusFilter === 'rejected') return ['REJECTED'];
+    if (statusFilter === 'assigning') return ['ASSIGNING'];
+    return [...REQUEST_APPROVAL_STATUSES];
+  })();
+
+  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey, {
+    statuses: apiStatuses,
+  });
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   const filtered = requestList

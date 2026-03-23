@@ -100,12 +100,7 @@ export default function RequestCard({
                 <span className="truncate">{customerName}</span>
               </div>
             )}
-            {showNeedsAction && isPending && (
-              <div className="flex items-center gap-1 text-[11px] text-rose-600 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                Cần xử lý
-              </div>
-            )}
+            
           </div>
         </div>
         {statusInfo && <StatusPill statusInfo={statusInfo} />}
