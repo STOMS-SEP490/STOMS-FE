@@ -94,9 +94,9 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
         setBankCode(data.bankCode ?? '');
         setBankName(data.bankName ?? '');
         setTaxNumber(data.taxNumber ?? '');
-        setEmail(data.user?.email ?? '');
-        setRoleId(data.user?.roleId ?? 4);
-        setIsActive(data.user?.isActive ?? true);
+        setEmail(data.email ?? '');
+        setRoleId(data.roleId ?? 4);
+        setIsActive(data.isActive ?? true);
 
         skillApi.getSkills({ pageNumber: 1, pageSize: 500 }).then((res) => {
           if (cancelled) return;
@@ -149,8 +149,8 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
         taxNumber: taxNumber.trim(),
         avatarUrl: member.avatarUrl ?? undefined,
       });
-      if (member.user?.userId) {
-        await userApi.updateUser(member.user.userId, {
+      if (member.userId) {
+        await userApi.updateUser(member.userId, {
           email: email.trim(),
           isActive,
           roleId,

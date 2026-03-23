@@ -12,6 +12,25 @@ export type ContributionListItem = {
   createdAt: string | null;
 };
 
+/** BE `ContributionResponse` trả tên thành viên trong `member.fullName`, không có `memberName` phẳng. */
+function normalizeContribution(raw: Record<string, unknown>): ContributionListItem {
+  const member = raw.member as { fullName?: string | null } | undefined;
+  return {
+    contributionId: Number(raw.contributionId),
+    memberId: Number(raw.memberId),
+    memberName:
+      (raw.memberName as string | null | undefined) ?? member?.fullName ?? null,
+    transactionId: Number(raw.transactionId),
+    amount:
+      raw.amount === null || raw.amount === undefined
+        ? null
+        : Number(raw.amount),
+    description: String(raw.description ?? ''),
+    paymentImg: String(raw.paymentImg ?? ''),
+    createdAt: (raw.createdAt as string | null) ?? null,
+  };
+}
+
 export type ContributionFilterParams = {
   pageNumber?: number;
   pageSize?: number;
@@ -23,13 +42,25 @@ export type ContributionFilterParams = {
 };
 
 export const contributionApi = {
-  getContributions: (
+  getContributions: async (
     params?: ContributionFilterParams,
-  ): Promise<PaginationResponse<ContributionListItem>> =>
-    axiosClient.get('/contributions/filter', { params }),
+  ): Promise<PaginationResponse<ContributionListItem>> => {
+    const res = (await axiosClient.get('/contributions/filter', {
+      params,
+    })) as PaginationResponse<Record<string, unknown>>;
+    return {
+      ...res,
+      items: (res.items ?? []).map((item) => normalizeContribution(item)),
+    };
+  },
 
-  getById: (id: number): Promise<ContributionListItem> =>
-    axiosClient.get(`/contributions/${id}`),
+  getById: async (id: number): Promise<ContributionListItem> => {
+    const raw = (await axiosClient.get(`/contributions/${id}`)) as Record<
+      string,
+      unknown
+    >;
+    return normalizeContribution(raw);
+  },
 
   /**
    * POST /api/wallets/{walletId}/contributions
@@ -48,8 +79,13 @@ export const contributionApi = {
       fd.append('Description', payload.description.trim());
     }
     fd.append('PaymentImg', payload.paymentImg);
-    return axiosClient.post(`/wallets/${payload.walletId}/contributions`, fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const raw = (await axiosClient.post(
+      `/wallets/${payload.walletId}/contributions`,
+      fd,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      },
+    )) as Record<string, unknown>;
+    return normalizeContribution(raw);
   },
 };

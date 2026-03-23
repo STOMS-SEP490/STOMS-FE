@@ -9,10 +9,24 @@ import { Eye } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import transactionApi from '../api/transactionApi';
-import { TRANSACTION_TYPE } from '@/constants/status';
-import { TRANSACTION_TYPE_LABEL } from '@/constants/status';
+import { TRANSACTION_TYPE, TRANSACTION_TYPE_LABEL } from '@/constants/status';
 import type { TransactionListItem } from '../transaction';
 import { useTransactions } from '../hooks/useTransactions';
+
+function formatTransactionAmountDisplay(amount: number | undefined, transactionType: number) {
+  const abs = Math.abs(amount ?? 0);
+  if (transactionType === TRANSACTION_TYPE.EXPENSE) {
+    return {
+      className: 'font-semibold text-red-600',
+      text: `- ${abs.toLocaleString('vi-VN')} đ`,
+    };
+  }
+  const a = amount ?? 0;
+  return {
+    className: `font-semibold ${a >= 0 ? 'text-green-600' : 'text-red-600'}`,
+    text: `${a >= 0 ? '+ ' : '- '}${abs.toLocaleString('vi-VN')} đ`,
+  };
+}
 
 export default function Transactions() {
   const context = useOutletContext<{ position: string }>();
@@ -79,7 +93,7 @@ export default function Transactions() {
     const q = search.trim().toLowerCase();
     if (!q) return data;
     return data.filter((x) => {
-      const t = `${x.walletName ?? ''} ${x.description ?? ''}`.toLowerCase();
+      const t = `${x.description ?? ''}`.toLowerCase();
       return t.includes(q);
     });
   }, [data, search]);
@@ -88,7 +102,7 @@ export default function Transactions() {
     return (
       <div className="flex items-center gap-3">
         <HoverSearch
-          placeholder="Tìm theo mô tả / quỹ..."
+          placeholder="Tìm theo mô tả..."
           value={search}
           onChange={setSearch}
         />
@@ -134,10 +148,6 @@ export default function Transactions() {
         header: 'Mã giao dịch',
       },
       {
-        accessorKey: 'walletName',
-        header: 'Quỹ',
-      },
-      {
         accessorKey: 'transactionType',
         header: 'Loại',
         cell: ({ row }) => {
@@ -153,13 +163,11 @@ export default function Transactions() {
         accessorKey: 'amount',
         header: 'Số tiền',
         cell: ({ row }) => {
-          const a = row.original.amount ?? 0;
-          return (
-            <span className={`font-semibold ${a >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {a >= 0 ? '+ ' : '- '}
-              {Math.abs(a).toLocaleString('vi-VN')} đ
-            </span>
+          const { className, text } = formatTransactionAmountDisplay(
+            row.original.amount,
+            row.original.transactionType
           );
+          return <span className={className}>{text}</span>;
         },
       },
       {
@@ -170,11 +178,6 @@ export default function Transactions() {
         accessorKey: 'transactionDate',
         header: 'Ngày giao dịch',
         cell: ({ row }) => (row.original.transactionDate ? new Date(row.original.transactionDate).toLocaleDateString('vi-VN') : '—'),
-      },
-      {
-        id: 'createdAt',
-        header: 'Ngày tạo',
-        cell: ({ row }) => (row.original.createdAt ? new Date(row.original.createdAt).toLocaleString('vi-VN') : '—'),
       },
       {
         id: 'actions',
@@ -236,10 +239,13 @@ export default function Transactions() {
             </div>
             <div>
               <div className="text-xs text-gray-500">Số tiền</div>
-              <div className={`font-semibold ${detailItem.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {detailItem.amount >= 0 ? '+ ' : '- '}
-                {Math.abs(detailItem.amount).toLocaleString('vi-VN')} đ
-              </div>
+              {(() => {
+                const fmt = formatTransactionAmountDisplay(
+                  detailItem.amount,
+                  detailItem.transactionType
+                );
+                return <div className={fmt.className}>{fmt.text}</div>;
+              })()}
             </div>
             <div>
               <div className="text-xs text-gray-500">Mô tả</div>

@@ -214,6 +214,11 @@ export default function AuditLogs() {
         return;
       }
 
+      if (normalizedEntityType === '19' || normalizedEntityType === 'topic') {
+        navigate(`/manager/topics?openDetail=1&topicId=${entityId}`);
+        return;
+      }
+
       if (normalizedEntityType === '18' || normalizedEntityType === 'team') {
         navigate(`/manager/teams?openDetail=1&teamId=${entityId}`);
         return;

@@ -41,7 +41,7 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
 
   if (!member) return null;
 
-  const roleLabel = member.user?.roleId ? ROLE_MAP[member.user.roleId] : '—';
+  const roleLabel = member.roleId ? ROLE_MAP[member.roleId] : '—';
 
   return (
     <>
@@ -63,10 +63,10 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
                 />
                 <div>
                   <h2 className="text-lg font-semibold">{member.fullName}</h2>
-                  <p className="text-sm text-gray-500">{member.user?.email ?? '—'}</p>
+                  <p className="text-sm text-gray-500">{member.email ?? '—'}</p>
                   <div className="flex gap-2 mt-2">
-                    {member.teamId && (
-                      <Badge className="bg-green-100 text-green-700">Team #{member.teamId}</Badge>
+                    {member.team?.teamName && (
+                      <Badge className="bg-green-100 text-green-700">{member.team.teamName}</Badge>
                     )}
                     <Badge className="bg-blue-100 text-blue-700">{roleLabel}</Badge>
                   </div>
@@ -98,21 +98,25 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
           </div>
 
           <Section title="Thông tin tài khoản">
-            <Field label="User ID" value={member.user?.userId} />
-            <Field label="Email" value={member.user?.email} />
+            <Field label="User ID" value={member.userId} />
+            <Field label="Email" value={member.email} />
+            <Field label="Vai trò (roleId)" value={member.roleId != null ? `${member.roleId} — ${roleLabel}` : '—'} />
             <Field
               label="Trạng thái"
               value={
-                member.user?.isActive ? (
+                member.isActive ? (
                   <Badge className="bg-green-100 text-green-700">Đang hoạt động</Badge>
                 ) : (
                   <Badge className="bg-red-100 text-red-700">Đã khóa</Badge>
                 )
               }
             />
-            <Field label="Ngày tạo tài khoản" value={formatDateTime(member.user?.createdAt)} />
-            <Field label="Cập nhật tài khoản" value={formatDateTime(member.user?.updatedAt)} />
+            <Field label="Ngày tạo tài khoản" value={formatDateTime(member.userCreatedAt)} />
+            <Field label="Cập nhật tài khoản" value={formatDateTime(member.userUpdatedAt)} />
+            <Field label="Khóa tài khoản lúc" value={formatDateTime(member.userLockedAt)} />
           </Section>
+
+        
 
           <Section title="Thông tin cá nhân">
             <Field label="Họ và tên" value={member.fullName} />
@@ -122,6 +126,7 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
             <Field label="Mã số thuế" value={member.taxNumber} />
             <Field label="Mã ngân hàng" value={member.bankCode} />
             <Field label="Tên ngân hàng" value={member.bankName} />
+            <Field label="Tên nhóm" value={member.team?.teamName ?? '—'} />
           </Section>
 
           <Section title="Kỹ năng">

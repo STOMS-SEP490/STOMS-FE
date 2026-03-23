@@ -90,15 +90,16 @@ export const expenseApi = {
   async getExpenses(
     params?: ExpenseFilterParams
   ): Promise<PaginationResponse<ExpenseListItem>> {
+    // axiosClient interceptor đã trả về response.data — không bọc thêm .data
     const res = await axiosClient.get<Record<string, unknown>>('/expenses/filter', {
       params,
     });
-    return mapPagedFromApi((res?.data ?? {}) as Record<string, unknown>);
+    return mapPagedFromApi((res ?? {}) as Record<string, unknown>);
   },
 
   async getById(id: number): Promise<ExpenseListItem> {
     const res = await axiosClient.get<Record<string, unknown>>(`/expenses/${id}`);
-    return mapExpenseFromApi((res?.data ?? {}) as Record<string, unknown>);
+    return mapExpenseFromApi((res ?? {}) as Record<string, unknown>);
   },
 
   async approve(payload: { walletId: number; expenseIds: number[] }): Promise<ExpenseListItem[]> {
@@ -115,7 +116,7 @@ export const expenseApi = {
       expenseId: payload.expenseId,
       reason: payload.reason.trim(),
     });
-    return mapExpenseFromApi((res?.data ?? {}) as Record<string, unknown>);
+    return mapExpenseFromApi((res ?? {}) as Record<string, unknown>);
   },
 };
 
