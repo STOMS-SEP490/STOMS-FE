@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 
 import dayjs from 'dayjs';
@@ -17,12 +17,14 @@ import {
   Users,
   AlertCircle,
   RotateCcw,
+  Search,
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -31,7 +33,7 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import RequestCard from '@/shared/components/request/RequestCard';
-import { getSessionStatusInfo } from '@/constants/status';
+import { getTeamLeaderRequestStatusInfo } from '@/constants/status';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
 import { useTeamLeaderAssignmentsPage } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
 
@@ -48,7 +50,8 @@ export default function TeamLeaderAssignmentsPage() {
     setSearch,
     onlyNeedsAction,
     setOnlyNeedsAction,
-    statusFilter,
+    activeTab,
+    setActiveTab,
     setStatusFilter,
     activeSession,
     setActiveSession,
@@ -59,6 +62,8 @@ export default function TeamLeaderAssignmentsPage() {
     setSearchByAssignmentId,
     handleSelectStaff,
     handleApplyToOtherSessions,
+    autoAssigning,
+    applyingToOtherSessions,
     getSessionStats,
   } = useTeamLeaderAssignmentsPage();
 
@@ -67,6 +72,48 @@ export default function TeamLeaderAssignmentsPage() {
     rect: DOMRect;
   } | null>(null);
   // (logic/data layer moved to hook)
+
+  const isTLNeedsAction = (req: { sessions?: Array<{ status?: string | number | null }> } | null) => {
+    // TL cần thao tác khi trong request vẫn còn session ở trạng thái "chờ phân công".
+    const sessions = req?.sessions ?? [];
+    if (!sessions.length) return false;
+    return sessions.some((s) => {
+      const st = String(s.status ?? '').toLowerCase();
+      return st === 'assigning' || st === 'pending';
+    });
+  };
+
+  // Sort phiên học theo trạng thái để mặc định hiển thị đúng thứ tự (áp dụng cho detail).
+  const sortedDetailSessions = useMemo(() => {
+    const sessions = selectedRequest?.sessions ?? [];
+    const priorityOfStatus = (status?: string | number | null) => {
+      const s = String(status ?? '').toLowerCase();
+      if (s.includes('pending') || s.includes('chờ')) return 0;
+      if (s.includes('approved') || s.includes('đã duyệt')) return 1;
+      if (s.includes('assignment_rejected') || s.includes('phân công bị từ chối')) return 2;
+      if (s.includes('assigning') || s.includes('đang phân công')) return 2;
+      if (s.includes('assigned') || s.includes('đã phân công')) return 3;
+      if (s.includes('ongoing') || s.includes('đang diễn')) return 4;
+      if (s.includes('completed') || s.includes('hoàn thành')) return 5;
+      if (s.includes('cancelled') || s.includes('đã hủy')) return 6;
+      return 999;
+    };
+
+    return [...sessions].sort((a, b) => {
+      const pa = priorityOfStatus(a.status);
+      const pb = priorityOfStatus(b.status);
+      if (pa !== pb) return pa - pb;
+      const ta = a.startAt ? new Date(a.startAt).getTime() : NaN;
+      const tb = b.startAt ? new Date(b.startAt).getTime() : NaN;
+      if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb;
+      return (a.sessionNo ?? 0) - (b.sessionNo ?? 0);
+    });
+  }, [selectedRequest]);
+
+  // Tránh tooltip detail bị "dính" lại khi đổi request hoặc đóng panel.
+  useEffect(() => {
+    setHoveredStaff(null);
+  }, [selectedRequestId, activeSession?.sessionId]);
 
 
   const renderMemberOption = (m: SuggestedStaff) => {
@@ -110,6 +157,7 @@ export default function TeamLeaderAssignmentsPage() {
     roleLabel: string,
     requiredCount: number,
     colorScheme: 'sky' | 'amber',
+    sessionId: number,
   ) => {
     const borderColor = colorScheme === 'sky' ? 'border-sky-100' : 'border-amber-100';
     const bgGradient =
@@ -159,36 +207,44 @@ export default function TeamLeaderAssignmentsPage() {
               <div key={a.assignmentId} className={`rounded-lg bg-white px-3 py-2 border ${slotBorder} shadow-sm`}>
                                         <Select
                                           value={selectedId ? String(selectedId) : undefined}
-                  onValueChange={(value) => handleSelectStaff(a.assignmentId, Number(value))}
+                  onValueChange={(value) => handleSelectStaff(sessionId, a.assignmentId, Number(value))}
                                         >
                                           <SelectTrigger className="h-9 w-full text-xs border-none shadow-none px-0">
                     <SelectValue placeholder={placeholder} />
                                           </SelectTrigger>
-                                          <SelectContent>
-                                            <div className="px-2 pb-1 pt-1.5">
-                                              <Input
-                        placeholder={searchPlaceholder}
-                                                className="h-7 text-xs"
-                                                value={searchByAssignmentId[a.assignmentId] || ''}
-                                                onChange={(e) =>
-                                                  setSearchByAssignmentId((prev) => ({
-                                                    ...prev,
-                                                    [a.assignmentId]: e.target.value,
-                                                  }))
-                                                }
-                                              />
+                                          <SelectContent className="p-1.5">
+                                            <div className="px-1 pb-1 pt-1">
+                                              <div className="relative">
+                                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                                <Input
+                                                  placeholder={searchPlaceholder}
+                                                  className="h-8 text-xs pl-8 border-slate-200 bg-slate-50/70 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-sky-400"
+                                                  value={searchByAssignmentId[a.assignmentId] || ''}
+                                                  onChange={(e) =>
+                                                    setSearchByAssignmentId((prev) => ({
+                                                      ...prev,
+                                                      [a.assignmentId]: e.target.value,
+                                                    }))
+                                                  }
+                                                />
+                                              </div>
                                             </div>
                                             {suggestedList.map((m: SuggestedStaff) => (
                                               <SelectItem
                                                 key={m.memberId}
                                                 value={String(m.memberId)}
-                                                className="text-xs py-1.5"
+                                                className="text-xs py-1.5 rounded-md"
                         onMouseEnter={(e) => handleStaffHover(m, e)}
                         onMouseLeave={() => setHoveredStaff(null)}
                                               >
                                                 {renderMemberOption(m)}
                                               </SelectItem>
                                             ))}
+                                            {suggestedList.length === 0 && (
+                                              <div className="px-2 py-2 text-[11px] text-slate-500">
+                                                Không tìm thấy giảng viên phù hợp.
+                                              </div>
+                                            )}
                                           </SelectContent>
                                         </Select>
                                       </div>
@@ -208,7 +264,7 @@ export default function TeamLeaderAssignmentsPage() {
 
   return (
     <div
-      className="flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden"
+      className="flex flex-col p-6 gap-1 bg-slate-50 overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {loading && (
@@ -217,19 +273,45 @@ export default function TeamLeaderAssignmentsPage() {
         </div>
       )}
 
+      {/* HEADER (đồng bộ với /manager/requests) */}
+      <div className="bg-white px-6 py-4 mb-2 rounded-2xl border border-slate-200 shadow-sm">
+        <h2 className="text-xl font-semibold text-black">Trung tâm phê duyệt</h2>
+        <p className="text-xs text-gray-500">Quản lý phê duyệt yêu cầu và phê duyệt phân công nhân sự</p>
+      </div>
+
+      {/* TABS (đồng bộ 2 tab kiểu /manager/requests) */}
+      <div className="flex justify-between items-center mb-2">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            const next = v as typeof activeTab;
+            setActiveTab(next);
+            // Reset bộ lọc phụ theo tab để UI luôn đúng nghĩa.
+            setOnlyNeedsAction(false);
+            setStatusFilter(next === 'assigning' ? 'assigning' : 'all');
+            setActiveSession(null);
+          }}
+        >
+          <TabsList className="bg-transparent border-0 shadow-none p-0 h-8 gap-3">
+            <TabsTrigger
+              value="assigning"
+              className="h-7 rounded-none text-xs px-0 data-[state=active]:font-semibold data-[state=active]:text-black data-[state=active]:border-b-2 data-[state=active]:border-sky-500"
+            >
+              Yêu cầu chờ phân công
+            </TabsTrigger>
+            <TabsTrigger
+              value="rejected"
+              className="h-7 rounded-none text-xs px-0 data-[state=active]:font-semibold data-[state=active]:text-black data-[state=active]:border-b-2 data-[state=active]:border-sky-500"
+            >
+              Yêu cầu bị từ chối
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
       <div className="flex justify-start gap-3 mb-2 flex-wrap">
         <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
         <div className="flex items-center gap-3">
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | 'assigning')}>
-            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[160px]">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="assigning">Đang phân công</SelectItem>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-            </SelectContent>
-          </Select>
-
           <Button
             variant="outline"
             size="icon"
@@ -239,14 +321,16 @@ export default function TeamLeaderAssignmentsPage() {
             <RotateCcw size={16} />
           </Button>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              className="!rounded-[15px]"
-              checked={onlyNeedsAction}
-              onCheckedChange={setOnlyNeedsAction}
-            />
-            <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
-          </div>
+          {activeTab === 'assigning' && (
+            <div className="flex items-center space-x-2">
+              <Switch
+                className="!rounded-[15px]"
+                checked={onlyNeedsAction}
+                onCheckedChange={setOnlyNeedsAction}
+              />
+              <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -280,7 +364,8 @@ export default function TeamLeaderAssignmentsPage() {
                 courseId={r.courseId}
                 eventId={r.eventId}
                 status={r.status}
-                showNeedsAction
+                statusInfoOverride={getTeamLeaderRequestStatusInfo(r.status)}
+                showNeedsAction={isTLNeedsAction(r)}
                 isActive={r.requestId === selectedRequestId}
                 onClick={() => {
                   setSelectedRequestId(r.requestId);
@@ -293,18 +378,14 @@ export default function TeamLeaderAssignmentsPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          {!selectedRequest ? (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl text-slate-400">📋</span>
+        <div className="flex-1 min-w-0 min-h-0">
+          <div className="h-full overflow-y-auto no-scrollbar pr-1">
+            {!selectedRequest ? (
+              <div className="p-6 text-sm text-gray-500">
+                Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
               </div>
-              <p className="text-sm font-medium text-black">Chọn một yêu cầu ở cột bên trái</p>
-              <p className="text-xs text-gray-500 mt-1">để xem danh sách phiên và phân công nhân sự.</p>
-            </div>
-          ) : (
-            <div className="space-y-4 flex flex-col min-h-0 flex-1">
+            ) : (
+              <div className="space-y-4">
               {/* Request header */}
               <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
                 <div className="flex flex-wrap items-center gap-3">
@@ -411,7 +492,7 @@ export default function TeamLeaderAssignmentsPage() {
               })()}
 
               {/* Session list */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0 flex-1">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
@@ -419,20 +500,37 @@ export default function TeamLeaderAssignmentsPage() {
                       {selectedRequest.sessions.length} phiên trong yêu cầu này
                     </p>
                   </div>
-                  <span className="text-xs text-slate-500">Nhấn để xem chi tiết</span>
+                  <div />
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+                <div>
                   {selectedRequest.sessions.length === 0 ? (
                     <p className="text-xs text-slate-500 py-10 text-center">
                       Yêu cầu này chưa có phiên nào gán cho team.
                     </p>
                   ) : (
                     <div className="divide-y divide-slate-100">
-                      {selectedRequest.sessions.map((session) => {
+                      {sortedDetailSessions.map((session) => {
                         const stats = getSessionStats(session);
                         const isActive = activeSession?.sessionId === session.sessionId;
                         const title = `Phiên ${session.sessionNo}`;
-                        const sessionStatusInfo = getSessionStatusInfo(session.status);
+                        const normalizedSessionStatus = String(session.status ?? '')
+                          .toLowerCase()
+                          .replace(/\s|-/g, '_');
+                        const isRejectedTab = activeTab === 'rejected';
+                        const isSessionRejected =
+                          normalizedSessionStatus === 'assignment_rejected' ||
+                          normalizedSessionStatus === 'assignmentrejected' ||
+                          normalizedSessionStatus.includes('assignment_reject') ||
+                          normalizedSessionStatus.includes('rejected') ||
+                          normalizedSessionStatus.includes('từ_chối') ||
+                          isRejectedTab;
+
+                        const rejectedSlotsCount = (stats.assignments ?? []).filter((a) => {
+                          const st = String(a.status ?? '')
+                            .toLowerCase()
+                            .replace(/\s|-/g, '_');
+                          return st.includes('reject');
+                        }).length;
                         return (
                           <div
                             key={session.sessionId}
@@ -466,25 +564,29 @@ export default function TeamLeaderAssignmentsPage() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span
-                                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
-                                >
-                                  {sessionStatusInfo.label}
-                                </span>
-                                <span
-                                  className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
-                                    stats.total > 0 && stats.filled === stats.total
-                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                      : 'bg-amber-50 text-amber-800 border-amber-200'
-                                  }`}
-                                >
-                                  {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
-                                  {stats.total === 0
-                                    ? 'Chưa có slot'
-                                    : stats.filled === stats.total
-                                      ? 'Đã gán đủ'
-                                      : 'Chưa gán đủ'}
-                                </span>
+                                {isSessionRejected ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold border bg-rose-50 text-rose-700 border-rose-200"
+                                  >
+                                    <AlertCircle className="w-3 h-3 shrink-0" />
+                                    {rejectedSlotsCount > 0 ? `${rejectedSlotsCount} slot từ chối` : 'Cần gán người lại'}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
+                                      stats.total > 0 && stats.filled === stats.total
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                                    }`}
+                                  >
+                                    {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                                    {stats.total === 0
+                                      ? 'Chưa có slot'
+                                      : stats.filled === stats.total
+                                        ? 'Đã gán đủ'
+                                        : 'Chưa gán đủ'}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -494,12 +596,11 @@ export default function TeamLeaderAssignmentsPage() {
                   )}
                 </div>
               </div>
-            </div>
-          )}
-                              </div>
-
-      </div>
+              </div>
+            )}
           </div>
+        </div>
+      </div>
 
       {/* ─── RIGHT: Session detail + assignment panel (slide-over overlay) ─── */}
       {activeSession && (
@@ -596,6 +697,15 @@ export default function TeamLeaderAssignmentsPage() {
                             {detail?.tasRequired ?? '—'}
                           </span>
                         </div>
+
+                        {activeTab === 'rejected' && detail?.notes && (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2">
+                            <div className="text-[11px] font-semibold text-amber-800">Lý do</div>
+                            <div className="text-[11px] text-amber-700 whitespace-pre-wrap mt-1">
+                              {detail.notes}
+                            </div>
+                          </div>
+                        )}
                       </>
                     );
                   })()}
@@ -644,8 +754,14 @@ export default function TeamLeaderAssignmentsPage() {
                       </div>
                     ) : (
                       <>
-                        {renderSlotPicker(teacherSlots, 'Giảng viên', teachersRequired, 'sky')}
-                        {renderSlotPicker(taSlots, 'Trợ giảng', tasRequired, 'amber')}
+                        {renderSlotPicker(
+                          teacherSlots,
+                          'Giảng viên',
+                          teachersRequired,
+                          'sky',
+                          activeSession.sessionId,
+                        )}
+                        {renderSlotPicker(taSlots, 'Trợ giảng', tasRequired, 'amber', activeSession.sessionId)}
 
                         {/* Progress */}
                               {totalSlots > 0 && (
@@ -676,6 +792,7 @@ export default function TeamLeaderAssignmentsPage() {
                                 onClick={() =>
                                   handleApplyToOtherSessions(activeSession.sessionId)
                                 }
+                                  disabled={autoAssigning || applyingToOtherSessions}
                               >
                                 <RotateCcw className="w-3 h-3 inline mr-1" />
                                 Áp dụng cho các phiên khác

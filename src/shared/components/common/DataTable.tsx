@@ -1,16 +1,12 @@
-import { useState } from 'react';
 import {
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   useReactTable,
   type ColumnDef,
-  type SortingState,
 } from '@tanstack/react-table';
-import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Button } from '../ui/button';
-
+import { cn } from '@/shared/lib/utils';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -21,6 +17,11 @@ interface DataTableProps<TData, TValue> {
   totalItems: number;
 
   onPageChange: (page: number) => void;
+  fillHeight?: boolean;
+  /** Bảng full-width, padding rộng, kẻ ngang giữa các hàng — đồng bộ với trang thiết bị khả dụng */
+  comfortable?: boolean;
+  /** fillHeight: khoảng cách bảng ↔ phân trang (mặc định gap-4; tight = gap-2 cho trang cần vừa khung) */
+  tableGap?: 'default' | 'tight';
 }
 
 export function DataTable<TData, TValue>({
@@ -30,9 +31,11 @@ export function DataTable<TData, TValue>({
   pageSize,
   totalItems,
   onPageChange,
+  fillHeight = false,
+  comfortable = false,
+  tableGap = 'default',
 }: DataTableProps<TData, TValue>) {
   const totalPages = Math.ceil(totalItems / pageSize);
-  const [sorting, setSorting] = useState<SortingState>([]);
 
   const table = useReactTable({
     data,
@@ -42,62 +45,46 @@ export function DataTable<TData, TValue>({
         pageIndex: pageNumber - 1,
         pageSize,
       },
-      sorting,
     },
-    onSortingChange: setSorting,
     manualPagination: true,
     pageCount: totalPages,
+    enableSorting: false,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   });
 
   return (
-    <div className="space-y-4">
+    <div
+      className={cn(
+        'w-full min-w-0',
+        fillHeight
+          ? cn('flex min-h-0 flex-1 flex-col', tableGap === 'tight' ? 'gap-2' : 'gap-4')
+          : 'space-y-4',
+      )}
+    >
       {/* TABLE */}
-      <div className="rounded-md bg-white">
-        <Table>
+      <div
+        className={cn(
+          'w-full min-w-0',
+          fillHeight ? 'rounded-md bg-white flex-1 min-h-0 overflow-auto' : 'rounded-md bg-white',
+        )}
+      >
+        <Table className={comfortable ? 'table-fixed' : undefined}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const canSort = header.column.getCanSort();
-                  const sortDir = header.column.getIsSorted();
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder ? null : canSort ? (
-                        <div className="flex items-center gap-1">
-                          <div className="min-w-0 truncate">
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={header.column.getToggleSortingHandler()}
-                            className="h-7 w-7 shrink-0 text-slate-500 hover:text-slate-900"
-                            title={
-                              sortDir === 'asc'
-                                ? 'Đang sắp xếp tăng dần'
-                                : sortDir === 'desc'
-                                  ? 'Đang sắp xếp giảm dần'
-                                  : 'Sắp xếp'
-                            }
-                          >
-                            {sortDir === 'asc' ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : sortDir === 'desc' ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronsUpDown className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      ) : (
-                        flexRender(header.column.columnDef.header, header.getContext())
-                      )}
-                    </TableHead>
-                  );
-                })}
+              <TableRow
+                key={headerGroup.id}
+                className={cn(comfortable && 'border-b border-slate-200 hover:bg-transparent')}
+              >
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    className={cn(comfortable && 'h-auto min-h-11 px-4 py-3.5 align-middle')}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
@@ -105,9 +92,15 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {data.length > 0 ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className={cn(comfortable && 'border-b border-slate-100 hover:bg-slate-50/60')}
+                >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-gray-700">
+                    <TableCell
+                      key={cell.id}
+                      className={cn('text-gray-700', comfortable && 'px-4 py-4 align-middle')}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -115,7 +108,13 @@ export function DataTable<TData, TValue>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className={cn(
+                    fillHeight ? 'h-40 text-center' : 'h-24 text-center',
+                    comfortable && 'px-4 py-4',
+                  )}
+                >
                   Không có dữ liệu.
                 </TableCell>
               </TableRow>
@@ -125,7 +124,7 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* PAGINATION */}
-      <div className="flex items-center justify-between">
+      <div className={fillHeight ? 'mt-auto flex items-center justify-between' : 'flex items-center justify-between'}>
         <div className="text-sm text-muted-foreground">
           Hiển thị {(pageNumber - 1) * pageSize + 1}
           {' - '}

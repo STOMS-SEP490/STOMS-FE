@@ -123,26 +123,25 @@ export default function TeacherContributionHistoryPage() {
   );
 
   return (
-    <div className="relative p-6 space-y-6">
-      {loading && (
-        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
-          <span className="text-sm text-slate-500">
-            Đang tải lịch sử đóng góp...
-          </span>
+    <div
+      className="relative p-6 bg-slate-50 flex flex-col gap-3 min-h-0 overflow-hidden"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
+      <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-black">Lịch sử đóng góp quỹ</h2>
+          <p className="text-xs text-gray-500">Các khoản đóng góp quỹ của bạn trong hệ thống.</p>
         </div>
-      )}
-
-      <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
-        <div>
-          <h2 className="text-xl font-semibold text-black">
-            Lịch sử đóng góp quỹ
-          </h2>
-          <p className="text-xs text-gray-500">
-            Các khoản đóng góp quỹ của bạn trong hệ thống.
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-start gap-3 min-[900px]:flex-nowrap min-[900px]:justify-end">
+          <HoverSearch
+            value={search}
+            onChange={(v) => {
+              setPageNumber(1);
+              setSearch(v);
+            }}
+            placeholder="Tìm theo mã hoặc mô tả..."
+          />
+          <div className="text-right shrink-0">
             <div className="text-xs text-gray-500">Tổng đã đóng góp</div>
             <div className="text-base font-semibold text-emerald-700">
               {totalAmount.toLocaleString('vi-VN')} đ
@@ -150,7 +149,7 @@ export default function TeacherContributionHistoryPage() {
           </div>
           <Button
             type="button"
-            className="bg-[#2197C0] hover:bg-[#208AAE] text-white h-9 px-4 text-sm font-medium"
+            className="h-9 shrink-0 bg-[#2197C0] px-4 text-sm font-medium text-white hover:bg-[#208AAE]"
             onClick={() => setContributeOpen(true)}
           >
             Đóng góp vào quỹ
@@ -158,15 +157,14 @@ export default function TeacherContributionHistoryPage() {
         </div>
       </div>
 
-      <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch
-          value={search}
-          onChange={setSearch}
-          placeholder="Tìm theo mã hoặc mô tả..."
-        />
-      </div>
-
-      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+      <div className="relative flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {loading && (
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-2xl">
+            <span className="text-sm text-slate-500">
+              Đang tải lịch sử đóng góp...
+            </span>
+          </div>
+        )}
         <DataTable
           columns={columns}
           data={filtered}
@@ -174,6 +172,8 @@ export default function TeacherContributionHistoryPage() {
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(p) => setPageNumber(p)}
+          fillHeight
+          comfortable
         />
       </div>
 

@@ -3,9 +3,16 @@ import {
   Users,
   Clock,
   ClipboardList,
+  ClipboardCheck,
   UserCircle,
   Menu,
   LogOut,
+  Package,
+  CalendarDays,
+  BookOpen,
+  Wallet,
+  CheckCircle2,
+  FileText,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
@@ -47,15 +54,29 @@ export default function TeamLeaderSidebar() {
     }
   }, []);
 
+  /** Giống thứ tự TeacherSidebar; thêm Nhóm (sau Hồ sơ) và Phân công (cuối, đặc thù TL). */
   const menus = useMemo(
     () => [
       { label: 'Hồ sơ', icon: UserCircle, path: '/tl/profile' },
       { label: 'Nhóm', icon: Users, path: '/tl/teams' },
-      { label: 'Thời khóa biểu', icon: Clock, path: '/tl/timetable' },
-      { label: 'Phân công', icon: ClipboardList, path: '/tl/assignments' },
+      { label: 'Sự kiện', icon: CalendarDays, path: '/tl/events' },
+      { label: 'Giáo trình', icon: BookOpen, path: '/tl/courses' },
+      { label: 'Thời khóa biểu & phân công', icon: Clock, path: '/tl/timetable' },
+      { label: 'Danh sách phiên đã dạy', icon: Clock, path: '/tl/teaching-history' },
+      { label: 'Lịch sử điểm danh', icon: CheckCircle2, path: '/tl/attendance-history' },
+      { label: 'Báo cáo công việc', icon: ClipboardList, path: '/tl/tasks' },
+      { label: 'Hợp đồng', icon: FileText, path: '/tl/contracts' },
+      { label: 'Đóng góp quỹ', icon: Wallet, path: '/tl/fund-contributions' },
+      { label: 'Thiết bị', icon: Package, path: '/tl/equipments' },
+      { label: 'Phân công', icon: ClipboardCheck, path: '/tl/assignments' },
     ],
     []
   );
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   return (
     <aside
@@ -129,8 +150,10 @@ export default function TeamLeaderSidebar() {
         >
           {menus.map((m) => {
             const Icon = m.icon;
+            const isTimetable = m.path === '/tl/timetable';
+
             return (
-              <NavLink key={m.path} to={m.path}>
+              <NavLink key={m.path} to={m.path} end={!isTimetable}>
                 {({ isActive }) => (
                   <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
                     <div
@@ -163,6 +186,22 @@ export default function TeamLeaderSidebar() {
                         <div className="text-xs mt-2 font-medium text-center px-1">{m.label}</div>
                       )}
                     </div>
+                    {collapsed && (
+                      <div
+                        className="
+                          absolute left-full ml-3
+                          top-1/2 -translate-y-1/2
+                          bg-gray-900 text-white text-xs
+                          px-3 py-1.5 rounded-md
+                          opacity-0 group-hover:opacity-100
+                          transition-all duration-200
+                          whitespace-nowrap
+                          shadow-lg z-50
+                        "
+                      >
+                        {m.label}
+                      </div>
+                    )}
                   </div>
                 )}
               </NavLink>
@@ -173,10 +212,7 @@ export default function TeamLeaderSidebar() {
 
       <div className="mt-auto pt-4">
         <button
-          onClick={async () => {
-            await logout();
-            navigate('/login');
-          }}
+          onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 
                      py-3 rounded-xl text-red-600 
                      hover:bg-red-50 transition"
@@ -188,4 +224,3 @@ export default function TeamLeaderSidebar() {
     </aside>
   );
 }
-

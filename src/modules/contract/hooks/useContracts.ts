@@ -13,7 +13,8 @@ export const useContracts = () => {
   const [search, setSearch] = useState('')
 
   const location = useLocation()
-  const isTeacherPage = location.pathname.startsWith('/teacher')
+  const isStaffOwnContractsPage =
+    location.pathname.startsWith('/teacher') || location.pathname.startsWith('/tl')
   const memberId =
     Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || undefined
 
@@ -25,7 +26,7 @@ export const useContracts = () => {
         pageSize,
         isPaid,
       }
-      if (isTeacherPage && memberId) {
+      if (isStaffOwnContractsPage && memberId) {
         params.createdByMemberId = memberId
       }
 

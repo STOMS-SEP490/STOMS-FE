@@ -94,12 +94,12 @@ export const expenseApi = {
     const res = await axiosClient.get<Record<string, unknown>>('/expenses/filter', {
       params,
     });
-    return mapPagedFromApi((res ?? {}) as Record<string, unknown>);
+    return mapPagedFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   async getById(id: number): Promise<ExpenseListItem> {
     const res = await axiosClient.get<Record<string, unknown>>(`/expenses/${id}`);
-    return mapExpenseFromApi((res ?? {}) as Record<string, unknown>);
+    return mapExpenseFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   async approve(payload: { walletId: number; expenseIds: number[] }): Promise<ExpenseListItem[]> {
@@ -116,7 +116,7 @@ export const expenseApi = {
       expenseId: payload.expenseId,
       reason: payload.reason.trim(),
     });
-    return mapExpenseFromApi((res ?? {}) as Record<string, unknown>);
+    return mapExpenseFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 };
 

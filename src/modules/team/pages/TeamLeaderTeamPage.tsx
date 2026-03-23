@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Spin } from 'antd';
-import { Eye, RotateCcw, Users, X } from 'lucide-react';
+import { RotateCcw, Users, X } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { DataTable } from '@/shared/components/common/DataTable';
+import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import HoverSearch from '@/shared/components/ui/search';
 import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import { useTeamByMember } from '../hooks/useTeamByMember';
@@ -12,7 +13,7 @@ import type { TeamMemberItem } from '../team';
 
 function roleBadge(roleId: number) {
   return (
-    <Badge className={`${getRoleBadgeClass(roleId)} text-[11px] border`}>
+    <Badge className={`${getRoleBadgeClass(roleId)} text-[10px] px-1.5 py-0 leading-normal border`}>
       {getRoleLabel(roleId)}
     </Badge>
   );
@@ -26,7 +27,7 @@ export default function TeamLeaderTeamPage() {
 
   const [search, setSearch] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
-  const pageSize = 10;
+  const pageSize = 7;
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMemberItem | null>(null);
@@ -59,7 +60,13 @@ export default function TeamLeaderTeamPage() {
   };
 
   const columns: ColumnDef<TeamMemberItem>[] = [
-    { accessorKey: 'memberId', header: 'ID' },
+    {
+      accessorKey: 'memberId',
+      header: 'ID',
+      cell: ({ row }) => (
+        <span className="text-xs tabular-nums text-gray-800">{row.original.memberId}</span>
+      ),
+    },
     {
       id: 'user',
       header: 'Tên người dùng',
@@ -74,7 +81,7 @@ export default function TeamLeaderTeamPage() {
               e.currentTarget.src = '/img/avatar.png';
             }}
           />
-          <div className="min-w-0">
+          <div className="min-w-0 leading-snug">
             <div className="text-sm font-medium text-slate-900 truncate">{row.original.fullName}</div>
             <div className="text-xs text-slate-500 truncate">{row.original.email}</div>
           </div>
@@ -89,28 +96,26 @@ export default function TeamLeaderTeamPage() {
     {
       accessorKey: 'phone',
       header: 'SĐT',
-      cell: ({ row }) => row.original.phone || '—',
+      cell: ({ row }) => (
+        <span className="text-sm text-gray-700">{row.original.phone || '—'}</span>
+      ),
     },
     {
       id: 'actions',
       header: 'Thao tác',
       enableSorting: false,
       cell: ({ row }) => (
-        <button
-          type="button"
-          onClick={() => handleView(row.original)}
-          className="text-gray-800 hover:text-gray-950"
-          title="Xem chi tiết"
-        >
-          <Eye size={16} />
-        </button>
+        <TableTextAction onClick={() => handleView(row.original)} />
       ),
     },
   ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div
+        className="flex items-center justify-center p-6 bg-slate-50"
+        style={{ height: 'var(--content-height, 100vh)' }}
+      >
         <Spin size="large" />
       </div>
     );
@@ -118,8 +123,11 @@ export default function TeamLeaderTeamPage() {
 
   if (!teamDetail) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="bg-white rounded-xl border shadow-sm p-8 text-center">
+      <div
+        className="p-6 bg-slate-50 flex flex-col min-h-0 overflow-hidden"
+        style={{ height: 'var(--content-height, 100vh)' }}
+      >
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
           <Users className="mx-auto text-slate-300 mb-3" size={40} />
           <p className="text-sm text-gray-600 font-medium">
             Bạn chưa được gán vào nhóm nào.
@@ -133,54 +141,55 @@ export default function TeamLeaderTeamPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* HEADER */}
-      <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
-        <div>
-          <h2 className="text-xl font-semibold text-black">{teamDetail.teamName}</h2>
-          <p className="text-xs text-gray-500">
-            Danh sách thành viên trong nhóm · {teamDetail.members.length} thành viên
-          </p>
-        </div>
-        {teamDetail.topics?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {teamDetail.topics.map((t) => (
+    <div
+      className="relative p-6 bg-slate-50 flex flex-col gap-3 min-h-0 overflow-hidden"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
+      {/* HEADER: tiêu đề + (chủ đề | search | reset) cùng một hàng như trang thiết bị */}
+      <div className="shrink-0 bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col gap-4 min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold text-black">{teamDetail.teamName}</h2>
+            <p className="text-xs text-gray-500">
+              Danh sách thành viên trong nhóm · {teamDetail.members.length} thành viên
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {(teamDetail.topics ?? []).map((t) => (
               <Badge
                 key={t.topicId}
-                className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs"
+                className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs shrink-0"
               >
                 {t.topicName}
               </Badge>
             ))}
+            <HoverSearch
+              placeholder="Tìm theo tên, email, SĐT..."
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setPageNumber(1);
+              }}
+            />
+            <Button
+              variant="secondary"
+              className="bg-white shrink-0"
+              onClick={() => {
+                setSearch('');
+                setPageNumber(1);
+              }}
+              title="Đặt lại bộ lọc"
+            >
+              <RotateCcw />
+            </Button>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* TOOLBAR */}
-      <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch
-          placeholder="Tìm theo tên..."
-          value={search}
-          onChange={(v) => {
-            setSearch(v);
-            setPageNumber(1);
-          }}
-        />
-        <Button
-          variant="secondary"
-          className="bg-white"
-          onClick={() => {
-            setSearch('');
-            setPageNumber(1);
-          }}
-          title="Đặt lại bộ lọc"
-        >
-          <RotateCcw />
-        </Button>
-      </div>
-
-      {/* TABLE */}
-      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+      {/* TABLE: comfortable + min-hàng để bớt khoảng trắng dưới bảng khi fill chiều cao */}
+      <div
+        className="relative bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex-1 min-h-0 flex flex-col [&_tbody_tr]:min-h-16 [&_tbody_td]:align-middle"
+      >
         <DataTable
           columns={columns}
           data={pagedMembers}
@@ -188,10 +197,11 @@ export default function TeamLeaderTeamPage() {
           pageSize={pageSize}
           totalItems={filteredMembers.length}
           onPageChange={(page) => setPageNumber(page)}
+          fillHeight
+          comfortable
         />
       </div>
 
-      {/* DETAIL SLIDE-OVER */}
       <MemberDetailPanel open={detailOpen} onClose={closeDetail} member={selectedMember} />
     </div>
   );

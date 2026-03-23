@@ -51,7 +51,7 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
     ? members.filter(
         (m) =>
           m.fullName?.toLowerCase().includes(memberSearch.toLowerCase()) ||
-          m.user?.email?.toLowerCase().includes(memberSearch.toLowerCase())
+          m.email?.toLowerCase().includes(memberSearch.toLowerCase())
       )
     : members;
 
@@ -183,7 +183,7 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
                       )}
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm text-black truncate">{m.fullName}</span>
-                        <span className="text-xs text-gray-500 truncate">{m.user?.email}</span>
+                        <span className="text-xs text-gray-500 truncate">{m.email}</span>
                       </div>
                     </button>
                   );

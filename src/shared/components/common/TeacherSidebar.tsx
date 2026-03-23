@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Clock, ClipboardList, FileText, LogOut, Menu, UserCircle, Wallet, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Clock, ClipboardList, FileText, LogOut, Menu, UserCircle, Wallet, CheckCircle2, Package, BookOpen } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
 import { logout } from '@/modules/auth/pages/Logout';
@@ -44,12 +44,14 @@ export default function TeacherSidebar() {
     () => [
       { label: 'Hồ sơ', icon: UserCircle, path: '/teacher/profile' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/teacher/events' },
+      { label: 'Giáo trình', icon: BookOpen, path: '/teacher/courses' },
       { label: 'Thời khóa biểu & phân công', icon: Clock, path: '/teacher/timetable' },
       { label: 'Danh sách phiên đã dạy', icon: Clock, path: '/teacher/teaching-history' },
       { label: 'Lịch sử điểm danh', icon: CheckCircle2, path: '/teacher/attendance-history' },
       { label: 'Báo cáo công việc', icon: ClipboardList, path: '/teacher/tasks' },
       { label: 'Hợp đồng', icon: FileText, path: '/teacher/contracts' },
       { label: 'Đóng góp quỹ', icon: Wallet, path: '/teacher/fund-contributions' },
+      { label: 'Thiết bị', icon: Package, path: '/teacher/equipments' },
     ],
     []
   );

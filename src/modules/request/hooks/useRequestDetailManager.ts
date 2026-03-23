@@ -25,7 +25,13 @@ const mapSessionsWithFlags = (detail: RequestListItem) => {
         teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
         TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
       };
-      const reservationId = anyS.reservationId ?? anyS.ReservationId ?? null;
+      const rawReservationId =
+        anyS.reservationId ??
+        anyS.ReservationId ??
+        null;
+
+      const parsed = rawReservationId != null ? Number(rawReservationId) : NaN;
+      const reservationId = !Number.isNaN(parsed) && parsed > 0 ? parsed : null;
       const fromSessions = anyS.teamSessions ?? anyS.TeamSessions ?? [];
       const backendTeamIds = fromSessions
         .map((ts) => ts.teamId ?? ts.TeamId)
@@ -38,12 +44,17 @@ const mapSessionsWithFlags = (detail: RequestListItem) => {
             ? [singleTeamId]
             : [];
 
+      const statusStr = (s.status ?? '').toString().toLowerCase();
       const teamAssigned =
-        initialTeamIds.length > 0 || s.status?.toLowerCase() === 'approved';
+        initialTeamIds.length > 0 ||
+        statusStr === 'approved' ||
+        statusStr === 'assigned' ||
+        statusStr === 'ongoing' ||
+        statusStr === 'completed';
 
       if (initialTeamIds.length > 0) nextUiAssigned[s.sessionId] = initialTeamIds;
 
-      return {
+        return {
         ...s,
         reservationId,
         teamAssigned,
@@ -502,7 +513,13 @@ export const useRequestDetailManager = (params: {
           ReservationId?: number | null;
           status?: string;
         };
-        const reservationId = anyS.reservationId ?? anyS.ReservationId ?? null;
+        const rawReservationId =
+          anyS.reservationId ??
+          anyS.ReservationId ??
+          null;
+
+        const parsed = rawReservationId != null ? Number(rawReservationId) : NaN;
+        const reservationId = !Number.isNaN(parsed) && parsed > 0 ? parsed : null;
         return {
           ...s,
           reservationId,

@@ -21,6 +21,8 @@ export type CourseListItem = {
   courseId: number;
   courseCode: string;
   courseName: string;
+  /** API getById / form chỉnh sửa */
+  description?: string | null;
   isActive: boolean;
   updatedAt: string;
   /** API trả về: NumberOfSubject (camelCase: numberOfSubject) */

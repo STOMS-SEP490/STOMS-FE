@@ -62,6 +62,8 @@ const ManagerRoutes = [
     children: [
       { index: true, element: <RequestPlaceholder /> },
       { path: ':id', element: <RequestDetail /> },
+      { path: 'assignments', element: <RequestPlaceholder /> },
+      { path: 'assignments/:id', element: <RequestDetail /> },
     ],
   },
   {

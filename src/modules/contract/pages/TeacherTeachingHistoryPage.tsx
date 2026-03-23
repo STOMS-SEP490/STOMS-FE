@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Funnel, MapPin, Globe, ChevronRight, FileText, PlusCircle, CalendarDays, Clock } from 'lucide-react';
+import { Funnel, MapPin, Globe, ChevronRight, FileText, PlusCircle } from 'lucide-react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -9,9 +9,8 @@ import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { TeachingHistoryItem } from '@/modules/contract/teachingHistory';
 import { sessionDisplayName } from '@/modules/contract/teachingHistory';
-import { StatCard } from '@/shared/components/common/StatCard';
 import CreateContractModal from './CreateContractModal';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import contractApi from '../api/contractApi';
 import type { ContractListItem } from '../contract';
 import ContractDetailSidebar from './ContractDetailSidebar';
@@ -29,6 +28,8 @@ function formatTimeRange(start?: string, end?: string) {
 
 export default function TeacherTeachingHistoryPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const staffBasePath = location.pathname.startsWith('/tl') ? '/tl' : '/teacher';
   const {
     items,
     loading,
@@ -198,7 +199,7 @@ export default function TeacherTeachingHistoryPage() {
                 const params = new URLSearchParams();
                 if (rid != null) params.set('requestId', String(rid));
                 if (sid != null) params.set('sessionId', String(sid));
-                navigate(`/teacher/tasks?${params.toString()}`);
+                navigate(`${staffBasePath}/tasks?${params.toString()}`);
               }}
             >
               +
@@ -210,104 +211,90 @@ export default function TeacherTeachingHistoryPage() {
         id: 'actions',
         header: 'THAO TÁC',
         cell: ({ row }) => (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-sm font-semibold text-sky-700 hover:text-sky-800"
-            onClick={() => navigate(`/teacher/attendance/${row.original.sessionId}`)}
+          <Link
+            to={`${staffBasePath}/attendance/${row.original.sessionId}`}
+            className="inline-flex items-center gap-0.5 text-sm font-medium text-sky-600 underline-offset-2 hover:text-sky-800 hover:underline"
           >
-            Chi tiết <ChevronRight className="h-4 w-4" />
-          </button>
+            Chi tiết <ChevronRight className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+          </Link>
         ),
       },
     ];
 
     return base;
-  }, [navigate, reportsBySession]);
-
-  const totalWithContract = useMemo(
-    () => items.filter((x) => x.contract?.contractId != null).length,
-    [items]
-  );
-  const totalWithoutContract = useMemo(
-    () => items.filter((x) => !x.contract?.contractId).length,
-    [items],
-  );
+  }, [navigate, reportsBySession, staffBasePath]);
 
   return (
-    <div className="relative p-6 space-y-6">
+    <div
+      className="relative flex min-h-0 flex-col gap-3 overflow-hidden bg-slate-50 p-6"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
       {loading && (
-        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-white/60">
           <span className="text-sm text-slate-500">Đang tải danh sách phiên đã dạy...</span>
         </div>
       )}
 
-      {/* HEADER */}
-      <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
-        <div>
+      {/* HEADER: tiêu đề + tìm kiếm / lọc cùng một thẻ như attendance-history */}
+      <div className="flex shrink-0 flex-col gap-4 rounded-xl border bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
+        <div className="min-w-0">
           <h2 className="text-xl font-semibold text-black">Danh sách phiên đã dạy</h2>
           <p className="text-xs text-gray-500">Các phiên bạn đã dạy cùng trạng thái hợp đồng.</p>
         </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 min-[900px]:gap-3">
+          <HoverSearch
+            value={search}
+            onChange={(v) => {
+              setPageNumber(1);
+              setSearch(v);
+            }}
+            placeholder="Tìm theo tên phiên..."
+          />
+          <Select
+            value={hasContract}
+            onValueChange={(v) => {
+              setPageNumber(1);
+              setHasContract(v as typeof hasContract);
+            }}
+          >
+            <SelectTrigger className="h-9 w-[160px] border-slate-200 bg-white text-sm">
+              <SelectValue placeholder="Lọc hợp đồng" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="yes">Có hợp đồng</SelectItem>
+              <SelectItem value="no">Chưa có hợp đồng</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 border-slate-200 px-3 text-slate-700"
+            onClick={() => {
+              setSearch('');
+              setHasContract('all');
+              setPageNumber(1);
+            }}
+          >
+            <Funnel className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-3 gap-4 mb-2">
-        <StatCard
-          icon={<CalendarDays />}
-          label="Tổng phiên"
-          value={totalItems.toString()}
-          sub="trong danh sách hiện tại"
-        />
-        <StatCard
-          icon={<FileText />}
-          label="Đã có hợp đồng"
-          value={totalWithContract.toString()}
-          sub="phiên"
-        />
-        <StatCard
-          icon={<Clock />}
-          label="Chưa có hợp đồng"
-          value={totalWithoutContract.toString()}
-          sub="phiên"
-        />
-      </div>
-
-      {/* FILTERS */}
-      <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo tên phiên..." />
-        <Select value={hasContract} onValueChange={(v) => setHasContract(v as typeof hasContract)}>
-          <SelectTrigger className="h-9 w-[160px] text-sm bg-white border-slate-200">
-            <SelectValue placeholder="Lọc hợp đồng" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            <SelectItem value="yes">Có hợp đồng</SelectItem>
-            <SelectItem value="no">Chưa có hợp đồng</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-9 px-3 border-slate-200 text-slate-700"
-          onClick={() => {
-            setSearch('');
-            setHasContract('all');
-            setPageNumber(1);
-          }}
-        >
-          <Funnel className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* TABLE */}
-      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
-        <DataTable
-          columns={columns}
-          data={items}
-          pageNumber={pageNumber}
-          pageSize={pageSize}
-          totalItems={totalItems}
-          onPageChange={(p) => setPageNumber(p)}
-        />
+      {/* Bảng kéo giãn theo chiều cao màn hình, giữ padding ô mặc định (không comfortable) */}
+      <div className="flex min-h-0 flex-1 flex-col rounded-xl border bg-white px-6 py-4 shadow-sm">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <DataTable
+            columns={columns}
+            data={items}
+            pageNumber={pageNumber}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={(p) => setPageNumber(p)}
+            fillHeight
+            tableGap="tight"
+          />
+        </div>
       </div>
 
       <CreateContractModal
