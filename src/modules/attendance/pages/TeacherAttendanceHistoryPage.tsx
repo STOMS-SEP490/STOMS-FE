@@ -56,7 +56,6 @@ function TeamLeaderAttendanceTab(props: { search: string; onSearchChange: (value
     pageNumber,
     pageSize,
     totalItems,
-    search,
     setSearch,
     setPageNumber,
     refetch,

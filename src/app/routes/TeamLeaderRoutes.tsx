@@ -2,7 +2,6 @@ import { Navigate } from 'react-router-dom';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import TeamLeaderTeamPage from '@/modules/team/pages/TeamLeaderTeamPage';
 import EventCalendar from '@/modules/event/pages/EventCalendar';
-import TeamLeaderAssignmentsPage from '@/modules/contract/pages/TeamLeaderAssignmentsPage';
 import SessionAttendancePage from '@/modules/attendance/pages/SessionAttendancePage';
 import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
 import AvailableEquipmentsPage from '@/modules/equipment/pages/AvailableEquipmentsPage';
@@ -16,6 +15,7 @@ import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeaching
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherTaskReportPage from '@/modules/task-report/pages/TeacherTaskReportPage';
 import TeamLeaderAssignmentsLayout from '@/app/layouts/TeamLeaderAssignmentsLayout';
+import TeamLeaderAssignmentsPage from '@/modules/contract/pages/TeamLeaderAssignmentsPage';
 
 const TeamLeaderRoutes = [
   { path: 'profile', element: <UserProfile /> },
