@@ -25,7 +25,7 @@ const attendanceApi = {
     await axiosClient.post('/attendance/delegations', payload);
   },
   checkIn: async (payload: AttendanceCheckInPayload): Promise<AttendanceBatchResponse> => {
-    return axiosClient.post('/attendance/checkin', payload);
+    return axiosClient.post('/attendances/checkin', payload);
   },
   checkOut: async (payload: AttendanceCheckOutPayload): Promise<AttendanceBatchResponse> => {
     return axiosClient.post('/attendance/checkout', payload);

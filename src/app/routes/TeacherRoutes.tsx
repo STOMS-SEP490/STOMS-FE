@@ -28,6 +28,7 @@ const TeacherRoutes = [
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'contracts/:id', element: <ContractsManagement /> },
   { path: 'fund-contributions', element: <TeacherContributionHistoryPage /> },
+  { path: 'attendance', element: <TeacherAttendanceHistoryPage /> },
   { path: 'attendance-history', element: <TeacherAttendanceHistoryPage /> },
   { path: 'tasks', element: <TeacherTaskReportPage /> },
   { path: 'equipments', element: <AvailableEquipmentsPage /> },

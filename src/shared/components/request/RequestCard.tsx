@@ -53,7 +53,6 @@ export default function RequestCard({
   eventId,
   status,
   statusInfoOverride,
-  showNeedsAction = false,
   isActive = false,
   isHovered = false,
   onClick,
@@ -65,9 +64,6 @@ export default function RequestCard({
   const statusInfo =
     statusInfoOverride ??
     (status != null && String(status).trim() !== '' ? getRequestStatusInfo(status) : null);
-
-  // Dựa theo nhãn hiển thị để "Cần xử lý" đúng với mapping theo màn hình.
-  const isPending = !!statusInfo?.label?.toLowerCase().includes('chờ');
 
   return (
     <div

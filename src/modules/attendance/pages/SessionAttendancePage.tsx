@@ -16,7 +16,19 @@ type Participant = {
   role: string;
 };
 
-export default function SessionAttendancePage() {
+type Props = {
+  /** Dùng khi hiển thị trong drawer/panel mà không dựa vào route params */
+  sessionIdOverride?: number | null;
+  onClose?: () => void;
+  /** Trong drawer panel thì không nhất thiết hiển thị nút quay lại */
+  showBackButton?: boolean;
+};
+
+export default function SessionAttendancePage({
+  sessionIdOverride = null,
+  onClose,
+  showBackButton = true,
+}: Props) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
 
@@ -27,10 +39,10 @@ export default function SessionAttendancePage() {
   const [delegating, setDelegating] = useState(false);
   const [delegateTo, setDelegateTo] = useState<number | ''>('');
 
-  const sessionIdNumber = useMemo(
-    () => (sessionId && !Number.isNaN(Number(sessionId)) ? Number(sessionId) : null),
-    [sessionId]
-  );
+  const sessionIdNumber = useMemo(() => {
+    if (sessionIdOverride != null && !Number.isNaN(Number(sessionIdOverride))) return Number(sessionIdOverride);
+    return sessionId && !Number.isNaN(Number(sessionId)) ? Number(sessionId) : null;
+  }, [sessionId, sessionIdOverride]);
 
   useEffect(() => {
     const load = async () => {
@@ -163,28 +175,38 @@ export default function SessionAttendancePage() {
     [participants, attendanceByMember]
   );
 
-  return (
-    <div className="bg-[#f3f4f6] p-6" style={{ minHeight: 'var(--content-height, 100vh)' }}>
-      <div className="max-w-5xl mx-auto space-y-4">
-        <div className="flex items-center gap-3 mb-2">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft size={16} />
-            Quay lại
-          </button>
-        </div>
+  const compact = !showBackButton;
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-4 flex flex-col gap-1">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Điểm danh phiên học
-          </h2>
-          <p className="text-xs text-gray-500">
-            Team leader kiểm tra, check-in / check-out và ủy quyền điểm danh cho phiên này.
-          </p>
-        </div>
+  return (
+    <div
+      className={compact ? 'bg-transparent p-0' : 'bg-[#f3f4f6] p-6'}
+      style={compact ? undefined : { minHeight: 'var(--content-height, 100vh)' }}
+    >
+      <div className={compact ? 'space-y-3' : 'max-w-5xl mx-auto space-y-4'}>
+        {showBackButton && (
+          <div className="flex items-center gap-3 mb-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (onClose) onClose();
+                else navigate(-1);
+              }}
+              className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft size={16} />
+              Quay lại
+            </button>
+          </div>
+        )}
+
+        {!compact && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-4 flex flex-col gap-1">
+            <h2 className="text-xl font-semibold text-gray-900">Điểm danh phiên học</h2>
+            <p className="text-xs text-gray-500">
+              Team leader kiểm tra, check-in / check-out và ủy quyền điểm danh cho phiên này.
+            </p>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
@@ -196,9 +218,15 @@ export default function SessionAttendancePage() {
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div
+              className={[
+                'bg-white border border-gray-200 shadow-sm',
+                compact ? 'rounded-xl p-4' : 'rounded-2xl p-6',
+                'flex flex-col gap-3',
+              ].join(' ')}
+            >
               <div className="space-y-1">
-                <div className="text-lg font-semibold text-gray-900">
+                <div className={compact ? 'text-base font-semibold text-gray-900' : 'text-lg font-semibold text-gray-900'}>
                   {session.notes || `Phiên học ${session.sessionNo}`}
                 </div>
                 <div className="text-sm text-gray-600 flex items-center gap-2">
@@ -215,37 +243,39 @@ export default function SessionAttendancePage() {
                     })}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500">
-                  Session ID #{session.sessionId} • Request #{session.requestId}
+                <div className={compact ? 'text-[11px] text-gray-500' : 'text-xs text-gray-500'}>
+                  Session #{session.sessionId} • Request #{session.requestId}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className={compact ? 'flex flex-wrap items-center gap-2' : 'flex flex-wrap items-center gap-3'}>
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100">
-                    <CheckCircle2 size={14} className="mr-1" />
-                    {checkedInCount}/{participants.length} đã check-in
+                  <Badge className={compact ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 text-[11px] px-2 py-1' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}>
+                    <CheckCircle2 size={compact ? 12 : 14} className="mr-1" />
+                    {checkedInCount}/{participants.length} check-in
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-sky-50 text-sky-700 border border-sky-100">
-                    <Clock4 size={14} className="mr-1" />
-                    {checkedOutCount}/{participants.length} đã check-out
+                  <Badge className={compact ? 'bg-sky-50 text-sky-700 border border-sky-100 text-[11px] px-2 py-1' : 'bg-sky-50 text-sky-700 border border-sky-100'}>
+                    <Clock4 size={compact ? 12 : 14} className="mr-1" />
+                    {checkedOutCount}/{participants.length} check-out
                   </Badge>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className={compact ? 'bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-3' : 'bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4'}>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <UserCircle2 size={20} className="text-gray-500" />
+                  <UserCircle2 size={compact ? 18 : 20} className="text-gray-500" />
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      Danh sách giảng viên / trợ giảng
+                    <div className={compact ? 'text-sm font-semibold text-gray-900' : 'text-sm font-semibold text-gray-900'}>
+                      Giảng viên / trợ giảng
                     </div>
-                    <p className="text-xs text-gray-500">
-                      Điểm danh theo từng người hoặc toàn bộ cho phiên này.
-                    </p>
+                    {!compact && (
+                      <p className="text-xs text-gray-500">
+                        Điểm danh theo từng người hoặc toàn bộ cho phiên này.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -275,7 +305,7 @@ export default function SessionAttendancePage() {
                   Phiên này hiện chưa có phân công giảng viên / trợ giảng.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className={compact ? 'space-y-2' : 'space-y-3'}>
                   {participants.map((p) => {
                     const att = attendanceByMember.get(p.memberId);
                     const isCheckedIn = !!att?.checkinAt;
@@ -283,7 +313,10 @@ export default function SessionAttendancePage() {
                     return (
                       <div
                         key={p.memberId}
-                        className="flex flex-col md:flex-row md:items-center justify-between gap-3 border border-gray-100 rounded-xl px-4 py-3 hover:border-gray-200"
+                        className={[
+                          'flex flex-col md:flex-row md:items-center justify-between border border-gray-100 hover:border-gray-200',
+                          compact ? 'gap-2 rounded-lg px-3 py-2' : 'gap-3 rounded-xl px-4 py-3',
+                        ].join(' ')}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <img
@@ -292,11 +325,11 @@ export default function SessionAttendancePage() {
                               (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
                             }}
                             alt={p.name}
-                            className="w-10 h-10 rounded-full object-cover"
+                            className={compact ? 'w-9 h-9 rounded-full object-cover' : 'w-10 h-10 rounded-full object-cover'}
                           />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-900 truncate">
+                              <span className={compact ? 'text-sm font-medium text-gray-900 truncate' : 'text-sm font-medium text-gray-900 truncate'}>
                                 {p.name}
                               </span>
                               <span
@@ -315,12 +348,16 @@ export default function SessionAttendancePage() {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className={compact ? 'flex flex-wrap items-center gap-1.5' : 'flex flex-wrap items-center gap-2'}>
                           <Badge
                             className={
                               isCheckedIn
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                                : 'bg-gray-50 text-gray-500 border border-gray-100'
+                                ? compact
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 text-[11px] px-2 py-1'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                : compact
+                                  ? 'bg-gray-50 text-gray-500 border border-gray-100 text-[11px] px-2 py-1'
+                                  : 'bg-gray-50 text-gray-500 border border-gray-100'
                             }
                           >
                             {isCheckedIn ? 'Đã check-in' : 'Chưa check-in'}
@@ -328,15 +365,19 @@ export default function SessionAttendancePage() {
                           <Badge
                             className={
                               isCheckedOut
-                                ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                                : 'bg-gray-50 text-gray-500 border border-gray-100'
+                                ? compact
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-100 text-[11px] px-2 py-1'
+                                  : 'bg-blue-50 text-blue-700 border border-blue-100'
+                                : compact
+                                  ? 'bg-gray-50 text-gray-500 border border-gray-100 text-[11px] px-2 py-1'
+                                  : 'bg-gray-50 text-gray-500 border border-gray-100'
                             }
                           >
                             {isCheckedOut ? 'Đã check-out' : 'Chưa check-out'}
                           </Badge>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className={compact ? 'flex flex-wrap items-center gap-1.5' : 'flex flex-wrap items-center gap-2'}>
                           <Button
                             type="button"
                             size="sm"
@@ -363,15 +404,17 @@ export default function SessionAttendancePage() {
               )}
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+            <div className={compact ? 'bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-3' : 'bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4'}>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-gray-900">
                     Ủy quyền điểm danh
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Chọn một thành viên để được phép điểm danh thay cho bạn trong phiên này.
-                  </p>
+                  {!compact && (
+                    <p className="text-xs text-gray-500">
+                      Chọn một thành viên để được phép điểm danh thay cho bạn trong phiên này.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col md:flex-row gap-3 md:items-center">
