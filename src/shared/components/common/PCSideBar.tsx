@@ -1,46 +1,39 @@
 import { useMemo, useState } from 'react';
 import {
-  BarChart3,
-  FileText,
   BookOpen,
   CalendarDays,
-  ClipboardList,
-  Laptop,
   Wallet,
-  Users,
-  Clock,
   CheckCircle,
   Bookmark,
-  Tag,
-  PieChart,
   Menu,
   LogOut,
+  User,
+  type LucideIcon,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { logout } from '@/modules/auth/pages/Logout';
+
+type PCMenuItem = {
+  label: string;
+  icon: LucideIcon;
+  path: string;
+  matchPrefixPath?: string;
+};
 
 export default function PCSidebar() {
   const [collapsed, setCollapsed] = useState(true);
   const navigate = useNavigate();
 
-  const menus = useMemo(
+  const menus = useMemo<PCMenuItem[]>(
     () => [
-      { label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
-      { label: 'Người dùng', icon: Users, path: '/manager/users' },
-      { label: 'Nhóm', icon: Users, path: '/manager/teams' },
-      { label: 'Sự kiện', icon: CalendarDays, path: '/manager/events' },
-      { label: 'Giáo trình', icon: BookOpen, path: '/manager/courses' },
-      { label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
-      { label: 'Thiết bị', icon: Laptop, path: '/manager/equipments' },
-      { label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
-      { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
-      { label: 'Quỹ / Thu chi', icon: Wallet, path: '/manager/transactions' },
-      { label: 'Thời khóa biểu', icon: Clock, path: '/manager/timetable' },
-      { label: 'Trung tâm duyệt', icon: CheckCircle, path: '/manager/requests' },
-      { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
-      { label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
+      { label: 'Yêu cầu', icon: CheckCircle, path: '/pc/requests', matchPrefixPath: '/pc/requests' },
+      { label: 'Sự kiện', icon: CalendarDays, path: '/pc/events' },
+      { label: 'Giáo trình', icon: BookOpen, path: '/pc/courses', matchPrefixPath: '/pc/courses' },
+      { label: 'Chủ đề', icon: Bookmark, path: '/pc/courses/subjects', matchPrefixPath: '/pc/courses' },
+      { label: 'Quỹ / Thu chi', icon: Wallet, path: '/pc/fund-contributions' },
+      { label: 'Hồ sơ', icon: User, path: '/pc/profile' },
     ],
-    []
+    [],
   );
 
   const handleLogout = async () => {
@@ -109,64 +102,66 @@ export default function PCSidebar() {
         >
           {menus.map((m) => {
             const Icon = m.icon;
+            const matchPrefixPath = m.matchPrefixPath ?? m.path;
+            const end = m.matchPrefixPath ? false : true;
 
             return (
-              <NavLink key={m.path} to={m.path}>
-                {({ isActive }) => (
-                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
-                    {/* Default */}
-                    <div
-                      className={` 
-                        h-full rounded-xl 
-                        flex flex-col items-center justify-center
-                        transition-all
-                        ${isActive ? 'opacity-0' : 'group-hover:opacity-0'}
-                      `}
-                    >
-                      <Icon size={18} className="text-gray-400" />
-                      {!collapsed && (
-                        <div className="text-xs mt-2 text-center text-gray-400">{m.label}</div>
-                      )}
-                    </div>
-
-                    {/* Floating active/hover */}
-                    <div
-                      className={`
-                        absolute inset-0 rounded-xl
-                        flex flex-col items-center justify-center
-                        transition-all duration-300
-                        ${
-                          isActive
-                            ? 'bg-[#208aae] text-white scale-100'
-                            : 'bg-[#208aae] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
-                        }
-                      `}
-                    >
-                      <Icon size={20} />
-                      {!collapsed && (
-                        <div className="text-xs mt-2 font-medium text-center px-1 ">{m.label}</div>
-                      )}
-                    </div>
-
-                    {/* Tooltip khi collapsed */}
-                    {collapsed && (
+              <NavLink key={m.path} to={m.path} end={end}>
+                {({ isActive }) => {
+                  const active = isActive || window.location.pathname.startsWith(`${matchPrefixPath}/`);
+                  return (
+                    <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
                       <div
-                        className="
-                          absolute left-full ml-3
-                          top-1/2 -translate-y-1/2
-                          bg-gray-900 text-white text-xs
-                          px-3 py-1.5 rounded-md
-                          opacity-0 group-hover:opacity-100
-                          transition-all duration-200
-                          whitespace-nowrap
-                          shadow-lg z-50
-                        "
+                        className={` 
+                          h-full rounded-xl 
+                          flex flex-col items-center justify-center
+                          transition-all
+                          ${active ? 'opacity-0' : 'group-hover:opacity-0'}
+                        `}
                       >
-                        {m.label}
+                        <Icon size={18} className="text-gray-400" />
+                        {!collapsed && (
+                          <div className="text-xs mt-2 text-center text-gray-400">{m.label}</div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )}
+
+                      <div
+                        className={`
+                          absolute inset-0 rounded-xl
+                          flex flex-col items-center justify-center
+                          transition-all duration-300
+                          ${
+                            active
+                              ? 'bg-[#208aae] text-white scale-100'
+                              : 'bg-[#208aae] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
+                          }
+                        `}
+                      >
+                        <Icon size={20} />
+                        {!collapsed && (
+                          <div className="text-xs mt-2 font-medium text-center px-1 ">{m.label}</div>
+                        )}
+                      </div>
+
+                      {collapsed && (
+                        <div
+                          className="
+                            absolute left-full ml-3
+                            top-1/2 -translate-y-1/2
+                            bg-gray-900 text-white text-xs
+                            px-3 py-1.5 rounded-md
+                            opacity-0 group-hover:opacity-100
+                            transition-all duration-200
+                            whitespace-nowrap
+                            shadow-lg z-50
+                          "
+                        >
+                          {m.label}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }}
               </NavLink>
             );
           })}

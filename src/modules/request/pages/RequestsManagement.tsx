@@ -125,7 +125,7 @@ export default function RequestsManagement() {
   ];
 
   return (
-    <div className="p-6 space-y-[2px]">
+    <div className="p-6 space-y-3">
       <div className="flex justify-between bg-white px-6 py-4 rounded-xl border shadow-sm items-center">
         <div>
           <h2 className="text-xl font-semibold text-black">
@@ -145,7 +145,7 @@ export default function RequestsManagement() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-[2px]">
+      <div className="grid grid-cols-4 gap-2">
         <StatCard
           icon={<BookOpen />}
           label="Tổng yêu cầu"

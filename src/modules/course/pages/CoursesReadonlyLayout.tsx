@@ -8,7 +8,8 @@ export default function CoursesReadonlyLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isTeacher = location.pathname.startsWith('/teacher/');
-  const basePath = isTeacher ? '/teacher/courses' : '/tl/courses';
+  const isProgramCoordinator = location.pathname.startsWith('/pc/');
+  const basePath = isTeacher ? '/teacher/courses' : isProgramCoordinator ? '/pc/courses' : '/tl/courses';
   const currentTab = location.pathname.includes('/subjects') ? 'subjects' : 'courses';
 
   const [courseSearch, setCourseSearch] = useState('');
