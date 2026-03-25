@@ -46,8 +46,8 @@ const requestApi = {
     return axiosClient.get<RequestListItem, RequestListItem>(`/requests/${id}`);
   },
 
-  create: (data: CreateRequestPayload): Promise<void> => {
-    return axiosClient.post<void, void>('/requests', data);
+  create: (data: CreateRequestPayload): Promise<RequestListItem> => {
+    return axiosClient.post<RequestListItem, RequestListItem>('/requests', data);
   },
 
   approve: (

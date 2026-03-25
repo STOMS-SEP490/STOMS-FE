@@ -73,14 +73,6 @@ export default function RequestsManagement() {
     },
 
     {
-      header: 'Số phiên',
-      cell: ({ row }) =>
-        row.original.sessions?.length ??
-        row.original.sessionsRequired ??
-        0,
-    },
-
-    {
       accessorKey: 'status',
       header: 'Trạng thái',
       cell: ({ row }) => {
@@ -125,7 +117,7 @@ export default function RequestsManagement() {
   ];
 
   return (
-    <div className="p-6 space-y-[2px]">
+    <div className="p-6 flex flex-col gap-3 min-h-0 h-full">
       <div className="flex justify-between bg-white px-6 py-4 rounded-xl border shadow-sm items-center">
         <div>
           <h2 className="text-xl font-semibold text-black">
@@ -145,7 +137,7 @@ export default function RequestsManagement() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-[2px]">
+      <div className="grid grid-cols-4 gap-2">
         <StatCard
           icon={<BookOpen />}
           label="Tổng yêu cầu"
@@ -169,7 +161,7 @@ export default function RequestsManagement() {
       </div>
 
       <div
-        className="bg-white rounded-xl border shadow-sm px-6 py-4 max-h-[calc(100vh-260px)] overflow-y-auto"
+        className="bg-white rounded-xl border shadow-sm px-6 py-4 flex-1 min-h-0 overflow-hidden"
       >
         <DataTable
           columns={columns}
@@ -178,6 +170,9 @@ export default function RequestsManagement() {
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(page) => setPageNumber(page)}
+          fillHeight
+          comfortable
+          tableGap="tight"
         />
       </div>
     </div>

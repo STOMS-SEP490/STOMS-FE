@@ -12,6 +12,10 @@ export type PublishedTeamSession = {
   location?: string;
   status?: string;
   isOnline?: boolean | null;
+  assignments?: Array<{
+    staffRole?: string | null;
+    staffMemberId?: number | null;
+  }>;
   // API có thể trả thêm attendances (nhất là với session đã Completed),
   // dùng để hiển thị tên người điểm danh.
   attendances?: Array<{
@@ -24,6 +28,7 @@ export type PublishedTeamSession = {
 function mapPublishedTeamSessionFromApi(raw: Record<string, unknown>): PublishedTeamSession {
   const isOnlineRaw = raw['isOnline'] ?? raw['IsOnline'] ?? null;
   const attendancesRaw = (raw['attendances'] ?? raw['Attendances'] ?? []) as Record<string, unknown>[];
+  const assignmentsRaw = (raw['assignments'] ?? raw['Assignments'] ?? []) as Record<string, unknown>[];
   return {
     sessionId: Number(raw['sessionId'] ?? raw['SessionId'] ?? 0),
     requestId: Number(raw['requestId'] ?? raw['RequestId'] ?? 0) || undefined,
@@ -45,6 +50,21 @@ function mapPublishedTeamSessionFromApi(raw: Record<string, unknown>): Published
         ? String(raw['status'] ?? raw['Status'])
         : undefined,
     isOnline: isOnlineRaw == null ? null : Boolean(isOnlineRaw),
+    assignments: Array.isArray(assignmentsRaw)
+      ? assignmentsRaw.map((a) => ({
+          staffRole: (() => {
+            const v = a['staffRole'] ?? a['StaffRole'];
+            if (v == null) return null;
+            return String(v);
+          })(),
+          staffMemberId: (() => {
+            const v = a['staffMemberId'] ?? a['StaffMemberId'];
+            if (v == null) return null;
+            const n = Number(v);
+            return Number.isNaN(n) || n <= 0 ? null : n;
+          })(),
+        }))
+      : undefined,
     attendances: Array.isArray(attendancesRaw)
       ? attendancesRaw.map((a) => {
           const v = a['attendanceByMemberId'] ?? a['AttendanceByMemberId'] ?? null;

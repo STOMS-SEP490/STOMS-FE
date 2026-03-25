@@ -364,9 +364,7 @@ export default function EventCalendar() {
 
   const calendarContent = (
     <div
-      className={`event-calendar-scroll relative flex-1 min-h-0 event-calendar-fixed ${
-        isTeamLeaderArea ? 'event-calendar-scroll--tl' : ''
-      }`}
+      className="event-calendar-scroll relative flex-1 min-h-0 event-calendar-fixed"
     >
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">

@@ -53,7 +53,6 @@ export default function RequestCard({
   eventId,
   status,
   statusInfoOverride,
-  showNeedsAction = false,
   isActive = false,
   isHovered = false,
   onClick,
@@ -65,9 +64,6 @@ export default function RequestCard({
   const statusInfo =
     statusInfoOverride ??
     (status != null && String(status).trim() !== '' ? getRequestStatusInfo(status) : null);
-
-  // Dựa theo nhãn hiển thị để "Cần xử lý" đúng với mapping theo màn hình.
-  const isPending = !!statusInfo?.label?.toLowerCase().includes('chờ');
 
   return (
     <div
@@ -100,12 +96,7 @@ export default function RequestCard({
                 <span className="truncate">{customerName}</span>
               </div>
             )}
-            {showNeedsAction && isPending && (
-              <div className="flex items-center gap-1 text-[11px] text-rose-600 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                Cần xử lý
-              </div>
-            )}
+            
           </div>
         </div>
         {statusInfo && <StatusPill statusInfo={statusInfo} />}

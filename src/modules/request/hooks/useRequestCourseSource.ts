@@ -16,6 +16,7 @@ export function useRequestCourseSource(sourceType: SourceType) {
         const res = await courseApi.getCourses({
           pageNumber: 1,
           pageSize: 100,
+              IsActive: true,
         })
         if (!cancelled) setCourses(res.items ?? [])
       } finally {

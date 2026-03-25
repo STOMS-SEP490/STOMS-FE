@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, Copy, Share2, Calendar, Hash, List, MapPin, AlertCircle } from 'lucide-react';
+import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, Paperclip, Eye, ChevronRight } from 'lucide-react';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';
@@ -64,6 +65,41 @@ export default function RequestDetail() {
     refreshRequestSidebar,
   });
 
+  const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ fileName: string; fileUrl: string } | null>(
+    null
+  );
+
+  const openAttachmentPreview = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
+    if (!fileUrl) return;
+    setAttachmentPreview({
+      fileName: fileName || 'Tệp đính kèm',
+      fileUrl,
+    });
+    setAttachmentPreviewOpen(true);
+  };
+
+  const getAttachmentMeta = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
+    const urlOrName = (fileUrl ?? fileName ?? '').toLowerCase();
+    const extMatch = urlOrName.match(/\.([a-z0-9]{1,10})(?:\?|#|$)/);
+    const ext = extMatch?.[1]?.toUpperCase();
+
+    if (/\.(png|jpg|jpeg|gif|webp)(?:\?|#|$)/.test(urlOrName)) {
+      return { kind: 'image' as const, label: 'Hình ảnh', ext, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', iconClass: 'text-emerald-600' };
+    }
+    if (/\.pdf(?:\?|#|$)/.test(urlOrName)) {
+      return { kind: 'pdf' as const, label: 'PDF', ext, badgeClass: 'bg-rose-50 text-rose-700 border-rose-200', iconClass: 'text-rose-600' };
+    }
+
+    return {
+      kind: 'file' as const,
+      label: ext ? `.${ext}` : 'Tệp',
+      ext,
+      badgeClass: 'bg-sky-50 text-sky-700 border-sky-200',
+      iconClass: 'text-sky-600',
+    };
+  };
+
   if (!id) {
     return <div className="text-sm text-black">Không tìm thấy mã yêu cầu.</div>;
   }
@@ -94,7 +130,7 @@ export default function RequestDetail() {
             <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
               {request.requestName ?? request.requestCode}
             </h5>
-            <div className="flex items-center gap-1 shrink-0">
+            {/* <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
                 className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -116,7 +152,7 @@ export default function RequestDetail() {
               >
                 <Calendar className="w-4 h-4" />
               </button>
-            </div>
+            </div> */}
             <div className="flex items-center gap-2 shrink-0">
               <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
                 {typeInfo.label}
@@ -244,7 +280,7 @@ export default function RequestDetail() {
         <Tabs defaultValue="overview" className="space-y-4 text-black">
           <TabsList className="bg-transparent border-0 shadow-none p-0 mb-0">
             <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-            <TabsTrigger value="constraints">Ràng buộc</TabsTrigger>
+        
             <TabsTrigger value="attachments">Tệp đính kèm</TabsTrigger>
           </TabsList>
 
@@ -385,16 +421,57 @@ export default function RequestDetail() {
           </div>
           </TabsContent>
 
-          <TabsContent value="constraints">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs text-gray-500">
-              Ràng buộc giảng dạy và phân công sẽ được hiển thị ở đây (theo BR-STF,
-              BR-SCH, BR-TIME...).
-            </div>
-          </TabsContent>
+         
 
           <TabsContent value="attachments">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs text-gray-500">
-              Danh sách tệp đính kèm yêu cầu sẽ được hiển thị ở đây.
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs">
+              {request.attachments?.length ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500">Tệp đính kèm yêu cầu</p>
+                  <div className="space-y-1">
+                    {request.attachments.map((att, idx) => (
+                      <button
+                        key={att.attachmentId ?? att.fileUrl ?? idx}
+                        type="button"
+                        className="group w-full text-left rounded-xl border border-slate-200 bg-slate-50/40 px-3 py-2.5 hover:bg-slate-50/70 transition flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                        onClick={() => openAttachmentPreview(att.fileName, att.fileUrl)}
+                        disabled={!att.fileUrl}
+                        aria-label={`Mở tệp đính kèm ${att.fileName || `#${idx + 1}`}`}
+                      >
+                        {(() => {
+                          const meta = getAttachmentMeta(att.fileName, att.fileUrl);
+                          const fileLabel = att.fileName || `Tệp đính kèm #${idx + 1}`;
+                          return (
+                            <>
+                              <div
+                                className={`shrink-0 w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center ${meta.iconClass}`}
+                                aria-hidden
+                              >
+                                <Paperclip className={`w-4 h-4 ${meta.iconClass}`} />
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-semibold text-slate-900 truncate" title={fileLabel}>
+                                    {fileLabel}
+                                  </span>
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${meta.badgeClass}`}>
+                                    {meta.kind === 'file' ? meta.ext ?? 'Tệp' : meta.label}
+                                  </span>
+                                </div>
+
+                              </div>
+
+                            </>
+                          );
+                        })()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500">Chưa có tệp đính kèm cho yêu cầu này.</div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
@@ -709,6 +786,67 @@ export default function RequestDetail() {
           </div>
         </div>
       )}
+
+      {/* Popup preview file đính kèm */}
+      <Dialog
+        open={attachmentPreviewOpen}
+        onClose={() => setAttachmentPreviewOpen(false)}
+        title={attachmentPreview?.fileName ?? 'Tệp đính kèm'}
+        description="Xem nội dung tệp đính kèm"
+        className="max-w-4xl border-0 shadow-2xl"
+      >
+        {attachmentPreview?.fileUrl ? (
+          (() => {
+            const url = attachmentPreview.fileUrl;
+            const lower = url.toLowerCase();
+            const isImage = /\.(png|jpg|jpeg|gif|webp)$/.test(lower);
+            const isPdf = /\.pdf(\?|#|$)/.test(lower);
+
+            if (isImage) {
+              return (
+                <div className="space-y-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={attachmentPreview.fileName}
+                    className="w-full max-h-[70vh] object-contain rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+              );
+            }
+
+            if (isPdf) {
+              return (
+                <div className="space-y-3">
+                  <iframe
+                    src={url}
+                    title={attachmentPreview.fileName}
+                    className="w-full h-[70vh] rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-2">
+                <p className="text-xs text-slate-600">
+                  Trình duyệt không hỗ trợ preview trực tiếp cho loại tệp này.
+                </p>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs inline-flex items-center rounded-lg border border-sky-200 bg-sky-50 text-sky-700 px-3 py-2 hover:bg-sky-100"
+                >
+                  Mở tệp
+                </a>
+              </div>
+            );
+          })()
+        ) : (
+          <div className="text-xs text-slate-500">Không có nội dung để hiển thị.</div>
+        )}
+      </Dialog>
 
       {/* Dialog từ chối assignment */}
       <Dialog

@@ -5,7 +5,7 @@ export type SubjectFilterParams = {
   subjectCode?: string;
   subjectName?: string;
   topicId?: number;
-  isActive?: boolean;
+  IsActive?: boolean;
 };
 
 export type SubjectUpsertPayload = {

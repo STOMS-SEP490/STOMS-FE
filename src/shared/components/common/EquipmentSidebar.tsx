@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { BarChart3, Laptop, Menu, LogOut } from 'lucide-react'
+import { BarChart3, Laptop, Menu, LogOut, Boxes, ClipboardList } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/modules/auth/pages/Logout'
 import NotificationBell from '@/shared/components/common/NotificationBell'
@@ -12,7 +12,21 @@ export default function EquipmentSidebar() {
   const menus = useMemo(
     () => [
       { label: 'Dashboard', icon: BarChart3, path: '/em/dashboard' },
-      { label: 'Thiết bị', icon: Laptop, path: '/em/equipments' },
+      {
+        label: 'Danh mục',
+        icon: Boxes,
+        path: '/em/equipments/categories',
+      },
+      {
+        label: 'Thiết bị',
+        icon: Laptop,
+        path: '/em/equipments',
+      },
+      {
+        label: 'Phiếu mượn',
+        icon: ClipboardList,
+        path: '/em/equipments/history',
+      },
     ],
     []
   )
@@ -94,11 +108,11 @@ export default function EquipmentSidebar() {
             const Icon = m.icon
 
             return (
-              <NavLink key={m.path} to={m.path}>
+              <NavLink key={m.path} to={m.path} end>
                 {({ isActive }) => (
                   <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
                     <div
-                      className={` 
+                      className={`
                         h-full rounded-xl 
                         flex flex-col items-center justify-center
                         transition-all
