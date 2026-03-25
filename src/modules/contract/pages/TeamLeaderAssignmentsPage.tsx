@@ -18,6 +18,8 @@ import {
   RotateCcw,
   Plus,
   MoreVertical,
+  Sparkles,
+  Briefcase,
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
@@ -345,8 +347,22 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 <Dropdown
                   trigger={['click']}
                   placement="bottomRight"
+                  arrow
                   menu={{
-                    items: [{ key: 'clear', label: 'Gỡ phân công', danger: true }],
+                    items: [
+                      {
+                        key: 'clear',
+                        label: (
+                          <span className="inline-flex items-center gap-2 text-[13px] font-medium">
+                           
+                            Gỡ phân công
+                          </span>
+                        ),
+                        danger: true,
+                        className:
+                          'rounded-lg !bg-rose-50 hover:!bg-rose-100 !text-rose-600',
+                      },
+                    ],
                     onClick: ({ key, domEvent }) => {
                       domEvent.stopPropagation();
                       if (key === 'clear') {
@@ -375,8 +391,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
   return (
     <div
-      className="flex flex-col p-6 bg-slate-50 overflow-hidden py-0 px-0"
-      style={{ height: 'var(--content-height, 100vh)' }}
+      className="flex flex-col bg-slate-50 py-0 px-0 min-h-0"
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
@@ -417,7 +432,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
         </div>
       </div>
 
-        <div className="flex gap-4 flex-1 min-h-0">
+        <div className="flex gap-4 flex-1 min-h-0 pb-4">
         {/* Sidebar */}
         <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <div className="flex justify-between items-center p-4 border-b border-slate-200">
@@ -431,7 +446,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               {filteredRequests.length}
             </span>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-white">
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
                 Chưa có yêu cầu nào có phiên của team này.
@@ -463,15 +478,12 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
         <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {!selectedRequest ? (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl text-slate-400">📋</span>
-              </div>
-              <p className="text-sm font-medium text-black">Chọn một yêu cầu ở cột bên trái</p>
-              <p className="text-xs text-gray-500 mt-1">để xem danh sách phiên và phân công nhân sự.</p>
+            <div className="p-6 text-sm text-gray-500">
+              Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
             </div>
           ) : (
-            <div className="space-y-4 flex flex-col min-h-0 flex-1">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
+              <div className="space-y-4 flex flex-col min-h-0 flex-1 p-4">
               {/* Request header */}
               <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
                 <div className="flex flex-wrap items-center gap-3">
@@ -660,6 +672,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     </div>
                   )}
                 </div>
+              </div>
               </div>
             </div>
           )}
@@ -875,42 +888,108 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
         const isSuggested = 'skillMatchCount' in staff && 'assignmentCountIn30Days' in staff;
         if (!isSuggested) return null;
         const s = staff as SuggestedStaff;
-        const skillNames = s.skills?.map((sk) => sk.skillName).filter(Boolean).join(', ') || '—';
+        const skills = (s.skills ?? []).map((sk) => sk.skillName).filter(Boolean);
+        const maxSkillChips = 3;
+        const shownSkills = skills.slice(0, maxSkillChips);
+        const moreSkillCount = Math.max(0, skills.length - shownSkills.length);
         const top = rect.top;
-        const left = rect.left - 220;
+
+        const isTA = String(s.roleName ?? '').toUpperCase().includes('TA') || String(s.roleName ?? '').toUpperCase().includes('ASSIST');
+        const roleChip = isTA
+          ? { label: 'TA', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
+          : { label: 'TE', cls: 'bg-sky-100 text-sky-800 border-sky-200' };
+
+        const frame = isTA
+          ? { border: 'border-emerald-200/70', ring: 'ring-emerald-100', grad: 'from-emerald-50/70' }
+          : { border: 'border-sky-200/70', ring: 'ring-sky-100', grad: 'from-sky-50/70' };
+
+        const workload = Math.max(0, Number(s.assignmentCountIn30Days ?? 0));
+        const workloadMax = 12; // UI scale only
+        const workloadPct = Math.max(0, Math.min(100, (workload / workloadMax) * 100));
+
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+        const tooltipW = 304;
+        const leftPreferred = rect.left - (tooltipW + 16);
+        const left =
+          leftPreferred >= 8 ? leftPreferred : Math.min(vw - tooltipW - 8, rect.right + 12);
         return (
           <div
-            className="fixed z-[100] w-[200px] bg-white border border-slate-200 rounded-lg shadow-xl p-3 pointer-events-none"
+            className={`fixed z-[100] w-[304px] bg-white border ${frame.border} rounded-2xl shadow-2xl pointer-events-none ring-1 ${frame.ring} overflow-hidden`}
             style={{ top: Math.max(8, top), left: Math.max(8, left) }}
           >
-            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
-              <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center shrink-0">
-                <img
-                  src={getAvatarSrc(s.avatarUrl)}
-                  alt={s.fullName}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-                  }}
-                />
-      </div>
-              <div className="min-w-0">
-                <div className="text-xs font-semibold text-slate-900 truncate">{s.fullName}</div>
-                <div className="text-[10px] text-slate-500 truncate">{s.email || s.roleName}</div>
+            <div className={`px-4 pt-3 pb-3 bg-gradient-to-br ${frame.grad} to-white`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center shrink-0 border border-white shadow-sm">
+                    <img
+                      src={getAvatarSrc(s.avatarUrl)}
+                      alt={s.fullName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[15px] font-semibold text-slate-900 truncate">{s.fullName}</div>
+                    <div className="text-[12px] text-slate-500 truncate">{s.email || '—'}</div>
+                  </div>
+                </div>
+                <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${roleChip.cls}`}>
+                  {roleChip.label}
+                </span>
               </div>
             </div>
-            <div className="text-[11px] space-y-1.5">
-              <div>
-                <span className="font-medium text-slate-500">Kỹ năng</span>
-                <p className="text-slate-800 mt-0.5">{skillNames}</p>
+
+            <div className="px-4 py-3.5 space-y-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                  <Sparkles className="h-4 w-4 text-slate-400" />
+                  Kỹ năng
+                </div>
+                <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[11px] font-semibold">
+                  Khớp: {s.skillMatchCount}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-slate-500">Khớp YC</span>
-                <span className="font-semibold text-slate-800">{s.skillMatchCount}</span>
+
+              <div className="flex flex-wrap gap-1.5">
+                {shownSkills.length ? (
+                  <>
+                    {shownSkills.map((name) => (
+                      <span
+                        key={name}
+                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                    {moreSkillCount > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        +{moreSkillCount}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-xs text-slate-500">—</span>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-slate-500">Buổi (30 ngày)</span>
-                <span className="font-semibold text-slate-800">{s.assignmentCountIn30Days}</span>
+
+              <div className="pt-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                    <Briefcase className="h-4 w-4 text-slate-400" />
+                    Workload (30 ngày)
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 tabular-nums">
+                    {workload}
+                  </span>
+                </div>
+                <div className="mt-2 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${isTA ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-sky-500 to-sky-400'}`}
+                    style={{ width: `${workloadPct}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>
