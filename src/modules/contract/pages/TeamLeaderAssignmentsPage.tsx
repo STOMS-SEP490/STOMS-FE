@@ -10,8 +10,6 @@ import {
   Calendar,
   Hash,
   List,
-  Copy,
-  Share2,
   GraduationCap,
   Users,
   AlertCircle,
@@ -20,7 +18,6 @@ import {
   MoreVertical,
   Sparkles,
   Briefcase,
-  Trash2,
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, Paperclip, Eye, ChevronRight } from 'lucide-react';
+import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, Paperclip } from 'lucide-react';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';

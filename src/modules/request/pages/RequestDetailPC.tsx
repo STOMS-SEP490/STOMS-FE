@@ -9,7 +9,7 @@ import {
   MapPin,
   X,
 } from 'lucide-react';
-import { Paperclip, Eye, ChevronRight } from 'lucide-react';
+import { Paperclip } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { getRequestType } from '@/shared/components/request/RequestCard';
