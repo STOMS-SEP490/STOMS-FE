@@ -1,9 +1,8 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 
 import dayjs from 'dayjs';
-import { Spin } from 'antd';
+import { Dropdown, Popover, Spin } from 'antd';
 import {
   X,
   MapPin,
@@ -17,9 +16,10 @@ import {
   Users,
   AlertCircle,
   RotateCcw,
+  Plus,
+  MoreVertical,
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
-import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
@@ -34,7 +34,47 @@ import RequestCard from '@/shared/components/request/RequestCard';
 import { getSessionStatusInfo } from '@/constants/status';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
 import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
-import { useTeamLeaderAssignmentsPage } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
+import {
+  getEffectiveStaffMemberId,
+  useTeamLeaderAssignmentsPage,
+} from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
+
+type AssignmentRow = NonNullable<NonNullable<SessionDetail['assignments']>[number]>;
+
+const DEFAULT_AVATAR_SRC = '/img/ava.png';
+
+function getAvatarSrc(src?: string | null) {
+  return src && String(src).trim() ? String(src) : DEFAULT_AVATAR_SRC;
+}
+
+function getStaffDisplayForSlot(
+  effectiveMemberId: number,
+  assignment: AssignmentRow,
+  suggested: SuggestedStaff[],
+): { fullName: string; email: string; avatarUrl?: string | null } {
+  const sm = assignment.staffMember;
+  if (sm && sm.memberId === effectiveMemberId) {
+    const anySm = sm as unknown as { email?: string };
+    return {
+      fullName: sm.fullName || '—',
+      email: sm.userEmail || anySm.email || '',
+      avatarUrl: sm.avatarUrl,
+    };
+  }
+  const sug = suggested.find((m) => m.memberId === effectiveMemberId);
+  if (sug) {
+    return {
+      fullName: sug.fullName || '—',
+      email: sug.email || sug.roleName || '',
+      avatarUrl: sug.avatarUrl,
+    };
+  }
+  return {
+    fullName: `Thành viên #${effectiveMemberId}`,
+    email: '',
+    avatarUrl: null,
+  };
+}
 
 type TeamLeaderAssignmentsPageProps = {
   tab: TeamLeaderAssignmentsTab;
@@ -72,7 +112,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     staff: SuggestedStaff;
     rect: DOMRect;
   } | null>(null);
-  // (logic/data layer moved to hook)
+  const [staffPickerAssignmentId, setStaffPickerAssignmentId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setStaffPickerAssignmentId(null);
+  }, [activeSession?.sessionId]);
 
 
   const renderMemberOption = (m: SuggestedStaff) => {
@@ -80,18 +124,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     return (
     <div className="flex items-center gap-2">
       <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
-        {m.avatarUrl ? (
-          <img
-            src={m.avatarUrl}
-            alt={m.fullName}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
-            }}
-          />
-        ) : (
-          (m.fullName || 'N')[0]
-        )}
+        <img
+          src={getAvatarSrc(m.avatarUrl)}
+          alt={m.fullName}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+          }}
+        />
       </div>
         <div className="flex flex-row items-center gap-2 min-w-0 flex-1">
           <span className="text-xs font-medium text-slate-900 truncate shrink-0">
@@ -118,93 +158,218 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     requiredCount: number,
     colorScheme: 'sky' | 'amber',
   ) => {
-    const borderColor = colorScheme === 'sky' ? 'border-sky-100' : 'border-amber-100';
-    const bgGradient =
+    const accent =
       colorScheme === 'sky'
-        ? 'bg-gradient-to-br from-sky-50/50 to-white'
-        : 'bg-gradient-to-br from-amber-50/50 to-white';
-    const badgeCls =
-      colorScheme === 'sky'
-        ? 'bg-sky-100 text-sky-800 border-sky-200'
-        : 'bg-amber-100 text-amber-800 border-amber-200';
-    const slotBorder = colorScheme === 'sky' ? 'border-sky-100' : 'border-amber-100';
+        ? {
+            addText: 'text-[#2197C0]',
+            addCircle: 'bg-sky-100 text-[#2197C0]',
+            addHover: 'hover:border-sky-300 hover:bg-sky-50/50',
+            cardBorder: 'border-sky-200',
+            cardBg: 'bg-gradient-to-br from-sky-50/70 to-white',
+            avatarBg: 'bg-sky-100 text-[#2197C0]',
+            menuBtn: 'text-sky-500 hover:bg-sky-50 hover:text-sky-700',
+          }
+        : {
+            addText: 'text-amber-800',
+            addCircle: 'bg-amber-100 text-amber-800',
+            addHover: 'hover:border-amber-300 hover:bg-amber-50/60',
+            cardBorder: 'border-amber-200',
+            cardBg: 'bg-gradient-to-br from-amber-50/70 to-white',
+            avatarBg: 'bg-amber-100 text-amber-800',
+            menuBtn: 'text-amber-600 hover:bg-amber-50/80 hover:text-amber-800',
+          };
     const placeholder = colorScheme === 'sky' ? 'Chọn giảng viên' : 'Chọn trợ giảng';
     const searchPlaceholder = colorScheme === 'sky' ? 'Tìm giảng viên...' : 'Tìm trợ giảng...';
 
-                        return (
-      <div className={`rounded-xl border ${borderColor} ${bgGradient} p-3 space-y-2 shadow-sm`}>
-                                <div className="flex items-center justify-between">
-          <Badge
-            className={`px-2 py-0.5 rounded-lg ${badgeCls} text-[11px] font-semibold border`}
-          >
-            {roleLabel}
-                                  </Badge>
-          <span className="text-[11px] font-medium text-slate-600">Cần: {requiredCount}</span>
-                                </div>
-                                <div className="space-y-2">
+    const buildSuggestedList = (a: AssignmentRow, selectedId: number) => {
+      const selectedSameRole = slots
+        .map((sl) =>
+          getEffectiveStaffMemberId(sl.assignmentId, assignSelections, sl.staffMemberId),
+        )
+        .filter((id) => id > 0);
+      const selectedOthers = selectedSameRole.filter((id) => id !== selectedId);
+      const searchText = searchByAssignmentId[a.assignmentId]?.toLowerCase() || '';
+      return (suggestedByAssignmentId[a.assignmentId] ?? []).filter(
+        (m: SuggestedStaff) =>
+          (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
+          (!searchText ||
+            m.fullName?.toLowerCase().includes(searchText) ||
+            m.roleName?.toLowerCase().includes(searchText) ||
+            m.email?.toLowerCase().includes(searchText)),
+      );
+    };
+
+    const pickerContent = (a: AssignmentRow) => {
+      const selectedId = getEffectiveStaffMemberId(
+        a.assignmentId,
+        assignSelections,
+        a.staffMemberId,
+      );
+      const suggestedList = buildSuggestedList(a, selectedId);
+      return (
+        <div className="w-[min(calc(100vw-2rem),18rem)] p-0.5">
+          <Input
+            className="h-8 text-xs border-slate-200"
+            placeholder={searchPlaceholder}
+            value={searchByAssignmentId[a.assignmentId] || ''}
+            onChange={(e) =>
+              setSearchByAssignmentId((prev) => ({
+                ...prev,
+                [a.assignmentId]: e.target.value,
+              }))
+            }
+          />
+          <div className="mt-2 max-h-52 overflow-y-auto no-scrollbar space-y-0.5">
+            {suggestedList.length === 0 ? (
+              <p className="text-xs text-slate-500 px-2 py-3 text-center">Không có gợi ý phù hợp.</p>
+            ) : (
+              suggestedList.map((m: SuggestedStaff) => (
+                <button
+                  key={m.memberId}
+                  type="button"
+                  className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50 transition-colors"
+                  onClick={() => {
+                    handleSelectStaff(sessionId, a.assignmentId, m.memberId);
+                    setStaffPickerAssignmentId(null);
+                  }}
+                  onMouseEnter={(e) => handleStaffHover(m, e)}
+                  onMouseLeave={() => setHoveredStaff(null)}
+                >
+                  {renderMemberOption(m)}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    const addSlotTrigger = () => (
+      <button
+        type="button"
+        className={`min-h-[4.5rem] w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center gap-2.5 ${accent.addText} ${accent.addHover} transition-colors`}
+      >
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${accent.addCircle}`}
+        >
+          <Plus className="h-5 w-5 stroke-[2.5]" />
+        </span>
+        <span className="text-sm font-medium">{placeholder}</span>
+      </button>
+    );
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-slate-900">{roleLabel}</span>
+          <span className="text-xs font-medium text-slate-500">Cần: {requiredCount}</span>
+        </div>
+        <div className="space-y-2.5">
           {slots.length === 0 && (
-            <div className="text-[11px] text-slate-500">Chưa có slot phân công.</div>
+            <div className="text-xs text-slate-500 rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2">
+              Chưa có slot phân công.
+            </div>
           )}
           {slots.map((a) => {
-            const selectedId = assignSelections[a.assignmentId] ?? (a.staffMemberId ?? 0);
-            const selectedSameRole = slots
-              .map((sl) => assignSelections[sl.assignmentId] ?? (sl.staffMemberId ?? 0))
-                                      .filter((id) => id > 0);
-            const selectedOthers = selectedSameRole.filter((id) => id !== selectedId);
-            const searchText = searchByAssignmentId[a.assignmentId]?.toLowerCase() || '';
-
-            const suggestedList = (suggestedByAssignmentId[a.assignmentId] ?? []).filter(
-              (m: SuggestedStaff) =>
-                (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
-                (!searchText ||
-                  m.fullName?.toLowerCase().includes(searchText) ||
-                  m.roleName?.toLowerCase().includes(searchText) ||
-                  m.email?.toLowerCase().includes(searchText)),
+            const selectedId = getEffectiveStaffMemberId(
+              a.assignmentId,
+              assignSelections,
+              a.staffMemberId,
             );
+            const suggested = suggestedByAssignmentId[a.assignmentId] ?? [];
+            const display = getStaffDisplayForSlot(selectedId, a, suggested);
+            const isOpen = staffPickerAssignmentId === a.assignmentId;
+            const filled = selectedId > 0;
 
-                                    return (
-              <div key={a.assignmentId} className={`rounded-lg bg-white px-3 py-2 border ${slotBorder} shadow-sm`}>
-                                        <Select
-                                          value={selectedId ? String(selectedId) : undefined}
-                  onValueChange={(value) =>
-                    handleSelectStaff(sessionId, a.assignmentId, Number(value))
+            if (!filled) {
+              return (
+                <Popover
+                  key={a.assignmentId}
+                  trigger="click"
+                  open={isOpen}
+                  onOpenChange={(visible) =>
+                    setStaffPickerAssignmentId(visible ? a.assignmentId : null)
                   }
-                                        >
-                                          <SelectTrigger className="h-9 w-full text-xs border-none shadow-none px-0">
-                    <SelectValue placeholder={placeholder} />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <div className="px-2 pb-1 pt-1.5">
-                                              <Input
-                        placeholder={searchPlaceholder}
-                                                className="h-7 text-xs"
-                                                value={searchByAssignmentId[a.assignmentId] || ''}
-                                                onChange={(e) =>
-                                                  setSearchByAssignmentId((prev) => ({
-                                                    ...prev,
-                                                    [a.assignmentId]: e.target.value,
-                                                  }))
-                                                }
-                                              />
-                                            </div>
-                                            {suggestedList.map((m: SuggestedStaff) => (
-                                              <SelectItem
-                                                key={m.memberId}
-                                                value={String(m.memberId)}
-                                                className="text-xs py-1.5"
-                        onMouseEnter={(e) => handleStaffHover(m, e)}
-                        onMouseLeave={() => setHoveredStaff(null)}
-                                              >
-                                                {renderMemberOption(m)}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+                  placement="bottomLeft"
+                  destroyOnHidden
+                  content={pickerContent(a)}
+                  styles={{ content: { padding: 12 } }}
+                >
+                  {addSlotTrigger()}
+                </Popover>
+              );
+            }
+
+            return (
+              <div
+                key={a.assignmentId}
+                className={`flex items-center gap-3 rounded-xl border ${accent.cardBorder} ${accent.cardBg} px-3 py-3 shadow-sm`}
+              >
+                <Popover
+                  trigger="click"
+                  open={isOpen}
+                  onOpenChange={(visible) =>
+                    setStaffPickerAssignmentId(visible ? a.assignmentId : null)
+                  }
+                  placement="bottomLeft"
+                  destroyOnHidden
+                  content={pickerContent(a)}
+                  styles={{ content: { padding: 12 } }}
+                >
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left rounded-lg -m-1 p-1 hover:bg-slate-50/80 transition-colors"
+                  >
+                    <div
+                      className={`h-11 w-11 shrink-0 overflow-hidden rounded-full ${accent.avatarBg} flex items-center justify-center text-xs font-semibold`}
+                    >
+                      <img
+                        src={getAvatarSrc(display.avatarUrl)}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {display.fullName}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {display.email || '—'}
+                      </p>
+                    </div>
+                  </button>
+                </Popover>
+                <Dropdown
+                  trigger={['click']}
+                  placement="bottomRight"
+                  menu={{
+                    items: [{ key: 'clear', label: 'Gỡ phân công', danger: true }],
+                    onClick: ({ key, domEvent }) => {
+                      domEvent.stopPropagation();
+                      if (key === 'clear') {
+                        handleSelectStaff(sessionId, a.assignmentId, 0);
+                        setStaffPickerAssignmentId(null);
+                      }
+                    },
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={`shrink-0 rounded-lg p-2 ${accent.menuBtn}`}
+                    aria-label="Tùy chọn"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                </Dropdown>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
   };
 
@@ -545,66 +710,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               </button>
             </div>
 
-            {/* Panel body */}
-            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-4 space-y-4">
-              {/* Session info */}
-              <div className="rounded-xl bg-white shadow-sm border border-gray-100">
-                <div className="px-4 py-2.5 border-b border-gray-100">
-                  <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
-                </div>
-                <div className="px-4 py-3 space-y-3 text-sm">
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <Clock className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-gray-500">Thời gian:</span>
-                    <span className="font-medium text-black">
-                      {dayjs(activeSession.startAt).format('HH:mm')} -{' '}
-                      {dayjs(activeSession.endAt).format('HH:mm')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-gray-500">Ngày:</span>
-                    <span className="font-medium text-black">
-                      {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-gray-500">Địa điểm:</span>
-                    <span className="font-medium text-black">{activeSession.location || '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <Hash className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-gray-500">Mã yêu cầu:</span>
-                    <span className="font-semibold text-sky-600">
-                      {selectedRequest?.requestCode}
-                    </span>
-                  </div>
-                  {(() => {
-                    const detail = sessionDetailsById[activeSession.sessionId];
-                    return (
-                      <>
-                        <div className="flex items-center gap-3 text-gray-600">
-                          <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
-                          <span className="text-gray-500">Giảng viên cần:</span>
-                          <span className="font-medium text-black">
-                            {detail?.teachersRequired ?? '—'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-gray-600">
-                          <Users className="w-4 h-4 text-gray-400 shrink-0" />
-                          <span className="text-gray-500">Trợ giảng cần:</span>
-                          <span className="font-medium text-black">
-                            {detail?.tasRequired ?? '—'}
-                          </span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Assignment slots */}
+            {/* Panel body: thông tin phiên trước, sau đó phân công */}
+            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-4 space-y-5">
               {(() => {
                 const detail = sessionDetailsById[activeSession.sessionId];
                 if (!detail) {
@@ -614,6 +721,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     </div>
                   );
                 }
+
                 const assignments = detail.assignments ?? [];
                 const teacherSlots = assignments.filter((a) =>
                   String(a.staffRole ?? '')
@@ -628,15 +736,74 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 const teachersRequired =
                   (detail.teachersRequired ?? teacherSlots.length) || 0;
                 const tasRequired = (detail.tasRequired ?? taSlots.length) || 0;
-
                 const totalSlots = teacherSlots.length + taSlots.length;
                 const filledSlots = assignments.filter(
-                  (a) => !!(assignSelections[a.assignmentId] || a.staffMemberId),
+                  (a) =>
+                    getEffectiveStaffMemberId(
+                      a.assignmentId,
+                      assignSelections,
+                      a.staffMemberId,
+                    ) > 0,
                 ).length;
                 const progress = totalSlots === 0 ? 0 : Math.min(1, filledSlots / totalSlots);
 
+                const sessionInfoCard = (
+                  <div className="rounded-xl bg-white shadow-sm border border-gray-100">
+                    <div className="px-4 py-2.5 border-b border-gray-100">
+                      <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
+                    </div>
+                    <div className="px-4 py-3 space-y-3 text-sm">
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <Hash className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Mã yêu cầu:</span>
+                        <span className="font-semibold text-sky-600">
+                          {selectedRequest?.requestCode}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Thời gian:</span>
+                        <span className="font-medium text-black">
+                          {dayjs(activeSession.startAt).format('HH:mm')} -{' '}
+                          {dayjs(activeSession.endAt).format('HH:mm')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Ngày:</span>
+                        <span className="font-medium text-black">
+                          {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Địa điểm:</span>
+                        <span className="font-medium text-black">
+                          {activeSession.location || '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Giáo viên cần:</span>
+                        <span className="font-medium text-black">
+                          {detail.teachersRequired ?? teacherSlots.length ?? '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Trợ giảng cần:</span>
+                        <span className="font-medium text-black">
+                          {detail.tasRequired ?? taSlots.length ?? '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+
                 return (
-                  <div className="space-y-3">
+                  <>
+                    {sessionInfoCard}
+
                     {assignments.length === 0 ? (
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
                         <AlertCircle className="w-5 h-5 text-amber-500 mx-auto mb-2" />
@@ -645,11 +812,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         </p>
                       </div>
                     ) : (
-                      <>
+                      <div className="space-y-6">
                         {renderSlotPicker(
                           activeSession.sessionId,
                           teacherSlots,
-                          'Giảng viên',
+                          'Giáo viên',
                           teachersRequired,
                           'sky',
                         )}
@@ -661,47 +828,43 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           'amber',
                         )}
 
-                        {/* Progress */}
-                              {totalSlots > 0 && (
-                          <div className="pt-3 mt-1 border-t border-slate-100 space-y-2">
+                        {totalSlots > 0 && (
+                          <div className="pt-1 space-y-2">
                             <div className="flex items-center justify-between text-[11px] font-medium text-slate-700">
-                                    <span>Tiến độ phân công</span>
+                              <span>Tiến độ phân công</span>
                               <span className="tabular-nums">
-                                      {filledSlots}/{totalSlots}
-                                    </span>
-                                  </div>
+                                {filledSlots}/{totalSlots}
+                              </span>
+                            </div>
                             <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden shadow-inner">
-                                    <div
+                              <div
                                 className="h-full rounded-full bg-gradient-to-r from-[#2197C0] to-emerald-500 transition-all duration-300"
-                                      style={{ width: `${progress * 100}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-
-                        {/* Apply to other sessions */}
-                        {assignments.length > 0 &&
-                          selectedRequest &&
-                          selectedRequest.sessions.length > 1 && (
-                            <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
-                                <button
-                                  type="button"
-                                className="text-xs font-medium text-[#2197C0] hover:text-[#1978a0] hover:bg-sky-50 rounded-lg px-3 py-1.5 transition-colors"
-                                onClick={() =>
-                                  handleApplyToOtherSessions(activeSession.sessionId)
-                                }
-                              >
-                                <RotateCcw className="w-3 h-3 inline mr-1" />
-                                Áp dụng cho các phiên khác
-                                </button>
-                              </div>
-                          )}
-                      </>
-                            )}
+                                style={{ width: `${progress * 100}%` }}
+                              />
+                            </div>
                           </div>
-                        );
+                        )}
+
+                        {selectedRequest && selectedRequest.sessions.length > 1 && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4">
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-[#2197C0] hover:text-[#1978a0] hover:bg-sky-50 rounded-lg px-3 py-1.5 transition-colors"
+                              onClick={() =>
+                                handleApplyToOtherSessions(activeSession.sessionId)
+                              }
+                            >
+                              <RotateCcw className="w-3 h-3 inline mr-1" />
+                              Áp dụng cho các phiên khác
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
               })()}
-                    </div>
+            </div>
                 </div>
               </div>
             )}
@@ -722,11 +885,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
           >
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
               <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center shrink-0">
-                {s.avatarUrl ? (
-                  <img src={s.avatarUrl} alt={s.fullName} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-[10px] font-semibold text-slate-500">{(s.fullName || 'N')[0]}</span>
-        )}
+                <img
+                  src={getAvatarSrc(s.avatarUrl)}
+                  alt={s.fullName}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                  }}
+                />
       </div>
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-slate-900 truncate">{s.fullName}</div>

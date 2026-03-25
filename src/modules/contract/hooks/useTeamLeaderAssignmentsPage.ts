@@ -30,6 +30,18 @@ const isAssignableStatus = (status?: string | number | null) => {
   );
 };
 
+/** Local selection `0` means “gỡ chọn”, phải ghi đè staffMemberId từ API. */
+export function getEffectiveStaffMemberId(
+  assignmentId: number,
+  selections: Record<number, number>,
+  fallbackStaffMemberId?: number | null,
+): number {
+  if (Object.prototype.hasOwnProperty.call(selections, assignmentId)) {
+    return selections[assignmentId];
+  }
+  return Number(fallbackStaffMemberId ?? 0);
+}
+
 const getRoleKey = (staffRole?: string | null): RoleKey =>
   String(staffRole ?? '').toUpperCase().includes('TA') ? 'TA' : 'TE';
 
@@ -335,7 +347,11 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         for (const a of assignments) {
           if (!isAssignableStatus(a.status)) continue;
 
-          const staffMemberId = assignSelections[a.assignmentId] ?? (a.staffMemberId ?? 0);
+          const staffMemberId = getEffectiveStaffMemberId(
+            a.assignmentId,
+            assignSelections,
+            a.staffMemberId,
+          );
           if (staffMemberId > 0) {
             itemsForSession.push({ assignmentId: a.assignmentId, staffMemberId });
           }
@@ -538,7 +554,11 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
             if (!a?.assignmentId) continue;
             if (!isAssignableStatus(a.status)) continue;
 
-            const chosenStaffId = selectionsNow[a.assignmentId] ?? (a.staffMemberId ?? 0);
+            const chosenStaffId = getEffectiveStaffMemberId(
+              a.assignmentId,
+              selectionsNow,
+              a.staffMemberId,
+            );
             if (chosenStaffId <= 0) continue;
 
             if (lastAutoAssignedStaffByAssignmentRef.current[a.assignmentId] === chosenStaffId) continue;
@@ -611,7 +631,11 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
         const baseSelectedByRole: Record<RoleKey, number[]> = { TE: [], TA: [] };
         for (const a of baseDetail.assignments ?? []) {
-          const mid = assignSelectionsRef.current[a.assignmentId] ?? a.staffMemberId ?? 0;
+          const mid = getEffectiveStaffMemberId(
+            a.assignmentId,
+            assignSelectionsRef.current,
+            a.staffMemberId,
+          );
           if (mid <= 0) continue;
 
           const roleKey = getRoleKey(a.staffRole);
@@ -712,7 +736,8 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       const assignments = detail?.assignments ?? [];
       const total = assignments.length;
       const filled = assignments.filter(
-        (a) => !!(assignSelections[a.assignmentId] || a.staffMemberId),
+        (a) =>
+          getEffectiveStaffMemberId(a.assignmentId, assignSelections, a.staffMemberId) > 0,
       ).length;
       return { total, filled, detail, assignments };
     },
