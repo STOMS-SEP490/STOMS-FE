@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Paperclip } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { getRequestType } from '@/shared/components/request/RequestCard';
 import { getRequestStatusInfo } from '@/constants/status';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
@@ -20,17 +19,30 @@ import type { RequestSessionSummary } from '../request';
 import { Dialog } from '@/shared/components/ui/dialog';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
+import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 
 export default function RequestDetailPC() {
   const { id } = useParams<{ id: string }>();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
 
-  const { request, sessions, rightPanel, setRightPanel, loading, uiAssignedTeamIdsBySessionId } =
-    useRequestDetailManager({
-      id,
-      viewMode,
-      refreshRequestSidebar,
-    });
+  const {
+    request,
+    sessions,
+    rightPanel,
+    setRightPanel,
+    loading,
+    uiAssignedTeamIdsBySessionId,
+    suggestedTeamIdsBySessionId,
+    ensureSuggestedTeamIdsForSessions,
+    handleAssignSession,
+    handleAssignAllUi,
+    handleClearAllUi,
+    handleQuantitiesChange,
+  } = useRequestDetailManager({
+    id,
+    viewMode,
+    refreshRequestSidebar,
+  });
 
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ fileName: string; fileUrl: string } | null>(null);
@@ -155,7 +167,16 @@ export default function RequestDetailPC() {
                     return (
                       <div
                         key={session.sessionId}
-                        className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setRightPanel({ mode: 'detail', session: session as SessionWithFlags })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setRightPanel({ mode: 'detail', session: session as SessionWithFlags });
+                          }
+                        }}
+                        className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -175,11 +196,12 @@ export default function RequestDetailPC() {
                             </span>
                           </div>
 
-                          <TableTextAction
-                            onClick={() => setRightPanel({ mode: 'detail', session: session as SessionWithFlags })}
-                            className="text-xs text-sky-600 hover:text-sky-700 shrink-0"
-                            chevronClassName="w-3.5 h-3.5"
-                          />
+                          <span
+                            className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 underline-offset-2 select-none"
+                            aria-hidden
+                          >
+                            Chi tiết
+                          </span>
                         </div>
 
                         <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">{sessionTitle}</p>
@@ -361,10 +383,30 @@ export default function RequestDetailPC() {
                     />
 
                     <div className="mt-6">
-                      <RequestDetailTeamSummary
-                        session={rightPanel.session}
-                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                      />
+                      {String(request.status ?? '').toLowerCase() !== 'pending' ? (
+                        <RequestDetailTeamSummary
+                          session={rightPanel.session}
+                          assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                        />
+                      ) : (
+                        <RequestDetailTeamPanel
+                          session={rightPanel.session}
+                          sessionsCount={sessions.length}
+                          allSessions={sessions.map((s) => ({
+                            sessionId: s.sessionId,
+                            teachersRequired: (s as SessionWithFlags).teachersRequired ?? null,
+                            tasRequired: (s as SessionWithFlags).tasRequired ?? null,
+                          }))}
+                          suggestedTeamIdsBySessionId={suggestedTeamIdsBySessionId}
+                          currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                          onEnsureSuggestedTeamIdsForSessions={ensureSuggestedTeamIdsForSessions}
+                          onClose={() => setRightPanel(null)}
+                          onAssignSession={handleAssignSession}
+                          onAssignAllUi={handleAssignAllUi}
+                          onClearAllUi={handleClearAllUi}
+                          onQuantitiesChange={handleQuantitiesChange}
+                        />
+                      )}
                     </div>
                   </>
                 )}

@@ -14,7 +14,6 @@ import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext, SessionWithFlags } from '../requestDetail.types';
 
@@ -377,7 +376,16 @@ export default function RequestDetail() {
                   return (
                     <div
                       key={session.sessionId}
-                      className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setRightPanel({ mode: 'detail', session })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setRightPanel({ mode: 'detail', session });
+                        }
+                      }}
+                      className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -396,11 +404,12 @@ export default function RequestDetail() {
                             {session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
                           </span>
                         </div>
-                        <TableTextAction
-                          onClick={() => setRightPanel({ mode: 'detail', session })}
-                          className="text-xs text-sky-600 hover:text-sky-700 shrink-0"
-                          chevronClassName="w-3.5 h-3.5"
-                        />
+                        <span
+                          className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 underline-offset-2 select-none"
+                          aria-hidden
+                        >
+                          Chi tiết
+                        </span>
                       </div>
                       <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">{sessionTitle}</p>
                       <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
@@ -562,7 +571,7 @@ export default function RequestDetail() {
                   requestCode={request.requestCode ?? ''}
                 />
                   <div className="mt-6">
-                    {rightPanel.session.teamAssigned ? (
+                    {String(request.status ?? '').toLowerCase() !== 'pending' ? (
                       <RequestDetailTeamSummary
                         session={rightPanel.session}
                         assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}

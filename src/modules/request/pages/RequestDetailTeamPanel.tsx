@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Users, Trash2, Plus } from 'lucide-react';
+import { Search, Users, Trash2, Plus, RotateCcw } from 'lucide-react';
 import { message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { Switch } from '@/shared/components/ui/switch';
 import type { Team } from '@/modules/team/team';
 import sessionService from '../api/sessionApi';
 
@@ -523,16 +522,18 @@ export default function RequestDetailTeamPanel({
           document.body
         )}
 
-      {addedTeamIds.length > 0 && (
-      <div className="flex items-center justify-between gap-3 rounded-xl border bg-gray-50 p-3">
-        <p className="text-xs font-medium text-black whitespace-nowrap">Gán đội đã chọn cho tất cả phiên</p>
-        <Switch
-          className="!rounded-[15px] shrink-0"
-          checked={assignAllEnabled}
-          disabled={!canAssignAll}
-          onCheckedChange={handleAssignAllSwitch}
-        />
-      </div>
+      {addedTeamIds.length > 0 && sessionsCount > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4">
+          <button
+            type="button"
+            className="text-xs font-medium text-[#2197C0] hover:text-[#1978a0] hover:bg-sky-50 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            disabled={!canAssignAll}
+            onClick={() => handleAssignAllSwitch(!assignAllEnabled)}
+          >
+            <RotateCcw className="w-3 h-3 inline mr-1" />
+            {assignAllEnabled ? 'Hủy áp dụng cho các phiên khác' : 'Áp dụng cho các phiên khác'}
+          </button>
+        </div>
       )}
 
       <div className="flex justify-end gap-3 pt-2">
