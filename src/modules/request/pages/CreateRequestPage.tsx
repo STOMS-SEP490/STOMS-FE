@@ -1,19 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DatePicker, Select as AntdSelect, InputNumber, message } from 'antd'
+import { DatePicker, Select as AntdSelect, InputNumber, message, Modal } from 'antd'
+import { ExclamationCircleFilled } from '@ant-design/icons'
 import type { Dayjs } from 'dayjs'
 import {
   ArrowLeft,
   Calendar,
-  Clock,
   MapPin,
-  Plus,
   Trash2,
   Paperclip,
   FileText,
   Send,
   BookOpen,
-  Globe,
   GraduationCap,
   Loader2,
 } from 'lucide-react'
@@ -26,7 +24,7 @@ import { cn } from '@/shared/lib/utils'
 
 import type { CreateRequestPayload } from '../request'
 import type { SubjectListItem } from '@/modules/subject/subject'
-import type { SourceType, SessionFormItem, AttachmentFormItem } from '../createRequestTypes'
+import type { SourceType, SessionFormItem } from '../createRequestTypes'
 import { useRequestSubjectSource } from '../hooks/useRequestSubjectSource'
 import { useRequestCourseSource } from '../hooks/useRequestCourseSource'
 import { useRequestEventSource } from '../hooks/useRequestEventSource'
@@ -34,6 +32,7 @@ import { useLoadRequestSessions } from '../hooks/useLoadRequestSessions'
 import { useCreateRequestSchedule } from '../hooks/useCreateRequestSchedule'
 import { useProgramCoordinatorId } from '../hooks/useProgramCoordinatorId'
 import requestApi from '../api/requestApi'
+import attachmentApi from '../api/attachmentApi'
 
 export default function CreateRequestPage() {
   const navigate = useNavigate()
@@ -52,7 +51,46 @@ export default function CreateRequestPage() {
   const [sessions, setSessions] = useState<SessionFormItem[]>([])
   const [submitLoading, setSubmitLoading] = useState(false)
   const [defaultLocation, setDefaultLocation] = useState('')
-  const [attachments, setAttachments] = useState<AttachmentFormItem[]>([])
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Tô màu theo type request: subject (xanh), course (tím), event (cam)
+  const accentSolidBgClass =
+    sourceType === 'subject'
+      ? 'bg-[#2197C0]'
+      : sourceType === 'course'
+        ? 'bg-[#8B5CF6]'
+        : 'bg-[#F59E0B]'
+  const accentSoftBgClass =
+    sourceType === 'subject'
+      ? 'bg-[#2197C0]/10'
+      : sourceType === 'course'
+        ? 'bg-[#8B5CF6]/10'
+        : 'bg-[#F59E0B]/10'
+  const accentTextClass =
+    sourceType === 'subject'
+      ? 'text-[#2197C0]'
+      : sourceType === 'course'
+        ? 'text-[#8B5CF6]'
+        : 'text-[#F59E0B]'
+  const accentBorderSoftClass =
+    sourceType === 'subject'
+      ? 'border-[#2197C0]/20'
+      : sourceType === 'course'
+        ? 'border-[#8B5CF6]/20'
+        : 'border-[#F59E0B]/20'
+  const accentBorderSolidClass =
+    sourceType === 'subject'
+      ? 'border-[#2197C0]'
+      : sourceType === 'course'
+        ? 'border-[#8B5CF6]'
+        : 'border-[#F59E0B]'
+  const accentHoverBorderTextClass =
+    sourceType === 'subject'
+      ? 'hover:border-[#2197C0] hover:text-[#2197C0]'
+      : sourceType === 'course'
+        ? 'hover:border-[#8B5CF6] hover:text-[#8B5CF6]'
+        : 'hover:border-[#F59E0B] hover:text-[#F59E0B]'
 
   const { subjects, loading: loadingSubjects } = useRequestSubjectSource(sourceType)
   const { courses, loading: loadingCourses } = useRequestCourseSource(sourceType)
@@ -117,6 +155,24 @@ export default function CreateRequestPage() {
     }
     const list = await loadCourseSubjects(value)
     setCourseSubjects(list)
+
+    // Khi chọn "Khóa học" => phải tạo đủ sessions của TẤT CẢ môn trong khóa
+    const combinedSessions = (
+      await Promise.all(
+        list.map(async (s) => {
+          const subjectSessions = await loadSubjectSessions(s.subjectId, defaultLocation)
+          return subjectSessions
+        }),
+      )
+    ).flat()
+
+    // Renumber sessionNo liên tục để hiển thị gọn & tránh trùng số buổi
+    const normalizedSessions: SessionFormItem[] = combinedSessions.map((s, idx) => ({
+      ...s,
+      sessionNo: idx + 1,
+    }))
+
+    setSessions(startDate ? applyAutoSchedule(startDate, normalizedSessions) : normalizedSessions)
   }
 
   const handleEventChange = async (value: number | undefined) => {
@@ -129,7 +185,7 @@ export default function CreateRequestPage() {
     setSessions(startDate ? applyAutoSchedule(startDate, mapped) : mapped)
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!requestName.trim()) {
       message.error('Vui lòng nhập tên yêu cầu.')
       return
@@ -139,8 +195,12 @@ export default function CreateRequestPage() {
       return
     }
 
-    const finalSubjectId =
-      sourceType === 'subject' || sourceType === 'course' ? subjectId ?? null : null
+    if (!startDate) {
+      message.error('Vui lòng chọn ngày bắt đầu.')
+      return
+    }
+
+    const finalSubjectId = sourceType === 'subject' ? subjectId ?? null : null
     const finalCourseId = sourceType === 'course' ? courseId ?? null : null
     const finalEventId = sourceType === 'event' ? eventId ?? null : null
 
@@ -148,8 +208,8 @@ export default function CreateRequestPage() {
       message.error('Vui lòng chọn môn học.')
       return
     }
-    if (sourceType === 'course' && (!finalCourseId || !finalSubjectId)) {
-      message.error('Vui lòng chọn khóa học và môn học.')
+    if (sourceType === 'course' && !finalCourseId) {
+      message.error('Vui lòng chọn khóa học.')
       return
     }
     if (sourceType === 'event' && !finalEventId) {
@@ -158,6 +218,10 @@ export default function CreateRequestPage() {
     }
 
     const missingSessionTime = sessions.some((s) => !s.startAt || !s.endAt)
+    if (sessions.length === 0) {
+      message.error('Vui lòng chọn ngày giờ cho yêu cầu (tạo ít nhất 1 buổi).')
+      return
+    }
     if (sessions.length > 0 && missingSessionTime) {
       message.error('Vui lòng chọn ngày giờ bắt đầu cho tất cả các buổi học.')
       return
@@ -186,34 +250,210 @@ export default function CreateRequestPage() {
         borrowingId: null,
         reservationId: null,
       })),
-      attachments: attachments
-        .filter((a) => a.fileName && a.fileUrl)
-        .map((a) => ({
-          fileName: a.fileName,
-          fileUrl: a.fileUrl,
-          uploadedByMemberId: programCoordinatorId,
-        })),
+      // Tài liệu đính kèm sẽ upload/tạo sau khi tạo Request thành công.
     }
 
-    setSubmitLoading(true)
-    try {
-      await requestApi.create(payload)
-      message.success('Tạo yêu cầu thành công.')
-      navigate('/pc/requests')
-    } catch (err: unknown) {
-      const e = err as Record<string, unknown>
-      const apiMessage =
-        (typeof err === 'string' && err) ||
-        (e?.message as string) ||
-        (e?.detail as string) ||
-        (e?.title as string) ||
-        (e?.error as string) ||
-        (Array.isArray(e?.errors) && (e.errors[0] as string)) ||
-        ((e?.response as Record<string, unknown>)?.data as string)
-      message.error((apiMessage as string) ?? 'Tạo yêu cầu thất bại.')
-    } finally {
-      setSubmitLoading(false)
-    }
+    const formatDateTime = (d?: Dayjs) => (d ? d.format('DD/MM/YYYY HH:mm') : '—')
+    const sourceName =
+      sourceType === 'subject'
+        ? subjects.find((s) => s.subjectId === subjectId)?.subjectName
+        : sourceType === 'course'
+          ? courses.find((c) => c.courseId === courseId)?.courseName
+          : events.find((e) => e.eventId === eventId)?.eventName
+
+    const courseSubjectName =
+      sourceType === 'course'
+        ? courseSubjects.find((s) => s.subjectId === subjectId)?.subjectName
+        : undefined
+
+    const accentColor =
+      sourceType === 'subject' ? '#2197C0' : sourceType === 'course' ? '#8B5CF6' : '#F59E0B'
+
+    Modal.confirm({
+      title: 'Xác nhận tạo yêu cầu',
+      icon: <ExclamationCircleFilled className="text-[#F59E0B]" />,
+      width: 920,
+      centered: true,
+      bodyStyle: {
+        maxHeight: 'calc(100vh - 220px)',
+        overflowY: 'auto',
+      },
+      okText: 'Tạo yêu cầu',
+      cancelText: 'Chỉnh sửa',
+      okButtonProps: {
+        className: 'bg-[#2197C0] hover:bg-[#208AAE] border-0 text-white font-medium',
+      },
+      cancelButtonProps: {
+        className: 'border border-gray-300 bg-white text-black hover:bg-gray-100 font-medium',
+        style: {
+          borderColor: '#D1D5DB',
+          color: '#111827',
+          backgroundColor: '#FFFFFF',
+        },
+      },
+      content: (
+        <div className="w-full">
+          <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+            <div
+              className="px-4 py-3 flex items-center gap-3"
+              style={{ background: `linear-gradient(90deg, ${accentColor}22, rgba(255,255,255,1) 70%)` }}
+            >
+              
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-gray-900">Xác nhận tạo yêu cầu</div>
+                <div className="text-[11px] text-gray-500 truncate">Vui lòng kiểm tra lần cuối trước khi tạo.</div>
+              </div>
+            </div>
+
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr,1.2fr] gap-4">
+            {/* Bill summary */}
+            <div className="space-y-3">
+              <div className="rounded-xl border border-gray-200 bg-white p-4 relative overflow-hidden">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="text-sm text-gray-900 font-medium">Thông tin yêu cầu</div>
+                  <div
+                    className="text-[11px] border rounded-full px-2 py-0.5"
+                    style={{ borderColor: `${accentColor}33`, backgroundColor: `${accentColor}10`, color: accentColor }}
+                  >
+                    {sourceType === 'subject' ? 'Môn học' : sourceType === 'course' ? 'Khóa học' : 'Sự kiện'}
+                  </div>
+                </div>
+                <div className="space-y-2 text-[13px]">
+                  <div>
+                    <span className="text-gray-500">Tên yêu cầu:</span> <span className="text-gray-900 font-medium">{requestName}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Khách hàng:</span> <span className="text-gray-900 font-medium">{customerName}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Loại:</span>{' '}
+                    <span className="text-gray-900 font-medium">
+                      {sourceType === 'subject' ? 'Môn học' : sourceType === 'course' ? 'Khóa học' : 'Sự kiện'}
+                      {sourceName ? ` - ${sourceName}` : ''}
+                      {sourceType === 'course' && courseSubjectName ? ` (Môn trong khóa: ${courseSubjectName})` : ''}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Ngày bắt đầu:</span>{' '}
+                    <span className="text-gray-900 font-medium">{startDate.format('DD/MM/YYYY')}</span>
+                  </div>
+                </div>
+
+                {note?.trim() ? (
+                  <div className="mt-3 rounded-lg bg-gray-50 border border-gray-200 p-3 text-[13px]">
+                    <div className="text-gray-500 font-medium">Ghi chú</div>
+                    <div className="text-gray-900">{note.trim()}</div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-xl bg-[#2197C0]/5 border border-[#2197C0]/15 p-3 text-[11px] text-gray-600">
+                Hệ thống sẽ kiểm tra số phiên và thời lượng theo cấu hình môn/khóa/sự kiện trước khi tạo.
+              </div>
+            </div>
+
+            {/* Sessions list */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium text-gray-900">Lịch các buổi</div>
+                {sessions.length > 0 ? (
+                  <div className="text-[11px] text-gray-600 rounded-full border border-gray-200 px-2 py-0.5 bg-white">
+                    {sessions.length} buổi
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                {sessions.map((s) => (
+                  <div
+                    key={`${s.subjectSessionId ?? s.eventSessionId}-${s.sessionNo}`}
+                    className="relative rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+                  >
+                    <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: `${accentColor}55` }} />
+
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-gray-900 truncate">
+                          Buổi {s.sessionNo}: {s.title}
+                        </div>
+                        <div className="text-[13px] text-gray-700 mt-1 flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                          {formatDateTime(s.startAt)} - {formatDateTime(s.endAt)}
+                        </div>
+                      </div>
+                      {s.isOnline ? (
+                        <div
+                          className={cn(
+                            'shrink-0 text-[11px] border px-2 py-0.5 rounded-full',
+                            accentSoftBgClass,
+                            accentTextClass,
+                            accentBorderSoftClass
+                          )}
+                        >
+                          Online
+                        </div>
+                      ) : (
+                        <div className="shrink-0 text-[11px] text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
+                          Offline
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-2 text-[13px] text-gray-700 space-y-1">
+                      <div>
+                        <span className="text-gray-500 inline-flex items-center gap-1">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          Địa điểm:
+                        </span>{' '}
+                        {s.location?.trim() ? s.location.trim() : '—'}
+                      </div>
+                      <div>
+                        <span className="text-gray-500">GV/TG:</span> {s.teachersRequired} / {s.tasRequired}
+                      </div>
+                      {s.notes?.trim() ? (
+                        <div className="text-gray-600 italic">Ghi chú: {s.notes.trim()}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+      onOk: async () => {
+        setSubmitLoading(true)
+        try {
+          const created = await requestApi.create(payload)
+
+          const requestId = created.requestId
+
+          // 1) Upload file từ máy
+          if (attachmentFiles.length > 0) {
+            await attachmentApi.uploadAttachmentsForRequest(requestId, attachmentFiles)
+          }
+
+          message.success('Tạo yêu cầu thành công.')
+          navigate('/pc/requests')
+        } catch (err: unknown) {
+          const e = err as Record<string, unknown>
+          const apiMessage =
+            (typeof err === 'string' && err) ||
+            (e?.message as string) ||
+            (e?.detail as string) ||
+            (e?.title as string) ||
+            (e?.error as string) ||
+            (Array.isArray(e?.errors) && (e.errors[0] as string)) ||
+            ((e?.response as Record<string, unknown>)?.data as string)
+          message.error((apiMessage as string) ?? 'Tạo yêu cầu thất bại.')
+        } finally {
+          setSubmitLoading(false)
+        }
+      },
+    })
   }
 
   const updateSession = (index: number, patch: Partial<SessionFormItem>) => {
@@ -364,7 +604,7 @@ export default function CreateRequestPage() {
 
               {/* Nguồn yêu cầu */}
               <div className="border-t pt-3.5">
-                <Label className="text-xs text-gray-600 mb-2 block">Nguồn yêu cầu</Label>
+                <Label className="text-xs text-gray-600 mb-2 block">Loại yêu cầu</Label>
                 <div className="flex gap-2">
                   {(
                     [
@@ -468,55 +708,60 @@ export default function CreateRequestPage() {
                     <Paperclip className="w-3.5 h-3.5" />
                     Tài liệu đính kèm
                   </Label>
-                  <button
-                    type="button"
-                    className="text-xs text-[#2197C0] hover:text-[#208AAE] font-medium flex items-center gap-1"
-                    onClick={() =>
-                      setAttachments((prev) => [...prev, { fileName: '', fileUrl: '' }])
-                    }
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Thêm
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = e.target.files
+                        const picked = files ? Array.from(files) : []
+                        if (picked.length === 0) return
+                        setAttachmentFiles((prev) => [...prev, ...picked])
+                        // Reset để chọn cùng file vẫn trigger onChange
+                        e.currentTarget.value = ''
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="text-xs text-[#2197C0] hover:text-[#208AAE] font-medium flex items-center gap-1"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Chọn file từ máy
+                    </button>
+                    {attachmentFiles.length > 0 && (
+                      <Badge className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px]">
+                        {attachmentFiles.length} file
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                {attachments.length === 0 && (
+                {attachmentFiles.length === 0 && (
                   <p className="text-xs text-gray-400 italic">Chưa có tài liệu đính kèm</p>
                 )}
-                <div className="space-y-2">
-                  {attachments.map((att, index) => (
-                    <div key={index} className="flex gap-2 items-center">
-                      <Input
-                        className="text-xs flex-1"
-                        placeholder="Tên file"
-                        value={att.fileName}
-                        onChange={(e) => {
-                          const next = [...attachments]
-                          next[index] = { ...next[index], fileName: e.target.value }
-                          setAttachments(next)
-                        }}
-                      />
-                      <Input
-                        className="text-xs flex-[2]"
-                        placeholder="URL file (https://...)"
-                        value={att.fileUrl}
-                        onChange={(e) => {
-                          const next = [...attachments]
-                          next[index] = { ...next[index], fileUrl: e.target.value }
-                          setAttachments(next)
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="text-red-400 hover:text-red-600 shrink-0 p-1"
-                        onClick={() =>
-                          setAttachments((prev) => prev.filter((_, i) => i !== index))
-                        }
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+
+                {attachmentFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {attachmentFiles.map((file, index) => (
+                      <div key={`${file.name}-${index}`} className="flex gap-2 items-center">
+                        <span className="text-xs flex-1 text-gray-900 truncate" title={file.name}>
+                          {file.name}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-red-400 hover:text-red-600 shrink-0 p-1"
+                          onClick={() => {
+                            setAttachmentFiles((prev) => prev.filter((_, i) => i !== index))
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Ghi chú */}
@@ -538,11 +783,11 @@ export default function CreateRequestPage() {
             <div className="px-6 py-4 border-b bg-gray-50/50 shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#2197C0]" />
-                  <h3 className="text-sm font-semibold text-gray-800">Lịch các buổi học</h3>
+                  <Calendar className={cn('w-4 h-4', accentTextClass)} />
+                  <h3 className="text-sm font-semibold text-gray-800">Lịch các buổi</h3>
                 </div>
                 {sessions.length > 0 && (
-                  <Badge className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px]">
+                  <Badge className={cn(accentSoftBgClass, accentTextClass, 'border-0 text-[11px]')}>
                     {sessions.length} buổi
                   </Badge>
                 )}
@@ -551,7 +796,7 @@ export default function CreateRequestPage() {
 
             {/* Course subject chips */}
             {sourceType === 'course' && courseSubjects.length > 0 && (
-              <div className="px-6 py-3 border-b bg-amber-50/50 shrink-0">
+              <div className="px-6 py-3 border-b bg-[#8B5CF6]/10 shrink-0">
                 <p className="text-xs font-medium text-gray-600 mb-2">Môn học trong khóa</p>
                 <div className="flex flex-wrap gap-1.5">
                   {courseSubjects.map((s) => (
@@ -561,10 +806,11 @@ export default function CreateRequestPage() {
                       className={cn(
                         'px-3 py-1 rounded-full text-xs font-medium transition-all border',
                         subjectId === s.subjectId
-                          ? 'bg-[#2197C0] text-white border-[#2197C0]'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-[#2197C0] hover:text-[#2197C0]'
+                          ? cn(accentSolidBgClass, 'text-white', accentBorderSolidClass)
+                          : cn('bg-white text-gray-600 border-gray-200', accentHoverBorderTextClass)
                       )}
-                      onClick={() => void handleSubjectChange(s.subjectId)}
+                      disabled
+                      title="Trong chế độ Khóa học, hệ thống tự tạo đủ sessions của tất cả môn trong khóa."
                     >
                       {s.subjectName}
                     </button>
@@ -576,7 +822,7 @@ export default function CreateRequestPage() {
             <div className="flex-1 overflow-y-auto px-6 py-4 no-scrollbar">
               {loadingSessions && (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                  <Loader2 className="w-8 h-8 animate-spin mb-2 text-[#2197C0]" />
+                  <Loader2 className={cn('w-8 h-8 animate-spin mb-2', accentTextClass)} />
                   <span className="text-xs">Đang tải danh sách buổi học...</span>
                 </div>
               )}
@@ -586,9 +832,9 @@ export default function CreateRequestPage() {
                   <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
                     <Calendar className="w-8 h-8 text-gray-300" />
                   </div>
-                  <span className="text-sm font-medium text-gray-400">Chưa có buổi học</span>
+                  <span className="text-sm font-medium text-gray-400">Chưa có buổi</span>
                   <span className="text-xs text-gray-400 mt-1">
-                    Chọn nguồn và ngày bắt đầu để sinh các buổi học
+                    Chọn loại và ngày bắt đầu để sinh các buổi học
                   </span>
                 </div>
               )}
@@ -601,47 +847,75 @@ export default function CreateRequestPage() {
                   >
                     {/* Session header */}
                     <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-[#2197C0]/10 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-[#2197C0]">{s.sessionNo}</span>
+                      <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0', accentSoftBgClass)}>
+                        <span className={cn('text-xs font-bold', accentTextClass)}>{s.sessionNo}</span>
                       </div>
                       <span className="text-sm font-medium text-black truncate flex-1">
                         {s.title}
                       </span>
                       {s.isOnline && (
-                        <Badge className="bg-blue-50 text-blue-600 border-blue-200 text-[10px] px-1.5 py-0">
-                          <Globe className="w-3 h-3 mr-0.5" />
+                        <Badge
+                          className={cn(
+                            accentSoftBgClass,
+                            accentTextClass,
+                            accentBorderSoftClass,
+                            'text-[10px] px-2 py-0.5'
+                          )}
+                        >
                           Online
                         </Badge>
                       )}
                     </div>
 
                     {/* Date/time */}
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-gray-500">Ngày & giờ bắt đầu</Label>
-                      <DatePicker
-                        showTime
-                        format="DD/MM/YYYY HH:mm"
-                        placeholder="Chọn ngày giờ"
-                        className="w-full"
-                        value={s.startAt}
-                        onChange={(value) => {
-                          if (!value) return
-                          const end = calculateEndTime(value, s.duration)
-                          updateSession(index, { startAt: value, endAt: end })
-                        }}
-                      />
-                      {s.endAt && (
-                        <div className="flex items-center gap-1 text-[11px] text-gray-400">
-                          <Clock className="w-3 h-3" />
-                          Kết thúc: {s.endAt.format('DD/MM/YYYY HH:mm')}
-                        </div>
-                      )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-500">Ngày & giờ bắt đầu</Label>
+                        <DatePicker
+                          showTime
+                          format="DD/MM/YYYY HH:mm"
+                          placeholder="Chọn ngày giờ"
+                          className="w-full"
+                          value={s.startAt}
+                          onChange={(value) => {
+                            // Khi đổi startAt -> tự điền endAt dự tính theo duration.
+                            if (!value) return
+                            const end = calculateEndTime(value, s.duration)
+                            updateSession(index, { startAt: value, endAt: end })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-500">Ngày & giờ kết thúc</Label>
+                        <DatePicker
+                          showTime
+                          format="DD/MM/YYYY HH:mm"
+                          placeholder="Chọn ngày giờ"
+                          className="w-full"
+                          value={s.endAt}
+                          onChange={(value) => {
+                            // Người dùng có thể sửa thủ công endAt.
+                            updateSession(index, { endAt: value ?? undefined })
+                          }}
+                        />
+                      </div>
                     </div>
 
                     {/* Staff counts & location */}
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-gray-500">Số GV</Label>
+                    <div className="grid grid-cols-4 gap-1">
+                      {/* Labels row */}
+                      <div className="col-span-1">
+                        <Label className="text-xs text-gray-500">Số Giảng Viên</Label>
+                      </div>
+                      <div className="col-span-1">
+                        <Label className="text-xs text-gray-500">Số Trợ Giảng</Label>
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-xs text-gray-500">Địa điểm</Label>
+                      </div>
+
+                      {/* Inputs row */}
+                      <div className="col-span-1">
                         <InputNumber
                           min={1}
                           value={s.teachersRequired}
@@ -649,8 +923,7 @@ export default function CreateRequestPage() {
                           className="w-full"
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-gray-500">Số TA</Label>
+                      <div className="col-span-1">
                         <InputNumber
                           min={0}
                           value={s.tasRequired}
@@ -658,19 +931,17 @@ export default function CreateRequestPage() {
                           className="w-full"
                         />
                       </div>
-                      <div className="col-span-2 space-y-1.5">
-                        <Label className="text-xs text-gray-500">Địa điểm</Label>
+                      <div className="col-span-2">
                         <Input
                           className="text-sm"
                           placeholder="Địa điểm"
                           value={s.location}
                           onChange={(e) => {
                             const raw = e.target.value
-                            const shouldUseDefault = raw.trim() === ''
                             updateSession(
                               index,
-                              shouldUseDefault
-                                ? { usesDefaultLocation: true, location: defaultLocation }
+                              raw.trim() === ''
+                                ? { usesDefaultLocation: false, location: '' }
                                 : { usesDefaultLocation: false, location: raw }
                             )
                           }}
@@ -708,7 +979,7 @@ export default function CreateRequestPage() {
                           className={cn(
                             'px-2.5 py-0.5 rounded text-[11px] font-medium transition-all',
                             s.isOnline
-                              ? 'bg-[#2197C0] text-white'
+                              ? cn(accentSolidBgClass, 'text-white')
                               : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                           )}
                           onClick={() => updateSession(index, { isOnline: true })}

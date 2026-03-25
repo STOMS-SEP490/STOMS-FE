@@ -16,12 +16,6 @@ export type CreateRequestSession = {
   reservationId: number | null;
 };
 
-export type CreateRequestAttachment = {
-  fileName: string;
-  fileUrl: string;
-  uploadedByMemberId: number;
-};
-
 export type CreateRequestPayload = {
   programCoordinatorId: number;
 
@@ -35,7 +29,6 @@ export type CreateRequestPayload = {
   note: string;
 
   sessions: CreateRequestSession[];
-  attachments: CreateRequestAttachment[];
 };
 
 export type RequestSessionSummary = {

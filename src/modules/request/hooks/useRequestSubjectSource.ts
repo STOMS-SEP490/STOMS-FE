@@ -16,6 +16,7 @@ export function useRequestSubjectSource(sourceType: SourceType) {
         const res = await subjectApi.getSubjects({
           pageNumber: 1,
           pageSize: 100,
+              IsActive: true,
         })
         if (!cancelled) setSubjects(res.items ?? [])
       } finally {
