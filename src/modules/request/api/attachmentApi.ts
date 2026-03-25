@@ -7,6 +7,12 @@ export type AttachmentCreatePayload = {
   fileUrl: string
 }
 
+export type AttachmentListItem = {
+  attachmentId?: number | null;
+  fileName?: string | null;
+  fileUrl?: string | null;
+};
+
 const attachmentApi = {
   /**
    * POST /api/attachments/requests/{id} (multipart/form-data)
@@ -37,6 +43,14 @@ const attachmentApi = {
       FileName: payload.fileName,
       FileUrl: payload.fileUrl,
     })
+  },
+
+  /**
+   * GET /api/attachments/requests/{id}
+   * BE có thể trả dạng mảng hoặc object chứa danh sách.
+   */
+  getByRequestId: async (requestId: number): Promise<unknown> => {
+    return axiosClient.get(`/attachments/requests/${requestId}`)
   },
 }
 

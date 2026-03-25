@@ -20,6 +20,7 @@ import {
   MoreVertical,
   Sparkles,
   Briefcase,
+  Trash2,
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
@@ -390,7 +391,10 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 py-0 px-0 min-h-0 overflow-hidden">
+    <div
+      className="flex flex-col p-6 bg-slate-50 overflow-hidden py-0 px-0"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
           <Spin tip="Đang tải dữ liệu phân công cho team..." />
@@ -430,7 +434,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
         </div>
       </div>
 
-        <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
+        <div className="flex gap-4 flex-1 min-h-0">
         {/* Sidebar */}
         <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <div className="flex justify-between items-center p-4 border-b border-slate-200">
@@ -444,7 +448,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               {filteredRequests.length}
             </span>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-white">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
                 Chưa có yêu cầu nào có phiên của team này.
@@ -473,29 +477,25 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto no-scrollbar pr-1">
-          <div
-            className={
-              selectedRequest
-                ? 'bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden'
-                : 'flex flex-col min-h-0 flex-1 overflow-hidden'
-            }
-          >
-            {!selectedRequest ? (
-              <div className="p-6 text-sm text-gray-500">
-                Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          {!selectedRequest ? (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl text-slate-400">📋</span>
               </div>
-            ) : (
-            <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
-              <div className="space-y-4 flex flex-col min-h-0 flex-1 p-4">
+              <p className="text-sm font-medium text-black">Chọn một yêu cầu ở cột bên trái</p>
+              <p className="text-xs text-gray-500 mt-1">để xem danh sách phiên và phân công nhân sự.</p>
+            </div>
+          ) : (
+            <div className="space-y-4 flex flex-col min-h-0 flex-1">
               {/* Request header */}
               <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
                     {selectedRequest.requestName || selectedRequest.requestCode}
                   </h5>
-                  <div className="flex items-center gap-1 shrink-0">
+                  {/* <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -517,7 +517,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     >
                       <Calendar className="w-4 h-4" />
                     </button>
-                  </div>
+                  </div> */}
                   <div className="flex items-center gap-2 shrink-0">
                     {selectedRequestTypeInfo && (
                       <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
@@ -678,10 +678,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   )}
                 </div>
               </div>
-              </div>
             </div>
           )}
-          </div>
                               </div>
 
       </div>
