@@ -2,13 +2,14 @@ import RequestSidebar from '@/shared/components/request/RequestSideBar';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { RotateCcw } from 'lucide-react';
+import { ArrowLeft, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 
 import type { RequestLayoutOutletContext } from '@/modules/request/requestDetail.types';
 
 export default function PCRequestLayout() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
   const [typeFilter, setTypeFilter] = useState<'all' | 'event' | 'subject' | 'course'>('all');
@@ -40,8 +41,18 @@ export default function PCRequestLayout() {
     >
       {/* HEADER */}
       <div className="bg-white px-6 py-4 mb-0 rounded-2xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Quản lý yêu cầu</h2>
-        <p className="text-xs text-gray-500">Xem chi tiết yêu cầu và phiên học (dạng thẻ)</p>
+        <div className="flex items-center gap-2">
+        <button
+              type="button"
+              onClick={() => navigate('/pc/requests')}
+              className="!p-0 w-8 h-8 rounded-lg border border-gray-300 flex items-center justify-center text-black bg-white hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+         <div> <h2 className="text-xl font-semibold text-black">Chi tiết yêu cầu</h2>
+         <p className="text-xs text-gray-500">Xem chi tiết các yêu cầu và các phiên</p></div>
+        </div>
+       
       </div>
 
       <div className="px-4 pb-2 mb-1 pt-0">
