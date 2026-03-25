@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
-import {
-  contributionApi,
-  type ContributionListItem,
-} from '../api/contributionApi';
+import { type ContributionListItem } from '../api/contributionApi';
 import TeacherContributeModal from './TeacherContributeModal';
+import { useTeacherContributionHistory } from '../hooks/useTeacherContributionHistory';
 
 const columns: ColumnDef<ContributionListItem>[] = [
   {
@@ -67,60 +64,51 @@ const columns: ColumnDef<ContributionListItem>[] = [
   },
 ];
 
+const walletCardThemes = [
+  {
+    card: 'border-sky-200 bg-sky-50',
+    title: 'text-sky-900',
+    label: 'text-sky-700/80',
+    amount: 'text-sky-700',
+  },
+  {
+    card: 'border-emerald-200 bg-emerald-50',
+    title: 'text-emerald-900',
+    label: 'text-emerald-700/80',
+    amount: 'text-emerald-700',
+  },
+  {
+    card: 'border-violet-200 bg-violet-50',
+    title: 'text-violet-900',
+    label: 'text-violet-700/80',
+    amount: 'text-violet-700',
+  },
+  {
+    card: 'border-amber-200 bg-amber-50',
+    title: 'text-amber-900',
+    label: 'text-amber-700/80',
+    amount: 'text-amber-700',
+  },
+];
+
 export default function TeacherContributionHistoryPage() {
-  const [items, setItems] = useState<ContributionListItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize] = useState(10);
-  const [totalItems, setTotalItems] = useState(0);
-  const [search, setSearch] = useState('');
-  const [contributeOpen, setContributeOpen] = useState(false);
-
-  const memberId =
-    Number(
-      JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0,
-    ) || 0;
-
-  const fetchData = async () => {
-    if (!memberId) return;
-    try {
-      setLoading(true);
-      const res = await contributionApi.getContributions({
-        memberId,
-        pageNumber,
-        pageSize,
-      });
-      setItems(res.items ?? []);
-      setTotalItems(res.totalItems ?? 0);
-    } catch (err) {
-      console.error('fetch teacher contributions error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void fetchData();
-  }, [memberId, pageNumber, pageSize]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (x) =>
-        String(x.description || '').toLowerCase().includes(q) ||
-        String(x.contributionId || '').includes(q),
-    );
-  }, [items, search]);
-
-  const totalAmount = useMemo(
-    () =>
-      items.reduce(
-        (sum, x) => sum + (typeof x.amount === 'number' ? x.amount : 0),
-        0,
-      ),
-    [items],
-  );
+  const {
+    loading,
+    walletLoading,
+    pageNumber,
+    pageSize,
+    totalItems,
+    search,
+    contributeOpen,
+    wallets,
+    filteredItems,
+    totalAmount,
+    canViewWalletList,
+    setPageNumber,
+    setContributeOpen,
+    onSearchChange,
+    onContributionSubmitted,
+  } = useTeacherContributionHistory();
 
   return (
     <div
@@ -135,10 +123,7 @@ export default function TeacherContributionHistoryPage() {
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-start gap-3 min-[900px]:flex-nowrap min-[900px]:justify-end">
           <HoverSearch
             value={search}
-            onChange={(v) => {
-              setPageNumber(1);
-              setSearch(v);
-            }}
+            onChange={onSearchChange}
             placeholder="Tìm theo mã hoặc mô tả..."
           />
           <div className="text-right shrink-0">
@@ -157,6 +142,40 @@ export default function TeacherContributionHistoryPage() {
         </div>
       </div>
 
+      {canViewWalletList && (
+        <div className="shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-800">Danh sách ví tiền</h3>
+            {walletLoading && <span className="text-xs text-slate-500">Đang tải ví...</span>}
+          </div>
+          <div className="overflow-x-auto">
+            <div className="flex min-w-max gap-3 pb-1">
+              {wallets.map((wallet) => {
+                const theme =
+                  walletCardThemes[Math.abs(wallet.walletId) % walletCardThemes.length];
+                return (
+                  <div
+                    key={wallet.walletId}
+                    className={`w-64 shrink-0 rounded-xl border p-3 ${theme.card}`}
+                  >
+                    <div className={`truncate text-sm font-semibold ${theme.title}`}>
+                      {wallet.walletName || 'Không có tên ví'}
+                    </div>
+                    <div className={`mt-2 text-xs ${theme.label}`}>Số dư hiện tại</div>
+                    <div className={`text-base font-semibold ${theme.amount}`}>
+                      {Number(wallet.balance ?? 0).toLocaleString('vi-VN')} đ
+                    </div>
+                  </div>
+                );
+              })}
+              {!walletLoading && wallets.length === 0 && (
+                <div className="text-sm text-slate-500">Chưa có ví tiền.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="relative flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         {loading && (
           <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-2xl">
@@ -167,7 +186,7 @@ export default function TeacherContributionHistoryPage() {
         )}
         <DataTable
           columns={columns}
-          data={filtered}
+          data={filteredItems}
           pageNumber={pageNumber}
           pageSize={pageSize}
           totalItems={totalItems}
@@ -180,10 +199,7 @@ export default function TeacherContributionHistoryPage() {
       <TeacherContributeModal
         open={contributeOpen}
         onClose={() => setContributeOpen(false)}
-        onSubmitted={() => {
-          setPageNumber(1);
-          void fetchData();
-        }}
+        onSubmitted={onContributionSubmitted}
       />
     </div>
   );

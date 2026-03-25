@@ -74,9 +74,11 @@ export default function EquipmentsLayout() {
                 TẤT CẢ THIẾT BỊ
               </TabsTrigger>
 
-              <TabsTrigger value="history" onClick={() => navigate(`${basePath}/history`)}>
-                LỊCH SỬ MƯỢN
-              </TabsTrigger>
+              {!isEquipmentManager && (
+                <TabsTrigger value="history" onClick={() => navigate(`${basePath}/history`)}>
+                  LỊCH SỬ MƯỢN
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <Outlet

@@ -72,7 +72,7 @@ export default function Sidebar() {
       { label: 'Thiết bị', icon: Laptop, path: '/manager/equipments' },
       { label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
       { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
-      { label: 'Quỹ / Thu chi', icon: Wallet, path: '/manager/transactions' },
+      { label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },
       { label: 'Thời khóa biểu', icon: Clock, path: '/manager/timetable' },
       { label: 'Trung tâm duyệt', icon: CheckCircle, path: '/manager/requests' },
       { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },

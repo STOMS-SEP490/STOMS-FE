@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   BookOpen,
   CalendarDays,
+  Users,
   Wallet,
   CheckCircle,
   Bookmark,
@@ -27,10 +28,11 @@ export default function PCSidebar() {
   const menus = useMemo<PCMenuItem[]>(
     () => [
       { label: 'Yêu cầu', icon: CheckCircle, path: '/pc/requests', matchPrefixPath: '/pc/requests' },
+      { label: 'Nhóm', icon: Users, path: '/pc/teams' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/pc/events' },
       { label: 'Giáo trình', icon: BookOpen, path: '/pc/courses', matchPrefixPath: '/pc/courses' },
       { label: 'Chủ đề', icon: Bookmark, path: '/pc/courses/subjects', matchPrefixPath: '/pc/courses' },
-      { label: 'Quỹ / Thu chi', icon: Wallet, path: '/pc/fund-contributions' },
+      { label: 'Quỹ', icon: Wallet, path: '/pc/fund-contributions' },
       { label: 'Hồ sơ', icon: User, path: '/pc/profile' },
     ],
     [],

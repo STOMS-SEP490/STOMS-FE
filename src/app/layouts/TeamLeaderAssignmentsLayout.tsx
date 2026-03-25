@@ -4,8 +4,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 export default function TeamLeaderAssignmentsLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-
-  const activeTab = location.pathname.includes('/rejected') ? 'rejected' : 'assigning';
+  const activeTab: 'assigning' | 'rejected' = location.pathname.includes('/rejected')
+    ? 'rejected'
+    : 'assigning';
 
   return (
     <div

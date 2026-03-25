@@ -351,7 +351,7 @@ export default function EquipmentsManagement() {
           className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
         >
           <Plus size={16} />
-          Tạo thiết bị
+          Thêm thiết bị
         </Button>
         <CreateEquipmentModal
           open={openCreateModal}

@@ -18,6 +18,15 @@ import TeamLeaderAssignmentsLayout from '@/app/layouts/TeamLeaderAssignmentsLayo
 import TeamLeaderAssignmentsPage from '@/modules/contract/pages/TeamLeaderAssignmentsPage';
 
 const TeamLeaderRoutes = [
+  {
+    path: 'assignments',
+    element: <TeamLeaderAssignmentsLayout />,
+    children: [
+      { index: true, element: <Navigate to="assigning" replace /> },
+      { path: 'assigning', element: <TeamLeaderAssignmentsPage tab="assigning" /> },
+      { path: 'rejected', element: <TeamLeaderAssignmentsPage tab="rejected" /> },
+    ],
+  },
   { path: 'profile', element: <UserProfile /> },
   { path: 'teams', element: <TeamLeaderTeamPage /> },
   { path: 'events', element: <EventsManagement /> },
@@ -39,15 +48,6 @@ const TeamLeaderRoutes = [
   { path: 'attendance-history', element: <TeacherAttendanceHistoryPage /> },
   { path: 'tasks', element: <TeacherTaskReportPage /> },
   { path: 'equipments', element: <AvailableEquipmentsPage /> },
-  {
-    path: 'assignments',
-    element: <TeamLeaderAssignmentsLayout />,
-    children: [
-      { index: true, element: <Navigate to="assigning" replace /> },
-      { path: 'assigning', element: <TeamLeaderAssignmentsPage tab="assigning" /> },
-      { path: 'rejected', element: <TeamLeaderAssignmentsPage tab="rejected" /> },
-    ],
-  },
   { path: 'attendance/:sessionId', element: <SessionAttendancePage /> },
 ];
 

@@ -7,6 +7,7 @@ import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherC
 import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout';
 import CoursesReadonlyPage from '@/modules/course/pages/CoursesReadonlyPage';
 import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
+import ProgramCoordinatorTeamsPage from '@/modules/team/pages/ProgramCoordinatorTeamsPage';
 
 const ProgramCoordinatorRoutes = [
   // { path: 'dashboard', element: <PCDashboard /> },
@@ -27,6 +28,7 @@ const ProgramCoordinatorRoutes = [
       { path: 'subjects', element: <SubjectsReadonlyPage /> },
     ],
   },
+  { path: 'teams', element: <ProgramCoordinatorTeamsPage /> },
   { path: 'fund-contributions', element: <TeacherContributionHistoryPage /> },
   { path: 'profile', element: <UserProfile /> },
 ];
