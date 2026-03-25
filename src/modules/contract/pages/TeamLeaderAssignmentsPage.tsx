@@ -390,9 +390,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
   };
 
   return (
-    <div
-      className="flex flex-col bg-slate-50 py-0 px-0 min-h-0"
-    >
+    <div className="h-full flex flex-col bg-slate-50 py-0 px-0 min-h-0 overflow-hidden">
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
           <Spin tip="Đang tải dữ liệu phân công cho team..." />
@@ -432,7 +430,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
         </div>
       </div>
 
-        <div className="flex gap-4 flex-1 min-h-0 pb-4">
+        <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
         <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <div className="flex justify-between items-center p-4 border-b border-slate-200">
@@ -475,14 +473,21 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          {!selectedRequest ? (
-            <div className="p-6 text-sm text-gray-500">
-              Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full overflow-y-auto no-scrollbar pr-1">
+          <div
+            className={
+              selectedRequest
+                ? 'bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden'
+                : 'flex flex-col min-h-0 flex-1 overflow-hidden'
+            }
+          >
+            {!selectedRequest ? (
+              <div className="p-6 text-sm text-gray-500">
+                Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
+              </div>
+            ) : (
+            <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
               <div className="space-y-4 flex flex-col min-h-0 flex-1 p-4">
               {/* Request header */}
               <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
@@ -676,6 +681,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               </div>
             </div>
           )}
+          </div>
                               </div>
 
       </div>

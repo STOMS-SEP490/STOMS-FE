@@ -142,7 +142,7 @@ export default function TeamLeaderTeamPage() {
 
   return (
     <div
-      className="relative p-6 bg-slate-50 flex flex-col gap-3 min-h-0 overflow-hidden"
+      className="relative p-6 bg-slate-50 flex flex-col gap-2 min-h-0 overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {/* HEADER: tiêu đề + (chủ đề | search | reset) cùng một hàng như trang thiết bị */}

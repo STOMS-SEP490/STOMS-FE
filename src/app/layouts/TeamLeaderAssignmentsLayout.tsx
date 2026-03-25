@@ -10,7 +10,7 @@ export default function TeamLeaderAssignmentsLayout() {
 
   return (
     <div
-      className="p-6 bg-slate-50 flex flex-col gap-1 min-h-0 overflow-y-auto"
+      className="p-6 bg-slate-50 flex flex-col gap-1 min-h-0 overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="bg-white px-6 py-4 mb-0 rounded-2xl border border-slate-200 shadow-sm">
@@ -33,7 +33,9 @@ export default function TeamLeaderAssignmentsLayout() {
       </div>
 
       <div className="flex-1 min-h-0 pb-4">
-        <Outlet />
+        <div className="h-full overflow-y-auto no-scrollbar pr-1">
+          <Outlet />
+        </div>
       </div>
     </div>
   );
