@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BookOpen,
   CalendarDays,
@@ -7,18 +7,37 @@ import {
   ClipboardList,
   Clock,
   FileText,
+  LogOut,
+  Menu,
   Package,
   UserCircle,
   Users,
   Wallet,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import memberApi from '@/modules/member/api/memberApi';
 import { logout } from '@/modules/auth/pages/Logout';
 import NotificationBell from '@/shared/components/common/NotificationBell';
-
-import RoleSidebar from '@/shared/components/common/RoleSidebar';
 export default function TeamLeaderSidebar() {
+  const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(false);
+  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState('/img/avatar.png');
+  const [memberName, setMemberName] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}') as {
+        fullName?: string;
+        email?: string;
+        avatarUrl?: string;
+      };
+      setMemberName(u.fullName || u.email || '');
+      setSidebarAvatarSrc(u.avatarUrl || '/img/avatar.png');
+    } catch {
+      setMemberName('');
+      setSidebarAvatarSrc('/img/avatar.png');
+    }
+  }, []);
+
   const menus = useMemo(
     () => [
       { label: 'Hồ sơ', icon: UserCircle, path: '/tl/profile' },
