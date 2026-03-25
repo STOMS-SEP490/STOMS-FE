@@ -36,7 +36,20 @@ export default function RequestSessionDetailPanel({
       setReservedError(null);
       try {
         const detail = await reservationService.getById(reservationId);
-        setReservedEquipments(detail.equipment);
+        const items: ReservedEquipmentItem[] = (detail.equipmentReservations ?? []).map((er: any) => {
+          const eq = er?.equipment ?? {};
+          return {
+            equipmentId: Number(eq.equipmentId ?? er.equipmentId ?? 0),
+            equipmentName: eq.equipmentName,
+            equipmentCode: eq.equipmentCode,
+            categoryId: eq.categoryId,
+            categoryName: eq.categoryName,
+            status: eq.status,
+            imgLink: eq.imgLink ?? null,
+            isTemporarilyCancelled: Boolean(er?.isTemporarilyCancelled ?? false),
+          };
+        });
+        setReservedEquipments(items);
       } catch (err: unknown) {
         const msg =
           err && typeof err === 'object' && 'message' in err

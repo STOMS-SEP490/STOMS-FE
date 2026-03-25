@@ -1,7 +1,9 @@
 export type CheckAvailabilityParams = {
   startAt: string;
   endAt: string;
-  search?: string;
+  categoryIds?: number[];
+  equipmentName?: string;
+  equipmentCode?: string;
   pageNumber?: number;
   pageSize?: number;
 };
@@ -15,21 +17,12 @@ export type ReservationCreatePayload = {
   equipment: { equipmentId: number }[];
 };
 
-export type ReservedEquipmentItem = {
-  equipmentId: number;
-  equipmentName: string;
-  equipmentCode: string;
-  categoryName: string;
-  status: string;
-  imgLink: string | null;
-};
-
-export type ReservationDetail = {
-  reservationId: number;
-  startAt: string | null;
-  endAt: string | null;
-  equipment: ReservedEquipmentItem[];
-};
+export type {
+  ReservationEquipmentItem,
+  EquipmentReservationItem,
+  ReservationResponse,
+  ReservedEquipmentItem,
+} from './reservation.types';
 
 export type SessionDetail = {
   sessionId: number;
@@ -55,8 +48,6 @@ export type SessionDetail = {
       userEmail?: string;
     } | null;
   }[] | null;
-  // Một số API session có thể trả danh sách attendances kèm attendanceByMemberId.
-  // Dùng để lấy đúng "người điểm danh" chung cho session (không lấy từ JWT).
   attendances?: {
     attendanceByMemberId?: number | null;
   }[];
