@@ -4,6 +4,7 @@ import EquipmentsManagement from '@/modules/equipment/pages/EquipmentsManagement
 import CategoriesManagement from '@/modules/category/pages/CategoriesManagement'
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory'
 import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout'
+import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement';
 
 const EquipmentManagerRoutes = [
   {
@@ -32,6 +33,8 @@ const EquipmentManagerRoutes = [
     children: [
       { index: true, element: <EquipmentsManagement /> },
       { path: 'categories', element: <CategoriesManagement /> },
+      { path: 'history', element: <EquipmentsHistory /> },
+      { path: 'reservations', element: <ReservationsManagement /> },
     ],
   },
 ]

@@ -7,16 +7,15 @@ import { updateTokensInStorage } from '@/modules/auth/authStorage';
 
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 axiosClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('accessToken');
 
-    if (token && config.headers) {
+    if (token) {
+      // FormData request có thể không có config.headers => luôn đảm bảo có chỗ để set token
+      config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
     }
 
