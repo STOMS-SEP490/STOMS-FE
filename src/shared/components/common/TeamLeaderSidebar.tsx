@@ -1,68 +1,55 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Users,
-  Clock,
-  ClipboardList,
-  ClipboardCheck,
-  UserCircle,
-  Menu,
-  LogOut,
-  Package,
-  CalendarDays,
   BookOpen,
-  Wallet,
+  CalendarDays,
   CheckCircle2,
+  ClipboardCheck,
+  ClipboardList,
+  Clock,
   FileText,
+  LogOut,
+  Menu,
+  Package,
+  UserCircle,
+  Users,
+  Wallet,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import memberApi from '@/modules/member/api/memberApi';
 import { logout } from '@/modules/auth/pages/Logout';
 import NotificationBell from '@/shared/components/common/NotificationBell';
-
 export default function TeamLeaderSidebar() {
-  const [collapsed, setCollapsed] = useState(true);
   const navigate = useNavigate();
-  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
-    const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
-    return avatarUrl.trim() ? avatarUrl : '/img/avatar.png';
-  });
-  const [memberName, setMemberName] = useState(() => localStorage.getItem('memberFullName') || '');
+  const [collapsed, setCollapsed] = useState(false);
+  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState('/img/avatar.png');
+  const [memberName, setMemberName] = useState<string>('');
 
   useEffect(() => {
-    const raw = localStorage.getItem('user');
-    if (!raw) return;
-
     try {
-      const parsed = JSON.parse(raw) as { memberId?: number };
-      if (!parsed.memberId) return;
-
-      memberApi
-        .getMemberById(parsed.memberId)
-        .then((m) => {
-          if (m?.fullName) {
-            setMemberName(m.fullName);
-            localStorage.setItem('memberFullName', m.fullName);
-          }
-          const avatarUrl = m?.avatarUrl ?? '';
-          if (avatarUrl && String(avatarUrl).trim()) {
-            setSidebarAvatarSrc(String(avatarUrl));
-            localStorage.setItem('memberAvatarUrl', String(avatarUrl));
-          }
-        })
-        .catch(() => {});
+      const u = JSON.parse(localStorage.getItem('user') || '{}') as {
+        fullName?: string;
+        email?: string;
+        avatarUrl?: string;
+      };
+      setMemberName(u.fullName || u.email || '');
+      setSidebarAvatarSrc(u.avatarUrl || '/img/avatar.png');
     } catch {
-      // ignore parse errors
+      setMemberName('');
+      setSidebarAvatarSrc('/img/avatar.png');
     }
   }, []);
 
-  /** Giống thứ tự TeacherSidebar; thêm Nhóm (sau Hồ sơ) và Phân công (cuối, đặc thù TL). */
   const menus = useMemo(
     () => [
       { label: 'Hồ sơ', icon: UserCircle, path: '/tl/profile' },
       { label: 'Nhóm', icon: Users, path: '/tl/teams' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/tl/events' },
       { label: 'Giáo trình', icon: BookOpen, path: '/tl/courses' },
-      { label: 'Thời khóa biểu & phân công', icon: Clock, path: '/tl/timetable' },
+      {
+        label: 'Thời khóa biểu & phân công',
+        icon: Clock,
+        path: '/tl/timetable',
+        matchPrefixPath: '/tl/timetable',
+      },
       { label: 'Danh sách phiên đã dạy', icon: Clock, path: '/tl/teaching-history' },
       { label: 'Lịch sử điểm danh', icon: CheckCircle2, path: '/tl/attendance-history' },
       { label: 'Báo cáo công việc', icon: ClipboardList, path: '/tl/tasks' },

@@ -9,6 +9,14 @@ type AuthContextType = {
   setImage: (src: string) => void;
 };
 
+function getHomePathByRole(roleId: number) {
+  if (roleId === 2) return '/tl';
+  if (roleId === 3) return '/pc';
+  if (roleId === 4 || roleId === 5) return '/teacher';
+  if (roleId === 6) return '/em';
+  return '/manager';
+}
+
 export default function Login() {
   const { setImage } = useOutletContext<AuthContextType>();
   const navigate = useNavigate();
@@ -28,10 +36,7 @@ export default function Login() {
       try {
         const raw = localStorage.getItem('user');
         const roleId = raw ? Number(JSON.parse(raw)?.roleId) : NaN;
-        if (roleId === 2) navigate('/tl');
-        else if (roleId === 3) navigate('/pc');
-        else if (roleId === 4 || roleId === 5) navigate('/teacher');
-        else navigate('/manager');
+        navigate(getHomePathByRole(roleId));
       } catch {
         navigate('/manager');
       }
@@ -81,10 +86,7 @@ export default function Login() {
         token: res.accessToken,
       });
 
-      if (res.roleId === 2) navigate('/tl');
-      else if (res.roleId === 3) navigate('/pc');
-      else if (res.roleId === 4 || res.roleId === 5) navigate('/teacher');
-      else navigate('/manager');
+      navigate(getHomePathByRole(Number(res.roleId)));
     } catch (error: unknown) {
       const axiosErr = error as { response?: { data?: unknown; status?: number } };
       const data = axiosErr?.response?.data;

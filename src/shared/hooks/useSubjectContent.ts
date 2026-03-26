@@ -26,7 +26,7 @@ export const useSubjectContent = () => {
       const res = await subjectService.getSubjects({
         pageNumber: 1,
         pageSize: 100,
-        isActive: true,
+        IsActive: true,
       });
 
       return (res.items ?? []).map((x: SubjectListItem) => ({

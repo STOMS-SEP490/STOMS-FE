@@ -3,6 +3,17 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import RequestCard from './RequestCard';
 
+const REQUEST_APPROVAL_STATUSES = ['PENDING', 'REJECTED', 'APPROVED'] as const;
+const REQUEST_ALL_STATUSES = [
+  'PENDING',
+  'REJECTED',
+  'APPROVED',
+  'ASSIGNING',
+  'PUBLISHED',
+  'COMPLETED',
+  'CANCELLED',
+] as const;
+
 function isPendingStatus(status: string | undefined): boolean {
   const s = (status ?? '').toLowerCase();
   return s === 'pending' || s.includes('chờ') || s.includes('pending');
@@ -15,6 +26,13 @@ export type RequestSidebarProps = {
   typeFilter?: 'all' | 'event' | 'subject' | 'course';
   statusFilter?: 'all' | 'pending' | 'approved' | 'rejected' | 'assigning';
   refreshKey?: number;
+  /**
+   * manager chỉ cần lọc các trạng thái phê duyệt,
+   * pc cần show đủ để tránh redirect về danh sách khi mở chi tiết.
+   */
+  requestStatusesScope?: 'approval' | 'all';
+  /** Tắt redirect tự động khi danh sách theo filter đang rỗng. */
+  autoNavigateWhenEmpty?: boolean;
 };
 
 export default function RequestSidebar({
@@ -24,11 +42,26 @@ export default function RequestSidebar({
   typeFilter = 'all',
   statusFilter = 'all',
   refreshKey = 0,
+  requestStatusesScope = 'approval',
+  autoNavigateWhenEmpty = true,
 }: RequestSidebarProps) {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey);
+  const apiStatuses = (() => {
+    if (onlyPending) return ['PENDING'];
+    if (statusFilter === 'pending') return ['PENDING'];
+    if (statusFilter === 'approved') return ['APPROVED'];
+    if (statusFilter === 'rejected') return ['REJECTED'];
+    if (statusFilter === 'assigning') return ['ASSIGNING'];
+    return requestStatusesScope === 'all'
+      ? [...REQUEST_ALL_STATUSES]
+      : [...REQUEST_APPROVAL_STATUSES];
+  })();
+
+  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey, {
+    statuses: apiStatuses,
+  });
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   const filtered = requestList
@@ -61,10 +94,10 @@ export default function RequestSidebar({
   // Nếu theo bộ lọc hiện tại không còn yêu cầu nào
   // mà URL vẫn đang ở /requests/:id thì điều hướng về trang placeholder
   useEffect(() => {
-    if (!loading && filtered.length === 0 && id) {
+    if (!loading && autoNavigateWhenEmpty && filtered.length === 0 && id) {
       navigate(basePath);
     }
-  }, [basePath, filtered.length, id, loading, navigate]);
+  }, [autoNavigateWhenEmpty, basePath, filtered.length, id, loading, navigate]);
 
   return (
     <div className="text-black h-full">

@@ -611,7 +611,7 @@ export default function EventsManagement() {
     <>
       {readOnly ? (
         <div
-          className="p-6 bg-slate-50 flex flex-col gap-3 min-h-0 overflow-hidden"
+          className="p-6 bg-slate-50 flex flex-col gap-2 min-h-0 overflow-hidden"
           style={{ height: 'var(--content-height, 100vh)' }}
         >
           <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">

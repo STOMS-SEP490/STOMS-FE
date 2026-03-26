@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import sessionApi, { type PublishedTeamSession } from '@/modules/request/api/sessionApi';
 import memberApi from '@/modules/request/api/memberApi';
 
@@ -10,6 +10,8 @@ export type TeamLeaderTimetableAssignmentRow = {
   endAt?: string;
   location?: string;
   status?: string;
+  // Lấy từ `sessions/filter` response (SessionResponse.Assignments.StaffRole)
+  roleLabel?: string;
   // Với session đã Completed: attendanceByMemberId sẽ chỉ 1 người điểm danh chung,
   // lấy từ attendance đầu tiên là đủ.
   attendanceByMemberId?: number | null;
@@ -20,7 +22,10 @@ export type TeamLeaderTimetableAssignmentRow = {
   checkoutAt?: string | null;
 };
 
-function normalizeSessionsToRows(raw: PublishedTeamSession[]): TeamLeaderTimetableAssignmentRow[] {
+function normalizeSessionsToRows(
+  raw: PublishedTeamSession[],
+  currentMemberId: number | null,
+): TeamLeaderTimetableAssignmentRow[] {
   const getEarliestAttendanceTime = (
     attendances: PublishedTeamSession['attendances'],
     responsibleId: number | null,
@@ -60,6 +65,24 @@ function normalizeSessionsToRows(raw: PublishedTeamSession[]): TeamLeaderTimetab
       endAt: s.endAt,
       location: s.location,
       status: s.status,
+      roleLabel: (() => {
+        if (currentMemberId == null) return undefined;
+
+        const matchedStaffRoles = (s.assignments ?? [])
+          .filter((a) => (a.staffMemberId ?? null) === currentMemberId)
+          .map((a) => a.staffRole ?? null)
+          .filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
+
+        const labels = new Set<string>();
+        for (const r of matchedStaffRoles) {
+          const u = r.toUpperCase();
+          if (u.includes('TEACHER') || u === '4') labels.add('Giảng viên');
+          else if (u.includes('TA') || u === '5') labels.add('Trợ giảng');
+        }
+
+        const arr = Array.from(labels);
+        return arr.length > 0 ? arr.join(', ') : undefined;
+      })(),
       attendanceByMemberId:
         (s.attendances ?? [])[0]?.attendanceByMemberId ?? null,
 
@@ -77,125 +100,166 @@ function normalizeSessionsToRows(raw: PublishedTeamSession[]): TeamLeaderTimetab
 export function useTeamLeaderTimetableAssignments(
   params?: { pageSize?: number; statuses?: string[]; todayOnly?: boolean },
 ) {
-  const [items, setItems] = useState<TeamLeaderTimetableAssignmentRow[]>([]);
+  // Pagination sẽ làm từ BE: items/totalItems lấy trực tiếp từ response của `sessions/filter`.
+  const [serverItems, setServerItems] = useState<TeamLeaderTimetableAssignmentRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const pageSize = params?.pageSize ?? 10;
   const statuses = params?.statuses ?? ['ASSIGNED', 'ONGOING', 'COMPLETED'];
   const todayOnly = params?.todayOnly ?? false;
   const statusesKey = statuses.join(',');
+  // Stabilize derived array so `fetchData` doesn't refetch just because parent re-rendered
+  // and created a new `statuses` array instance.
+  const normalizedStatuses = useMemo(() => [...statuses].map((s) => String(s).toUpperCase()), [statusesKey]);
   const [totalItems, setTotalItems] = useState(0);
+
+  // memberId & teamId gần như tĩnh theo user hiện tại.
+  // Tránh gọi memberApi.getById mỗi lần pageNumber/search/status đổi.
+  const leaderMemberId = useMemo(() => {
+    const raw = localStorage.getItem('user') || '{}';
+    try {
+      const parsed = JSON.parse(raw) as { memberId?: number };
+      const id = Number(parsed.memberId ?? 0);
+      return id > 0 ? id : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const [teamId, setTeamId] = useState<number | undefined>(undefined);
+  const lastFetchKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!leaderMemberId) {
+        setTeamId(undefined);
+        return;
+      }
+      try {
+        const me = await memberApi.getById(leaderMemberId);
+        if (cancelled) return;
+        setTeamId(me.teamId != null ? Number(me.teamId) : undefined);
+      } catch {
+        if (cancelled) return;
+        setTeamId(undefined);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [leaderMemberId]);
+
+  // Debounce để hạn chế gọi API khi user gõ search.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
-
-      const memberId =
-        Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) ||
-        undefined;
-      let teamId: number | undefined;
-      if (memberId) {
-        try {
-          const me = await memberApi.getById(memberId);
-          teamId = me.teamId != null ? Number(me.teamId) : undefined;
-        } catch {
-          teamId = undefined;
-        }
+      if (teamId == null) {
+        setServerItems([]);
+        setTotalItems(0);
+        return;
       }
+
+      // Tránh spam: cùng một bộ params chỉ fetch một lần (StrictMode/effect re-run).
+      const fetchKey = `${teamId}|${normalizedStatuses.join(',')}|${todayOnly}|${pageNumber}|${pageSize}`;
+      if (lastFetchKeyRef.current === fetchKey) return;
+      lastFetchKeyRef.current = fetchKey;
+
+      setLoading(true);
 
       const res = await sessionApi.getFilter({
         teamId,
-        statuses,
-        pageNumber: 1,
-        pageSize: 500,
+        statuses: normalizedStatuses,
+        sessionId: undefined,
+        requestId: undefined,
+        pageNumber,
+        pageSize,
       });
 
-      let rows = normalizeSessionsToRows(res.items ?? []);
+      let rows = normalizeSessionsToRows(res.items ?? [], leaderMemberId);
 
-      const keyword = search.trim().toLowerCase();
-      if (keyword) {
-        rows = rows.filter((x) => {
-          const k1 = `phiên ${x.sessionNo ?? ''}`.toLowerCase();
-          const k2 = String(x.location ?? '').toLowerCase();
-          const k3 = String(x.status ?? '').toLowerCase();
-          return k1.includes(keyword) || k2.includes(keyword) || k3.includes(keyword);
-        });
-      }
-
-      // Nếu là tab điểm danh: chỉ hiển thị phiên diễn ra/sắp tới trong "ngày hôm nay".
+      // Tab điểm danh: backend chưa có filter theo ngày,
+      // nên tạm filter client-side trên đúng page BE vừa lấy.
       if (todayOnly) {
         const tz = 'Asia/Ho_Chi_Minh';
-        const todayKey = new Date().toLocaleDateString('vi-VN', { timeZone: tz });
+        const dateKey = (d: Date) =>
+          new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(d); // YYYY-MM-DD (ổn định trên Windows/macOS)
+        const todayKey = dateKey(new Date());
         rows = rows.filter((r) => {
           if (!r.startAt) return false;
-          const key = new Date(r.startAt).toLocaleDateString('vi-VN', { timeZone: tz });
-          return key === todayKey;
+          const dt = new Date(r.startAt);
+          if (Number.isNaN(dt.getTime())) return false;
+          return dateKey(dt) === todayKey;
         });
       }
 
-      // Sắp xếp theo thứ tự trạng thái (tùy tab) rồi tới thời gian bắt đầu.
-      // Mục tiêu: hiển thị lịch trình rõ ràng hơn (thay vì theo CreatedAt).
+      // Sắp xếp ổn định để UI không nhảy (ưu tiên thời gian bắt đầu).
       const statusOrder = new Map<string, number>(
-        (statuses ?? []).map((s, idx) => [String(s).toUpperCase(), idx]),
+        normalizedStatuses.map((s, idx) => [String(s).toUpperCase(), idx]),
       );
-      rows = rows.sort((a, b) => {
+      rows = [...rows].sort((a, b) => {
+        const ta = a.startAt ? new Date(a.startAt).getTime() : 0;
+        const tb = b.startAt ? new Date(b.startAt).getTime() : 0;
+        // Phiên gần nhất (sớm hơn) hiển thị trước.
+        if (ta !== tb) return ta - tb;
+
         const sa = String(a.status ?? '').toUpperCase();
         const sb = String(b.status ?? '').toUpperCase();
         const pa = statusOrder.get(sa) ?? 999;
         const pb = statusOrder.get(sb) ?? 999;
         if (pa !== pb) return pa - pb;
 
-        const ta = a.startAt ? new Date(a.startAt).getTime() : 0;
-        const tb = b.startAt ? new Date(b.startAt).getTime() : 0;
-        return ta - tb;
+        return (a.sessionNo ?? 0) - (b.sessionNo ?? 0);
       });
 
-      // Enrich "người điểm danh" cho session Completed
-      const shouldShowAttendanceTaker = statuses.some((s) => String(s).toUpperCase().includes('COMPLETED'));
-      setTotalItems(rows.length);
-      const start = (pageNumber - 1) * pageSize;
-      let pageRows = rows.slice(start, start + pageSize);
-
-      if (shouldShowAttendanceTaker) {
-        const ids = Array.from(
-          new Set(
-            pageRows
-              .map((r) => r.attendanceByMemberId)
-              .filter((x): x is number => x != null && x > 0),
-          ),
-        );
-        const byNameMap = new Map<number, string>();
-        await Promise.all(
-          ids.map(async (id) => {
-            try {
-              const detail = await memberApi.getById(id);
-              byNameMap.set(id, detail.fullName || detail.userEmail || '');
-            } catch {
-              // Ignore
-            }
-          }),
-        );
-        pageRows = pageRows.map((r) => ({
-          ...r,
-          attendanceByMemberFullName:
-            r.attendanceByMemberId != null ? byNameMap.get(r.attendanceByMemberId) : undefined,
-        }));
-      }
-
-      setItems(pageRows);
+      setServerItems(rows);
+      // Nếu filter client-side (todayOnly/search) thì totalItems theo rows để UI không bị “có response nhưng rỗng”
+      setTotalItems(todayOnly ? rows.length : Number(res.totalItems ?? 0));
     } catch (err) {
       console.error('fetch teamleader timetable assignments error', err);
-      setItems([]);
+      // Nếu bị lỗi, cho phép retry lại lần sau cho cùng key.
+      if (lastFetchKeyRef.current != null) {
+        lastFetchKeyRef.current = null;
+      }
+      setServerItems([]);
       setTotalItems(0);
     } finally {
       setLoading(false);
     }
-  }, [pageNumber, pageSize, search, statusesKey, todayOnly]);
+    // Fetch lại theo các thay đổi ảnh hưởng tới paging:
+    // teamId (sau khi resolve leader), tab/statuses, todayOnly, pageNumber/pageSize, và search.
+  }, [teamId, todayOnly, pageNumber, pageSize, normalizedStatuses]);
 
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
+
+  const items = useMemo(() => {
+    const keyword = debouncedSearch.trim().toLowerCase();
+    if (!keyword) return serverItems;
+
+    return serverItems.filter((x) => {
+      const k1 = `phiên ${x.sessionNo ?? ''}`.toLowerCase();
+      const k2 = String(x.location ?? '').toLowerCase();
+      const k3 = String(x.status ?? '').toLowerCase();
+      const k4 = String(x.roleLabel ?? '').toLowerCase();
+      return k1.includes(keyword) || k2.includes(keyword) || k3.includes(keyword) || k4.includes(keyword);
+    });
+  }, [serverItems, debouncedSearch]);
 
   const onlineCount = useMemo(
     () => items.filter((x) => (x.location ?? '').toLowerCase().includes('online')).length,

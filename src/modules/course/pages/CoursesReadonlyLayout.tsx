@@ -8,7 +8,8 @@ export default function CoursesReadonlyLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isTeacher = location.pathname.startsWith('/teacher/');
-  const basePath = isTeacher ? '/teacher/courses' : '/tl/courses';
+  const isProgramCoordinator = location.pathname.startsWith('/pc/');
+  const basePath = isTeacher ? '/teacher/courses' : isProgramCoordinator ? '/pc/courses' : '/tl/courses';
   const currentTab = location.pathname.includes('/subjects') ? 'subjects' : 'courses';
 
   const [courseSearch, setCourseSearch] = useState('');
@@ -23,7 +24,7 @@ export default function CoursesReadonlyLayout() {
 
   return (
     <div
-      className="p-6 bg-slate-50 flex flex-col gap-3 min-h-0 overflow-hidden"
+      className="p-6 bg-slate-50 flex flex-col gap-2 min-h-0 overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="shrink-0 bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm">

@@ -151,9 +151,9 @@
   border-radius: 8px;
 }
 
-/* Week/Day: giữ độ cao tối thiểu để block event nhìn rõ */
+/* Week/Day: đồng bộ với chiều cao slot (mỗi bước 30 phút) */
 .rbc-time-view .rbc-event {
-  min-height: 80px;
+  min-height: 40px;
 }
 
 /* Month: giống Google Calendar, event dạng "chip" không cao */
@@ -172,10 +172,11 @@
   height: 100%;
 }
 
-.event-calendar-scroll--tl .rbc-calendar {
-  /* 8:00 -> 20:00 = 12 giờ. Mỗi timeslot ~ 30 phút, CSS .rbc-timeslot-group min-height=48px
-     => khoảng 12 giờ * 2 slot/giờ * 48px = 1152px (cộng lề/border). */
-  min-height: 1160px;
+/* Mọi role (tl/teacher/manager/...): đủ chiều cao lưới 8:00–20:00 khi slot 24px/30 phút */
+.event-calendar-scroll .rbc-calendar {
+  /* 8:00 -> 20:00 = 12 giờ. Mỗi timeslot ~ 30 phút, .rbc-timeslot-group min-height=24px
+     => 12 * 2 * 24px ≈ 576px (+ lề/border). */
+  min-height: 580px;
 }
 
 .rbc-event:focus {
@@ -194,7 +195,8 @@
 }
 
 .rbc-timeslot-group {
-  min-height: 48px;
+  /* Mỗi nhóm = 1 step (mặc định 30 phút). 24px => khoảng cách giữa các mốc giờ gọn hơn (≈ một nửa so với 48px) */
+  min-height: 24px;
   border-bottom: 1px solid #e5e7eb;
   background: #fff;
 }

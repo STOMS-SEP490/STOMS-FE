@@ -129,9 +129,10 @@ type OutletContext = {
 
 type Props = {
   borrowedByMemberId?: number;
+  standalone?: boolean;
 };
 
-export default function EquipmentsHistory({ borrowedByMemberId }: Props = {}) {
+export default function EquipmentsHistory({ borrowedByMemberId, standalone = false }: Props = {}) {
   const context = useOutletContext<OutletContext>();
   const location = useLocation();
   const {
@@ -220,6 +221,7 @@ export default function EquipmentsHistory({ borrowedByMemberId }: Props = {}) {
   ]);
 
   const isEquipmentManager = location.pathname.startsWith('/em/');
+  const renderStandalone = standalone || (!context?.position && isEquipmentManager);
 
   if (context?.position === 'header') {
     if (!isEquipmentManager) return null;
@@ -264,7 +266,8 @@ export default function EquipmentsHistory({ borrowedByMemberId }: Props = {}) {
       </div>
     );
   }
-  return (
+
+  const contentNode = (
     <>
       <BorrowingDetailSidebar
         open={detailOpen}
@@ -297,4 +300,63 @@ export default function EquipmentsHistory({ borrowedByMemberId }: Props = {}) {
       </div>
     </>
   );
+
+  if (renderStandalone) {
+    return (
+      <div
+        className="p-6 bg-[#f3f4f6] flex flex-col min-h-0 gap-3"
+        style={{ height: 'var(--content-height, 100vh)' }}
+      >
+        <div className="shrink-0 bg-white flex justify-between items-center px-6 py-4 rounded-xl border shadow-sm">
+          <div>
+            <h2 className="text-xl font-semibold text-black">Phiếu mượn thiết bị</h2>
+            <p className="text-xs text-gray-500">Quản lý phiếu mượn, theo dõi trạng thái trả thiết bị</p>
+          </div>
+          <Button
+            className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+            type="button"
+            onClick={() => setOpenCreate(true)}
+          >
+            <Plus size={16} />
+            Tạo phiếu mượn
+          </Button>
+        </div>
+
+        <div className="shrink-0 px-6 py-2">
+          <div className="flex gap-3 items-center justify-end">
+            <HoverSearch
+              placeholder="Tìm theo mô tả, ghi chú..."
+              value={search}
+              onChange={(v) => setSearch(v)}
+            />
+            <Select
+              value={status ?? 'all'}
+              onValueChange={(v: string) => setStatus(v === 'all' ? undefined : v)}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                {BORROWING_STATUS_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="secondary" className="bg-white" onClick={resetFilters} type="button">
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border shadow-sm px-6 py-4 flex-1 min-h-0">
+          {contentNode}
+        </div>
+      </div>
+    );
+  }
+
+  return contentNode;
 }

@@ -9,11 +9,23 @@ import ReservationsManagement from '@/modules/reservation/pages/ReservationsMana
 const EquipmentManagerRoutes = [
   {
     index: true,
-    element: <Navigate to="dashboard" replace />,
+    element: <Navigate to="equipments" replace />,
   },
   {
     path: 'dashboard',
     element: <EquipmentDashboard />,
+  },
+  {
+    path: 'categories',
+    element: <Navigate to="/em/equipments/categories" replace />,
+  },
+  {
+    path: 'borrowings',
+    element: <Navigate to="/em/equipments/history" replace />,
+  },
+  {
+    path: 'equipments/history',
+    element: <EquipmentsHistory standalone />,
   },
   {
     path: 'equipments',

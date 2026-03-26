@@ -1,9 +1,8 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 
 import dayjs from 'dayjs';
-import { Spin } from 'antd';
+import { Dropdown, Popover, Spin } from 'antd';
 import {
   X,
   MapPin,
@@ -11,20 +10,19 @@ import {
   Calendar,
   Hash,
   List,
-  Copy,
-  Share2,
   GraduationCap,
   Users,
   AlertCircle,
   RotateCcw,
-  Search,
+  Plus,
+  MoreVertical,
+  Sparkles,
+  Briefcase,
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
-import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
-import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -33,11 +31,56 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import RequestCard from '@/shared/components/request/RequestCard';
-import { getTeamLeaderRequestStatusInfo } from '@/constants/status';
+import { getSessionStatusInfo } from '@/constants/status';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
-import { useTeamLeaderAssignmentsPage } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
+import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
+import {
+  getEffectiveStaffMemberId,
+  useTeamLeaderAssignmentsPage,
+} from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
 
-export default function TeamLeaderAssignmentsPage() {
+type AssignmentRow = NonNullable<NonNullable<SessionDetail['assignments']>[number]>;
+
+const DEFAULT_AVATAR_SRC = '/img/ava.png';
+
+function getAvatarSrc(src?: string | null) {
+  return src && String(src).trim() ? String(src) : DEFAULT_AVATAR_SRC;
+}
+
+function getStaffDisplayForSlot(
+  effectiveMemberId: number,
+  assignment: AssignmentRow,
+  suggested: SuggestedStaff[],
+): { fullName: string; email: string; avatarUrl?: string | null } {
+  const sm = assignment.staffMember;
+  if (sm && sm.memberId === effectiveMemberId) {
+    const anySm = sm as unknown as { email?: string };
+    return {
+      fullName: sm.fullName || '—',
+      email: sm.userEmail || anySm.email || '',
+      avatarUrl: sm.avatarUrl,
+    };
+  }
+  const sug = suggested.find((m) => m.memberId === effectiveMemberId);
+  if (sug) {
+    return {
+      fullName: sug.fullName || '—',
+      email: sug.email || sug.roleName || '',
+      avatarUrl: sug.avatarUrl,
+    };
+  }
+  return {
+    fullName: `Thành viên #${effectiveMemberId}`,
+    email: '',
+    avatarUrl: null,
+  };
+}
+
+type TeamLeaderAssignmentsPageProps = {
+  tab: TeamLeaderAssignmentsTab;
+};
+
+export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignmentsPageProps) {
   const {
     loading,
     filteredRequests,
@@ -50,8 +93,7 @@ export default function TeamLeaderAssignmentsPage() {
     setSearch,
     onlyNeedsAction,
     setOnlyNeedsAction,
-    activeTab,
-    setActiveTab,
+    statusFilter,
     setStatusFilter,
     activeSession,
     setActiveSession,
@@ -62,58 +104,19 @@ export default function TeamLeaderAssignmentsPage() {
     setSearchByAssignmentId,
     handleSelectStaff,
     handleApplyToOtherSessions,
-    autoAssigning,
-    applyingToOtherSessions,
     getSessionStats,
-  } = useTeamLeaderAssignmentsPage();
+    handleResetFilters,
+  } = useTeamLeaderAssignmentsPage(tab);
 
   const [hoveredStaff, setHoveredStaff] = useState<{
     staff: SuggestedStaff;
     rect: DOMRect;
   } | null>(null);
-  // (logic/data layer moved to hook)
+  const [staffPickerAssignmentId, setStaffPickerAssignmentId] = useState<number | null>(null);
 
-  const isTLNeedsAction = (req: { sessions?: Array<{ status?: string | number | null }> } | null) => {
-    // TL cần thao tác khi trong request vẫn còn session ở trạng thái "chờ phân công".
-    const sessions = req?.sessions ?? [];
-    if (!sessions.length) return false;
-    return sessions.some((s) => {
-      const st = String(s.status ?? '').toLowerCase();
-      return st === 'assigning' || st === 'pending';
-    });
-  };
-
-  // Sort phiên học theo trạng thái để mặc định hiển thị đúng thứ tự (áp dụng cho detail).
-  const sortedDetailSessions = useMemo(() => {
-    const sessions = selectedRequest?.sessions ?? [];
-    const priorityOfStatus = (status?: string | number | null) => {
-      const s = String(status ?? '').toLowerCase();
-      if (s.includes('pending') || s.includes('chờ')) return 0;
-      if (s.includes('approved') || s.includes('đã duyệt')) return 1;
-      if (s.includes('assignment_rejected') || s.includes('phân công bị từ chối')) return 2;
-      if (s.includes('assigning') || s.includes('đang phân công')) return 2;
-      if (s.includes('assigned') || s.includes('đã phân công')) return 3;
-      if (s.includes('ongoing') || s.includes('đang diễn')) return 4;
-      if (s.includes('completed') || s.includes('hoàn thành')) return 5;
-      if (s.includes('cancelled') || s.includes('đã hủy')) return 6;
-      return 999;
-    };
-
-    return [...sessions].sort((a, b) => {
-      const pa = priorityOfStatus(a.status);
-      const pb = priorityOfStatus(b.status);
-      if (pa !== pb) return pa - pb;
-      const ta = a.startAt ? new Date(a.startAt).getTime() : NaN;
-      const tb = b.startAt ? new Date(b.startAt).getTime() : NaN;
-      if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb;
-      return (a.sessionNo ?? 0) - (b.sessionNo ?? 0);
-    });
-  }, [selectedRequest]);
-
-  // Tránh tooltip detail bị "dính" lại khi đổi request hoặc đóng panel.
   useEffect(() => {
-    setHoveredStaff(null);
-  }, [selectedRequestId, activeSession?.sessionId]);
+    setStaffPickerAssignmentId(null);
+  }, [activeSession?.sessionId]);
 
 
   const renderMemberOption = (m: SuggestedStaff) => {
@@ -121,18 +124,14 @@ export default function TeamLeaderAssignmentsPage() {
     return (
     <div className="flex items-center gap-2">
       <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
-        {m.avatarUrl ? (
-          <img
-            src={m.avatarUrl}
-            alt={m.fullName}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
-            }}
-          />
-        ) : (
-          (m.fullName || 'N')[0]
-        )}
+        <img
+          src={getAvatarSrc(m.avatarUrl)}
+          alt={m.fullName}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+          }}
+        />
       </div>
         <div className="flex flex-row items-center gap-2 min-w-0 flex-1">
           <span className="text-xs font-medium text-slate-900 truncate shrink-0">
@@ -153,118 +152,244 @@ export default function TeamLeaderAssignmentsPage() {
   );
 
   const renderSlotPicker = (
+    sessionId: number,
     slots: NonNullable<SessionDetail['assignments']>,
     roleLabel: string,
     requiredCount: number,
     colorScheme: 'sky' | 'amber',
-    sessionId: number,
   ) => {
-    const borderColor = colorScheme === 'sky' ? 'border-sky-100' : 'border-amber-100';
-    const bgGradient =
+    const accent =
       colorScheme === 'sky'
-        ? 'bg-gradient-to-br from-sky-50/50 to-white'
-        : 'bg-gradient-to-br from-amber-50/50 to-white';
-    const badgeCls =
-      colorScheme === 'sky'
-        ? 'bg-sky-100 text-sky-800 border-sky-200'
-        : 'bg-amber-100 text-amber-800 border-amber-200';
-    const slotBorder = colorScheme === 'sky' ? 'border-sky-100' : 'border-amber-100';
+        ? {
+            addText: 'text-[#2197C0]',
+            addCircle: 'bg-sky-100 text-[#2197C0]',
+            addHover: 'hover:border-sky-300 hover:bg-sky-50/50',
+            cardBorder: 'border-sky-200',
+            cardBg: 'bg-gradient-to-br from-sky-50/70 to-white',
+            avatarBg: 'bg-sky-100 text-[#2197C0]',
+            menuBtn: 'text-sky-500 hover:bg-sky-50 hover:text-sky-700',
+          }
+        : {
+            addText: 'text-amber-800',
+            addCircle: 'bg-amber-100 text-amber-800',
+            addHover: 'hover:border-amber-300 hover:bg-amber-50/60',
+            cardBorder: 'border-amber-200',
+            cardBg: 'bg-gradient-to-br from-amber-50/70 to-white',
+            avatarBg: 'bg-amber-100 text-amber-800',
+            menuBtn: 'text-amber-600 hover:bg-amber-50/80 hover:text-amber-800',
+          };
     const placeholder = colorScheme === 'sky' ? 'Chọn giảng viên' : 'Chọn trợ giảng';
     const searchPlaceholder = colorScheme === 'sky' ? 'Tìm giảng viên...' : 'Tìm trợ giảng...';
 
-                        return (
-      <div className={`rounded-xl border ${borderColor} ${bgGradient} p-3 space-y-2 shadow-sm`}>
-                                <div className="flex items-center justify-between">
-          <Badge
-            className={`px-2 py-0.5 rounded-lg ${badgeCls} text-[11px] font-semibold border`}
-          >
-            {roleLabel}
-                                  </Badge>
-          <span className="text-[11px] font-medium text-slate-600">Cần: {requiredCount}</span>
-                                </div>
-                                <div className="space-y-2">
+    const buildSuggestedList = (a: AssignmentRow, selectedId: number) => {
+      const selectedSameRole = slots
+        .map((sl) =>
+          getEffectiveStaffMemberId(sl.assignmentId, assignSelections, sl.staffMemberId),
+        )
+        .filter((id) => id > 0);
+      const selectedOthers = selectedSameRole.filter((id) => id !== selectedId);
+      const searchText = searchByAssignmentId[a.assignmentId]?.toLowerCase() || '';
+      return (suggestedByAssignmentId[a.assignmentId] ?? []).filter(
+        (m: SuggestedStaff) =>
+          (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
+          (!searchText ||
+            m.fullName?.toLowerCase().includes(searchText) ||
+            m.roleName?.toLowerCase().includes(searchText) ||
+            m.email?.toLowerCase().includes(searchText)),
+      );
+    };
+
+    const pickerContent = (a: AssignmentRow) => {
+      const selectedId = getEffectiveStaffMemberId(
+        a.assignmentId,
+        assignSelections,
+        a.staffMemberId,
+      );
+      const suggestedList = buildSuggestedList(a, selectedId);
+      return (
+        <div className="w-[min(calc(100vw-2rem),18rem)] p-0.5">
+          <Input
+            className="h-8 text-xs border-slate-200"
+            placeholder={searchPlaceholder}
+            value={searchByAssignmentId[a.assignmentId] || ''}
+            onChange={(e) =>
+              setSearchByAssignmentId((prev) => ({
+                ...prev,
+                [a.assignmentId]: e.target.value,
+              }))
+            }
+          />
+          <div className="mt-2 max-h-52 overflow-y-auto no-scrollbar space-y-0.5">
+            {suggestedList.length === 0 ? (
+              <p className="text-xs text-slate-500 px-2 py-3 text-center">Không có gợi ý phù hợp.</p>
+            ) : (
+              suggestedList.map((m: SuggestedStaff) => (
+                <button
+                  key={m.memberId}
+                  type="button"
+                  className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50 transition-colors"
+                  onClick={() => {
+                    handleSelectStaff(sessionId, a.assignmentId, m.memberId);
+                    setStaffPickerAssignmentId(null);
+                  }}
+                  onMouseEnter={(e) => handleStaffHover(m, e)}
+                  onMouseLeave={() => setHoveredStaff(null)}
+                >
+                  {renderMemberOption(m)}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    const addSlotTrigger = () => (
+      <button
+        type="button"
+        className={`min-h-[4.5rem] w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center gap-2.5 ${accent.addText} ${accent.addHover} transition-colors`}
+      >
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${accent.addCircle}`}
+        >
+          <Plus className="h-5 w-5 stroke-[2.5]" />
+        </span>
+        <span className="text-sm font-medium">{placeholder}</span>
+      </button>
+    );
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-slate-900">{roleLabel}</span>
+          <span className="text-xs font-medium text-slate-500">Cần: {requiredCount}</span>
+        </div>
+        <div className="space-y-2.5">
           {slots.length === 0 && (
-            <div className="text-[11px] text-slate-500">Chưa có slot phân công.</div>
+            <div className="text-xs text-slate-500 rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2">
+              Chưa có slot phân công.
+            </div>
           )}
           {slots.map((a) => {
-            const selectedId = assignSelections[a.assignmentId] ?? (a.staffMemberId ?? 0);
-            const selectedSameRole = slots
-              .map((sl) => assignSelections[sl.assignmentId] ?? (sl.staffMemberId ?? 0))
-                                      .filter((id) => id > 0);
-            const selectedOthers = selectedSameRole.filter((id) => id !== selectedId);
-            const searchText = searchByAssignmentId[a.assignmentId]?.toLowerCase() || '';
-
-            const suggestedList = (suggestedByAssignmentId[a.assignmentId] ?? []).filter(
-              (m: SuggestedStaff) =>
-                (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
-                (!searchText ||
-                  m.fullName?.toLowerCase().includes(searchText) ||
-                  m.roleName?.toLowerCase().includes(searchText) ||
-                  m.email?.toLowerCase().includes(searchText)),
+            const selectedId = getEffectiveStaffMemberId(
+              a.assignmentId,
+              assignSelections,
+              a.staffMemberId,
             );
+            const suggested = suggestedByAssignmentId[a.assignmentId] ?? [];
+            const display = getStaffDisplayForSlot(selectedId, a, suggested);
+            const isOpen = staffPickerAssignmentId === a.assignmentId;
+            const filled = selectedId > 0;
 
-                                    return (
-              <div key={a.assignmentId} className={`rounded-lg bg-white px-3 py-2 border ${slotBorder} shadow-sm`}>
-                                        <Select
-                                          value={selectedId ? String(selectedId) : undefined}
-                  onValueChange={(value) => handleSelectStaff(sessionId, a.assignmentId, Number(value))}
-                                        >
-                                          <SelectTrigger className="h-9 w-full text-xs border-none shadow-none px-0">
-                    <SelectValue placeholder={placeholder} />
-                                          </SelectTrigger>
-                                          <SelectContent className="p-1.5">
-                                            <div className="px-1 pb-1 pt-1">
-                                              <div className="relative">
-                                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                                <Input
-                                                  placeholder={searchPlaceholder}
-                                                  className="h-8 text-xs pl-8 border-slate-200 bg-slate-50/70 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-sky-400"
-                                                  value={searchByAssignmentId[a.assignmentId] || ''}
-                                                  onChange={(e) =>
-                                                    setSearchByAssignmentId((prev) => ({
-                                                      ...prev,
-                                                      [a.assignmentId]: e.target.value,
-                                                    }))
-                                                  }
-                                                />
-                                              </div>
-                                            </div>
-                                            {suggestedList.map((m: SuggestedStaff) => (
-                                              <SelectItem
-                                                key={m.memberId}
-                                                value={String(m.memberId)}
-                                                className="text-xs py-1.5 rounded-md"
-                        onMouseEnter={(e) => handleStaffHover(m, e)}
-                        onMouseLeave={() => setHoveredStaff(null)}
-                                              >
-                                                {renderMemberOption(m)}
-                                              </SelectItem>
-                                            ))}
-                                            {suggestedList.length === 0 && (
-                                              <div className="px-2 py-2 text-[11px] text-slate-500">
-                                                Không tìm thấy giảng viên phù hợp.
-                                              </div>
-                                            )}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+            if (!filled) {
+              return (
+                <Popover
+                  key={a.assignmentId}
+                  trigger="click"
+                  open={isOpen}
+                  onOpenChange={(visible) =>
+                    setStaffPickerAssignmentId(visible ? a.assignmentId : null)
+                  }
+                  placement="bottomLeft"
+                  destroyOnHidden
+                  content={pickerContent(a)}
+                  styles={{ content: { padding: 12 } }}
+                >
+                  {addSlotTrigger()}
+                </Popover>
+              );
+            }
+
+            return (
+              <div
+                key={a.assignmentId}
+                className={`flex items-center gap-3 rounded-xl border ${accent.cardBorder} ${accent.cardBg} px-3 py-3 shadow-sm`}
+              >
+                <Popover
+                  trigger="click"
+                  open={isOpen}
+                  onOpenChange={(visible) =>
+                    setStaffPickerAssignmentId(visible ? a.assignmentId : null)
+                  }
+                  placement="bottomLeft"
+                  destroyOnHidden
+                  content={pickerContent(a)}
+                  styles={{ content: { padding: 12 } }}
+                >
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left rounded-lg -m-1 p-1 hover:bg-slate-50/80 transition-colors"
+                  >
+                    <div
+                      className={`h-11 w-11 shrink-0 overflow-hidden rounded-full ${accent.avatarBg} flex items-center justify-center text-xs font-semibold`}
+                    >
+                      <img
+                        src={getAvatarSrc(display.avatarUrl)}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {display.fullName}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {display.email || '—'}
+                      </p>
+                    </div>
+                  </button>
+                </Popover>
+                <Dropdown
+                  trigger={['click']}
+                  placement="bottomRight"
+                  arrow
+                  menu={{
+                    items: [
+                      {
+                        key: 'clear',
+                        label: (
+                          <span className="inline-flex items-center gap-2 text-[13px] font-medium">
+                           
+                            Gỡ phân công
+                          </span>
+                        ),
+                        danger: true,
+                        className:
+                          'rounded-lg !bg-rose-50 hover:!bg-rose-100 !text-rose-600',
+                      },
+                    ],
+                    onClick: ({ key, domEvent }) => {
+                      domEvent.stopPropagation();
+                      if (key === 'clear') {
+                        handleSelectStaff(sessionId, a.assignmentId, 0);
+                        setStaffPickerAssignmentId(null);
+                      }
+                    },
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={`shrink-0 rounded-lg p-2 ${accent.menuBtn}`}
+                    aria-label="Tùy chọn"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                </Dropdown>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
-  };
-
-
-  const handleResetFilters = () => {
-    setSearch('');
-    setOnlyNeedsAction(false);
-    setStatusFilter('assigning');
   };
 
   return (
     <div
-      className="flex flex-col p-6 gap-1 bg-slate-50 overflow-hidden"
+      className="flex flex-col p-6 bg-slate-50 overflow-hidden py-0 px-0"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {loading && (
@@ -273,45 +398,19 @@ export default function TeamLeaderAssignmentsPage() {
         </div>
       )}
 
-      {/* HEADER (đồng bộ với /manager/requests) */}
-      <div className="bg-white px-6 py-4 mb-2 rounded-2xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Trung tâm phê duyệt</h2>
-        <p className="text-xs text-gray-500">Quản lý phê duyệt yêu cầu và phê duyệt phân công nhân sự</p>
-      </div>
-
-      {/* TABS (đồng bộ 2 tab kiểu /manager/requests) */}
-      <div className="flex justify-between items-center mb-2">
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => {
-            const next = v as typeof activeTab;
-            setActiveTab(next);
-            // Reset bộ lọc phụ theo tab để UI luôn đúng nghĩa.
-            setOnlyNeedsAction(false);
-            setStatusFilter(next === 'assigning' ? 'assigning' : 'all');
-            setActiveSession(null);
-          }}
-        >
-          <TabsList className="bg-transparent border-0 shadow-none p-0 h-8 gap-3">
-            <TabsTrigger
-              value="assigning"
-              className="h-7 rounded-none text-xs px-0 data-[state=active]:font-semibold data-[state=active]:text-black data-[state=active]:border-b-2 data-[state=active]:border-sky-500"
-            >
-              Yêu cầu chờ phân công
-            </TabsTrigger>
-            <TabsTrigger
-              value="rejected"
-              className="h-7 rounded-none text-xs px-0 data-[state=active]:font-semibold data-[state=active]:text-black data-[state=active]:border-b-2 data-[state=active]:border-sky-500"
-            >
-              Yêu cầu bị từ chối
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
       <div className="flex justify-start gap-3 mb-2 flex-wrap">
         <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
         <div className="flex items-center gap-3">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | 'assigning')}>
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[160px]">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="assigning">Đang phân công</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Button
             variant="outline"
             size="icon"
@@ -321,16 +420,14 @@ export default function TeamLeaderAssignmentsPage() {
             <RotateCcw size={16} />
           </Button>
 
-          {activeTab === 'assigning' && (
-            <div className="flex items-center space-x-2">
-              <Switch
-                className="!rounded-[15px]"
-                checked={onlyNeedsAction}
-                onCheckedChange={setOnlyNeedsAction}
-              />
-              <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
-            </div>
-          )}
+          <div className="flex items-center space-x-2">
+            <Switch
+              className="!rounded-[15px]"
+              checked={onlyNeedsAction}
+              onCheckedChange={setOnlyNeedsAction}
+            />
+            <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
+          </div>
         </div>
       </div>
 
@@ -364,8 +461,7 @@ export default function TeamLeaderAssignmentsPage() {
                 courseId={r.courseId}
                 eventId={r.eventId}
                 status={r.status}
-                statusInfoOverride={getTeamLeaderRequestStatusInfo(r.status)}
-                showNeedsAction={isTLNeedsAction(r)}
+                showNeedsAction
                 isActive={r.requestId === selectedRequestId}
                 onClick={() => {
                   setSelectedRequestId(r.requestId);
@@ -378,21 +474,25 @@ export default function TeamLeaderAssignmentsPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 min-h-0">
-          <div className="h-full overflow-y-auto no-scrollbar pr-1">
-            {!selectedRequest ? (
-              <div className="p-6 text-sm text-gray-500">
-                Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          {!selectedRequest ? (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl text-slate-400">📋</span>
               </div>
-            ) : (
-              <div className="space-y-4">
+              <p className="text-sm font-medium text-black">Chọn một yêu cầu ở cột bên trái</p>
+              <p className="text-xs text-gray-500 mt-1">để xem danh sách phiên và phân công nhân sự.</p>
+            </div>
+          ) : (
+            <div className="space-y-4 flex flex-col min-h-0 flex-1">
               {/* Request header */}
               <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
                     {selectedRequest.requestName || selectedRequest.requestCode}
                   </h5>
-                  <div className="flex items-center gap-1 shrink-0">
+                  {/* <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -414,7 +514,7 @@ export default function TeamLeaderAssignmentsPage() {
                     >
                       <Calendar className="w-4 h-4" />
                     </button>
-                  </div>
+                  </div> */}
                   <div className="flex items-center gap-2 shrink-0">
                     {selectedRequestTypeInfo && (
                       <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
@@ -492,7 +592,7 @@ export default function TeamLeaderAssignmentsPage() {
               })()}
 
               {/* Session list */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0 flex-1">
                 <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
@@ -500,37 +600,20 @@ export default function TeamLeaderAssignmentsPage() {
                       {selectedRequest.sessions.length} phiên trong yêu cầu này
                     </p>
                   </div>
-                  <div />
+                  <span className="text-xs text-slate-500">Nhấn để xem chi tiết</span>
                 </div>
-                <div>
+                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
                   {selectedRequest.sessions.length === 0 ? (
                     <p className="text-xs text-slate-500 py-10 text-center">
                       Yêu cầu này chưa có phiên nào gán cho team.
                     </p>
                   ) : (
                     <div className="divide-y divide-slate-100">
-                      {sortedDetailSessions.map((session) => {
+                      {selectedRequest.sessions.map((session) => {
                         const stats = getSessionStats(session);
                         const isActive = activeSession?.sessionId === session.sessionId;
                         const title = `Phiên ${session.sessionNo}`;
-                        const normalizedSessionStatus = String(session.status ?? '')
-                          .toLowerCase()
-                          .replace(/\s|-/g, '_');
-                        const isRejectedTab = activeTab === 'rejected';
-                        const isSessionRejected =
-                          normalizedSessionStatus === 'assignment_rejected' ||
-                          normalizedSessionStatus === 'assignmentrejected' ||
-                          normalizedSessionStatus.includes('assignment_reject') ||
-                          normalizedSessionStatus.includes('rejected') ||
-                          normalizedSessionStatus.includes('từ_chối') ||
-                          isRejectedTab;
-
-                        const rejectedSlotsCount = (stats.assignments ?? []).filter((a) => {
-                          const st = String(a.status ?? '')
-                            .toLowerCase()
-                            .replace(/\s|-/g, '_');
-                          return st.includes('reject');
-                        }).length;
+                        const sessionStatusInfo = getSessionStatusInfo(session.status);
                         return (
                           <div
                             key={session.sessionId}
@@ -564,29 +647,25 @@ export default function TeamLeaderAssignmentsPage() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                {isSessionRejected ? (
-                                  <span
-                                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold border bg-rose-50 text-rose-700 border-rose-200"
-                                  >
-                                    <AlertCircle className="w-3 h-3 shrink-0" />
-                                    {rejectedSlotsCount > 0 ? `${rejectedSlotsCount} slot từ chối` : 'Cần gán người lại'}
-                                  </span>
-                                ) : (
-                                  <span
-                                    className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
-                                      stats.total > 0 && stats.filled === stats.total
-                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                        : 'bg-amber-50 text-amber-800 border-amber-200'
-                                    }`}
-                                  >
-                                    {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
-                                    {stats.total === 0
-                                      ? 'Chưa có slot'
-                                      : stats.filled === stats.total
-                                        ? 'Đã gán đủ'
-                                        : 'Chưa gán đủ'}
-                                  </span>
-                                )}
+                                <span
+                                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
+                                >
+                                  {sessionStatusInfo.label}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
+                                    stats.total > 0 && stats.filled === stats.total
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}
+                                >
+                                  {stats.total === 0 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                                  {stats.total === 0
+                                    ? 'Chưa có slot'
+                                    : stats.filled === stats.total
+                                      ? 'Đã gán đủ'
+                                      : 'Chưa gán đủ'}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -596,11 +675,12 @@ export default function TeamLeaderAssignmentsPage() {
                   )}
                 </div>
               </div>
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+                              </div>
+
       </div>
+          </div>
 
       {/* ─── RIGHT: Session detail + assignment panel (slide-over overlay) ─── */}
       {activeSession && (
@@ -644,75 +724,8 @@ export default function TeamLeaderAssignmentsPage() {
               </button>
             </div>
 
-            {/* Panel body */}
-            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-4 space-y-4">
-              {/* Session info */}
-              <div className="rounded-xl bg-white shadow-sm border border-gray-100">
-                <div className="px-4 py-2.5 border-b border-gray-100">
-                  <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
-                </div>
-                <div className="px-4 py-3 space-y-3 text-sm">
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <Clock className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-gray-500">Thời gian:</span>
-                    <span className="font-medium text-black">
-                      {dayjs(activeSession.startAt).format('HH:mm')} -{' '}
-                      {dayjs(activeSession.endAt).format('HH:mm')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-gray-500">Ngày:</span>
-                    <span className="font-medium text-black">
-                      {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-gray-500">Địa điểm:</span>
-                    <span className="font-medium text-black">{activeSession.location || '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <Hash className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-gray-500">Mã yêu cầu:</span>
-                    <span className="font-semibold text-sky-600">
-                      {selectedRequest?.requestCode}
-                    </span>
-                  </div>
-                  {(() => {
-                    const detail = sessionDetailsById[activeSession.sessionId];
-                    return (
-                      <>
-                        <div className="flex items-center gap-3 text-gray-600">
-                          <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
-                          <span className="text-gray-500">Giảng viên cần:</span>
-                          <span className="font-medium text-black">
-                            {detail?.teachersRequired ?? '—'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-gray-600">
-                          <Users className="w-4 h-4 text-gray-400 shrink-0" />
-                          <span className="text-gray-500">Trợ giảng cần:</span>
-                          <span className="font-medium text-black">
-                            {detail?.tasRequired ?? '—'}
-                          </span>
-                        </div>
-
-                        {activeTab === 'rejected' && detail?.notes && (
-                          <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2">
-                            <div className="text-[11px] font-semibold text-amber-800">Lý do</div>
-                            <div className="text-[11px] text-amber-700 whitespace-pre-wrap mt-1">
-                              {detail.notes}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Assignment slots */}
+            {/* Panel body: thông tin phiên trước, sau đó phân công */}
+            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-4 space-y-5">
               {(() => {
                 const detail = sessionDetailsById[activeSession.sessionId];
                 if (!detail) {
@@ -722,6 +735,7 @@ export default function TeamLeaderAssignmentsPage() {
                     </div>
                   );
                 }
+
                 const assignments = detail.assignments ?? [];
                 const teacherSlots = assignments.filter((a) =>
                   String(a.staffRole ?? '')
@@ -736,15 +750,74 @@ export default function TeamLeaderAssignmentsPage() {
                 const teachersRequired =
                   (detail.teachersRequired ?? teacherSlots.length) || 0;
                 const tasRequired = (detail.tasRequired ?? taSlots.length) || 0;
-
                 const totalSlots = teacherSlots.length + taSlots.length;
                 const filledSlots = assignments.filter(
-                  (a) => !!(assignSelections[a.assignmentId] || a.staffMemberId),
+                  (a) =>
+                    getEffectiveStaffMemberId(
+                      a.assignmentId,
+                      assignSelections,
+                      a.staffMemberId,
+                    ) > 0,
                 ).length;
                 const progress = totalSlots === 0 ? 0 : Math.min(1, filledSlots / totalSlots);
 
+                const sessionInfoCard = (
+                  <div className="rounded-xl bg-white shadow-sm border border-gray-100">
+                    <div className="px-4 py-2.5 border-b border-gray-100">
+                      <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
+                    </div>
+                    <div className="px-4 py-3 space-y-3 text-sm">
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <Hash className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Mã yêu cầu:</span>
+                        <span className="font-semibold text-sky-600">
+                          {selectedRequest?.requestCode}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Thời gian:</span>
+                        <span className="font-medium text-black">
+                          {dayjs(activeSession.startAt).format('HH:mm')} -{' '}
+                          {dayjs(activeSession.endAt).format('HH:mm')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Ngày:</span>
+                        <span className="font-medium text-black">
+                          {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Địa điểm:</span>
+                        <span className="font-medium text-black">
+                          {activeSession.location || '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Giáo viên cần:</span>
+                        <span className="font-medium text-black">
+                          {detail.teachersRequired ?? teacherSlots.length ?? '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500">Trợ giảng cần:</span>
+                        <span className="font-medium text-black">
+                          {detail.tasRequired ?? taSlots.length ?? '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+
                 return (
-                  <div className="space-y-3">
+                  <>
+                    {sessionInfoCard}
+
                     {assignments.length === 0 ? (
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
                         <AlertCircle className="w-5 h-5 text-amber-500 mx-auto mb-2" />
@@ -753,58 +826,59 @@ export default function TeamLeaderAssignmentsPage() {
                         </p>
                       </div>
                     ) : (
-                      <>
+                      <div className="space-y-6">
                         {renderSlotPicker(
+                          activeSession.sessionId,
                           teacherSlots,
-                          'Giảng viên',
+                          'Giáo viên',
                           teachersRequired,
                           'sky',
-                          activeSession.sessionId,
                         )}
-                        {renderSlotPicker(taSlots, 'Trợ giảng', tasRequired, 'amber', activeSession.sessionId)}
+                        {renderSlotPicker(
+                          activeSession.sessionId,
+                          taSlots,
+                          'Trợ giảng',
+                          tasRequired,
+                          'amber',
+                        )}
 
-                        {/* Progress */}
-                              {totalSlots > 0 && (
-                          <div className="pt-3 mt-1 border-t border-slate-100 space-y-2">
+                        {totalSlots > 0 && (
+                          <div className="pt-1 space-y-2">
                             <div className="flex items-center justify-between text-[11px] font-medium text-slate-700">
-                                    <span>Tiến độ phân công</span>
+                              <span>Tiến độ phân công</span>
                               <span className="tabular-nums">
-                                      {filledSlots}/{totalSlots}
-                                    </span>
-                                  </div>
+                                {filledSlots}/{totalSlots}
+                              </span>
+                            </div>
                             <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden shadow-inner">
-                                    <div
+                              <div
                                 className="h-full rounded-full bg-gradient-to-r from-[#2197C0] to-emerald-500 transition-all duration-300"
-                                      style={{ width: `${progress * 100}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-
-                        {/* Apply to other sessions */}
-                        {assignments.length > 0 &&
-                          selectedRequest &&
-                          selectedRequest.sessions.length > 1 && (
-                            <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
-                                <button
-                                  type="button"
-                                className="text-xs font-medium text-[#2197C0] hover:text-[#1978a0] hover:bg-sky-50 rounded-lg px-3 py-1.5 transition-colors"
-                                onClick={() =>
-                                  handleApplyToOtherSessions(activeSession.sessionId)
-                                }
-                                  disabled={autoAssigning || applyingToOtherSessions}
-                              >
-                                <RotateCcw className="w-3 h-3 inline mr-1" />
-                                Áp dụng cho các phiên khác
-                                </button>
-                              </div>
-                          )}
-                      </>
-                            )}
+                                style={{ width: `${progress * 100}%` }}
+                              />
+                            </div>
                           </div>
-                        );
+                        )}
+
+                        {selectedRequest && selectedRequest.sessions.length > 1 && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4">
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-[#2197C0] hover:text-[#1978a0] hover:bg-sky-50 rounded-lg px-3 py-1.5 transition-colors"
+                              onClick={() =>
+                                handleApplyToOtherSessions(activeSession.sessionId)
+                              }
+                            >
+                              <RotateCcw className="w-3 h-3 inline mr-1" />
+                              Áp dụng cho các phiên khác
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
               })()}
-                    </div>
+            </div>
                 </div>
               </div>
             )}
@@ -815,39 +889,108 @@ export default function TeamLeaderAssignmentsPage() {
         const isSuggested = 'skillMatchCount' in staff && 'assignmentCountIn30Days' in staff;
         if (!isSuggested) return null;
         const s = staff as SuggestedStaff;
-        const skillNames = s.skills?.map((sk) => sk.skillName).filter(Boolean).join(', ') || '—';
+        const skills = (s.skills ?? []).map((sk) => sk.skillName).filter(Boolean);
+        const maxSkillChips = 3;
+        const shownSkills = skills.slice(0, maxSkillChips);
+        const moreSkillCount = Math.max(0, skills.length - shownSkills.length);
         const top = rect.top;
-        const left = rect.left - 220;
+
+        const isTA = String(s.roleName ?? '').toUpperCase().includes('TA') || String(s.roleName ?? '').toUpperCase().includes('ASSIST');
+        const roleChip = isTA
+          ? { label: 'TA', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
+          : { label: 'TE', cls: 'bg-sky-100 text-sky-800 border-sky-200' };
+
+        const frame = isTA
+          ? { border: 'border-emerald-200/70', ring: 'ring-emerald-100', grad: 'from-emerald-50/70' }
+          : { border: 'border-sky-200/70', ring: 'ring-sky-100', grad: 'from-sky-50/70' };
+
+        const workload = Math.max(0, Number(s.assignmentCountIn30Days ?? 0));
+        const workloadMax = 12; // UI scale only
+        const workloadPct = Math.max(0, Math.min(100, (workload / workloadMax) * 100));
+
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+        const tooltipW = 304;
+        const leftPreferred = rect.left - (tooltipW + 16);
+        const left =
+          leftPreferred >= 8 ? leftPreferred : Math.min(vw - tooltipW - 8, rect.right + 12);
         return (
           <div
-            className="fixed z-[100] w-[200px] bg-white border border-slate-200 rounded-lg shadow-xl p-3 pointer-events-none"
+            className={`fixed z-[100] w-[304px] bg-white border ${frame.border} rounded-2xl shadow-2xl pointer-events-none ring-1 ${frame.ring} overflow-hidden`}
             style={{ top: Math.max(8, top), left: Math.max(8, left) }}
           >
-            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
-              <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center shrink-0">
-                {s.avatarUrl ? (
-                  <img src={s.avatarUrl} alt={s.fullName} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-[10px] font-semibold text-slate-500">{(s.fullName || 'N')[0]}</span>
-        )}
-      </div>
-              <div className="min-w-0">
-                <div className="text-xs font-semibold text-slate-900 truncate">{s.fullName}</div>
-                <div className="text-[10px] text-slate-500 truncate">{s.email || s.roleName}</div>
+            <div className={`px-4 pt-3 pb-3 bg-gradient-to-br ${frame.grad} to-white`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center shrink-0 border border-white shadow-sm">
+                    <img
+                      src={getAvatarSrc(s.avatarUrl)}
+                      alt={s.fullName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[15px] font-semibold text-slate-900 truncate">{s.fullName}</div>
+                    <div className="text-[12px] text-slate-500 truncate">{s.email || '—'}</div>
+                  </div>
+                </div>
+                <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${roleChip.cls}`}>
+                  {roleChip.label}
+                </span>
               </div>
             </div>
-            <div className="text-[11px] space-y-1.5">
-              <div>
-                <span className="font-medium text-slate-500">Kỹ năng</span>
-                <p className="text-slate-800 mt-0.5">{skillNames}</p>
+
+            <div className="px-4 py-3.5 space-y-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                  <Sparkles className="h-4 w-4 text-slate-400" />
+                  Kỹ năng
+                </div>
+                <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[11px] font-semibold">
+                  Khớp: {s.skillMatchCount}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-slate-500">Khớp YC</span>
-                <span className="font-semibold text-slate-800">{s.skillMatchCount}</span>
+
+              <div className="flex flex-wrap gap-1.5">
+                {shownSkills.length ? (
+                  <>
+                    {shownSkills.map((name) => (
+                      <span
+                        key={name}
+                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                    {moreSkillCount > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        +{moreSkillCount}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-xs text-slate-500">—</span>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-slate-500">Buổi (30 ngày)</span>
-                <span className="font-semibold text-slate-800">{s.assignmentCountIn30Days}</span>
+
+              <div className="pt-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                    <Briefcase className="h-4 w-4 text-slate-400" />
+                    Workload (30 ngày)
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 tabular-nums">
+                    {workload}
+                  </span>
+                </div>
+                <div className="mt-2 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${isTA ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-sky-500 to-sky-400'}`}
+                    style={{ width: `${workloadPct}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>

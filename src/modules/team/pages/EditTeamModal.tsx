@@ -102,8 +102,7 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         const currentLeader =
           leaderId != null ? items.find((m) => Number(m.memberId) === Number(leaderId)) : undefined;
 
-        // Trưởng nhóm: tất cả member có role TeamLeader, không ràng buộc teamId,
-        // nhưng luôn include leader hiện tại (nếu khác role vẫn sẽ có trong danh sách).
+    
         const leaderCandidates = items.filter((m: any) => isTeamLeaderRole(m));
         const leaderMerged = currentLeader
           ? [

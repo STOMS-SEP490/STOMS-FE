@@ -10,7 +10,7 @@ export function useActiveSubjects(pageSize: number = DEFAULT_PAGE_SIZE) {
 
   useEffect(() => {
     subjectApi
-      .getSubjects({ pageNumber: 1, pageSize, isActive: true })
+      .getSubjects({ pageNumber: 1, pageSize, IsActive: true })
       .then((res) => setAllSubjects(res.items ?? []))
       .catch(() => setAllSubjects([]));
   }, [pageSize]);
