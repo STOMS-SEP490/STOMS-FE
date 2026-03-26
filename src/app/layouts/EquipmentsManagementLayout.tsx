@@ -18,6 +18,8 @@ export default function EquipmentsLayout() {
     currentTab = 'categories';
   } else if (location.pathname.includes('history')) {
     currentTab = 'history';
+  } else if (location.pathname.includes('reservations')) {
+    currentTab = 'reservations';
   }
 
   return (
@@ -72,6 +74,10 @@ export default function EquipmentsLayout() {
 
               <TabsTrigger value="equipments" onClick={() => navigate(basePath)}>
                 TẤT CẢ THIẾT BỊ
+              </TabsTrigger>
+
+              <TabsTrigger value="reservations" onClick={() => navigate(`${basePath}/reservations`)}>
+                LỊCH SỬ ĐẶT TRƯỚC
               </TabsTrigger>
 
               <TabsTrigger value="history" onClick={() => navigate(`${basePath}/history`)}>

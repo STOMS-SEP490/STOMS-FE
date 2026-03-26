@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, RotateCcw } from 'lucide-react';
-import { Drawer, message, Spin } from 'antd';
+import { Drawer, Input, Modal, message, Spin } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -22,6 +22,9 @@ import type { RequestListItem } from '@/modules/request/request';
 import { taskReportApi } from '../api/taskReportApi';
 import type { TaskReport, TaskReportExpense } from '../taskReport';
 import requestApi from '@/modules/request/api/requestApi';
+import { expenseApi } from '@/modules/transaction/api/expenseApi';
+import { walletApi } from '@/modules/transaction/api/walletApi';
+import type { WalletListItem } from '@/modules/transaction/api/walletApi';
 
 type RequestSessionSummary = NonNullable<RequestListItem['sessions']>[number];
 
@@ -37,6 +40,18 @@ export default function TaskReportsManagement() {
   const [viewTaskReport, setViewTaskReport] = useState<TaskReport | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
 
+  // Duyệt khoản chi (khi expense đang ở trạng thái Đang chờ)
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [approveExpenseId, setApproveExpenseId] = useState<number | null>(null);
+  const [selectedWalletId, setSelectedWalletId] = useState<string>('');
+  const [wallets, setWallets] = useState<WalletListItem[]>([]);
+  const [walletsLoading, setWalletsLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectExpenseId, setRejectExpenseId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
   const [searchParams, setSearchParams] = useSearchParams();
   const openDetailFromUrl = searchParams.get('openDetail');
   const taskReportIdFromUrl = searchParams.get('taskReportId');
@@ -47,6 +62,12 @@ export default function TaskReportsManagement() {
     skipNextAutoOpenRef.current = true;
     setOpenView(false);
     setViewTaskReport(null);
+    setApproveModalOpen(false);
+    setApproveExpenseId(null);
+    setSelectedWalletId('');
+    setRejectModalOpen(false);
+    setRejectExpenseId(null);
+    setRejectReason('');
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('openDetail');
@@ -54,6 +75,27 @@ export default function TaskReportsManagement() {
       return next;
     });
   };
+
+  useEffect(() => {
+    if (!approveModalOpen) return;
+
+    const fetchWallets = async () => {
+      try {
+        setWalletsLoading(true);
+        const res = await walletApi.getWallets({ pageNumber: 1, pageSize: 500 });
+        setWallets(res.items ?? []);
+
+        if (!selectedWalletId && (res.items?.length ?? 0) > 0) {
+          setSelectedWalletId(String((res.items ?? [])[0].walletId));
+        }
+      } finally {
+        setWalletsLoading(false);
+      }
+    };
+
+    void fetchWallets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [approveModalOpen]);
 
   useEffect(() => {
     if (openDetailFromUrl !== '1') return;
@@ -443,15 +485,75 @@ export default function TaskReportsManagement() {
                   {(viewTaskReport.expenses ?? []).map((e) => (
                     <div
                       key={e.expenseId}
-                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 bg-gray-50"
+                      className="rounded-xl border bg-white px-4 py-3 shadow-sm"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-gray-600 truncate" title={e.description ?? ''}>
-                          {e.description || '—'}
+                      <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 items-start">
+                        <div className="min-w-0">
+                          <div className="text-xs text-gray-500 mb-0.5">
+                            Khoản chi #{e.expenseId}
+                          </div>
+                          <div className="text-sm text-gray-800 whitespace-pre-wrap break-words leading-5">
+                            {e.description || '—'}
+                          </div>
                         </div>
-                      </div>
-                      <div className="ml-3 text-sm font-semibold tabular-nums whitespace-nowrap">
-                        {e.amount != null ? e.amount.toLocaleString('vi-VN') : '—'}
+
+                        <div className="text-right">
+                          <div className="text-[11px] text-gray-500 mb-0.5">Số tiền</div>
+                          <div className="text-sm font-semibold tabular-nums whitespace-nowrap text-red-600">
+                            {e.amount != null ? e.amount.toLocaleString('vi-VN') : '—'}
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 flex items-center justify-between gap-3 pt-1">
+                          <div>
+                            {e.status === 1 ? (
+                              <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200">
+                                Đang chờ
+                              </Badge>
+                            ) : e.status === 2 ? (
+                              <Badge className="bg-green-100 text-green-700 border border-green-200">
+                                Đã duyệt
+                              </Badge>
+                            ) : e.status === 3 ? (
+                              <Badge className="bg-red-100 text-red-600 border border-red-200">
+                                Đã từ chối
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-gray-500">{e.status ?? '—'}</span>
+                            )}
+                          </div>
+
+                          {e.status === 1 ? (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                                disabled={actionLoading}
+                                onClick={() => {
+                                  setApproveExpenseId(e.expenseId);
+                                  setSelectedWalletId('');
+                                  setApproveModalOpen(true);
+                                }}
+                              >
+                                Duyệt
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-red-200 text-red-600 hover:bg-red-50"
+                                disabled={actionLoading}
+                                onClick={() => {
+                                  setRejectExpenseId(e.expenseId);
+                                  setRejectReason('');
+                                  setRejectModalOpen(true);
+                                }}
+                              >
+                                Từ chối
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -463,6 +565,143 @@ export default function TaskReportsManagement() {
           <div className="text-sm text-gray-500">Không có dữ liệu.</div>
         )}
       </Drawer>
+
+      <Modal
+        title="Duyệt khoản chi"
+        open={approveModalOpen}
+        onCancel={() => {
+          if (!actionLoading) {
+            setApproveModalOpen(false);
+            setApproveExpenseId(null);
+            setSelectedWalletId('');
+          }
+        }}
+        okText="Đồng ý duyệt"
+        cancelText="Hủy"
+        confirmLoading={actionLoading}
+        onOk={async () => {
+          const walletId = Number(selectedWalletId);
+          if (!approveExpenseId) return;
+          if (!selectedWalletId || Number.isNaN(walletId) || walletId <= 0) {
+            message.warning('Vui lòng chọn quỹ chi trả.');
+            return;
+          }
+
+          try {
+            setActionLoading(true);
+            await expenseApi.approve({
+              walletId,
+              expenseIds: [approveExpenseId],
+            });
+
+            message.success('Đã duyệt khoản chi.');
+            setApproveModalOpen(false);
+            setApproveExpenseId(null);
+            setSelectedWalletId('');
+
+            // Refresh detail to update expense status
+            if (viewTaskReport?.taskReportId) {
+              const updated = await taskReportApi.getById(viewTaskReport.taskReportId);
+              setViewTaskReport(updated);
+            }
+          } catch (err: unknown) {
+            const msg =
+              err && typeof err === 'object' && 'response' in err
+                ? (err as { response?: { data?: { message?: string } } }).response?.data
+                    ?.message
+                : null;
+            message.error(msg ?? 'Duyệt thất bại.');
+          } finally {
+            setActionLoading(false);
+          }
+        }}
+      >
+        <div className="py-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Chọn quỹ chi trả <span className="text-red-500">*</span>
+          </label>
+
+          {walletsLoading ? (
+            <div className="text-sm text-gray-500">Đang tải danh sách quỹ...</div>
+          ) : (
+            <Select
+              value={selectedWalletId || undefined}
+              onValueChange={(v) => setSelectedWalletId(v)}
+            >
+              <SelectTrigger className="w-full text-gray-700">
+                <SelectValue placeholder="Chọn quỹ" />
+              </SelectTrigger>
+              <SelectContent className="z-[1100]">
+                {wallets.map((w) => (
+                  <SelectItem key={w.walletId} value={String(w.walletId)}>
+                    {w.walletName} ·{' '}
+                    {Number(w.balance ?? 0).toLocaleString('vi-VN')} đ
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        title="Từ chối khoản chi"
+        open={rejectModalOpen}
+        onCancel={() => {
+          if (!actionLoading) {
+            setRejectModalOpen(false);
+            setRejectExpenseId(null);
+            setRejectReason('');
+          }
+        }}
+        okText="Đồng ý từ chối"
+        cancelText="Hủy"
+        confirmLoading={actionLoading}
+        onOk={async () => {
+          const reason = rejectReason.trim();
+          if (!rejectExpenseId) return;
+          if (!reason) {
+            message.warning('Vui lòng nhập lý do từ chối.');
+            return;
+          }
+
+          try {
+            setActionLoading(true);
+            await expenseApi.reject({ expenseId: rejectExpenseId, reason });
+            message.success('Đã từ chối khoản chi.');
+            setRejectModalOpen(false);
+            setRejectExpenseId(null);
+            setRejectReason('');
+
+            if (viewTaskReport?.taskReportId) {
+              const updated = await taskReportApi.getById(viewTaskReport.taskReportId);
+              setViewTaskReport(updated);
+            }
+          } catch (err: unknown) {
+            const msg =
+              err && typeof err === 'object' && 'response' in err
+                ? (err as { response?: { data?: { message?: string } } }).response?.data
+                    ?.message
+                : null;
+            message.error(msg ?? 'Từ chối thất bại.');
+          } finally {
+            setActionLoading(false);
+          }
+        }}
+      >
+        <div className="py-2 space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Lý do từ chối <span className="text-red-500">*</span>
+          </label>
+          <Input.TextArea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Nhập lý do từ chối..."
+            rows={4}
+            disabled={actionLoading}
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

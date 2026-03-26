@@ -20,15 +20,68 @@ export type ReservedEquipmentItem = {
   equipmentName: string;
   equipmentCode: string;
   categoryName: string;
+  categoryId?: number;
   status: string;
   imgLink: string | null;
 };
 
+export type ReservationCreatedByUser = {
+  memberId?: number;
+  userId?: number;
+  avatarUrl?: string;
+  fullName: string;
+  phone?: string;
+};
+
+export type ReservationSessionItem = {
+  sessionId: number;
+  sessionNo: number;
+  startAt: string;
+  endAt: string;
+  notes: string;
+  status: string;
+  location: string;
+  isOnline: boolean | null;
+};
+
+export type ReservationEquipmentReservationItem = {
+  equipmentId: number;
+  isTemporarilyCancelled?: boolean | null;
+  createdAt?: string | null;
+  equipment: ReservedEquipmentItem | null;
+};
+
 export type ReservationDetail = {
+  reservationId: number;
+  createdByMemberId?: number | null;
+  startAt: string | null;
+  endAt: string | null;
+  createdAt?: string | null;
+  createdByUser?: ReservationCreatedByUser | null;
+  isTemporarilyCancelled?: boolean | null;
+  /** Convenience flat list used by older screens (e.g. RequestSessionDetailPanel) */
+  equipment: ReservedEquipmentItem[];
+  equipmentReservations: ReservationEquipmentReservationItem[];
+  sessions: ReservationSessionItem[];
+};
+
+export type ReservationFilterParams = {
+  reservationId?: number;
+  isTemporarilyCancelled?: boolean;
+  createdByMemberId?: number;
+  startAt?: string;
+  endAt?: string;
+  pageNumber?: number;
+  pageSize?: number;
+};
+
+export type ReservationListItem = {
   reservationId: number;
   startAt: string | null;
   endAt: string | null;
-  equipment: ReservedEquipmentItem[];
+  equipmentCount: number;
+  isTemporarilyCancelled?: boolean | null;
+  createdByUser?: ReservationCreatedByUser | null;
 };
 
 export type SessionDetail = {

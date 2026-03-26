@@ -23,7 +23,7 @@ const memberApi = {
     const formData = new FormData();
     formData.append('file', file);
     return axiosClient.put(`/members/${memberId}/avatar`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      // Để axios/browsers tự set boundary của multipart/form-data
     });
   },
 
@@ -42,6 +42,42 @@ const memberApi = {
     }
   ) => {
     return axiosClient.put(`/members/${memberId}`, data);
+  },
+
+  /**
+   * PUT api/members (member update theo token)
+   * - Backend: [FromForm] MemberUpdateRequest + IFormFile? avatarFile
+   * - FE phải gửi multipart/form-data, gửi đủ các field bắt buộc.
+   */
+  updateMyMember: async (data: {
+    fullName: string;
+    phone: string;
+    address: string;
+    cin: string;
+    bankCode: string;
+    bankName: string;
+    taxNumber?: string | null;
+    avatarFile?: File | null;
+  }): Promise<MemberDetail> => {
+    const formData = new FormData();
+    formData.append('FullName', data.fullName);
+    formData.append('Phone', data.phone);
+    formData.append('Address', data.address);
+    formData.append('Cin', data.cin);
+    formData.append('BankCode', data.bankCode);
+    formData.append('BankName', data.bankName);
+
+    // TaxNumber không required: để null thì không append để model binder set null
+    if (data.taxNumber != null) {
+      formData.append('TaxNumber', data.taxNumber ?? '');
+    }
+
+    // Param tên file phải là "avatarFile" vì controller: Update([FromForm] ..., IFormFile? avatarFile)
+    if (data.avatarFile) {
+      formData.append('avatarFile', data.avatarFile);
+    }
+
+    return axiosClient.put('/members', formData);
   },
 
   updateMemberExtra: async (

@@ -6,6 +6,7 @@ import EquipmentsManagement from '@/modules/equipment/pages/EquipmentsManagement
 import CategoriesManagement from '@/modules/category/pages/CategoriesManagement';
 import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout';
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory';
+import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement';
 import TeamsManagement from '@/modules/team/pages/TeamsManagement';
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
@@ -73,6 +74,7 @@ const ManagerRoutes = [
       { index: true, element: <EquipmentsManagement /> },
       { path: 'categories', element: <CategoriesManagement /> },
       { path: 'history', element: <EquipmentsHistory /> },
+      { path: 'reservations', element: <ReservationsManagement /> },
     ],
   },
   {

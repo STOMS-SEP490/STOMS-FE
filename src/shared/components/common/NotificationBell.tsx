@@ -10,6 +10,7 @@ import { getNotificationHubUrl } from '@/shared/lib/hubUrl';
 import { cn } from '@/shared/lib/utils';
 import * as notificationApi from '@/modules/notification/api/notificationApi';
 import type { NotificationItem } from '@/modules/notification/api/notificationApi';
+import { showSignalRToast } from '@/modules/notification/ui/signalrToast';
 import {
   getNotificationVisual,
   NOTIFICATION_TYPE_CHIP_CLASS,
@@ -142,6 +143,11 @@ export default function NotificationBell({ variant = 'default' }: NotificationBe
           if (prev.some((x) => x.notificationId === n.notificationId)) return prev;
           return [n, ...prev].slice(0, 50);
         });
+
+        // Show toast only when tab is visible (avoid stacking when user is away).
+        if (document.visibilityState === 'visible') {
+          showSignalRToast(n);
+        }
       }
       void refreshUnreadOnly();
     };
