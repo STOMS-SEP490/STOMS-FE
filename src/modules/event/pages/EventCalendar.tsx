@@ -9,7 +9,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './EventCalendar.css';
 import { useCalendarEvents } from '@/modules/event/hooks/useCalendarEvents';
 import sessionService from '@/modules/request/api/sessionApi';
-import type { SessionDetail } from '@/modules/request/api/type';
+import type { SessionDetail } from '@/modules/request/type.ts';
 import SessionDetailPopover from './SessionDetailPopover';
 import MonthDayEventsPopover from './MonthDayEventsPopover.tsx';
 import { useLocation, useNavigate } from 'react-router-dom';

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { Clock, Calendar, MapPin, Hash, GraduationCap, Users } from 'lucide-react';
 import reservationService from '../api/reservationApi';
-import type { ReservedEquipmentItem } from '../api/type';
+import type { ReservedEquipmentItem } from '../type';
 import { ImageOff } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
 import type { RequestSessionSummary } from '../request';
@@ -13,17 +13,26 @@ export type SessionDetailProps = {
     teamAssigned?: boolean;
   };
   requestCode: string;
+  showReservedEquipment?: boolean;
 };
 
 export default function RequestSessionDetailPanel({
   session,
   requestCode,
+  showReservedEquipment = true,
 }: SessionDetailProps) {
   const [reservedEquipments, setReservedEquipments] = useState<ReservedEquipmentItem[]>([]);
   const [reservedLoading, setReservedLoading] = useState(false);
   const [reservedError, setReservedError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!showReservedEquipment) {
+      setReservedEquipments([]);
+      setReservedError(null);
+      setReservedLoading(false);
+      return;
+    }
+
     const rawReservationId = (session as { reservationId?: number | string | null }).reservationId;
     const reservationId = rawReservationId != null ? Number(rawReservationId) : NaN;
 
@@ -35,7 +44,7 @@ export default function RequestSessionDetailPanel({
       setReservedLoading(true);
       setReservedError(null);
       try {
-        const detail = await reservationService.getById(reservationId);
+          const detail = await reservationService.getById(reservationId);
         const items: ReservedEquipmentItem[] = (detail.equipmentReservations ?? []).map((er: any) => {
           const eq = er?.equipment ?? {};
           return {
@@ -62,11 +71,10 @@ export default function RequestSessionDetailPanel({
       }
     };
     void fetchReserved();
-  }, [session.reservationId]);
+  }, [session.reservationId, showReservedEquipment]);
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Thông tin phiên — layout Figma: icon + label + value từng dòng */}
       <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
         <div className="px-4 py-2.5 border-b border-gray-100">
           <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
@@ -115,71 +123,72 @@ export default function RequestSessionDetailPanel({
         </div>
       </div>
 
-      {/* Danh sách thiết bị mượn trước — Figma */}
-      <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
-        <div className="px-4 py-2.5 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900 text-sm">Danh sách thiết bị mượn trước</h3>
-        </div>
-        <div className="px-4 py-3 space-y-2">
-          {session.reservationId == null ? (
-            <p className="text-xs text-gray-500">Chưa có thiết bị mượn trước cho phiên này.</p>
-          ) : reservedLoading ? (
-            <p className="text-xs text-gray-500">Đang tải danh sách thiết bị...</p>
-          ) : reservedError ? (
-            <p className="text-xs text-red-600">{reservedError}</p>
-          ) : reservedEquipments.length === 0 ? (
-            <p className="text-xs text-gray-500">Không có thiết bị nào trong danh sách mượn trước.</p>
-          ) : (
-            <ul className="space-y-2">
-              {reservedEquipments.map((eq) => (
-                <li
-                  key={eq.equipmentId}
-                  className="rounded-xl border border-gray-100 bg-gray-50/50 px-3 py-2 flex items-center gap-3"
-                >
-                <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
-                  {eq.imgLink ? (
-                    <img
-                      src={eq.imgLink}
-                      alt={eq.equipmentName}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <ImageOff className="w-5 h-5 text-gray-400" />
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="font-medium text-sm text-gray-900 truncate">
-                        {eq.equipmentName || `Thiết bị #${eq.equipmentId}`}
+      {showReservedEquipment && (
+        <>
+          <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
+            <div className="px-4 py-2.5 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-900 text-sm">Danh sách thiết bị mượn trước</h3>
+            </div>
+            <div className="px-4 py-3 space-y-2">
+              {session.reservationId == null ? (
+                <p className="text-xs text-gray-500">Chưa có thiết bị mượn trước cho phiên này.</p>
+              ) : reservedLoading ? (
+                <p className="text-xs text-gray-500">Đang tải danh sách thiết bị...</p>
+              ) : reservedError ? (
+                <p className="text-xs text-red-600">{reservedError}</p>
+              ) : reservedEquipments.length === 0 ? (
+                <p className="text-xs text-gray-500">Không có thiết bị nào trong danh sách mượn trước.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {reservedEquipments.map((eq) => (
+                    <li
+                      key={eq.equipmentId}
+                      className="rounded-xl border border-gray-100 bg-gray-50/50 px-3 py-2 flex items-center gap-3"
+                    >
+                      <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
+                        {eq.imgLink ? (
+                          <img
+                            src={eq.imgLink}
+                            alt={eq.equipmentName}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <ImageOff className="w-5 h-5 text-gray-400" />
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        Mã: {eq.equipmentCode || eq.equipmentId}
-                      </div>
-                    </div>
-                    {eq.status && (
-                      <Badge className="bg-gray-100 text-gray-700 text-[11px] flex-shrink-0">
-                        {eq.status}
-                      </Badge>
-                    )}
-                  </div>
 
-                  <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500">
-                    <span className="truncate">
-                      Danh mục: {eq.categoryName || '—'}
-                    </span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        </div>
-      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="font-medium text-sm text-gray-900 truncate">
+                              {eq.equipmentName || `Thiết bị #${eq.equipmentId}`}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Mã: {eq.equipmentCode || eq.equipmentId}
+                            </div>
+                          </div>
+                          {eq.status && (
+                            <Badge className="bg-gray-100 text-gray-700 text-[11px] flex-shrink-0">
+                              {eq.status}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500">
+                          <span className="truncate">Danh mục: {eq.categoryName || '—'}</span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

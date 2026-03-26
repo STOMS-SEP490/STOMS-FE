@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/api/type';
+import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/type';
 import sessionApi from '@/modules/request/api/sessionApi';
 import attendanceApi from '@/modules/request/api/attendanceApi';
 import memberApi from '@/modules/request/api/memberApi';

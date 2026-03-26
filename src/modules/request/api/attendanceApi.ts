@@ -8,7 +8,7 @@ import type {
   AttendanceFilterParams,
   AttendanceFilterResponse,
   AttendanceItem,
-} from './type';
+} from '../type';
 
 const mapAttendanceItem = (raw: Record<string, unknown>): AttendanceItem => ({
   attendanceId: Number(raw['attendanceId'] ?? raw['AttendanceId'] ?? 0),

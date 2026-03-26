@@ -1,4 +1,4 @@
-import type { SessionDetail } from '@/modules/request/api/type';
+import type { SessionDetail } from '@/modules/request/type';
 
 export type TeamLeaderAssignmentsTab = 'assigning' | 'rejected';
 

@@ -1,5 +1,5 @@
 import { X, ImageOff } from 'lucide-react';
-import type { ReservationDetail } from '@/modules/request/api/type';
+import type { ReservationDetail } from '@/modules/request/type';
 import { Badge } from '@/shared/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
@@ -187,7 +187,7 @@ export default function ReservationDetailSidebar({ open, onClose, reservation }:
                               type="button"
                               className="w-full h-full"
                               onClick={() => {
-                                setImageUrl(eq.imgLink);
+                                setImageUrl(eq.imgLink ?? null);
                                 setImageAlt(eq.equipmentName ?? 'Hình ảnh thiết bị');
                                 setImageOpen(true);
                               }}
@@ -195,7 +195,7 @@ export default function ReservationDetailSidebar({ open, onClose, reservation }:
                             >
                               <img
                                 src={eq.imgLink}
-                                alt={eq.equipmentName}
+                                alt={eq.equipmentName ?? undefined}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   (e.currentTarget as HTMLImageElement).style.display = 'none';

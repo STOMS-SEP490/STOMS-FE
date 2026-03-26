@@ -252,7 +252,6 @@ export default function RequestDetailEquipmentPanel({
         return;
       }
       await reservationApi.create({
-        createdByMemberId,
         sessionIds: [row.sessionId],
         startAt: start.format('YYYY-MM-DDTHH:mm:ss'),
         endAt: end.format('YYYY-MM-DDTHH:mm:ss'),

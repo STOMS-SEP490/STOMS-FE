@@ -2,7 +2,7 @@ import axiosClient from '@/shared/lib/axios';
 import type { Team } from '@/modules/team/team';
 import type { PaginationResponse } from '@/shared/types/api';
 import { serializeParamsRepeatArray } from '@/shared/lib/paramsSerializer';
-import type { SessionDetail } from './type';
+import type { SessionDetail } from '../type';
 
 export type PublishedTeamSession = {
   sessionId: number;

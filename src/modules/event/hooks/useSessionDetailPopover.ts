@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { message } from 'antd';
-import type { SessionDetail } from '@/modules/request/api/type';
+import type { SessionDetail } from '@/modules/request/type';
 import requestService from '@/modules/request/api/requestApi';
 import memberApi from '@/modules/member/api/memberApi';
 import type { MemberDetail } from '@/modules/member/member';
 import assignmentApi from '@/modules/request/api/assignmentApi';
-import type { AssignmentDetail } from '@/modules/request/api/type';
+import type { AssignmentDetail } from '@/modules/request/type';
 
 export type PopoverStaffItem = {
   assignmentId: number;

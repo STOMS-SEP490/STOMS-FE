@@ -9,9 +9,7 @@ export type CheckAvailabilityParams = {
 };
 
 export type ReservationCreatePayload = {
-  createdByMemberId: number;
-  sessionIds?: number[];
-  sessionId?: number | null;
+  sessionIds: number[];
   startAt: string;
   endAt: string;
   equipment: { equipmentId: number }[];
@@ -20,7 +18,12 @@ export type ReservationCreatePayload = {
 export type {
   ReservationEquipmentItem,
   EquipmentReservationItem,
+  SessionReservationItem,
+  CreatedByUserReservationResponse,
   ReservationResponse,
+  ReservationDetail,
+  ReservationFilterParams,
+  ReservationListItem,
   ReservedEquipmentItem,
 } from './reservation.types';
 

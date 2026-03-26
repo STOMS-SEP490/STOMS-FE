@@ -2,7 +2,7 @@ import axiosClient from '@/shared/lib/axios';
 import type {
   AssignmentDetail,
   SuggestedStaff,
-} from './type';
+} from '../type';
 
 const assignmentApi = {
   getById: async (id: number): Promise<AssignmentDetail> => {

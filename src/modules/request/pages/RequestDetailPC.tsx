@@ -373,6 +373,7 @@ export default function RequestDetailPC() {
                         sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
                       }
                       requestCode={request.requestCode ?? ''}
+                      showReservedEquipment={false}
                     />
 
                     <div className="mt-6">

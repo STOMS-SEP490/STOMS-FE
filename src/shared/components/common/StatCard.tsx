@@ -6,13 +6,21 @@ export interface StatCardProps {
   label: string;
   value: string | number;
   sub?: string;
-  variant?: 'green' | 'blue';
+  variant?: 'green' | 'blue' | 'amber' | 'rose' | 'white';
   className?: string;
 }
 
 export function StatCard({ icon, label, value, sub, variant = 'blue', className }: StatCardProps) {
   const colorStyle =
-    variant === 'green' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600';
+    variant === 'green'
+      ? 'bg-green-100 text-green-600'
+      : variant === 'amber'
+        ? 'bg-amber-100 text-amber-600'
+        : variant === 'rose'
+          ? 'bg-rose-100 text-rose-600'
+          : variant === 'white'
+            ? 'bg-white text-gray-700'
+            : 'bg-blue-100 text-blue-600';
 
   return (
     <div

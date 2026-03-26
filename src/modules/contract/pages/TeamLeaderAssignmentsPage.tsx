@@ -32,7 +32,7 @@ import {
 } from '@/shared/components/ui/select';
 import RequestCard from '@/shared/components/request/RequestCard';
 import { getSessionStatusInfo } from '@/constants/status';
-import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
+import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
 import {
   getEffectiveStaffMemberId,

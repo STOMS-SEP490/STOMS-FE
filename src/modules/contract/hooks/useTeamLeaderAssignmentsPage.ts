@@ -3,7 +3,7 @@ import { message } from 'antd';
 import { getRequestType } from '@/shared/components/request/RequestCard';
 import { getTeamLeaderRequestStatusInfo } from '@/constants/status';
 import { teamApi } from '@/modules/team/api/teamApi';
-import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
+import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import requestApi from '@/modules/request/api/requestApi';
 import sessionApi from '@/modules/request/api/sessionApi';
 import assignmentApi from '@/modules/request/api/assignmentApi';
