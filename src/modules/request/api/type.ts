@@ -1,7 +1,9 @@
 export type CheckAvailabilityParams = {
   startAt: string;
   endAt: string;
-  search?: string;
+  categoryIds?: number[];
+  equipmentName?: string;
+  equipmentCode?: string;
   pageNumber?: number;
   pageSize?: number;
 };
@@ -15,74 +17,12 @@ export type ReservationCreatePayload = {
   equipment: { equipmentId: number }[];
 };
 
-export type ReservedEquipmentItem = {
-  equipmentId: number;
-  equipmentName: string;
-  equipmentCode: string;
-  categoryName: string;
-  categoryId?: number;
-  status: string;
-  imgLink: string | null;
-};
-
-export type ReservationCreatedByUser = {
-  memberId?: number;
-  userId?: number;
-  avatarUrl?: string;
-  fullName: string;
-  phone?: string;
-};
-
-export type ReservationSessionItem = {
-  sessionId: number;
-  sessionNo: number;
-  startAt: string;
-  endAt: string;
-  notes: string;
-  status: string;
-  location: string;
-  isOnline: boolean | null;
-};
-
-export type ReservationEquipmentReservationItem = {
-  equipmentId: number;
-  isTemporarilyCancelled?: boolean | null;
-  createdAt?: string | null;
-  equipment: ReservedEquipmentItem | null;
-};
-
-export type ReservationDetail = {
-  reservationId: number;
-  createdByMemberId?: number | null;
-  startAt: string | null;
-  endAt: string | null;
-  createdAt?: string | null;
-  createdByUser?: ReservationCreatedByUser | null;
-  isTemporarilyCancelled?: boolean | null;
-  /** Convenience flat list used by older screens (e.g. RequestSessionDetailPanel) */
-  equipment: ReservedEquipmentItem[];
-  equipmentReservations: ReservationEquipmentReservationItem[];
-  sessions: ReservationSessionItem[];
-};
-
-export type ReservationFilterParams = {
-  reservationId?: number;
-  isTemporarilyCancelled?: boolean;
-  createdByMemberId?: number;
-  startAt?: string;
-  endAt?: string;
-  pageNumber?: number;
-  pageSize?: number;
-};
-
-export type ReservationListItem = {
-  reservationId: number;
-  startAt: string | null;
-  endAt: string | null;
-  equipmentCount: number;
-  isTemporarilyCancelled?: boolean | null;
-  createdByUser?: ReservationCreatedByUser | null;
-};
+export type {
+  ReservationEquipmentItem,
+  EquipmentReservationItem,
+  ReservationResponse,
+  ReservedEquipmentItem,
+} from './reservation.types';
 
 export type SessionDetail = {
   sessionId: number;
@@ -108,8 +48,6 @@ export type SessionDetail = {
       userEmail?: string;
     } | null;
   }[] | null;
-  // Một số API session có thể trả danh sách attendances kèm attendanceByMemberId.
-  // Dùng để lấy đúng "người điểm danh" chung cho session (không lấy từ JWT).
   attendances?: {
     attendanceByMemberId?: number | null;
   }[];

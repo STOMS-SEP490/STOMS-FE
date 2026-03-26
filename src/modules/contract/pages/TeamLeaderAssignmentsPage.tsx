@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 
 import dayjs from 'dayjs';
@@ -103,7 +103,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     searchByAssignmentId,
     setSearchByAssignmentId,
     handleSelectStaff,
-    handleApplyToOtherSessions,
     getSessionStats,
     handleResetFilters,
   } = useTeamLeaderAssignmentsPage(tab);
@@ -113,10 +112,37 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     rect: DOMRect;
   } | null>(null);
   const [staffPickerAssignmentId, setStaffPickerAssignmentId] = useState<number | null>(null);
+  const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setStaffPickerAssignmentId(null);
+    setHoveredStaff(null);
   }, [activeSession?.sessionId]);
+
+  useEffect(() => {
+    setHoveredStaff(null);
+  }, [selectedRequestId]);
+
+  useEffect(() => {
+    if (staffPickerAssignmentId != null) return;
+    setHoveredStaff(null);
+  }, [staffPickerAssignmentId]);
+
+  useEffect(() => {
+    const closeHover = () => setHoveredStaff(null);
+    window.addEventListener('scroll', closeHover, true);
+    window.addEventListener('resize', closeHover);
+    return () => {
+      window.removeEventListener('scroll', closeHover, true);
+      window.removeEventListener('resize', closeHover);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
+    };
+  }, []);
 
 
   const renderMemberOption = (m: SuggestedStaff) => {
@@ -145,11 +171,20 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
   const handleStaffHover = useCallback(
     (staff: SuggestedStaff, e: React.MouseEvent) => {
+      if (hoverCloseTimerRef.current) {
+        clearTimeout(hoverCloseTimerRef.current);
+        hoverCloseTimerRef.current = null;
+      }
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       setHoveredStaff({ staff, rect });
     },
     [],
   );
+
+  const handleStaffHoverLeave = useCallback(() => {
+    if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
+    hoverCloseTimerRef.current = setTimeout(() => setHoveredStaff(null), 80);
+  }, []);
 
   const renderSlotPicker = (
     sessionId: number,
@@ -231,9 +266,10 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   onClick={() => {
                     handleSelectStaff(sessionId, a.assignmentId, m.memberId);
                     setStaffPickerAssignmentId(null);
+                    setHoveredStaff(null);
                   }}
                   onMouseEnter={(e) => handleStaffHover(m, e)}
-                  onMouseLeave={() => setHoveredStaff(null)}
+                  onMouseLeave={handleStaffHoverLeave}
                 >
                   {renderMemberOption(m)}
                 </button>
@@ -287,9 +323,10 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   key={a.assignmentId}
                   trigger="click"
                   open={isOpen}
-                  onOpenChange={(visible) =>
-                    setStaffPickerAssignmentId(visible ? a.assignmentId : null)
-                  }
+                  onOpenChange={(visible) => {
+                    setStaffPickerAssignmentId(visible ? a.assignmentId : null);
+                    if (!visible) setHoveredStaff(null);
+                  }}
                   placement="bottomLeft"
                   destroyOnHidden
                   content={pickerContent(a)}
@@ -308,9 +345,10 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 <Popover
                   trigger="click"
                   open={isOpen}
-                  onOpenChange={(visible) =>
-                    setStaffPickerAssignmentId(visible ? a.assignmentId : null)
-                  }
+                  onOpenChange={(visible) => {
+                    setStaffPickerAssignmentId(visible ? a.assignmentId : null);
+                    if (!visible) setHoveredStaff(null);
+                  }}
                   placement="bottomLeft"
                   destroyOnHidden
                   content={pickerContent(a)}
@@ -366,6 +404,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       if (key === 'clear') {
                         handleSelectStaff(sessionId, a.assignmentId, 0);
                         setStaffPickerAssignmentId(null);
+                        setHoveredStaff(null);
                       }
                     },
                   }}
@@ -859,20 +898,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           </div>
                         )}
 
-                        {selectedRequest && selectedRequest.sessions.length > 1 && (
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4">
-                            <button
-                              type="button"
-                              className="text-xs font-medium text-[#2197C0] hover:text-[#1978a0] hover:bg-sky-50 rounded-lg px-3 py-1.5 transition-colors"
-                              onClick={() =>
-                                handleApplyToOtherSessions(activeSession.sessionId)
-                              }
-                            >
-                              <RotateCcw className="w-3 h-3 inline mr-1" />
-                              Áp dụng cho các phiên khác
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </>

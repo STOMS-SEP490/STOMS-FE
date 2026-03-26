@@ -9,6 +9,9 @@ export type Attendance = {
   checkoutAt: string | null;
   attendanceByMemberId: number | null;
   note: string;
+  memberFullName?: string | null;
+  memberAvatarUrl?: string | null;
+  memberEmail?: string | null;
 };
 
 export type AttendanceCheckInBatchResult = {
@@ -45,6 +48,8 @@ export type AttendanceHistoryItem = {
 };
 
 function mapAttendanceFromApi(raw: Record<string, unknown>): Attendance {
+  const memberRaw =
+    (raw['member'] ?? raw['Member'] ?? null) as Record<string, unknown> | null;
   return {
     attendanceId: Number(raw['attendanceId'] ?? raw['AttendanceId'] ?? 0),
     memberId: Number(raw['memberId'] ?? raw['MemberId'] ?? 0),
@@ -54,6 +59,15 @@ function mapAttendanceFromApi(raw: Record<string, unknown>): Attendance {
     attendanceByMemberId:
       (raw['attendanceByMemberId'] ?? raw['AttendanceByMemberId'] ?? null) as number | null,
     note: String(raw['note'] ?? raw['Note'] ?? ''),
+    memberFullName: memberRaw
+      ? String(memberRaw['fullName'] ?? memberRaw['FullName'] ?? '').trim() || null
+      : null,
+    memberAvatarUrl: memberRaw
+      ? (memberRaw['avatarUrl'] ?? memberRaw['AvatarUrl'] ?? null) as string | null
+      : null,
+    memberEmail: memberRaw
+      ? String(memberRaw['email'] ?? memberRaw['Email'] ?? '').trim() || null
+      : null,
   };
 }
 

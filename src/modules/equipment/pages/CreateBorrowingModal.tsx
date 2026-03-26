@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { DatePicker, message } from 'antd'
 import borrowingApi from '../api/borrowingApi'
-import equipmentApi from '../api/equipmentApi'
 import memberApi from '@/modules/member/api/memberApi'
 import categoryApi from '@/modules/category/api/categoryApi'
+import reservationApi from '@/modules/request/api/reservationApi'
 import type { Member } from '@/modules/member/member'
 import type { BorrowingCreatePayload } from '../borrowing'
 import type { EquipmentListItem } from '../equipment'
 import type { CategoryListItem } from '@/modules/category/category'
-import type { Dayjs } from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 import { Dialog } from '@/shared/components/ui/dialog'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select'
 import { cn } from '@/shared/lib/utils'
+import { getEquipmentStatusDisplay } from '@/constants/equipment'
 
 type Props = {
   open: boolean
@@ -103,25 +104,9 @@ export default function CreateBorrowingModal({
     selectedEquipmentIds.includes(e.equipmentId)
   )
 
-  // Lấy danh sách thiết bị để filter cục bộ (chỉ gọi 1 lần khi mở modal)
+  // Load danh mục (chỉ gọi 1 lần khi mở modal)
   useEffect(() => {
     if (!open) return
-    const fetchEquipments = async () => {
-      try {
-        setEquipmentLoading(true)
-        const res = await equipmentApi.getEquipments({
-          pageNumber: 1,
-          pageSize: 500,
-        })
-        setAllEquipments(res.items ?? [])
-      } catch {
-        // ignore lỗi, vẫn cho nhập tay
-      } finally {
-        setEquipmentLoading(false)
-      }
-    }
-    fetchEquipments()
-
     const fetchCategories = async () => {
       try {
         setCategoryLoading(true)
@@ -139,6 +124,62 @@ export default function CreateBorrowingModal({
     fetchCategories()
   }, [open])
 
+  // Load thiết bị KHẢ DỤNG theo khung thời gian StartAt/EndAt.
+  // Ở "phiếu mượn", FE không chọn trực tiếp giờ mượn/giờ trả, nên dùng:
+  // - StartAt: thời điểm hiện tại
+  // - EndAt: returnedDueDate (hạn trả)
+  useEffect(() => {
+    if (!open) return
+    if (!returnedDueDate) {
+      setAllEquipments([])
+      setSelectedEquipmentIds([])
+      return
+    }
+
+    const loadAvailability = async () => {
+      try {
+        setEquipmentLoading(true)
+
+        const startAtDt = dayjs()
+        const endAtDt = returnedDueDate
+
+        // BE yêu cầu EndAt > StartAt.
+        // Vì FE đang dùng StartAt = "thời điểm hiện tại", nên nếu người dùng chọn hạn trả <= hiện tại
+        // thì phải không gọi API để tránh bị 400 và không hiển thị danh sách gợi ý.
+        if (!endAtDt.isAfter(startAtDt)) {
+          setAllEquipments([])
+          setSelectedEquipmentIds([])
+          return
+        }
+
+        const startAt = startAtDt.format('YYYY-MM-DDTHH:mm:ss')
+        const endAt = endAtDt.format('YYYY-MM-DDTHH:mm:ss')
+
+        const res = await reservationApi.getAvailability({
+          startAt,
+          endAt,
+          categoryIds: selectedCategoryId != null ? [selectedCategoryId] : undefined,
+          pageNumber: 1,
+          pageSize: 500,
+        })
+
+        const items = res.items ?? []
+        const availableIds = new Set(items.map((x) => x.equipmentId))
+
+        setAllEquipments(items)
+        // Giữ selection nếu vẫn còn khả dụng; còn lại thì xóa để tránh stale.
+        setSelectedEquipmentIds((prev) => prev.filter((id) => availableIds.has(id)))
+      } catch {
+        setAllEquipments([])
+        setSelectedEquipmentIds([])
+      } finally {
+        setEquipmentLoading(false)
+      }
+    }
+
+    void loadAvailability()
+  }, [open, returnedDueDate, selectedCategoryId])
+
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError('')
@@ -153,6 +194,13 @@ export default function CreateBorrowingModal({
     }
     if (!returnedDueDate) {
       setError('Vui lòng chọn hạn trả')
+      return
+    }
+
+    // BE validate ReturnedDueDate > now.
+    // FE chặn trước để tránh submit bị 400.
+    if (!returnedDueDate.isAfter(dayjs())) {
+      setError('Hạn trả phải lớn hơn thời điểm mượn (hiện tại)')
       return
     }
     if (selectedEquipmentIds.length === 0) {
@@ -293,6 +341,33 @@ export default function CreateBorrowingModal({
             showTime={{ format: 'HH:mm' }}
             value={returnedDueDate}
             onChange={(value) => setReturnedDueDate(value)}
+            disabledDate={(current) => {
+              if (!current) return false
+              // Không cho chọn ngày trước hôm nay
+              return current.startOf('day').isBefore(dayjs().startOf('day'))
+            }}
+            disabledTime={(current) => {
+              if (!current) return {}
+              const now = dayjs()
+              if (!current.isSame(now, 'day')) return {}
+
+              // Khi chọn hôm nay: chặn giờ/phút trước thời điểm hiện tại.
+              const disabledHours = Array.from(
+                { length: now.hour() },
+                (_, i) => i
+              )
+
+              return {
+                disabledHours: () => disabledHours,
+                disabledMinutes: (selectedHour: number) => {
+                  if (selectedHour !== now.hour()) return []
+                  return Array.from(
+                    { length: now.minute() },
+                    (_, i) => i
+                  )
+                },
+              }
+            }}
           />
         </div>
 
@@ -328,13 +403,11 @@ export default function CreateBorrowingModal({
               className="h-8 text-xs text-black border-gray-200"
             />
           </div>
-          {allEquipments.length > 0 && (
+          {returnedDueDate != null && (
             <div className="mt-2 space-y-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3">
               <div className="max-h-40 space-y-1 overflow-y-auto rounded-md bg-white p-1 no-scrollbar">
                 {allEquipments
                   .filter((eq) => {
-                    // chỉ cho phép thiết bị khả dụng
-                    if (eq.status !== 'Available') return false
                     if (selectedCategoryId && eq.categoryId !== selectedCategoryId) {
                       return false
                     }
@@ -376,7 +449,7 @@ export default function CreateBorrowingModal({
                         </span>
                       </div>
                       <span className="ml-2 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">
-                        {eq.status}
+                        {getEquipmentStatusDisplay(eq.status)}
                       </span>
                     </button>
                   ))}
@@ -387,9 +460,15 @@ export default function CreateBorrowingModal({
                   </p>
                 )}
                 {!equipmentLoading &&
+                  !equipmentSearch.trim() &&
+                  allEquipments.length === 0 && (
+                    <p className="px-2 py-1 text-xs text-gray-500">
+                      Không có thiết bị khả dụng trong khung thời gian này.
+                    </p>
+                  )}
+                {!equipmentLoading &&
                   equipmentSearch.trim() &&
                   allEquipments.filter((eq) => {
-                    if (eq.status !== 'Available') return false
                     if (selectedCategoryId && eq.categoryId !== selectedCategoryId) {
                       return false
                     }

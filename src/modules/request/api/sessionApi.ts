@@ -1,6 +1,7 @@
 import axiosClient from '@/shared/lib/axios';
 import type { Team } from '@/modules/team/team';
 import type { PaginationResponse } from '@/shared/types/api';
+import { serializeParamsRepeatArray } from '@/shared/lib/paramsSerializer';
 import type { SessionDetail } from './type';
 
 export type PublishedTeamSession = {
@@ -134,20 +135,7 @@ const sessionApi = {
   ): Promise<PaginationResponse<PublishedTeamSession>> {
     const res = await axiosClient.get('/sessions/filter', {
       params: toSessionFilterQuery(params),
-      // Serialize array params as repeated query keys:
-      // Statuses=ASSIGNED&Statuses=ONGOING&Statuses=COMPLETED
-      paramsSerializer: (rawParams) => {
-        const usp = new URLSearchParams();
-        Object.entries(rawParams).forEach(([key, value]) => {
-          if (value == null) return;
-          if (Array.isArray(value)) {
-            value.forEach((v) => usp.append(key, String(v)));
-          } else {
-            usp.append(key, String(value));
-          }
-        });
-        return usp.toString();
-      },
+      paramsSerializer: serializeParamsRepeatArray,
     });
     const raw = (res as unknown as Record<string, unknown>) ?? {};
     const itemsRaw = (raw['items'] ?? raw['Items'] ?? []) as Record<string, unknown>[];

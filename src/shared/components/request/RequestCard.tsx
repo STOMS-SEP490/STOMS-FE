@@ -61,6 +61,14 @@ export default function RequestCard({
   hintText = 'Bấm để xem chi tiết',
 }: RequestCardProps) {
   const typeInfo = getRequestType({ subjectId, courseId, eventId });
+  // Thanh màu bên trái theo type (môn học: xanh, khóa học: tím, sự kiện: cam)
+  const accentColor = eventId
+    ? '#F59E0B'
+    : courseId
+      ? '#8B5CF6'
+      : subjectId
+        ? '#2197C0'
+        : '#94A3B8';
   const statusInfo =
     statusInfoOverride ??
     (status != null && String(status).trim() !== '' ? getRequestStatusInfo(status) : null);
@@ -72,14 +80,19 @@ export default function RequestCard({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`rounded-xl border border-l-4 border-slate-200 p-3 transition group text-left ${
+      className={`rounded-xl border border-slate-200 p-3 transition group text-left relative overflow-hidden ${
         onClick ? 'cursor-pointer' : ''
       } ${
         isActive
           ? 'bg-sky-50/80 border-sky-300 shadow-sm'
           : 'bg-white hover:border-slate-300 hover:shadow-sm'
-      } ${statusInfo ? statusInfo.leftBarClass : 'border-l-slate-300'}`}
+      }`}
     >
+      <div
+        aria-hidden
+        className="absolute left-0 top-0 bottom-0 w-1"
+        style={{ backgroundColor: `${accentColor}55` }}
+      />
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-slate-900 truncate">

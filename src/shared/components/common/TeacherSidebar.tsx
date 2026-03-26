@@ -49,7 +49,7 @@ export default function TeacherSidebar() {
         matchPrefixPath: '/teacher/timetable',
       },
       { label: 'Danh sách phiên đã dạy', icon: Clock, path: '/teacher/teaching-history' },
-      { label: 'Lịch sử điểm danh', icon: CheckCircle2, path: '/teacher/attendance-history' },
+      { label: 'Điểm danh', icon: CheckCircle2, path: '/teacher/attendance' },
       { label: 'Báo cáo công việc', icon: ClipboardList, path: '/teacher/tasks' },
       { label: 'Hợp đồng', icon: FileText, path: '/teacher/contracts' },
       { label: 'Đóng góp quỹ', icon: Wallet, path: '/teacher/fund-contributions' },

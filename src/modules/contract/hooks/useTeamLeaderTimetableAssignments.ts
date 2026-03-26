@@ -98,7 +98,7 @@ function normalizeSessionsToRows(
 }
 
 export function useTeamLeaderTimetableAssignments(
-  params?: { pageSize?: number; statuses?: string[]; todayOnly?: boolean },
+  params?: { pageSize?: number; statuses?: string[]; todayOnly?: boolean; byMember?: boolean },
 ) {
   // Pagination sẽ làm từ BE: items/totalItems lấy trực tiếp từ response của `sessions/filter`.
   const [serverItems, setServerItems] = useState<TeamLeaderTimetableAssignmentRow[]>([]);
@@ -109,6 +109,7 @@ export function useTeamLeaderTimetableAssignments(
   const pageSize = params?.pageSize ?? 10;
   const statuses = params?.statuses ?? ['ASSIGNED', 'ONGOING', 'COMPLETED'];
   const todayOnly = params?.todayOnly ?? false;
+  const byMember = params?.byMember ?? false;
   const statusesKey = statuses.join(',');
   // Stabilize derived array so `fetchData` doesn't refetch just because parent re-rendered
   // and created a new `statuses` array instance.
@@ -132,6 +133,10 @@ export function useTeamLeaderTimetableAssignments(
   const lastFetchKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (byMember) {
+      setTeamId(undefined);
+      return;
+    }
     let cancelled = false;
     const run = async () => {
       if (!leaderMemberId) {
@@ -151,7 +156,7 @@ export function useTeamLeaderTimetableAssignments(
     return () => {
       cancelled = true;
     };
-  }, [leaderMemberId]);
+  }, [leaderMemberId, byMember]);
 
   // Debounce để hạn chế gọi API khi user gõ search.
   useEffect(() => {
@@ -163,21 +168,22 @@ export function useTeamLeaderTimetableAssignments(
 
   const fetchData = useCallback(async () => {
     try {
-      if (teamId == null) {
+      if (!byMember && teamId == null) {
         setServerItems([]);
         setTotalItems(0);
         return;
       }
 
       // Tránh spam: cùng một bộ params chỉ fetch một lần (StrictMode/effect re-run).
-      const fetchKey = `${teamId}|${normalizedStatuses.join(',')}|${todayOnly}|${pageNumber}|${pageSize}`;
+      const fetchKey = `${byMember ? `member:${leaderMemberId ?? 0}` : `team:${teamId ?? 0}`}|${normalizedStatuses.join(',')}|${todayOnly}|${pageNumber}|${pageSize}`;
       if (lastFetchKeyRef.current === fetchKey) return;
       lastFetchKeyRef.current = fetchKey;
 
       setLoading(true);
 
       const res = await sessionApi.getFilter({
-        teamId,
+        teamId: byMember ? undefined : teamId,
+        memberId: byMember ? leaderMemberId ?? undefined : undefined,
         statuses: normalizedStatuses,
         sessionId: undefined,
         requestId: undefined,
@@ -242,7 +248,7 @@ export function useTeamLeaderTimetableAssignments(
     }
     // Fetch lại theo các thay đổi ảnh hưởng tới paging:
     // teamId (sau khi resolve leader), tab/statuses, todayOnly, pageNumber/pageSize, và search.
-  }, [teamId, todayOnly, pageNumber, pageSize, normalizedStatuses]);
+  }, [byMember, leaderMemberId, teamId, todayOnly, pageNumber, pageSize, normalizedStatuses]);
 
   useEffect(() => {
     void fetchData();

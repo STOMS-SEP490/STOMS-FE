@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
 import equipmentApi from '../api/equipmentApi'
 import categoryApi from '@/modules/category/api/categoryApi'
@@ -39,13 +39,16 @@ export default function EditEquipmentModal({
   const [equipmentCode, setEquipmentCode] = useState('')
   const [categoryId, setCategoryId] = useState<string>('')
   const [sponsoredBy, setSponsoredBy] = useState('')
-  const [handoverMinute, setHandoverMinute] = useState('')
   const [status, setStatus] = useState<string>('AVAILABLE')
   const [description, setDescription] = useState('')
-  const [imgLink, setImgLink] = useState('')
+  const [handoverMinuteImgFile, setHandoverMinuteImgFile] = useState<File | null>(null)
+  const [imgFile, setImgFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState<CategoryListItem[]>([])
   const [error, setError] = useState('')
+
+  const handoverMinuteInputRef = useRef<HTMLInputElement | null>(null)
+  const imgInputRef = useRef<HTMLInputElement | null>(null)
 
   // Chuẩn hóa status từ API (có thể là số 1-5 hoặc chuỗi) về enum dùng cho Select
   const normalizeStatusValue = (rawStatus: string | number | null | undefined): string => {
@@ -83,11 +86,13 @@ export default function EditEquipmentModal({
       setEquipmentCode(equipment.equipmentCode ?? '')
       setCategoryId(String(equipment.categoryId ?? ''))
       setSponsoredBy(equipment.sponsoredBy ?? '')
-      setHandoverMinute(equipment.handoverMinute ?? '')
       setStatus(normalizeStatusValue(equipment.status ?? EQUIPMENT_STATUS.AVAILABLE))
       setDescription(equipment.description ?? '')
-      setImgLink(equipment.imgLink ?? '')
+      setHandoverMinuteImgFile(null)
+      setImgFile(null)
       setError('')
+      if (handoverMinuteInputRef.current) handoverMinuteInputRef.current.value = ''
+      if (imgInputRef.current) imgInputRef.current.value = ''
     }
   }, [open, equipment])
 
@@ -116,9 +121,9 @@ export default function EditEquipmentModal({
         equipmentName: name,
         equipmentCode: code,
         sponsoredBy: sponsor,
-        handoverMinute: handoverMinute.trim(),
-        description: description.trim(),
-        imgLink: imgLink.trim() || null,
+        description: description.trim() || undefined,
+        imgFile: imgFile ?? null,
+        handoverMinuteImgFile: handoverMinuteImgFile ?? null,
       })
 
       const originalStatus = normalizeStatusValue(
@@ -147,6 +152,10 @@ export default function EditEquipmentModal({
 
   const handleClose = () => {
     setError('')
+    setHandoverMinuteImgFile(null)
+    setImgFile(null)
+    if (handoverMinuteInputRef.current) handoverMinuteInputRef.current.value = ''
+    if (imgInputRef.current) imgInputRef.current.value = ''
     onClose()
   }
 
@@ -229,17 +238,23 @@ export default function EditEquipmentModal({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="edit-handoverMinute" className="text-black font-medium">
-            Biên bản bàn giao (link)
+          <Label htmlFor="edit-handoverMinuteImg" className="text-black font-medium">
+            Biên bản bàn giao (ảnh)
           </Label>
           <Input
-            id="edit-handoverMinute"
-            value={handoverMinute}
-            onChange={(e) => setHandoverMinute(e.target.value)}
-            placeholder="https://..."
-            type="url"
-            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            id="edit-handoverMinuteImg"
+            ref={handoverMinuteInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+            onChange={(e) => setHandoverMinuteImgFile(e.target.files?.[0] ?? null)}
+            className="h-auto text-black border-gray-200"
           />
+          <p className="text-xs text-gray-500 break-all">
+            Hiện tại: {equipment.handoverMinute}
+          </p>
+          {handoverMinuteImgFile && (
+            <p className="text-xs text-gray-600 break-all">{handoverMinuteImgFile.name}</p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -301,16 +316,25 @@ export default function EditEquipmentModal({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="edit-imgLink" className="text-black font-medium">
-            Hình ảnh (link)
+          <Label htmlFor="edit-img" className="text-black font-medium">
+            Hình ảnh (ảnh)
           </Label>
           <Input
-            id="edit-imgLink"
-            value={imgLink}
-            onChange={(e) => setImgLink(e.target.value)}
-            placeholder="https://..."
-            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            id="edit-img"
+            ref={imgInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+            onChange={(e) => setImgFile(e.target.files?.[0] ?? null)}
+            className="h-auto text-black border-gray-200"
           />
+          {equipment.imgLink ? (
+            <p className="text-xs text-gray-500 break-all">
+              Hiện tại: {equipment.imgLink}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 italic">Hiện tại: Không có ảnh</p>
+          )}
+          {imgFile && <p className="text-xs text-gray-600 break-all">{imgFile.name}</p>}
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
