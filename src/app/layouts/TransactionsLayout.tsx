@@ -59,7 +59,7 @@ export default function TransactionLayout() {
                 value="expenditure"
                 onClick={() => navigate('/manager/transactions/expenditure')}
               >
-                ĐÃ CHI TRẢ
+                CÁC KHOẢN CHI
               </TabsTrigger>
               <TabsTrigger
                 value="wallets"

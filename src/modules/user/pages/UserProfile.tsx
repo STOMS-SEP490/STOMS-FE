@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -38,7 +38,7 @@ export default function UserProfile() {
   const navigate = useNavigate();
   const [userDetail, setUserDetail] = useState<User | null>(null);
   const [memberDetail, setMemberDetail] = useState<MemberDetail | null>(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [editingMember, setEditingMember] = useState(false);
   const [savingMember, setSavingMember] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
@@ -56,6 +56,16 @@ export default function UserProfile() {
   const [bankName, setBankName] = useState('');
   const [skillNames, setSkillNames] = useState<string[]>([]);
   const [workloadRange, setWorkloadRange] = useState<NonNullable<DashboardRangeParams['range']>>('thismonth');
+
+  const originalMemberRef = useRef<{
+    fullName: string;
+    phone: string;
+    address: string;
+    cin: string;
+    taxNumber: string | null;
+    bankCode: string;
+    bankName: string;
+  } | null>(null);
 
   const cacheAvatarUrl = (avatarUrl?: string | null) => {
     if (avatarUrl && avatarUrl.trim()) {
@@ -130,6 +140,12 @@ export default function UserProfile() {
     };
   }, [memberDetail?.memberId]);
 
+  const { data: workload } = useQuery({
+    queryKey: ['dashboard', 'user-workload', memberDetail?.memberId ?? 0, workloadRange],
+    queryFn: () => dashboardApi.getUserWorkload(memberDetail?.memberId ?? 0, { range: workloadRange }),
+    enabled: Boolean(memberDetail?.memberId),
+  });
+
   if (!user) {
     return (
       <div className="p-6">
@@ -153,12 +169,6 @@ export default function UserProfile() {
 
   const roleId = Number(userDetail?.roleId ?? user.role);
   const roleLabel = ROLE_MAP[roleId] ?? `Vai trò ${roleId || ''}`;
-
-  const { data: workload } = useQuery({
-    queryKey: ['dashboard', 'user-workload', memberDetail?.memberId ?? 0, workloadRange],
-    queryFn: () => dashboardApi.getUserWorkload(memberDetail!.memberId, { range: workloadRange }),
-    enabled: Boolean(memberDetail?.memberId),
-  });
 
   const formatPercent = (x?: number) => {
     const v = Number(x ?? 0);
@@ -214,22 +224,41 @@ export default function UserProfile() {
 
   const handleAvatarFile = async (file: File | null) => {
     if (!file) return;
-    if (!memberDetail?.memberId) return;
+    if (!memberDetail) return;
+
+    const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      message.error('Ảnh avatar vượt quá giới hạn 5MB.');
+      return;
+    }
+
     try {
-      setUploadingAvatar(true);
-      await memberApi.uploadAvatar(memberDetail.memberId, file);
+      setSavingMember(true);
+      // Lưu tạm để đổi UI label trong lúc upload
+      setAvatarFile(file);
+
+      // Khi bấm chọn avatar -> lưu ngay, không cần bấm nút Chỉnh sửa + Lưu.
+      await memberApi.updateMyMember({
+        fullName: memberDetail.fullName ?? '',
+        phone: memberDetail.phone ?? '',
+        address: memberDetail.address ?? '',
+        cin: memberDetail.cin ?? '',
+        bankCode: memberDetail.bankCode ?? '',
+        bankName: memberDetail.bankName ?? '',
+        taxNumber: memberDetail.taxNumber ?? null,
+        avatarFile: file,
+      });
+
       const refreshed = await memberApi.getMemberById(memberDetail.memberId);
       setMemberDetail(refreshed);
       cacheAvatarUrl(refreshed.avatarUrl ?? null);
-      setFullName(refreshed.fullName ?? '');
-      setPhone(refreshed.phone ?? '');
-      setAddress(refreshed.address ?? '');
-      setCin(refreshed.cin ?? '');
-      setTaxNumber(refreshed.taxNumber ?? '');
-      setBankCode(refreshed.bankCode ?? '');
-      setBankName(refreshed.bankName ?? '');
+      setAvatarFile(null);
+      message.success('Cập nhật avatar thành công');
+    } catch (err) {
+      setAvatarFile(null);
+      message.error(getErrorMessage(err));
     } finally {
-      setUploadingAvatar(false);
+      setSavingMember(false);
     }
   };
 
@@ -242,6 +271,16 @@ export default function UserProfile() {
     setTaxNumber(memberDetail.taxNumber ?? '');
     setBankCode(memberDetail.bankCode ?? '');
     setBankName(memberDetail.bankName ?? '');
+    setAvatarFile(null);
+    originalMemberRef.current = {
+      fullName: memberDetail.fullName ?? '',
+      phone: memberDetail.phone ?? '',
+      address: memberDetail.address ?? '',
+      cin: memberDetail.cin ?? '',
+      taxNumber: memberDetail.taxNumber ?? null,
+      bankCode: memberDetail.bankCode ?? '',
+      bankName: memberDetail.bankName ?? '',
+    };
     setEditingMember(true);
   };
 
@@ -257,35 +296,103 @@ export default function UserProfile() {
     setTaxNumber(memberDetail.taxNumber ?? '');
     setBankCode(memberDetail.bankCode ?? '');
     setBankName(memberDetail.bankName ?? '');
+    setAvatarFile(null);
+    originalMemberRef.current = null;
     setEditingMember(false);
   };
 
   const saveMember = async () => {
     if (!memberDetail) return;
-    const teamId = memberDetail.teamId ?? 0;
-    if (!teamId) {
-      message.error('Không thể lưu vì thành viên chưa được gán nhóm (Team).');
-      return;
-    }
-    if (!fullName.trim()) {
+    const original = originalMemberRef.current;
+    const originalSafe = original ?? {
+      fullName: memberDetail.fullName ?? '',
+      phone: memberDetail.phone ?? '',
+      address: memberDetail.address ?? '',
+      cin: memberDetail.cin ?? '',
+      taxNumber: memberDetail.taxNumber ?? null,
+      bankCode: memberDetail.bankCode ?? '',
+      bankName: memberDetail.bankName ?? '',
+    };
+
+    const submitted = {
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      cin: cin.trim(),
+      bankCode: bankCode.trim(),
+      bankName: bankName.trim(),
+      taxNumberTrim: taxNumber.trim(),
+    };
+
+    if (!submitted.fullName) {
       message.warning('Vui lòng nhập họ và tên');
       return;
     }
+    if (!submitted.phone) {
+      message.warning('Vui lòng nhập số điện thoại');
+      return;
+    }
+    if (!submitted.address) {
+      message.warning('Vui lòng nhập địa chỉ');
+      return;
+    }
+    if (!submitted.cin) {
+      message.warning('Vui lòng nhập CCCD/CMND');
+      return;
+    }
+    if (!submitted.bankCode) {
+      message.warning('Vui lòng nhập mã ngân hàng');
+      return;
+    }
+    if (!submitted.bankName) {
+      message.warning('Vui lòng nhập tên ngân hàng');
+      return;
+    }
+
+    const taxOriginalNorm = (originalSafe.taxNumber ?? '') as string;
+    const hasTextChanges =
+      submitted.fullName !== originalSafe.fullName.trim() ||
+      submitted.phone !== originalSafe.phone.trim() ||
+      submitted.address !== originalSafe.address.trim() ||
+      submitted.cin !== originalSafe.cin.trim() ||
+      submitted.bankCode !== originalSafe.bankCode.trim() ||
+      submitted.bankName !== originalSafe.bankName.trim() ||
+      submitted.taxNumberTrim !== taxOriginalNorm;
+
+    // Nếu taxNumber ban đầu là null và người dùng không đổi (đang là ''), không append TaxNumber để giữ null.
+    const taxNumberForApi =
+      originalSafe.taxNumber === null && submitted.taxNumberTrim === ''
+        ? null
+        : submitted.taxNumberTrim;
 
     try {
       setSavingMember(true);
-      await memberApi.updateMember(memberDetail.memberId, {
-        teamId,
-        fullName: fullName.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-        cin: cin.trim(),
-        bankCode: bankCode.trim(),
-        bankName: bankName.trim(),
-        taxNumber: taxNumber.trim(),
-        // giữ avatar hiện tại để không bị clear
-        avatarUrl: memberDetail.avatarUrl ?? undefined,
+
+      const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
+      if (avatarFile && avatarFile.size > MAX_AVATAR_SIZE_BYTES) {
+        message.error('Ảnh avatar vượt quá giới hạn 5MB.');
+        return;
+      }
+
+      if (!hasTextChanges && !avatarFile) {
+        message.info('Không có thay đổi để cập nhật');
+        return;
+      }
+
+      // Dùng PUT /members cho cả 2 trường hợp:
+      // - avatar-only: gửi đủ các field text (không đổi) + avatarFile
+      // - text+avatar: gửi đủ các field text + avatarFile
+      await memberApi.updateMyMember({
+        fullName: submitted.fullName,
+        phone: submitted.phone,
+        address: submitted.address,
+        cin: submitted.cin,
+        bankCode: submitted.bankCode,
+        bankName: submitted.bankName,
+        taxNumber: taxNumberForApi,
+        avatarFile: avatarFile ?? null,
       });
+
       const refreshed = await memberApi.getMemberById(memberDetail.memberId);
       setMemberDetail(refreshed);
       cacheAvatarUrl(refreshed.avatarUrl ?? null);
@@ -296,6 +403,8 @@ export default function UserProfile() {
       setTaxNumber(refreshed.taxNumber ?? '');
       setBankCode(refreshed.bankCode ?? '');
       setBankName(refreshed.bankName ?? '');
+      setAvatarFile(null);
+      originalMemberRef.current = null;
       setEditingMember(false);
       message.success('Cập nhật hồ sơ thành công');
     } catch (err) {
@@ -534,14 +643,12 @@ export default function UserProfile() {
                       accept="image/*"
                       className="hidden"
                       onChange={(e) => handleAvatarFile(e.target.files?.[0] ?? null)}
-                      disabled={uploadingAvatar}
+                      disabled={savingMember}
                     />
                     <span
-                      className={`inline-flex items-center justify-center rounded-md px-4 py-2 text-sm border cursor-pointer ${
-                        uploadingAvatar ? 'opacity-60 cursor-not-allowed' : ''
-                      }`}
+                      className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm border cursor-pointer"
                     >
-                      {uploadingAvatar ? 'Đang upload...' : 'Tải ảnh lên'}
+                      {savingMember ? 'Đang lưu...' : avatarFile ? 'Đã chọn avatar' : 'Tải ảnh lên'}
                     </span>
                   </label>
                   <div className="text-xs text-gray-500">Hỗ trợ JPG/PNG/WebP.</div>
@@ -560,7 +667,7 @@ export default function UserProfile() {
                     </div>
                   )}
                 </div>
-                <Field label="Nhóm (Team)" value={memberDetail.teamId ?? '—'} />
+                <Field label="Nhóm (Team)" value={memberDetail.team?.teamName ?? '—'} />
                 <div>
                   <Label className="text-xs text-gray-400 mb-1">Số điện thoại</Label>
                   {editingMember ? (

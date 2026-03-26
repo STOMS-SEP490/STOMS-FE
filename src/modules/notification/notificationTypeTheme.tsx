@@ -21,6 +21,7 @@ export type NotificationKind =
   | 'MEMBER'
   | 'REQUEST'
   | 'SESSION'
+  | 'RESERVATION'
   | 'SKILL'
   | 'TEAM'
   | 'TRANSACTION'
@@ -46,6 +47,7 @@ const NUM_TO_KIND: Record<string, NotificationKind> = {
   '8': 'TEAM',
   '9': 'TRANSACTION',
   '10': 'USER',
+  '11': 'RESERVATION',
 };
 
 const THEMES: Record<NotificationKind, Omit<NotificationVisual, 'kind'>> = {
@@ -78,6 +80,11 @@ const THEMES: Record<NotificationKind, Omit<NotificationVisual, 'kind'>> = {
     label: 'Phiên học',
     Icon: CalendarClock,
     iconWrapClass: 'bg-gradient-to-br from-cyan-500 to-sky-600 text-white shadow-sm shadow-cyan-500/20',
+  },
+  RESERVATION: {
+    label: 'Đặt trước',
+    Icon: CalendarClock,
+    iconWrapClass: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-sm shadow-indigo-500/20',
   },
   SKILL: {
     label: 'Kỹ năng',

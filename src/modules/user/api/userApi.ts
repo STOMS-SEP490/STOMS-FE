@@ -1,6 +1,6 @@
 import axiosClient from '@/shared/lib/axios';
 import type { PaginationResponse } from '@/shared/types/api';
-import type { UpdateUserPayload, User } from '@/modules/user/user';
+import type { User } from '@/modules/user/user';
 
 export type UserFilterParams = {
   pageNumber?: number;
@@ -28,8 +28,15 @@ const userService = {
     return axiosClient.put(`/users/${userId}/deactivate`);
   },
 
-  updateUser: async (userId: number, payload: UpdateUserPayload) => {
-    return axiosClient.put(`/users/${userId}`, payload);
+  /**
+   * PUT api/users/assign-role
+   * Gán 1 role cho nhiều user (admin).
+   */
+  assignRole: async (payload: { roleId: number; userIds: number[] }) => {
+    return axiosClient.put(`/users/assign-role`, {
+      RoleId: payload.roleId,
+      UserIds: payload.userIds,
+    });
   },
 
   /** Đặt lại mật khẩu user (admin). PUT api/users/{id}/change-password */

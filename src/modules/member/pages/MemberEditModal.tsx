@@ -5,15 +5,12 @@ import { getErrorMessage } from '@/shared/lib/errorMessage';
 import memberApi from '@/modules/member/api/memberApi';
 import memberSkillApi, { type MemberSkillItem } from '@/modules/member/api/memberSkillApi';
 import userApi from '@/modules/user/api/userApi';
-import { teamApi } from '@/modules/team/api/teamApi';
 import skillApi from '@/modules/skill/api/skillApi';
-import type { Team } from '@/modules/team/team';
 import type { MemberDetail } from '@/modules/member/member';
 import type { SkillListItem } from '@/modules/skill/skill';
 import { ROLE_MAP } from '@/constants/role';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import {
   Select,
@@ -38,21 +35,9 @@ const ROLE_OPTIONS = [1, 2, 3, 4, 5, 6].map((id) => ({
 
 export default function MemberEditModal({ open, onClose, memberId, onUpdated }: Props) {
   const [member, setMember] = useState<MemberDetail | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const [fullName, setFullName] = useState('');
-  const [teamId, setTeamId] = useState<number>(0);
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [cin, setCin] = useState('');
-  const [bankCode, setBankCode] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [taxNumber, setTaxNumber] = useState('');
-  const [email, setEmail] = useState('');
   const [roleId, setRoleId] = useState<number>(4);
-  const [isActive, setIsActive] = useState(true);
 
   const [allSkills, setAllSkills] = useState<SkillListItem[]>([]);
   /** Danh sách member-skill hiện tại (có isActive) — chỉ gọi API khi Lưu */
@@ -63,7 +48,6 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
 
   useEffect(() => {
     if (open) {
-      teamApi.getTeams({ pageSize: 500 }).then((res) => setTeams(res.items ?? []));
       skillApi
         .getSkills({ pageNumber: 1, pageSize: 500 })
         .then((res) => setAllSkills((res.items ?? []).filter((s) => s?.isActive)))
@@ -86,17 +70,7 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
       .then(([data, msItems]) => {
         if (cancelled) return;
         setMember(data);
-        setFullName(data.fullName ?? '');
-        setTeamId(data.teamId ?? 0);
-        setPhone(data.phone ?? '');
-        setAddress(data.address ?? '');
-        setCin(data.cin ?? '');
-        setBankCode(data.bankCode ?? '');
-        setBankName(data.bankName ?? '');
-        setTaxNumber(data.taxNumber ?? '');
-        setEmail(data.email ?? '');
         setRoleId(data.roleId ?? 4);
-        setIsActive(data.isActive ?? true);
 
         skillApi.getSkills({ pageNumber: 1, pageSize: 500 }).then((res) => {
           if (cancelled) return;
@@ -128,32 +102,14 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!member) return;
-    if (!fullName.trim()) {
-      message.warning('Vui lòng nhập họ tên');
-      return;
-    }
-    if (!teamId) {
-      message.warning('Vui lòng chọn nhóm');
-      return;
-    }
     try {
       setSaving(true);
-      await memberApi.updateMember(member.memberId, {
-        teamId,
-        fullName: fullName.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-        cin: cin.trim(),
-        bankCode: bankCode.trim(),
-        bankName: bankName.trim(),
-        taxNumber: taxNumber.trim(),
-        avatarUrl: member.avatarUrl ?? undefined,
-      });
+
       if (member.userId) {
-        await userApi.updateUser(member.userId, {
-          email: email.trim(),
-          isActive,
+        // Vai trò: dùng API mới PUT /users/assign-role
+        await userApi.assignRole({
           roleId,
+          userIds: [member.userId],
         });
       }
 
@@ -209,66 +165,13 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
       open={open}
       onClose={onClose}
       title="Chỉnh sửa thành viên"
-      description="Cập nhật thông tin thành viên và tài khoản"
+        description="Cập nhật vai trò và kỹ năng"
       className="max-w-lg max-h-[90vh] overflow-y-auto"
     >
       {loading ? (
         <p className="py-8 text-center text-gray-500">Đang tải...</p>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Họ tên</Label>
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full" />
-          </div>
-          <div className="space-y-2">
-            <Label>Nhóm</Label>
-            <Select value={teamId ? String(teamId) : ''} onValueChange={(v) => setTeamId(Number(v))}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Chọn nhóm" />
-              </SelectTrigger>
-              <SelectContent>
-                {teams.map((t) => (
-                  <SelectItem key={t.teamId} value={String(t.teamId)}>
-                    {t.teamName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Điện thoại</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Email (tài khoản)</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Địa chỉ</Label>
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>CMND/CCCD</Label>
-              <Input value={cin} onChange={(e) => setCin(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Mã số thuế</Label>
-              <Input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Mã ngân hàng</Label>
-              <Input value={bankCode} onChange={(e) => setBankCode(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Tên ngân hàng</Label>
-              <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
-            </div>
-          </div>
           <div className="flex items-center justify-between pt-2 border-t">
             <Label>Vai trò</Label>
             <Select value={String(roleId)} onValueChange={(v) => setRoleId(Number(v))}>
@@ -283,10 +186,6 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex items-center justify-between">
-            <Label>Trạng thái hoạt động</Label>
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
 
           {/* Kỹ năng — cùng pattern môn học: Switch + thêm nhiều rồi Lưu */}

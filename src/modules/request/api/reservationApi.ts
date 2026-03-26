@@ -3,6 +3,8 @@ import { serializeParamsRepeatArray } from '@/shared/lib/paramsSerializer';
 import type { PaginationResponse } from '@/shared/types/api';
 import type {
   CheckAvailabilityParams,
+  ReservationFilterParams,
+  ReservationListItem,
   ReservationCreatePayload,
   ReservationResponse,
 } from './type';

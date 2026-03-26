@@ -6,13 +6,6 @@ export type CurrentUser = {
   token: string;
 };
 
-/** PUT user chỉ cập nhật email, role, isActive. Đổi mật khẩu dùng userApi.changePassword(). */
-export type UpdateUserPayload = {
-  email: string;
-  isActive: boolean;
-  roleId: number;
-};
-
 export type User = {
   userId: number;
   email: string;
