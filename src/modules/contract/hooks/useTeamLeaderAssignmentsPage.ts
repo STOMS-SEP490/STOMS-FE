@@ -471,10 +471,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
         const p = assignmentApi
           .suggestStaff(aid)
-          .catch((err) => {
-            console.error(err);
-            return [] as SuggestedStaff[];
-          })
+          .catch(() => [] as SuggestedStaff[])
           .finally(() => {
             delete suggestStaffInFlightRef.current[aid];
           });
@@ -517,6 +514,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     const detail = sessionDetailsById[activeSession.sessionId];
     const assignments = detail?.assignments ?? [];
     const assignmentIds = assignments
+      .filter((a) => a?.assignmentId && isAssignableStatus(a.status))
       .map((a) => a?.assignmentId)
       .filter((x): x is number => typeof x === 'number' && x > 0);
     void ensureSuggestedStaffForAssignments(assignmentIds);
@@ -666,6 +664,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
           if (!assignments.length) continue;
 
           const assignmentIds = assignments
+            .filter((a) => a?.assignmentId && isAssignableStatus(a.status))
             .map((a) => a?.assignmentId)
             .filter((x): x is number => typeof x === 'number' && x > 0);
           if (!assignmentIds.length) continue;

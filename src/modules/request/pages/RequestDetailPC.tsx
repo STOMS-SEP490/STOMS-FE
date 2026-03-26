@@ -32,11 +32,7 @@ export default function RequestDetailPC() {
     setRightPanel,
     loading,
     uiAssignedTeamIdsBySessionId,
-    suggestedTeamIdsBySessionId,
-    ensureSuggestedTeamIdsForSessions,
     handleAssignSession,
-    handleAssignAllUi,
-    handleClearAllUi,
     handleQuantitiesChange,
   } = useRequestDetailManager({
     id,
@@ -391,19 +387,9 @@ export default function RequestDetailPC() {
                       ) : (
                         <RequestDetailTeamPanel
                           session={rightPanel.session}
-                          sessionsCount={sessions.length}
-                          allSessions={sessions.map((s) => ({
-                            sessionId: s.sessionId,
-                            teachersRequired: (s as SessionWithFlags).teachersRequired ?? null,
-                            tasRequired: (s as SessionWithFlags).tasRequired ?? null,
-                          }))}
-                          suggestedTeamIdsBySessionId={suggestedTeamIdsBySessionId}
                           currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                          onEnsureSuggestedTeamIdsForSessions={ensureSuggestedTeamIdsForSessions}
                           onClose={() => setRightPanel(null)}
                           onAssignSession={handleAssignSession}
-                          onAssignAllUi={handleAssignAllUi}
-                          onClearAllUi={handleClearAllUi}
                           onQuantitiesChange={handleQuantitiesChange}
                         />
                       )}

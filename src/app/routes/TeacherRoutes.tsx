@@ -1,4 +1,4 @@
-import TeacherAssignments from '@/modules/contract/pages/TeacherAssignments';
+import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import EventCalendar from '@/modules/event/pages/EventCalendar';
 import UserProfile from '@/modules/user/pages/UserProfile';
@@ -23,13 +23,13 @@ const TeacherRoutes = [
     ],
   },
   { path: 'timetable', element: <EventCalendar /> },
-  { path: 'timetable/assignments', element: <TeacherAssignments /> },
+  { path: 'timetable/assignments', element: <TeamLeaderTimetableAssignments /> },
   { path: 'teaching-history', element: <TeacherTeachingHistoryPage /> },
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'contracts/:id', element: <ContractsManagement /> },
   { path: 'fund-contributions', element: <TeacherContributionHistoryPage /> },
-  { path: 'attendance', element: <TeacherAttendanceHistoryPage /> },
-  { path: 'attendance-history', element: <TeacherAttendanceHistoryPage /> },
+  { path: 'attendance', element: <TeacherAttendanceHistoryPage  /> },
+  { path: 'attendance-history', element: <TeacherAttendanceHistoryPage  /> },
   { path: 'tasks', element: <TeacherTaskReportPage /> },
   { path: 'equipments', element: <AvailableEquipmentsPage /> },
   { path: 'profile', element: <UserProfile /> },

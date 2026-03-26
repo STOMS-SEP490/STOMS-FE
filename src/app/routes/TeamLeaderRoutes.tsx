@@ -2,7 +2,6 @@ import { Navigate } from 'react-router-dom';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import TeamLeaderTeamPage from '@/modules/team/pages/TeamLeaderTeamPage';
 import EventCalendar from '@/modules/event/pages/EventCalendar';
-import SessionAttendancePage from '@/modules/attendance/pages/SessionAttendancePage';
 import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
 import AvailableEquipmentsPage from '@/modules/equipment/pages/AvailableEquipmentsPage';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
@@ -48,7 +47,6 @@ const TeamLeaderRoutes = [
   { path: 'attendance-history', element: <TeacherAttendanceHistoryPage /> },
   { path: 'tasks', element: <TeacherTaskReportPage /> },
   { path: 'equipments', element: <AvailableEquipmentsPage /> },
-  { path: 'attendance/:sessionId', element: <SessionAttendancePage /> },
 ];
 
 export default TeamLeaderRoutes;

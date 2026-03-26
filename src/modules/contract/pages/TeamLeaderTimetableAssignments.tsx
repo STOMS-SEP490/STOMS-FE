@@ -11,7 +11,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { getSessionStatusInfo } from '@/constants/status';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   useTeamLeaderTimetableAssignments,
   type TeamLeaderTimetableAssignmentRow,
@@ -52,13 +52,16 @@ type TeamLeaderTimetableAssignmentsProps = {
 
 export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetableAssignmentsProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const rolePrefix = location.pathname.startsWith('/teacher/') ? '/teacher' : '/tl';
+  const byMember = rolePrefix === '/teacher';
   const isAttendanceTab = props?.isAttendanceTab ?? false;
   const isEmbedded = props?.embedded ?? false;
   const statuses = useMemo(
     () => (isAttendanceTab ? ['ASSIGNED', 'ONGOING'] : ['ASSIGNED', 'ONGOING']),
     [isAttendanceTab],
   );
-  const internal = useTeamLeaderTimetableAssignments({ pageSize: 8, statuses, todayOnly: isAttendanceTab });
+  const internal = useTeamLeaderTimetableAssignments({ pageSize: 8, statuses, todayOnly: isAttendanceTab, byMember });
 
   const items = props?.items ?? internal.items;
   const loading = props?.loading ?? internal.loading;
@@ -419,7 +422,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
                 <button
                   type="button"
-                  onClick={() => navigate('/tl/timetable')}
+                  onClick={() => navigate(`${rolePrefix}/timetable`)}
                   className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors text-slate-500 hover:bg-slate-50"
                   title="Xem dạng thời khóa biểu"
                 >

@@ -15,7 +15,7 @@ import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
-import type { RequestLayoutOutletContext, SessionWithFlags } from '../requestDetail.types';
+import type { RequestLayoutOutletContext } from '../requestDetail.types';
 
 export default function RequestDetail() {
   const { id } = useParams<{ id: string }>();
@@ -26,8 +26,6 @@ export default function RequestDetail() {
     rightPanel,
     setRightPanel,
     loading,
-    suggestedTeamIdsBySessionId,
-    ensureSuggestedTeamIdsForSessions,
     uiAssignedTeamIdsBySessionId,
     assignmentsBySessionId,
     selectedAssignmentIdsBySessionId,
@@ -46,8 +44,6 @@ export default function RequestDetail() {
     createdByMemberId,
     assignedCount,
     handleAssignSession,
-    handleAssignAllUi,
-    handleClearAllUi,
     handleQuantitiesChange,
     handleApproveClick,
     handleToggleAssignmentSelection,
@@ -579,19 +575,9 @@ export default function RequestDetail() {
                     ) : (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
-                        sessionsCount={sessions.length}
-                        allSessions={sessions.map((s) => ({
-                          sessionId: s.sessionId,
-                          teachersRequired: (s as SessionWithFlags).teachersRequired ?? null,
-                          tasRequired: (s as SessionWithFlags).tasRequired ?? null,
-                        }))}
-                        suggestedTeamIdsBySessionId={suggestedTeamIdsBySessionId}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                        onEnsureSuggestedTeamIdsForSessions={ensureSuggestedTeamIdsForSessions}
                         onClose={() => setRightPanel(null)}
                         onAssignSession={handleAssignSession}
-                        onAssignAllUi={handleAssignAllUi}
-                        onClearAllUi={handleClearAllUi}
                         onQuantitiesChange={handleQuantitiesChange}
                       />
                     )}
@@ -601,19 +587,9 @@ export default function RequestDetail() {
               {rightPanel.mode === 'team' && (
                 <RequestDetailTeamPanel
                   session={rightPanel.session}
-                  sessionsCount={sessions.length}
-                  allSessions={sessions.map((s) => ({
-                    sessionId: s.sessionId,
-                    teachersRequired: (s as SessionWithFlags).teachersRequired ?? null,
-                    tasRequired: (s as SessionWithFlags).tasRequired ?? null,
-                  }))}
-                  suggestedTeamIdsBySessionId={suggestedTeamIdsBySessionId}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                  onEnsureSuggestedTeamIdsForSessions={ensureSuggestedTeamIdsForSessions}
                   onClose={() => setRightPanel(null)}
                   onAssignSession={handleAssignSession}
-                  onAssignAllUi={handleAssignAllUi}
-                  onClearAllUi={handleClearAllUi}
                   onQuantitiesChange={handleQuantitiesChange}
                 />
               )}

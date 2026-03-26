@@ -51,7 +51,7 @@ export default function TeamLeaderSidebar() {
         matchPrefixPath: '/tl/timetable',
       },
       { label: 'Danh sách phiên đã dạy', icon: Clock, path: '/tl/teaching-history' },
-      { label: 'Lịch sử điểm danh', icon: CheckCircle2, path: '/tl/attendance-history' },
+      { label: 'Điểm danh', icon: CheckCircle2, path: '/tl/attendance' },
       { label: 'Báo cáo công việc', icon: ClipboardList, path: '/tl/tasks' },
       { label: 'Hợp đồng', icon: FileText, path: '/tl/contracts' },
       { label: 'Đóng góp quỹ', icon: Wallet, path: '/tl/fund-contributions' },

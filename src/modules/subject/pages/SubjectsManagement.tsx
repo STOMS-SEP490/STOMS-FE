@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { Pencil, Power, PowerOff, Trash2, Plus } from 'lucide-react'
+import { Eye, Pencil, Power, PowerOff, Trash2, Plus } from 'lucide-react'
 import { DataTable } from '@/shared/components/common/DataTable'
 import { TableTextAction } from '@/shared/components/common/TableTextAction'
 import { Badge } from '@/shared/components/ui/badge'
@@ -12,6 +12,7 @@ import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import { Switch } from '@/shared/components/ui/switch'
 import { Drawer, message, Modal } from 'antd'
+import { useAuth } from '@/app/providers/AuthProvider'
 import type { SkillListItem } from '@/modules/skill/skill'
 import skillApi from '@/modules/skill/api/skillApi'
 import type { TopicListItem } from '@/modules/topic/topic'
@@ -32,6 +33,10 @@ type EditableSession = {
 
 export default function SubjectsManagement() {
   const context = useOutletContext<{ position: string }>()
+
+  const { user } = useAuth()
+  const roleId = Number(user?.role ?? 0)
+  const isManager = roleId === 1
 
   const {
     data,
@@ -132,6 +137,10 @@ export default function SubjectsManagement() {
   }, [])
 
   const openEditModal = async (s: SubjectListItem) => {
+    if (!isManager) {
+      message.warning('Bạn không có quyền chỉnh sửa môn học.')
+      return
+    }
     setIsCreating(false)
     setShowAddSkill(false)
     try {
@@ -196,6 +205,10 @@ export default function SubjectsManagement() {
   }
 
   const openCreateModal = () => {
+    if (!isManager) {
+      message.warning('Bạn không có quyền thêm môn học.')
+      return
+    }
     setIsCreating(true)
     setEditingSubject(null)
     setShowAddSkill(false)
@@ -470,26 +483,47 @@ export default function SubjectsManagement() {
       header: 'THAO TÁC',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <TableTextAction onClick={() => handleView(row.original)} />
-          <Button variant="ghost" size="icon" onClick={() => openEditModal(row.original)} title="Sửa">
-            <Pencil className="w-4 h-4 text-blue-600" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleToggleActive(row.original)}
-            title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
-          >
-            {row.original.isActive ? (
-              <PowerOff className="w-4 h-4 text-red-500" />
-            ) : (
-              <Power className="w-4 h-4 text-green-600" />
-            )}
-          </Button>
+          {isManager ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleView(row.original)}
+              aria-label="Xem chi tiết"
+            >
+              <Eye size={16} className="text-gray-800" />
+            </Button>
+          ) : (
+            <TableTextAction onClick={() => handleView(row.original)} />
+          )}
+
+          {isManager && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => openEditModal(row.original)}
+                title="Sửa"
+              >
+                <Pencil className="w-4 h-4 text-blue-600" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleToggleActive(row.original)}
+                title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
+              >
+                {row.original.isActive ? (
+                  <PowerOff className="w-4 h-4 text-red-500" />
+                ) : (
+                  <Power className="w-4 h-4 text-green-600" />
+                )}
+              </Button>
+            </>
+          )}
         </div>
       ),
     },
-  ], [])
+  ], [isManager])
 
   if (context.position === 'toolbar') {
     return (
@@ -513,12 +547,14 @@ export default function SubjectsManagement() {
           <h2 className="text-lg font-semibold text-black">Quản lý môn học</h2>
           <p className="text-xs text-gray-500">Danh sách môn học trong hệ thống</p>
         </div>
-        <Button
-          className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-          onClick={openCreateModal}
-        >
-          Thêm môn học
-        </Button>
+        {isManager && (
+          <Button
+            className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+            onClick={openCreateModal}
+          >
+            Thêm môn học
+          </Button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-4">
