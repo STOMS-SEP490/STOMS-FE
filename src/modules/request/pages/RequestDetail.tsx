@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, Paperclip } from 'lucide-react';
@@ -27,6 +27,7 @@ export default function RequestDetail() {
     setRightPanel,
     loading,
     uiAssignedTeamIdsBySessionId,
+    uiQuantitiesBySessionId,
     assignmentsBySessionId,
     selectedAssignmentIdsBySessionId,
     approveOpen,
@@ -60,6 +61,46 @@ export default function RequestDetail() {
     refreshRequestSidebar,
   });
 
+  const remainingUnassignedSessions = Math.max(0, sessions.length - assignedCount);
+  const [highlightSessionId, setHighlightSessionId] = useState<number | null>(null);
+  const highlightTimeoutRef = useRef<number | null>(null);
+
+  const scrollToNearestUnassignedSession = useCallback(() => {
+    const target = document.querySelector<HTMLElement>('[data-request-session-unassigned="true"]');
+    if (!target) return;
+
+    const sidAttr = target.getAttribute('data-request-session-id');
+    const sid = sidAttr ? Number(sidAttr) : null;
+    if (sid != null && !Number.isNaN(sid)) {
+      setHighlightSessionId(sid);
+      if (highlightTimeoutRef.current != null) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+      highlightTimeoutRef.current = window.setTimeout(() => {
+        setHighlightSessionId(null);
+        highlightTimeoutRef.current = null;
+      }, 2200);
+    }
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Focus to help the user see it and enable keyboard navigation
+    target.focus({ preventScroll: true });
+  }, []);
+
+  const isSessionFullyAssigned = useCallback(
+    (session: RequestSessionSummary & { sessionId: number; teachersRequired?: number | null; tasRequired?: number | null }) => {
+      const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
+      if (teamIds.length === 0) return false;
+      const reqTeachers = Number(session.teachersRequired ?? 1) || 1;
+      const reqTas = Number(session.tasRequired ?? 1) || 1;
+      const uiQ = uiQuantitiesBySessionId[session.sessionId];
+      const assignedTeachers = uiQ?.teachersRequired ?? reqTeachers;
+      const assignedTas = uiQ?.tasRequired ?? reqTas;
+      return assignedTeachers >= reqTeachers && assignedTas >= reqTas;
+    },
+    [uiAssignedTeamIdsBySessionId, uiQuantitiesBySessionId]
+  );
+
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ fileName: string; fileUrl: string } | null>(
     null
@@ -77,7 +118,7 @@ export default function RequestDetail() {
   const getAttachmentMeta = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
     const urlOrName = (fileUrl ?? fileName ?? '').toLowerCase();
     const extMatch = urlOrName.match(/\.([a-z0-9]{1,10})(?:\?|#|$)/);
-    const ext = extMatch?.[1]?.toUpperCase();
+    const ext = extMatch && extMatch.length > 1 ? String(extMatch[1]).toUpperCase() : undefined;
 
     if (/\.(png|jpg|jpeg|gif|webp)(?:\?|#|$)/.test(urlOrName)) {
       return { kind: 'image' as const, label: 'Hình ảnh', ext, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', iconClass: 'text-emerald-600' };
@@ -112,7 +153,20 @@ export default function RequestDetail() {
     courseId: request.courseId,
     eventId: request.eventId,
   });
-  const statusInfo = getRequestStatusInfo(request.status);
+  const statusInfo = (() => {
+    const base = getRequestStatusInfo(request.status);
+    if (viewMode !== 'assignment') return base;
+    const raw = String(request.status ?? '').trim();
+    const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
+    const code = Number(raw);
+    const isAssigning = normalized === 'ASSIGNING' || (!Number.isNaN(code) && code === 4);
+    if (!isAssigning) return base;
+    return {
+      label: 'Chờ duyệt phân công',
+      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      leftBarClass: 'border-l-indigo-500',
+    };
+  })();
   const sessionCount = sessions.length || request.sessionsRequired || 0;
 
   return (
@@ -282,18 +336,26 @@ export default function RequestDetail() {
           <TabsContent value="overview" className="space-y-4 mb-0">
           {/* WARNING BOX + PROGRESS — Figma: cam, tiến độ gắn đội, nút Từ chối */}
           <div className="space-y-3">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex items-start gap-2 min-w-0">
-                <span className="text-amber-600 shrink-0 mt-0.5">⚠</span>
-                <div>
-                  <p className="text-sm text-amber-800">
-                    Vui lòng gắn đội cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn{' '}
-                    {Math.max(0, sessions.length - assignedCount)} phiên chưa được gắn đội phụ trách.
-                  </p>
-                  <span className="text-xs font-medium text-amber-700 mt-1">Xem phiên chưa gắn</span>
+            {remainingUnassignedSessions > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex items-start gap-2 min-w-0">
+                  <span className="text-amber-600 shrink-0 mt-0.5">⚠</span>
+                  <div>
+                    <p className="text-sm text-amber-800">
+                      Vui lòng gắn đội cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn{' '}
+                      {remainingUnassignedSessions} phiên chưa được gắn đội phụ trách.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={scrollToNearestUnassignedSession}
+                      className="text-xs font-medium text-amber-700 mt-1 underline underline-offset-2 hover:text-amber-800"
+                    >
+                      Xem phiên chưa gắn
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm font-medium text-slate-700">Tiến độ gắn đội</span>
@@ -364,6 +426,7 @@ export default function RequestDetail() {
                 {sessions.map((session) => {
                   const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
                   const teamCount = teamIds.length;
+                  const fullyAssigned = isSessionFullyAssigned(session);
                   const sessionTitle =
                     (session as RequestSessionSummary & { notes?: string }).notes
                       ? `Phiên ${session.sessionNo}: ${(session as RequestSessionSummary & { notes?: string }).notes}`
@@ -374,6 +437,8 @@ export default function RequestDetail() {
                       key={session.sessionId}
                       role="button"
                       tabIndex={0}
+                      data-request-session-id={session.sessionId}
+                      data-request-session-unassigned={String(!fullyAssigned)}
                       onClick={() => setRightPanel({ mode: 'detail', session })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -381,7 +446,9 @@ export default function RequestDetail() {
                           setRightPanel({ mode: 'detail', session });
                         }
                       }}
-                      className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
+                      className={`w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2 ${
+                        highlightSessionId === session.sessionId ? 'ring-2 ring-amber-300 border-amber-200 bg-amber-50/30' : ''
+                      }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -391,13 +458,13 @@ export default function RequestDetail() {
                           <span className="text-xs text-slate-500">Dạy học</span>
                           <span
                             className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
-                              session.teamAssigned
+                              fullyAssigned
                                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 : 'bg-amber-50 text-amber-800 border border-amber-200'
                             }`}
                           >
-                            {!session.teamAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                            {session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
+                            {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
+                            {fullyAssigned ? 'Đã gắn đủ' : 'Chưa đủ'}
                           </span>
                         </div>
                         <span
@@ -411,7 +478,7 @@ export default function RequestDetail() {
                       <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
                         <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span>{location}</span>
-                        {session.teamAssigned && teamCount > 0 && (
+                        {fullyAssigned && teamCount > 0 && (
                           <>
                             <span className="text-slate-300">•</span>
                             <span className="text-slate-600">{teamCount} đội</span>
@@ -557,15 +624,18 @@ export default function RequestDetail() {
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
                 <>
-                  {/* Thông tin phiên + Danh sách thiết bị: luôn hiển thị, kể cả khi đã gắn đội / đã duyệt */}
-                <RequestSessionDetailPanel
-                  // Tránh trường hợp rightPanel.session bị "chụp" lúc chưa có reservationId.
-                  // Luôn ưu tiên session mới nhất từ state `sessions`.
-                  session={
-                    sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
-                  }
-                  requestCode={request.requestCode ?? ''}
-                />
+                  {/* Thông tin phiên luôn ở trên cùng */}
+                  <RequestSessionDetailPanel
+                    // Tránh trường hợp rightPanel.session bị "chụp" lúc chưa có reservationId.
+                    // Luôn ưu tiên session mới nhất từ state `sessions`.
+                    session={
+                      sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                    }
+                    requestId={Number(request.requestId)}
+                    requestCode={request.requestCode ?? ''}
+                    showReservedEquipment={false}
+                    sectionMode="info"
+                  />
                   <div className="mt-6">
                     {String(request.status ?? '').toLowerCase() !== 'pending' ? (
                       <RequestDetailTeamSummary
@@ -575,6 +645,7 @@ export default function RequestDetail() {
                     ) : (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
+                        currentQuantities={uiQuantitiesBySessionId[rightPanel.session.sessionId]}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                         onClose={() => setRightPanel(null)}
                         onAssignSession={handleAssignSession}
@@ -582,11 +653,22 @@ export default function RequestDetail() {
                       />
                     )}
                   </div>
+                  <div className="mt-6">
+                    <RequestSessionDetailPanel
+                      session={
+                        sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                      }
+                      requestId={Number(request.requestId)}
+                      requestCode={request.requestCode ?? ''}
+                      sectionMode="equipment"
+                    />
+                  </div>
                 </>
               )}
               {rightPanel.mode === 'team' && (
                 <RequestDetailTeamPanel
                   session={rightPanel.session}
+                  currentQuantities={uiQuantitiesBySessionId[rightPanel.session.sessionId]}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                   onClose={() => setRightPanel(null)}
                   onAssignSession={handleAssignSession}
@@ -595,25 +677,25 @@ export default function RequestDetail() {
               )}
               {rightPanel.mode === 'assignment' && (
                 <div className="space-y-4">
-                  <div className="rounded-2xl bg-white border border-gray-100 shadow-sm">
-                    <div className="px-4 py-2.5 border-b border-gray-100">
-                      <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
-                    </div>
-                    <div className="px-4 py-3 space-y-1 text-sm text-gray-700">
-                      <p>
-                        <span className="font-medium">Thời gian:</span>{' '}
-                        {dayjs(rightPanel.session.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
-                        {dayjs(rightPanel.session.endAt).format('DD/MM/YYYY HH:mm')}
-                      </p>
-                      <p>
-                        <span className="font-medium">Giảng viên yêu cầu:</span>{' '}
-                        {rightPanel.session.teachersRequired ?? 1}
-                        {' · '}
-                        <span className="font-medium">Trợ giảng yêu cầu:</span>{' '}
-                        {rightPanel.session.tasRequired ?? 1}
-                      </p>
-                    </div>
-                  </div>
+                  {request && (
+                    <>
+                      <RequestSessionDetailPanel
+                        session={
+                          sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                        }
+                        requestId={Number(request.requestId)}
+                        requestCode={request.requestCode ?? ''}
+                        showReservedEquipment={false}
+                        sectionMode="info"
+                      />
+                      <RequestDetailTeamSummary
+                        session={
+                          sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                        }
+                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                      />
+                    </>
+                  )}
 
                   <div className="rounded-2xl bg-white border border-gray-100 shadow-sm">
                     <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
@@ -654,7 +736,12 @@ export default function RequestDetail() {
                         }
                         const selectedIds =
                           selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
-                        return rows.map((row) => {
+                        const teacherRows = rows.filter(
+                          (row) => row.staffRole === 'TE' || row.staffRole === 'TEACHER'
+                        );
+                        const taRows = rows.filter((row) => row.staffRole === 'TA');
+
+                        const renderAssignmentRow = (row: (typeof rows)[number]) => {
                           const checked = selectedIds.includes(row.assignmentId);
                           const isTeacher = row.staffRole === 'TE' || row.staffRole === 'TEACHER';
                           const statusText = (row.status || '').toUpperCase();
@@ -676,30 +763,26 @@ export default function RequestDetail() {
                                 >
                                   {isTeacher ? 'Giảng viên' : 'Trợ giảng'}
                                 </span>
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
-                                    {row.avatarUrl ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={row.avatarUrl}
-                                        alt={row.fullName}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
-                                        }}
-                                      />
-                                    ) : (
-                                      (row.fullName || 'N')[0]
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium text-slate-900 truncate">
-                                      {row.fullName || '—'}
-                                    </p>
-                                    {row.email && (
-                                      <p className="text-[11px] text-slate-500 truncate">{row.email}</p>
-                                    )}
-                                  </div>
+                                <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
+                                  {row.avatarUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={row.avatarUrl}
+                                      alt={row.fullName}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                      }}
+                                    />
+                                  ) : (
+                                    (row.fullName || 'N')[0]
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-slate-900 truncate">
+                                    {row.fullName || '—'}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 truncate">{row.email || '—'}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
@@ -746,10 +829,42 @@ export default function RequestDetail() {
                               </div>
                             </div>
                           );
-                        });
+                        };
+
+                        return (
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs font-semibold text-sky-700 mb-1">Giảng viên:</p>
+                              <div className="space-y-1">
+                                {teacherRows.length ? (
+                                  teacherRows.map(renderAssignmentRow)
+                                ) : (
+                                  <p className="text-xs text-gray-500 px-2">—</p>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-amber-700 mb-1">Trợ giảng:</p>
+                              <div className="space-y-1">
+                                {taRows.length ? taRows.map(renderAssignmentRow) : <p className="text-xs text-gray-500 px-2">—</p>}
+                              </div>
+                            </div>
+                          </div>
+                        );
                       })()}
                     </div>
                   </div>
+
+                  {request && (
+                    <RequestSessionDetailPanel
+                      session={
+                        sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                      }
+                      requestId={Number(request.requestId)}
+                      requestCode={request.requestCode ?? ''}
+                      sectionMode="equipment"
+                    />
+                  )}
                 </div>
               )}
               {rightPanel.mode === 'equipment' && (

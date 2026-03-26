@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 
 import dayjs from 'dayjs';
-import { Dropdown, Popover, Spin } from 'antd';
+import { Popover, Spin } from 'antd';
 import {
   X,
   MapPin,
@@ -15,7 +15,6 @@ import {
   AlertCircle,
   RotateCcw,
   Plus,
-  MoreVertical,
   Sparkles,
   Briefcase,
 } from 'lucide-react';
@@ -31,13 +30,14 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import RequestCard from '@/shared/components/request/RequestCard';
-import { getSessionStatusInfo } from '@/constants/status';
-import type { SessionDetail, SuggestedStaff } from '@/modules/request/api/type';
+import { getRequestStatusLabel, getTeamLeaderRequestStatusInfo } from '@/constants/status';
+import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
 import {
   getEffectiveStaffMemberId,
   useTeamLeaderAssignmentsPage,
 } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
+import { SESSION_STATUS } from '@/constants/status';
 
 type AssignmentRow = NonNullable<NonNullable<SessionDetail['assignments']>[number]>;
 
@@ -76,6 +76,37 @@ function getStaffDisplayForSlot(
   };
 }
 
+function getAssignmentReviewBadge(status: string | number | null | undefined): {
+  label: string;
+  className: string;
+} | null {
+  const raw = String(status ?? '').trim();
+  const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
+  const statusCode = Number(raw);
+
+  if (
+    normalized === 'ASSIGNMENT_REJECTED' ||
+    (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNMENT_REJECTED)
+  ) {
+    return {
+      label: 'Phân công bị từ chối',
+      className: 'bg-orange-50 text-orange-700 border-orange-200',
+    };
+  }
+
+  if (
+    normalized === 'ASSIGNED' ||
+    (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNED)
+  ) {
+    return {
+      label: 'Phân công đã được duyệt',
+      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    };
+  }
+
+  return null;
+}
+
 type TeamLeaderAssignmentsPageProps = {
   tab: TeamLeaderAssignmentsTab;
 };
@@ -88,7 +119,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     setSelectedRequestId,
     selectedRequest,
     selectedRequestTypeInfo,
-    selectedRequestStatusInfo,
     search,
     setSearch,
     onlyNeedsAction,
@@ -103,6 +133,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     searchByAssignmentId,
     setSearchByAssignmentId,
     handleSelectStaff,
+    refetchRequestById,
     getSessionStats,
     handleResetFilters,
   } = useTeamLeaderAssignmentsPage(tab);
@@ -112,6 +143,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     rect: DOMRect;
   } | null>(null);
   const [staffPickerAssignmentId, setStaffPickerAssignmentId] = useState<number | null>(null);
+  const completionEdgeByRequestIdRef = useRef<Record<number, boolean>>({});
   const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -380,44 +412,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     </div>
                   </button>
                 </Popover>
-                <Dropdown
-                  trigger={['click']}
-                  placement="bottomRight"
-                  arrow
-                  menu={{
-                    items: [
-                      {
-                        key: 'clear',
-                        label: (
-                          <span className="inline-flex items-center gap-2 text-[13px] font-medium">
-                           
-                            Gỡ phân công
-                          </span>
-                        ),
-                        danger: true,
-                        className:
-                          'rounded-lg !bg-rose-50 hover:!bg-rose-100 !text-rose-600',
-                      },
-                    ],
-                    onClick: ({ key, domEvent }) => {
-                      domEvent.stopPropagation();
-                      if (key === 'clear') {
-                        handleSelectStaff(sessionId, a.assignmentId, 0);
-                        setStaffPickerAssignmentId(null);
-                        setHoveredStaff(null);
-                      }
-                    },
-                  }}
-                >
-                  <button
-                    type="button"
-                    className={`shrink-0 rounded-lg p-2 ${accent.menuBtn}`}
-                    aria-label="Tùy chọn"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
-                </Dropdown>
               </div>
             );
           })}
@@ -426,10 +420,55 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     );
   };
 
+  const isRequestFullyAssigned = useCallback(
+    (request: NonNullable<typeof selectedRequest>) => {
+      const sessions = request.sessions ?? [];
+      if (sessions.length === 0) return false;
+      let hasSlots = false;
+      for (const s of sessions) {
+        const stats = getSessionStats(s);
+        if (stats.total > 0) {
+          hasSlots = true;
+          if (stats.filled < stats.total) return false;
+          continue;
+        }
+
+        // Fallback khi chưa load session detail: dựa vào session.status từ list API.
+        const raw = String(s.status ?? '').trim();
+        const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
+        const statusCode = Number(raw);
+        const isAssignedStatus =
+          normalized === 'ASSIGNED' ||
+          (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNED);
+
+        if (!isAssignedStatus) return false;
+        hasSlots = true;
+      }
+      return hasSlots;
+    },
+    [getSessionStats],
+  );
+
+  useEffect(() => {
+    if (!selectedRequest) return;
+    const requestId = selectedRequest.requestId;
+    const isAssigning = getRequestStatusLabel(selectedRequest.status) === 'Đang phân công';
+    const isFullyAssigned = isRequestFullyAssigned(selectedRequest);
+    const wasFullyAssigned = completionEdgeByRequestIdRef.current[requestId] ?? false;
+
+    if (!isAssigning || !isFullyAssigned) {
+      completionEdgeByRequestIdRef.current[requestId] = false;
+      return;
+    }
+    if (wasFullyAssigned) return;
+
+    completionEdgeByRequestIdRef.current[requestId] = true;
+    void refetchRequestById(requestId);
+  }, [selectedRequest, isRequestFullyAssigned, refetchRequestById]);
+
   return (
     <div
-      className="flex flex-col p-6 bg-slate-50 overflow-hidden py-0 px-0"
-      style={{ height: 'var(--content-height, 100vh)' }}
+      className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden py-0 px-0"
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
@@ -500,6 +539,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 courseId={r.courseId}
                 eventId={r.eventId}
                 status={r.status}
+                statusInfoOverride={getTeamLeaderRequestStatusInfo(r.status)}
                 showNeedsAction
                 isActive={r.requestId === selectedRequestId}
                 onClick={() => {
@@ -560,11 +600,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         {selectedRequestTypeInfo.label}
                       </span>
                     )}
-                    {selectedRequestStatusInfo && (
+                    {selectedRequest && (
                       <span
-                        className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${selectedRequestStatusInfo.className}`}
+                        className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${getTeamLeaderRequestStatusInfo(selectedRequest.status).className}`}
                       >
-                        {selectedRequestStatusInfo.label}
+                        {getTeamLeaderRequestStatusInfo(selectedRequest.status).label}
                       </span>
                     )}
                   </div>
@@ -652,7 +692,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         const stats = getSessionStats(session);
                         const isActive = activeSession?.sessionId === session.sessionId;
                         const title = `Phiên ${session.sessionNo}`;
-                        const sessionStatusInfo = getSessionStatusInfo(session.status);
+                        const assignmentReviewBadge = getAssignmentReviewBadge(session.status);
                         return (
                           <div
                             key={session.sessionId}
@@ -686,11 +726,13 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span
-                                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
-                                >
-                                  {sessionStatusInfo.label}
-                                </span>
+                                {assignmentReviewBadge && (
+                                  <span
+                                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${assignmentReviewBadge.className}`}
+                                  >
+                                    {assignmentReviewBadge.label}
+                                  </span>
+                                )}
                                 <span
                                   className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
                                     stats.total > 0 && stats.filled === stats.total

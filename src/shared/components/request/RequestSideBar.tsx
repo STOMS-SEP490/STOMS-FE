@@ -1,7 +1,8 @@
-  import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import RequestCard from './RequestCard';
+import { getRequestStatusInfo } from '@/constants/status';
 
 const REQUEST_APPROVAL_STATUSES = ['PENDING', 'REJECTED', 'APPROVED'] as const;
 const REQUEST_ALL_STATUSES = [
@@ -47,6 +48,7 @@ export default function RequestSidebar({
 }: RequestSidebarProps) {
   const navigate = useNavigate();
   const { id } = useParams();
+  const isAssignmentView = basePath.includes('/assignments');
 
   const apiStatuses = (() => {
     if (onlyPending) return ['PENDING'];
@@ -63,6 +65,24 @@ export default function RequestSidebar({
     statuses: apiStatuses,
   });
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+
+  const getManagerAssignmentStatusInfo = useMemo(
+    () => (status: string | number | null | undefined) => {
+      const base = getRequestStatusInfo(status);
+      if (!isAssignmentView) return base;
+      const raw = String(status ?? '').trim();
+      const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
+      const code = Number(raw);
+      const isAssigning = normalized === 'ASSIGNING' || (!Number.isNaN(code) && code === 4);
+      if (!isAssigning) return base;
+      return {
+        label: 'Chờ duyệt phân công',
+        className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        leftBarClass: 'border-l-indigo-500',
+      };
+    },
+    [isAssignmentView],
+  );
 
   const filtered = requestList
     .filter((item) => {
@@ -134,6 +154,7 @@ export default function RequestSidebar({
                 courseId={item.courseId}
                 eventId={item.eventId}
                 status={item.status}
+                statusInfoOverride={getManagerAssignmentStatusInfo(item.status)}
                 showNeedsAction={isPendingStatus(item.status)}
                 isActive={id === String(item.requestId)}
                 isHovered={hoveredId === item.requestId}

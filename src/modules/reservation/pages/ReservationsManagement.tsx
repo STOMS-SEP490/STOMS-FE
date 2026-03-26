@@ -7,8 +7,8 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
 import { message } from 'antd';
-import reservationApi from '@/modules/request/api/reservationApi';
-import type { ReservationListItem, ReservationDetail } from '@/modules/request/api/type';
+import reservationApi from '@/modules/reservation/api/reservationApi';
+import type { ReservationListItem, ReservationDetail } from '@/modules/request/type';
 import ReservationDetailSidebar from './ReservationDetailSidebar';
 
 type OutletContext = {

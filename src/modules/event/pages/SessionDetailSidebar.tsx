@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import type { SessionDetail } from '@/modules/request/api/type';
+import type { SessionDetail } from '@/modules/request/type';
 
 type Props = {
   open: boolean;

@@ -55,7 +55,7 @@ export default function RequestDetailTeamSummary({ session, assignedTeamIds }: P
   return (
     <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
       <div className="px-4 py-2.5 border-b border-gray-100">
-        <h3 className="font-semibold text-gray-900 text-sm">Gán đội phụ trách</h3>
+        <h3 className="font-semibold text-gray-900 text-sm">Đội phụ trách</h3>
       </div>
       <div className="px-4 py-3 space-y-3">
         {loading ? (

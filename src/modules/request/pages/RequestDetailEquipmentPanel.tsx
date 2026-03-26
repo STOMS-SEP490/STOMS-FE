@@ -6,7 +6,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { EquipmentListItem } from '@/modules/equipment/equipment';
-import reservationApi from '../api/reservationApi';
+import reservationApi from '../../reservation/api/reservationApi';
 import categoryApi from '@/modules/category/api/categoryApi';
 import type { CategoryListItem } from '@/modules/category/category';
 
@@ -252,7 +252,6 @@ export default function RequestDetailEquipmentPanel({
         return;
       }
       await reservationApi.create({
-        createdByMemberId,
         sessionIds: [row.sessionId],
         startAt: start.format('YYYY-MM-DDTHH:mm:ss'),
         endAt: end.format('YYYY-MM-DDTHH:mm:ss'),

@@ -55,7 +55,9 @@ export default function CreateRequestPage() {
   const isEditMode = Boolean(id)
   const [isHydratingEdit, setIsHydratingEdit] = useState(isEditMode)
   const [editRequestStatus, setEditRequestStatus] = useState<string | number | null>(null)
-  const canEditOrDelete = isEditMode && getRequestStatusLabel(editRequestStatus) === 'Chờ duyệt'
+  const statusLabel = getRequestStatusLabel(editRequestStatus)
+  const canEdit = isEditMode && (statusLabel === 'Chờ duyệt' || statusLabel === 'Từ chối')
+  const canDelete = isEditMode && statusLabel === 'Chờ duyệt'
 
   const [requestName, setRequestName] = useState('')
   const [customerName, setCustomerName] = useState('')
@@ -329,8 +331,8 @@ export default function CreateRequestPage() {
   }
 
   const handleSubmit = () => {
-    if (isEditMode && !canEditOrDelete) {
-      message.error('Chỉ có thể chỉnh sửa/xóa khi yêu cầu đang ở trạng thái Chờ duyệt.')
+    if (isEditMode && !canEdit) {
+      message.error('Chỉ có thể chỉnh sửa khi yêu cầu đang ở trạng thái Chờ duyệt hoặc Từ chối.')
       return
     }
     if (!requestName.trim()) {
@@ -644,7 +646,7 @@ export default function CreateRequestPage() {
             <Button variant="outline" size="sm" className="border-gray-300 text-black hover:bg-gray-100" onClick={() => navigate('/pc/requests')}>
               Huỷ bỏ
             </Button>
-            {isEditMode && canEditOrDelete && (
+            {isEditMode && canDelete && (
               <Button
                 variant="outline"
                 size="sm"
@@ -692,7 +694,7 @@ export default function CreateRequestPage() {
               size="sm"
               className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
               onClick={() => void handleSubmit()}
-              disabled={submitLoading || isHydratingEdit || (isEditMode && !canEditOrDelete)}
+              disabled={submitLoading || isHydratingEdit || (isEditMode && !canEdit)}
             >
               {submitLoading ? (
                 <>

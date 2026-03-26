@@ -216,9 +216,9 @@ export function getTeamLeaderRequestStatusInfo(
 
   if (code === REQUEST_STATUS.ASSIGNING) {
     return {
-      label: 'Chờ duyệt',
-      className: 'bg-sky-50 text-sky-700 border-sky-200',
-      leftBarClass: 'border-l-sky-500',
+      label: 'Đã phân công',
+      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      leftBarClass: 'border-l-indigo-500',
     };
   }
 

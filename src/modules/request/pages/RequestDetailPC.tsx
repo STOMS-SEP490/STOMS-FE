@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useOutletContext, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import {
   AlertCircle,
@@ -22,6 +22,7 @@ import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 
 export default function RequestDetailPC() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
 
   const {
@@ -52,7 +53,7 @@ export default function RequestDetailPC() {
   const getAttachmentMeta = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
     const urlOrName = (fileUrl ?? fileName ?? '').toLowerCase();
     const extMatch = urlOrName.match(/\.([a-z0-9]{1,10})(?:\?|#|$)/);
-    const ext = extMatch?.[1]?.toUpperCase();
+    const ext = extMatch && extMatch.length > 1 ? String(extMatch[1]).toUpperCase() : undefined;
 
     if (/\.(png|jpg|jpeg|gif|webp)(?:\?|#|$)/.test(urlOrName)) {
       return { kind: 'image' as const, label: 'Hình ảnh', ext, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', iconClass: 'text-emerald-600' };
@@ -82,6 +83,7 @@ export default function RequestDetailPC() {
     eventId: request.eventId,
   });
   const statusInfo = getRequestStatusInfo(request.status);
+  const isRejected = statusInfo.label === 'Từ chối';
   const sessionCount = sessions.length || request.sessionsRequired || 0;
 
   return (
@@ -130,6 +132,24 @@ export default function RequestDetailPC() {
               </div>
             </div>
           </div>
+
+          {isRejected && (
+            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <p className="text-xs font-semibold text-rose-700">Lý do từ chối</p>
+              <p className="mt-1 text-sm text-rose-900 whitespace-pre-line">
+                {request.reason?.trim() || 'Không có lý do cụ thể.'}
+              </p>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 transition"
+                  onClick={() => navigate(`/pc/requests/edit/${request.requestId}`)}
+                >
+                  Chỉnh sửa và gửi duyệt lại
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4 text-black">
@@ -372,7 +392,9 @@ export default function RequestDetailPC() {
                       session={
                         sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
                       }
+                      requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
+                      showReservedEquipment={false}
                     />
 
                     <div className="mt-6">

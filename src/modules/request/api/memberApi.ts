@@ -1,5 +1,5 @@
 import axiosClient from '@/shared/lib/axios';
-import type { MemberDetail } from './type';
+import type { MemberDetail } from '../type';
 
 const mapMemberDetail = (raw: Record<string, unknown>): MemberDetail => {
   const userRaw = (raw['user'] ?? raw['User']) as Record<string, unknown> | undefined;
