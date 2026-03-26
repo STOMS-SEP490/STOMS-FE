@@ -69,7 +69,6 @@ export type ReservationResponse = {
 
 export type ReservationDetail = ReservationResponse;
 
-// UI-friendly flattened equipment item for "Danh sách thiết bị mượn trước".
 export type ReservedEquipmentItem = {
   equipmentId: number;
   equipmentName?: string;

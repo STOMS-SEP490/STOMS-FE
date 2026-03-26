@@ -534,11 +534,11 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         checked={
                           actionMode === 'checkin'
                           ? filteredAttendanceItems.length > 0 &&
-                            filteredAttendanceItems.every((item) => selectedMemberIds.includes(item.memberId))
-                          : filteredAttendanceItems.filter((item) => item.checkinAt != null).length > 0 &&
+                            filteredAttendanceItems.every((item) => selectedMemberIds.includes(item.MemberId))
+                          : filteredAttendanceItems.filter((item) => item.CheckinAt != null).length > 0 &&
                             filteredAttendanceItems
-                              .filter((item) => item.checkinAt != null)
-                              .every((item) => selectedMemberIds.includes(item.memberId))
+                              .filter((item) => item.CheckinAt != null)
+                              .every((item) => selectedMemberIds.includes(item.MemberId))
                         }
                         onChange={(event) => {
                           const checked = event.target.checked;
@@ -546,8 +546,8 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                             const eligible =
                               actionMode === 'checkin'
                               ? filteredAttendanceItems
-                              : filteredAttendanceItems.filter((item) => item.checkinAt != null);
-                            setSelectedMemberIds(eligible.map((item) => item.memberId));
+                              : filteredAttendanceItems.filter((item) => item.CheckinAt != null);
+                            setSelectedMemberIds(eligible.map((item) => item.MemberId));
                           } else {
                             setSelectedMemberIds([]);
                           }
@@ -557,7 +557,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                           isSubmitting ||
                           (actionMode === 'checkin'
                           ? filteredAttendanceItems.length === 0
-                          : filteredAttendanceItems.filter((item) => item.checkinAt != null).length === 0)
+                          : filteredAttendanceItems.filter((item) => item.CheckinAt != null).length === 0)
                         }
                       />
                       Chọn tất cả
@@ -574,7 +574,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 )}
 
                 {filteredAttendanceItems.map((attendance) => {
-                  const memberId = attendance.memberId;
+                  const memberId = attendance.MemberId;
                   const assignedMember = (sessionDetail?.assignments ?? []).find(
                     (assignment) => assignment.staffMember?.memberId === memberId,
                   );
@@ -582,13 +582,13 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                   const member = assignedMember?.staffMember ?? cachedMember;
                   const memberName = member?.fullName ?? `Member #${memberId}`;
                   const memberEmail = member?.userEmail ?? cachedMember?.userEmail ?? 'Không có email';
-                  const isCheckedIn = attendance.checkinAt != null;
-                  const isCheckedOut = attendance.checkoutAt != null;
+                  const isCheckedIn = attendance.CheckinAt != null;
+                  const isCheckedOut = attendance.CheckoutAt != null;
                   const isAuthorizedDelegate =
                     attendanceByMemberIdForSession != null && attendanceByMemberIdForSession === memberId;
                   return (
                     <div
-                      key={attendance.attendanceId}
+                      key={attendance.AttendanceId}
                       className="grid grid-cols-1 items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 md:grid-cols-[1fr_1.2fr_auto]"
                     >
                       <div className="flex items-center gap-3">
@@ -628,7 +628,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                   pageNumber: 1,
                                   pageSize: 100,
                                 });
-                                setAttendanceItems(attendanceList.items ?? []);
+                                setAttendanceItems(attendanceList.Items ?? []);
                                 // Refresh bảng ngoài để thẻ ủy quyền/khả năng check-out cập nhật ngay.
                                 await refetch?.();
                                 setActionMode(null);

@@ -7,7 +7,7 @@ import type {
   ReservationListItem,
   ReservationCreatePayload,
   ReservationDetail,
-} from '../type';
+} from '../../request/type';
 import type { EquipmentListItem } from '@/modules/equipment/equipment';
 
 function mapCreatedByUserFromApi(raw: any): ReservationListItem['createdByUser'] {

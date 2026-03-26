@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { Clock, Calendar, MapPin, Hash, GraduationCap, Users } from 'lucide-react';
-import reservationService from '../api/reservationApi';
+import reservationService from '../../reservation/api/reservationApi';
 import type { ReservedEquipmentItem } from '../type';
 import { ImageOff } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';

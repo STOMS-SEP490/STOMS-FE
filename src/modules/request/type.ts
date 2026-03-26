@@ -96,56 +96,13 @@ export type MemberDetail = {
   userEmail?: string;
 };
 
-export type AttendanceDelegatePayload = {
-  sessionId: number;
-  delegateToMemberId: number;
-};
-
-export type AttendanceBatchItem = {
-  memberId: number;
-  note?: string | null;
-};
-
-export type AttendanceCheckInPayload = {
-  sessionId: number;
-  items: AttendanceBatchItem[];
-};
-
-export type AttendanceCheckOutPayload = {
-  sessionId: number;
-  items: AttendanceBatchItem[];
-};
-
-export type AttendanceItem = {
-  attendanceId: number;
-  memberId: number;
-  sessionId: number;
-  checkinAt?: string | null;
-  checkoutAt?: string | null;
-  attendanceByMemberId?: number | null;
-  note?: string | null;
-};
-
-export type AttendanceFilterParams = {
-  sessionId?: number;
-  attendanceByMemberId?: number;
-  memberId?: number;
-  pageNumber?: number;
-  pageSize?: number;
-};
-
-export type AttendanceFilterResponse = {
-  pageNumber: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-  items: AttendanceItem[];
-};
-
-export type AttendanceBatchResponse = {
-  checkedIn?: unknown[];
-  checkedOut?: unknown[];
-  skippedMemberIds?: number[];
-  notCheckedInMemberIds?: number[];
-  message?: string;
-};
+export type {
+  AttendanceBatchItem,
+  AttendanceBatchResponse,
+  AttendanceCheckInPayload,
+  AttendanceCheckOutPayload,
+  AttendanceDelegatePayload,
+  AttendanceFilterParams,
+  AttendanceFilterResponse,
+  AttendanceItem,
+} from './attendance';
