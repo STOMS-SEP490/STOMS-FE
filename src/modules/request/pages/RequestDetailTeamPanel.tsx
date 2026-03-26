@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Users, Trash2, Plus } from 'lucide-react';
-import { message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import type { Team } from '@/modules/team/team';
@@ -17,6 +16,7 @@ export type SessionForTeam = {
 
 type Props = {
   session: SessionForTeam & { sessionId: number };
+  currentQuantities?: { teachersRequired: number; tasRequired: number };
   currentAssignedTeamIds?: number[];
   onClose: () => void;
   onAssignSession: (sessionId: number, teamIds: number[]) => void;
@@ -25,6 +25,7 @@ type Props = {
 
 export default function RequestDetailTeamPanel({
   session,
+  currentQuantities,
   currentAssignedTeamIds,
   onClose,
   onAssignSession,
@@ -36,10 +37,10 @@ export default function RequestDetailTeamPanel({
   const [teamSearch, setTeamSearch] = useState('');
   const [addedTeamIds, setAddedTeamIds] = useState<number[]>([]);
   const [teachersRequired, setTeachersRequired] = useState(() =>
-    Math.max(0, session.teachersRequired ?? 1)
+    Math.max(0, currentQuantities?.teachersRequired ?? session.teachersRequired ?? 1)
   );
   const [tasRequired, setTasRequired] = useState(() =>
-    Math.max(0, session.tasRequired ?? 1)
+    Math.max(0, currentQuantities?.tasRequired ?? session.tasRequired ?? 1)
   );
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [teamDetailPopup, setTeamDetailPopup] = useState<{ team: Team; left: number; top: number } | null>(null);
@@ -69,8 +70,8 @@ export default function RequestDetailTeamPanel({
 
   useEffect(() => {
     setAddedTeamIds(currentAssignedTeamIds ?? []);
-    setTeachersRequired(Math.max(0, session.teachersRequired ?? 1));
-    setTasRequired(Math.max(0, session.tasRequired ?? 1));
+    setTeachersRequired(Math.max(0, currentQuantities?.teachersRequired ?? session.teachersRequired ?? 1));
+    setTasRequired(Math.max(0, currentQuantities?.tasRequired ?? session.tasRequired ?? 1));
     setShowAddTeam(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.sessionId]);
@@ -174,7 +175,6 @@ export default function RequestDetailTeamPanel({
   );
 
   const handleSaveCurrent = useCallback(() => {
-    message.success('Đã lưu gán đội (UI)');
     onAssignSession(session.sessionId, addedTeamIds);
     onQuantitiesChange?.(session.sessionId, { teachersRequired, tasRequired });
     onClose();
@@ -182,7 +182,7 @@ export default function RequestDetailTeamPanel({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-black">Gán đội phụ trách</h3>
+      <h3 className="text-sm font-semibold text-black">Đội phụ trách</h3>
 
       {/* Đã chọn đội: card từng đội (icon, tên, X thành viên, nút xóa) */}
       {addedTeamIds.length > 0 && (
@@ -413,8 +413,12 @@ export default function RequestDetailTeamPanel({
         <Button type="button" variant="outline" className="border-gray-300 text-black bg-white" onClick={onClose}>
           Hủy
         </Button>
-        <Button className="bg-blue-600 text-white" onClick={handleSaveCurrent} disabled={loading}>
-          {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+        <Button
+          className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+          onClick={handleSaveCurrent}
+          disabled={loading}
+        >
+          {loading ? 'Đang tải...' : 'Áp dụng'}
         </Button>
       </div>
     </div>

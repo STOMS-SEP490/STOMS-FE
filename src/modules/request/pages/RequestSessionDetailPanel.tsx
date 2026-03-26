@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { Clock, Calendar, MapPin, Hash, GraduationCap, Users } from 'lucide-react';
 import reservationService from '../../reservation/api/reservationApi';
@@ -6,24 +6,106 @@ import type { ReservedEquipmentItem } from '../type';
 import { ImageOff } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
 import type { RequestSessionSummary } from '../request';
+import sessionService from '../api/sessionApi';
+import type { PagedResponse, SessionResponse } from '../session.types';
 
 export type SessionDetailProps = {
   session: RequestSessionSummary & {
     reservationId?: number | null;
     teamAssigned?: boolean;
   };
+  requestId: number;
   requestCode: string;
   showReservedEquipment?: boolean;
 };
 
 export default function RequestSessionDetailPanel({
   session,
+  requestId,
   requestCode,
   showReservedEquipment = true,
 }: SessionDetailProps) {
+  const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [reservedEquipments, setReservedEquipments] = useState<ReservedEquipmentItem[]>([]);
   const [reservedLoading, setReservedLoading] = useState(false);
   const [reservedError, setReservedError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setSessionLoading(true);
+      setSessionError(null);
+      try {
+        const res = await sessionService.getFilter({
+          RequestId: requestId,
+          PageNumber: 1,
+          PageSize: 500,
+        });
+        const items = (res as PagedResponse<SessionResponse>).Items ?? (res as any).items ?? [];
+        const found =
+          (items as any[]).find(
+            (s) => Number(s?.SessionId ?? s?.sessionId ?? 0) === Number(session.sessionId),
+          ) ?? null;
+        if (cancelled) return;
+        setSessionDetail(found);
+        if (!found) {
+          setSessionError('Không tìm thấy thông tin phiên từ danh sách sessions/filter.');
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg =
+          err && typeof err === 'object' && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : 'Không tải được thông tin phiên.';
+        setSessionError(msg);
+        setSessionDetail(null);
+      } finally {
+        if (!cancelled) setSessionLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestId, session.sessionId]);
+
+  const mergedSession = useMemo(() => {
+    return sessionDetail;
+  }, [sessionDetail]);
+
+  const startAt = mergedSession?.StartAt ?? (mergedSession as any)?.startAt ?? null;
+  const endAt = mergedSession?.EndAt ?? (mergedSession as any)?.endAt ?? null;
+  const location = mergedSession?.Location ?? (mergedSession as any)?.location ?? null;
+  const teachersRequired =
+    mergedSession?.TeachersRequired ?? (mergedSession as any)?.teachersRequired ?? null;
+  const tasRequired = mergedSession?.TasRequired ?? (mergedSession as any)?.tasRequired ?? null;
+
+  const skills = useMemo(() => {
+    const detail = mergedSession as SessionResponse | null;
+    const list = [
+      ...(Array.isArray(detail?.EventSessionSkill) ? detail.EventSessionSkill : []),
+      ...(Array.isArray(detail?.SubjectSkill) ? detail.SubjectSkill : []),
+      ...(Array.isArray((detail as any)?.eventSessionSkill) ? (detail as any).eventSessionSkill : []),
+      ...(Array.isArray((detail as any)?.subjectSkill) ? (detail as any).subjectSkill : []),
+    ];
+    const names = list
+      .filter((s: any) => (s?.IsActive ?? s?.isActive ?? true) !== false)
+      .map((s: any) => String(s?.SkillName ?? s?.skillName ?? '').trim())
+      .filter(Boolean);
+    return Array.from(new Set(names));
+  }, [mergedSession]);
+
+  const resolvedReservationId = useMemo(() => {
+    const raw =
+      (mergedSession as unknown as { ReservationId?: number | string | null })?.ReservationId ??
+      (mergedSession as any)?.reservationId ??
+      null;
+    if (raw == null) return null;
+    const n = Number(raw);
+    return !Number.isNaN(n) && n > 0 ? n : null;
+  }, [mergedSession]);
 
   useEffect(() => {
     if (!showReservedEquipment) {
@@ -32,11 +114,7 @@ export default function RequestSessionDetailPanel({
       setReservedLoading(false);
       return;
     }
-
-    const rawReservationId = (session as { reservationId?: number | string | null }).reservationId;
-    const reservationId = rawReservationId != null ? Number(rawReservationId) : NaN;
-
-    if (!reservationId || Number.isNaN(reservationId) || reservationId <= 0) {
+    if (!resolvedReservationId) {
       setReservedEquipments([]);
       return;
     }
@@ -44,7 +122,7 @@ export default function RequestSessionDetailPanel({
       setReservedLoading(true);
       setReservedError(null);
       try {
-          const detail = await reservationService.getById(reservationId);
+        const detail = await reservationService.getById(resolvedReservationId);
         const items: ReservedEquipmentItem[] = (detail.equipmentReservations ?? []).map((er: any) => {
           const eq = er?.equipment ?? {};
           return {
@@ -71,7 +149,7 @@ export default function RequestSessionDetailPanel({
       }
     };
     void fetchReserved();
-  }, [session.reservationId, showReservedEquipment]);
+  }, [resolvedReservationId, showReservedEquipment]);
 
   return (
     <div className="space-y-4 text-sm">
@@ -80,25 +158,34 @@ export default function RequestSessionDetailPanel({
           <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
         </div>
         <div className="px-4 py-3 space-y-3 text-sm">
+          {sessionError && <p className="text-xs text-red-600">{sessionError}</p>}
           <div className="flex items-center gap-3 text-gray-600">
             <Clock className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-gray-500">Thời gian:</span>
             <span className="font-medium text-black">
-              {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
+              {sessionLoading
+                ? 'Đang tải...'
+                : mergedSession
+                  ? startAt && endAt
+                    ? `${dayjs(startAt).format('HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
+                    : '—'
+                  : '—'}
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
             <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-gray-500">Ngày:</span>
             <span className="font-medium text-black">
-              {dayjs(session.startAt).format('DD/MM/YYYY')}
+              {sessionLoading ? 'Đang tải...' : startAt ? dayjs(startAt).format('DD/MM/YYYY') : '—'}
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
             <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-gray-500">Địa điểm:</span>
             <span className="font-medium text-black">
-              {(session as RequestSessionSummary & { location?: string }).location || '—'}
+              {sessionLoading
+                ? 'Đang tải...'
+                : (location || '—')}
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
@@ -110,15 +197,36 @@ export default function RequestSessionDetailPanel({
             <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-gray-500">Số lượng giảng viên:</span>
             <span className="font-medium text-black">
-              {session.teachersRequired ?? '—'}
+              {sessionLoading ? 'Đang tải...' : (teachersRequired ?? '—')}
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
             <Users className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-gray-500">Số lượng trợ giảng:</span>
             <span className="font-medium text-black">
-              {session.tasRequired ?? '—'}
+              {sessionLoading ? 'Đang tải...' : (tasRequired ?? '—')}
             </span>
+          </div>
+
+          <div className="flex items-start gap-3 text-gray-600">
+            <span className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+            <span className="text-gray-500 shrink-0">Kỹ năng:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {sessionLoading ? (
+                <span className="font-medium text-black">Đang tải...</span>
+              ) : skills.length === 0 ? (
+                <span className="font-medium text-black">—</span>
+              ) : (
+                skills.map((name) => (
+                  <Badge
+                    key={name}
+                    className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px]"
+                  >
+                    {name}
+                  </Badge>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

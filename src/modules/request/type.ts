@@ -27,34 +27,13 @@ export type {
   ReservedEquipmentItem,
 } from './reservation.types';
 
-export type SessionDetail = {
-  sessionId: number;
-  requestId: number;
-  sessionNo: number;
-  startAt: string;
-  endAt: string;
-  notes: string;
-  status: string;
-  location: string;
-  isOnline: boolean | null;
-  teachersRequired?: number | null;
-  tasRequired?: number | null;
-  assignments?: {
-    assignmentId: number;
-    staffRole: string;
-    status?: string;
-    staffMemberId: number;
-    staffMember?: {
-      memberId: number;
-      fullName: string;
-      avatarUrl: string;
-      userEmail?: string;
-    } | null;
-  }[] | null;
-  attendances?: {
-    attendanceByMemberId?: number | null;
-  }[];
-};
+export type {
+  PagedResponse,
+  SessionResponse,
+  SessionFilterRequest,
+  EventSessionSkillResponse,
+  SubjectSkillResponse,
+} from './session.types';
 
 export type AssignmentDetail = {
   assignmentId: number;

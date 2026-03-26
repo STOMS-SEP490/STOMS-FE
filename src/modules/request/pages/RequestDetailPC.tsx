@@ -372,6 +372,7 @@ export default function RequestDetailPC() {
                       session={
                         sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
                       }
+                      requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
                       showReservedEquipment={false}
                     />

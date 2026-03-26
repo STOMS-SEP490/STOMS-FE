@@ -114,16 +114,16 @@ const buildAssigningRequests = async (
 
 const buildRejectedRequests = async (teamId: number): Promise<TeamRequestItem[]> => {
   const rejectedSessionsRes = await sessionApi.getFilter({
-    teamId,
-    statuses: ['ASSIGNMENT_REJECTED'],
-    pageNumber: 1,
-    pageSize: 500,
+    TeamId: teamId,
+    Statuses: ['ASSIGNMENT_REJECTED'],
+    PageNumber: 1,
+    PageSize: 500,
   });
 
-  const rejectedSessions = (rejectedSessionsRes.items ?? []).filter(
-    (session) => Number(session.sessionId) > 0 && Number(session.requestId) > 0,
+  const rejectedSessions = (rejectedSessionsRes.Items ?? []).filter(
+    (session) => Number((session as any).SessionId) > 0 && Number((session as any).RequestId) > 0,
   );
-  const requestIds = Array.from(new Set(rejectedSessions.map((session) => Number(session.requestId))));
+  const requestIds = Array.from(new Set(rejectedSessions.map((session: any) => Number(session.RequestId))));
   const validRequestIds = requestIds.filter((id) => id > 0);
 
   const detailPairs = await Promise.all(
@@ -147,8 +147,8 @@ const buildRejectedRequests = async (teamId: number): Promise<TeamRequestItem[]>
     {},
   );
 
-  const groupedByRequest = rejectedSessions.reduce<Record<number, TeamSessionLite[]>>((acc, session) => {
-    const requestId = Number(session.requestId);
+  const groupedByRequest = rejectedSessions.reduce<Record<number, TeamSessionLite[]>>((acc, session: any) => {
+    const requestId = Number(session.RequestId);
     if (!requestId) return acc;
     if (!acc[requestId]) acc[requestId] = [];
     acc[requestId].push(mapSessionLite(session, requestId));

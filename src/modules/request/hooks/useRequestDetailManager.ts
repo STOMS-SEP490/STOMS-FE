@@ -78,6 +78,9 @@ export const useRequestDetailManager = (params: {
   const [rightPanel, setRightPanel] = useState<RightPanelState>(null);
   const [loading, setLoading] = useState(false);
   const [uiAssignedTeamIdsBySessionId, setUiAssignedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
+  const [uiQuantitiesBySessionId, setUiQuantitiesBySessionId] = useState<
+    Record<number, { teachersRequired: number; tasRequired: number }>
+  >({});
   const [assignmentsBySessionId, setAssignmentsBySessionId] = useState<Record<number, SessionAssignmentRow[]>>({});
   const [selectedAssignmentIdsBySessionId, setSelectedAssignmentIdsBySessionId] = useState<Record<number, number[]>>(
     {}
@@ -101,6 +104,7 @@ export const useRequestDetailManager = (params: {
     setRightPanel(null);
     setSessions([]);
     setUiAssignedTeamIdsBySessionId({});
+    setUiQuantitiesBySessionId({});
 
     const fetchData = async () => {
       try {
@@ -110,6 +114,15 @@ export const useRequestDetailManager = (params: {
         const { mappedSessions, nextUiAssigned } = mapSessionsWithFlags(detail);
         setSessions(mappedSessions);
         setUiAssignedTeamIdsBySessionId(nextUiAssigned);
+        setUiQuantitiesBySessionId(
+          mappedSessions.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>((acc, s) => {
+            acc[s.sessionId] = {
+              teachersRequired: Math.max(0, Number((s as any).teachersRequired ?? 1) || 1),
+              tasRequired: Math.max(0, Number((s as any).tasRequired ?? 1) || 1),
+            };
+            return acc;
+          }, {})
+        );
       } finally {
         setLoading(false);
       }
@@ -132,11 +145,11 @@ export const useRequestDetailManager = (params: {
           missingIds.map(async (sid) => {
             try {
               const d = await sessionService.getById(sid);
-              const baseAssignments = (d.assignments ?? []).filter(
-                (a) => a && a.assignmentId
+              const baseAssignments = (d.Assignments ?? []).filter(
+                (a: any) => a && (a.assignmentId || a.AssignmentId)
               );
               if (!baseAssignments.length) {
-                return { sessionId: d.sessionId, rows: [] as SessionAssignmentRow[] };
+                return { sessionId: d.SessionId, rows: [] as SessionAssignmentRow[] };
               }
 
               const rows = await Promise.all(
@@ -169,7 +182,7 @@ export const useRequestDetailManager = (params: {
                 })
               );
 
-              return { sessionId: d.sessionId, rows };
+              return { sessionId: d.SessionId, rows };
             } catch {
               return { sessionId: sid, rows: [] as SessionAssignmentRow[] };
             }
@@ -202,13 +215,13 @@ export const useRequestDetailManager = (params: {
 
   const handleQuantitiesChange = useCallback(
     (sessionId: number, data: { teachersRequired: number; tasRequired: number }) => {
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.sessionId === sessionId
-            ? { ...s, teachersRequired: data.teachersRequired, tasRequired: data.tasRequired }
-            : s
-        )
-      );
+      setUiQuantitiesBySessionId((prev) => ({
+        ...prev,
+        [sessionId]: {
+          teachersRequired: Math.max(0, Number(data.teachersRequired ?? 0) || 0),
+          tasRequired: Math.max(0, Number(data.tasRequired ?? 0) || 0),
+        },
+      }));
     },
     []
   );
@@ -222,6 +235,15 @@ export const useRequestDetailManager = (params: {
       const { mappedSessions, nextUiAssigned } = mapSessionsWithFlags(detail);
       setSessions(mappedSessions);
       setUiAssignedTeamIdsBySessionId(nextUiAssigned);
+      setUiQuantitiesBySessionId(
+        mappedSessions.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>((acc, s) => {
+          acc[s.sessionId] = {
+            teachersRequired: Math.max(0, Number((s as any).teachersRequired ?? 1) || 1),
+            tasRequired: Math.max(0, Number((s as any).tasRequired ?? 1) || 1),
+          };
+          return acc;
+        }, {})
+      );
     } finally {
       setLoading(false);
     }
@@ -260,16 +282,16 @@ export const useRequestDetailManager = (params: {
         message.success('Đã duyệt các assignment đã chọn.');
         const detail = await sessionService.getById(sessionId);
         const rowsReload: SessionAssignmentRow[] =
-          (detail.assignments ?? [])
-            .filter((a) => a && a.assignmentId && a.staffMemberId)
+          ((detail as any).Assignments ?? [])
+            .filter((a: any) => a && (a.assignmentId || a.AssignmentId) && (a.staffMemberId || a.StaffMemberId))
             .map((a) => ({
-              assignmentId: a!.assignmentId,
-              staffMemberId: a!.staffMemberId,
-              staffRole: (a!.staffRole || '').toUpperCase(),
-              status: a!.status,
-              fullName: a!.staffMember?.fullName || '—',
-              email: a!.staffMember?.userEmail || '',
-              avatarUrl: a!.staffMember?.avatarUrl || '',
+              assignmentId: Number(a!.assignmentId ?? a!.AssignmentId),
+              staffMemberId: Number(a!.staffMemberId ?? a!.StaffMemberId),
+              staffRole: String(a!.staffRole ?? a!.StaffRole ?? '').toUpperCase(),
+              status: String(a!.status ?? a!.Status ?? ''),
+              fullName: a!.staffMember?.fullName || a!.StaffMember?.FullName || '—',
+              email: a!.staffMember?.userEmail || a!.StaffMember?.User?.Email || '',
+              avatarUrl: a!.staffMember?.avatarUrl || a!.StaffMember?.AvatarUrl || '',
             })) ?? [];
         setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
         setSelectedAssignmentIdsBySessionId((prev) => ({ ...prev, [sessionId]: [] }));
@@ -313,16 +335,16 @@ export const useRequestDetailManager = (params: {
       message.success('Đã từ chối assignment.');
       const detail = await sessionService.getById(rejectAssignmentState.sessionId);
       const rowsReload: SessionAssignmentRow[] =
-        (detail.assignments ?? [])
-          .filter((a) => a && a.assignmentId && a.staffMemberId)
+        ((detail as any).Assignments ?? [])
+          .filter((a: any) => a && (a.assignmentId || a.AssignmentId) && (a.staffMemberId || a.StaffMemberId))
           .map((a) => ({
-            assignmentId: a!.assignmentId,
-            staffMemberId: a!.staffMemberId,
-            staffRole: (a!.staffRole || '').toUpperCase(),
-            status: a!.status,
-            fullName: a!.staffMember?.fullName || '—',
-            email: a!.staffMember?.userEmail || '',
-            avatarUrl: a!.staffMember?.avatarUrl || '',
+            assignmentId: Number(a!.assignmentId ?? a!.AssignmentId),
+            staffMemberId: Number(a!.staffMemberId ?? a!.StaffMemberId),
+            staffRole: String(a!.staffRole ?? a!.StaffRole ?? '').toUpperCase(),
+            status: String(a!.status ?? a!.Status ?? ''),
+            fullName: a!.staffMember?.fullName || a!.StaffMember?.FullName || '—',
+            email: a!.staffMember?.userEmail || a!.StaffMember?.User?.Email || '',
+            avatarUrl: a!.staffMember?.avatarUrl || a!.StaffMember?.AvatarUrl || '',
           })) ?? [];
       setAssignmentsBySessionId((prev) => ({ ...prev, [rejectAssignmentState.sessionId!]: rowsReload }));
       setSelectedAssignmentIdsBySessionId((prev) => {
@@ -354,8 +376,11 @@ export const useRequestDetailManager = (params: {
           message.error(`Phiên ${s.sessionNo} chưa có đội gán.`);
           return;
         }
-        const teachersRequired = (s as SessionWithFlags).teachersRequired ?? 1;
-        const tasRequired = (s as SessionWithFlags).tasRequired ?? 1;
+        const uiQ = uiQuantitiesBySessionId[s.sessionId];
+        const teachersRequired =
+          uiQ?.teachersRequired ?? ((s as SessionWithFlags).teachersRequired ?? 1);
+        const tasRequired =
+          uiQ?.tasRequired ?? ((s as SessionWithFlags).tasRequired ?? 1);
         const items = teamIds.map((teamId) => ({
           teamId,
           teachersRequired: typeof teachersRequired === 'number' ? teachersRequired : 1,
@@ -376,7 +401,15 @@ export const useRequestDetailManager = (params: {
     } finally {
       setActionLoading(false);
     }
-  }, [createdByMemberId, id, refreshDetail, sessions, uiAssignedTeamIdsBySessionId, refreshRequestSidebar]);
+  }, [
+    createdByMemberId,
+    id,
+    refreshDetail,
+    sessions,
+    uiAssignedTeamIdsBySessionId,
+    uiQuantitiesBySessionId,
+    refreshRequestSidebar,
+  ]);
 
   const handleRejectClick = useCallback(() => {
     if (!request || !id) return;
@@ -440,10 +473,20 @@ export const useRequestDetailManager = (params: {
     setSessions(mapped);
   }, [request]);
 
-  const assignedCount = useMemo(
-    () => sessions.filter((s) => s.teamAssigned).length,
-    [sessions]
-  );
+  const assignedCount = useMemo(() => {
+    return sessions.filter((s) => {
+      const teamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
+      if (teamIds.length === 0) return false;
+
+      const reqTeachers = Number((s as any).teachersRequired ?? 1) || 1;
+      const reqTas = Number((s as any).tasRequired ?? 1) || 1;
+      const uiQ = uiQuantitiesBySessionId[s.sessionId];
+      const assignedTeachers = uiQ?.teachersRequired ?? reqTeachers;
+      const assignedTas = uiQ?.tasRequired ?? reqTas;
+
+      return assignedTeachers >= reqTeachers && assignedTas >= reqTas;
+    }).length;
+  }, [sessions, uiAssignedTeamIdsBySessionId, uiQuantitiesBySessionId]);
 
   return {
     request,
@@ -452,6 +495,7 @@ export const useRequestDetailManager = (params: {
     setRightPanel,
     loading,
     uiAssignedTeamIdsBySessionId,
+    uiQuantitiesBySessionId,
     assignmentsBySessionId,
     selectedAssignmentIdsBySessionId,
     approveOpen,
