@@ -118,7 +118,7 @@ export default function RequestDetail() {
   const getAttachmentMeta = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
     const urlOrName = (fileUrl ?? fileName ?? '').toLowerCase();
     const extMatch = urlOrName.match(/\.([a-z0-9]{1,10})(?:\?|#|$)/);
-    const ext = extMatch?.[1]?.toUpperCase();
+    const ext = extMatch && extMatch.length > 1 ? String(extMatch[1]).toUpperCase() : undefined;
 
     if (/\.(png|jpg|jpeg|gif|webp)(?:\?|#|$)/.test(urlOrName)) {
       return { kind: 'image' as const, label: 'Hình ảnh', ext, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', iconClass: 'text-emerald-600' };
@@ -153,7 +153,20 @@ export default function RequestDetail() {
     courseId: request.courseId,
     eventId: request.eventId,
   });
-  const statusInfo = getRequestStatusInfo(request.status);
+  const statusInfo = (() => {
+    const base = getRequestStatusInfo(request.status);
+    if (viewMode !== 'assignment') return base;
+    const raw = String(request.status ?? '').trim();
+    const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
+    const code = Number(raw);
+    const isAssigning = normalized === 'ASSIGNING' || (!Number.isNaN(code) && code === 4);
+    if (!isAssigning) return base;
+    return {
+      label: 'Chờ duyệt phân công',
+      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      leftBarClass: 'border-l-indigo-500',
+    };
+  })();
   const sessionCount = sessions.length || request.sessionsRequired || 0;
 
   return (
@@ -611,16 +624,18 @@ export default function RequestDetail() {
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
                 <>
-                  {/* Thông tin phiên + Danh sách thiết bị: luôn hiển thị, kể cả khi đã gắn đội / đã duyệt */}
-                <RequestSessionDetailPanel
-                  // Tránh trường hợp rightPanel.session bị "chụp" lúc chưa có reservationId.
-                  // Luôn ưu tiên session mới nhất từ state `sessions`.
-                  session={
-                    sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
-                  }
-                  requestId={Number(request.requestId)}
-                  requestCode={request.requestCode ?? ''}
-                />
+                  {/* Thông tin phiên luôn ở trên cùng */}
+                  <RequestSessionDetailPanel
+                    // Tránh trường hợp rightPanel.session bị "chụp" lúc chưa có reservationId.
+                    // Luôn ưu tiên session mới nhất từ state `sessions`.
+                    session={
+                      sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                    }
+                    requestId={Number(request.requestId)}
+                    requestCode={request.requestCode ?? ''}
+                    showReservedEquipment={false}
+                    sectionMode="info"
+                  />
                   <div className="mt-6">
                     {String(request.status ?? '').toLowerCase() !== 'pending' ? (
                       <RequestDetailTeamSummary
@@ -638,6 +653,16 @@ export default function RequestDetail() {
                       />
                     )}
                   </div>
+                  <div className="mt-6">
+                    <RequestSessionDetailPanel
+                      session={
+                        sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                      }
+                      requestId={Number(request.requestId)}
+                      requestCode={request.requestCode ?? ''}
+                      sectionMode="equipment"
+                    />
+                  </div>
                 </>
               )}
               {rightPanel.mode === 'team' && (
@@ -652,25 +677,25 @@ export default function RequestDetail() {
               )}
               {rightPanel.mode === 'assignment' && (
                 <div className="space-y-4">
-                  <div className="rounded-2xl bg-white border border-gray-100 shadow-sm">
-                    <div className="px-4 py-2.5 border-b border-gray-100">
-                      <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
-                    </div>
-                    <div className="px-4 py-3 space-y-1 text-sm text-gray-700">
-                      <p>
-                        <span className="font-medium">Thời gian:</span>{' '}
-                        {dayjs(rightPanel.session.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
-                        {dayjs(rightPanel.session.endAt).format('DD/MM/YYYY HH:mm')}
-                      </p>
-                      <p>
-                        <span className="font-medium">Giảng viên yêu cầu:</span>{' '}
-                        {rightPanel.session.teachersRequired ?? 1}
-                        {' · '}
-                        <span className="font-medium">Trợ giảng yêu cầu:</span>{' '}
-                        {rightPanel.session.tasRequired ?? 1}
-                      </p>
-                    </div>
-                  </div>
+                  {request && (
+                    <>
+                      <RequestSessionDetailPanel
+                        session={
+                          sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                        }
+                        requestId={Number(request.requestId)}
+                        requestCode={request.requestCode ?? ''}
+                        showReservedEquipment={false}
+                        sectionMode="info"
+                      />
+                      <RequestDetailTeamSummary
+                        session={
+                          sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                        }
+                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                      />
+                    </>
+                  )}
 
                   <div className="rounded-2xl bg-white border border-gray-100 shadow-sm">
                     <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
@@ -711,7 +736,12 @@ export default function RequestDetail() {
                         }
                         const selectedIds =
                           selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
-                        return rows.map((row) => {
+                        const teacherRows = rows.filter(
+                          (row) => row.staffRole === 'TE' || row.staffRole === 'TEACHER'
+                        );
+                        const taRows = rows.filter((row) => row.staffRole === 'TA');
+
+                        const renderAssignmentRow = (row: (typeof rows)[number]) => {
                           const checked = selectedIds.includes(row.assignmentId);
                           const isTeacher = row.staffRole === 'TE' || row.staffRole === 'TEACHER';
                           const statusText = (row.status || '').toUpperCase();
@@ -733,30 +763,26 @@ export default function RequestDetail() {
                                 >
                                   {isTeacher ? 'Giảng viên' : 'Trợ giảng'}
                                 </span>
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
-                                    {row.avatarUrl ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={row.avatarUrl}
-                                        alt={row.fullName}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
-                                        }}
-                                      />
-                                    ) : (
-                                      (row.fullName || 'N')[0]
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium text-slate-900 truncate">
-                                      {row.fullName || '—'}
-                                    </p>
-                                    {row.email && (
-                                      <p className="text-[11px] text-slate-500 truncate">{row.email}</p>
-                                    )}
-                                  </div>
+                                <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
+                                  {row.avatarUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={row.avatarUrl}
+                                      alt={row.fullName}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                      }}
+                                    />
+                                  ) : (
+                                    (row.fullName || 'N')[0]
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-slate-900 truncate">
+                                    {row.fullName || '—'}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 truncate">{row.email || '—'}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
@@ -803,10 +829,42 @@ export default function RequestDetail() {
                               </div>
                             </div>
                           );
-                        });
+                        };
+
+                        return (
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs font-semibold text-sky-700 mb-1">Giảng viên:</p>
+                              <div className="space-y-1">
+                                {teacherRows.length ? (
+                                  teacherRows.map(renderAssignmentRow)
+                                ) : (
+                                  <p className="text-xs text-gray-500 px-2">—</p>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-amber-700 mb-1">Trợ giảng:</p>
+                              <div className="space-y-1">
+                                {taRows.length ? taRows.map(renderAssignmentRow) : <p className="text-xs text-gray-500 px-2">—</p>}
+                              </div>
+                            </div>
+                          </div>
+                        );
                       })()}
                     </div>
                   </div>
+
+                  {request && (
+                    <RequestSessionDetailPanel
+                      session={
+                        sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                      }
+                      requestId={Number(request.requestId)}
+                      requestCode={request.requestCode ?? ''}
+                      sectionMode="equipment"
+                    />
+                  )}
                 </div>
               )}
               {rightPanel.mode === 'equipment' && (

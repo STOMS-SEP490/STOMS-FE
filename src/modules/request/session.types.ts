@@ -103,5 +103,24 @@ export type SessionFilterRequest = {
   EndAt?: string;
   PageNumber?: number;
   PageSize?: number;
+
+  // camelCase aliases for existing call-sites
+  sessionId?: number;
+  requestId?: number;
+  sessionNo?: number;
+  statuses?: (string | number)[];
+  subjectSessionId?: number;
+  eventSessionId?: number;
+  location?: string;
+  isOnline?: boolean;
+  borrowingId?: number;
+  reservationId?: number;
+  teamId?: number;
+  memberId?: number;
+  hasContract?: boolean;
+  startAt?: string;
+  endAt?: string;
+  pageNumber?: number;
+  pageSize?: number;
 };
 

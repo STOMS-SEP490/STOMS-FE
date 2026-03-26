@@ -33,7 +33,7 @@ export default function TeamLeaderAssignmentsLayout() {
       </div>
 
       <div className="flex-1 min-h-0 pb-4">
-        <div className="h-full overflow-y-auto no-scrollbar pr-1">
+        <div className="h-full min-h-0 overflow-hidden pr-1">
           <Outlet />
         </div>
       </div>

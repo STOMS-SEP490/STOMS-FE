@@ -114,9 +114,13 @@ export default function RequestsManagement() {
           />
           <Pencil
             size={16}
-              className={isPending ? 'cursor-pointer text-blue-600' : 'cursor-not-allowed text-blue-300'}
+              className={
+                isPending || getRequestStatusLabel(row.original.status) === 'Từ chối'
+                  ? 'cursor-pointer text-blue-600'
+                  : 'cursor-not-allowed text-blue-300'
+              }
             onClick={() =>
-                isPending
+                isPending || getRequestStatusLabel(row.original.status) === 'Từ chối'
                   ? navigate(`/pc/requests/edit/${row.original.requestId}`)
                   : undefined
             }

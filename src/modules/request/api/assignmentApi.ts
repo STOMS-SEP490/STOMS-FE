@@ -21,7 +21,11 @@ const assignmentApi = {
             memberId: Number(staff.memberId ?? staff.MemberId ?? 0),
             fullName: String(staff.fullName ?? staff.FullName ?? ''),
             avatarUrl: String(staff.avatarUrl ?? staff.AvatarUrl ?? ''),
-            userEmail: staffUser?.email ?? staffUser?.Email,
+            userEmail:
+              (staff.email != null ? String(staff.email) : undefined) ??
+              (staff.Email != null ? String(staff.Email) : undefined) ??
+              (staffUser?.email != null ? String(staffUser.email) : undefined) ??
+              (staffUser?.Email != null ? String(staffUser.Email) : undefined),
           }
         : null,
     };

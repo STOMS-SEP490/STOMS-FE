@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message } from 'antd';
 import type { RequestListItem, RequestSessionSummary } from '../request';
 import requestService from '../api/requestApi';
@@ -6,12 +6,32 @@ import sessionService from '../api/sessionApi';
 import { teamSessionApi } from '@/modules/team/api/teamSessionApi';
 import assignmentService from '../api/assignmentApi';
 import { useProgramCoordinatorId } from './useProgramCoordinatorId';
+import type { PagedResponse, SessionResponse } from '../session.types';
 import type {
   RequestLayoutOutletContext,
   RightPanelState,
   SessionAssignmentRow,
   SessionWithFlags,
 } from '../requestDetail.types';
+
+const mapSessionAssignments = (detail: any): SessionAssignmentRow[] => {
+  const rawAssignments = detail?.Assignments ?? detail?.assignments ?? [];
+  return (rawAssignments as any[])
+    .filter((a) => a && (a.assignmentId || a.AssignmentId))
+    .map((a) => {
+      const staff = a.staffMember ?? a.StaffMember ?? null;
+      const staffUser = staff?.user ?? staff?.User ?? null;
+      return {
+        assignmentId: Number(a.assignmentId ?? a.AssignmentId ?? 0),
+        staffMemberId: Number(a.staffMemberId ?? a.StaffMemberId ?? 0),
+        staffRole: String(a.staffRole ?? a.StaffRole ?? '').toUpperCase(),
+        status: String(a.status ?? a.Status ?? ''),
+        fullName: staff?.fullName || staff?.FullName || '—',
+        email: staff?.userEmail || staff?.email || staff?.Email || staffUser?.email || staffUser?.Email || '',
+        avatarUrl: staff?.avatarUrl || staff?.AvatarUrl || '',
+      } satisfies SessionAssignmentRow;
+    });
+};
 
 const mapSessionsWithFlags = (detail: RequestListItem) => {
   const nextUiAssigned: Record<number, number[]> = {};
@@ -65,6 +85,44 @@ const mapSessionsWithFlags = (detail: RequestListItem) => {
   return { mappedSessions, nextUiAssigned };
 };
 
+const mapSessionFromFilterItem = (raw: SessionResponse): SessionWithFlags => {
+  const anyRaw = raw as SessionResponse & {
+    TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
+    teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
+  };
+  const fromSessions = anyRaw.TeamSessions ?? anyRaw.teamSessions ?? [];
+  const backendTeamIds = fromSessions
+    .map((ts) => ts?.teamId ?? ts?.TeamId)
+    .filter((id): id is number => typeof id === 'number' && id > 0);
+  const rawReservationId = anyRaw.ReservationId ?? anyRaw.reservationId ?? null;
+  const reservationNum = rawReservationId != null ? Number(rawReservationId) : NaN;
+  const reservationId = !Number.isNaN(reservationNum) && reservationNum > 0 ? reservationNum : null;
+  const statusText = String(anyRaw.Status ?? anyRaw.status ?? '').toLowerCase();
+  const teamAssigned =
+    backendTeamIds.length > 0 ||
+    statusText === 'approved' ||
+    statusText === 'assigned' ||
+    statusText === 'ongoing' ||
+    statusText === 'completed';
+
+  return {
+    sessionId: Number(anyRaw.SessionId ?? anyRaw.sessionId ?? 0),
+    requestId: Number(anyRaw.RequestId ?? anyRaw.requestId ?? 0),
+    sessionNo: Number(anyRaw.SessionNo ?? anyRaw.sessionNo ?? 0),
+    startAt: String(anyRaw.StartAt ?? anyRaw.startAt ?? ''),
+    endAt: String(anyRaw.EndAt ?? anyRaw.endAt ?? ''),
+    location: String(anyRaw.Location ?? anyRaw.location ?? ''),
+    status: String(anyRaw.Status ?? anyRaw.status ?? ''),
+    notes: String(anyRaw.Notes ?? anyRaw.notes ?? ''),
+    teachersRequired: anyRaw.TeachersRequired ?? anyRaw.teachersRequired ?? null,
+    tasRequired: anyRaw.TasRequired ?? anyRaw.tasRequired ?? null,
+    reservationId,
+    teamAssigned,
+    assignedTeamIds: backendTeamIds,
+    equipmentReserved: reservationId != null,
+  } as SessionWithFlags;
+};
+
 export const useRequestDetailManager = (params: {
   id?: string;
   viewMode?: RequestLayoutOutletContext['viewMode'];
@@ -98,6 +156,62 @@ export const useRequestDetailManager = (params: {
   }>({ open: false, assignmentId: null, sessionId: null, displayName: '' });
   const [rejectAssignmentReason, setRejectAssignmentReason] = useState('');
   const [, setRejectAssignmentLoading] = useState(false);
+  const lastFilterSyncKeyRef = useRef<string>('');
+
+  const applySessionState = useCallback((mappedSessions: SessionWithFlags[]) => {
+    const nextUiAssigned = mappedSessions.reduce<Record<number, number[]>>((acc, s) => {
+      const anyS = s as SessionWithFlags & {
+        teamId?: number | null;
+        TeamId?: number | null;
+        teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
+        TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
+      };
+      const fromSessions = anyS.teamSessions ?? anyS.TeamSessions ?? [];
+      const backendTeamIds = fromSessions
+        .map((ts) => ts?.teamId ?? ts?.TeamId)
+        .filter((teamId): teamId is number => typeof teamId === 'number' && teamId > 0);
+      const fromMapped = Array.isArray((anyS as any).assignedTeamIds)
+        ? ((anyS as any).assignedTeamIds as number[]).filter((teamId) => typeof teamId === 'number' && teamId > 0)
+        : [];
+      const singleTeamId = anyS.teamId ?? anyS.TeamId;
+      const teamIds =
+        fromMapped.length > 0
+          ? fromMapped
+          : backendTeamIds.length > 0
+          ? backendTeamIds
+          : typeof singleTeamId === 'number' && singleTeamId > 0
+            ? [singleTeamId]
+            : [];
+      if (teamIds.length > 0) acc[s.sessionId] = teamIds;
+      return acc;
+    }, {});
+
+    setSessions(mappedSessions);
+    setUiAssignedTeamIdsBySessionId(nextUiAssigned);
+    setUiQuantitiesBySessionId(
+      mappedSessions.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>((acc, s) => {
+        acc[s.sessionId] = {
+          teachersRequired: Math.max(0, Number((s as any).teachersRequired ?? 1) || 1),
+          tasRequired: Math.max(0, Number((s as any).tasRequired ?? 1) || 1),
+        };
+        return acc;
+      }, {})
+    );
+  }, []);
+
+  const loadSessionsByRequestId = useCallback(async (requestId: number): Promise<SessionWithFlags[]> => {
+    if (!requestId || requestId <= 0) return [];
+    const res = await sessionService.getFilter({
+      RequestId: requestId,
+      PageNumber: 1,
+      PageSize: 500,
+    });
+    const items = (res as PagedResponse<SessionResponse>).Items ?? (res as any).items ?? [];
+    return (items as SessionResponse[])
+      .map(mapSessionFromFilterItem)
+      .filter((s) => Number(s.sessionId) > 0)
+      .sort((a, b) => Number(a.sessionNo ?? 0) - Number(b.sessionNo ?? 0));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -111,25 +225,40 @@ export const useRequestDetailManager = (params: {
         setLoading(true);
         const detail = await requestService.getById(Number(id));
         setRequest(detail);
-        const { mappedSessions, nextUiAssigned } = mapSessionsWithFlags(detail);
-        setSessions(mappedSessions);
-        setUiAssignedTeamIdsBySessionId(nextUiAssigned);
-        setUiQuantitiesBySessionId(
-          mappedSessions.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>((acc, s) => {
-            acc[s.sessionId] = {
-              teachersRequired: Math.max(0, Number((s as any).teachersRequired ?? 1) || 1),
-              tasRequired: Math.max(0, Number((s as any).tasRequired ?? 1) || 1),
-            };
-            return acc;
-          }, {})
-        );
+        const { mappedSessions } = mapSessionsWithFlags(detail);
+        const byFilter = await loadSessionsByRequestId(Number(detail.requestId ?? id));
+        applySessionState(byFilter.length ? byFilter : mappedSessions);
       } finally {
         setLoading(false);
       }
     };
 
     void fetchData();
-  }, [id]);
+  }, [id, applySessionState, loadSessionsByRequestId]);
+
+  useEffect(() => {
+    if (!request?.requestId) return;
+    const rightPanelSessionId = rightPanel && 'session' in rightPanel ? rightPanel.session?.sessionId : null;
+    if (!rightPanelSessionId) return;
+    const syncKey = `${request.requestId}-${rightPanelSessionId}`;
+    if (lastFilterSyncKeyRef.current === syncKey) return;
+    lastFilterSyncKeyRef.current = syncKey;
+
+    let cancelled = false;
+    const syncSessionsByFilter = async () => {
+      try {
+        const byFilter = await loadSessionsByRequestId(Number(request.requestId));
+        if (cancelled || !byFilter.length) return;
+        applySessionState(byFilter);
+      } catch {
+        // keep current list if filter API fails
+      }
+    };
+    void syncSessionsByFilter();
+    return () => {
+      cancelled = true;
+    };
+  }, [request?.requestId, rightPanel, loadSessionsByRequestId, applySessionState]);
 
   useEffect(() => {
     if (viewMode !== 'assignment') return;
@@ -145,44 +274,59 @@ export const useRequestDetailManager = (params: {
           missingIds.map(async (sid) => {
             try {
               const d = await sessionService.getById(sid);
-              const baseAssignments = (d.Assignments ?? []).filter(
+              const baseAssignments = (d.Assignments ?? d.assignments ?? []).filter(
                 (a: any) => a && (a.assignmentId || a.AssignmentId)
               );
               if (!baseAssignments.length) {
-                return { sessionId: d.SessionId, rows: [] as SessionAssignmentRow[] };
+                return { sessionId: Number(d.SessionId ?? d.sessionId ?? sid), rows: [] as SessionAssignmentRow[] };
               }
 
               const rows = await Promise.all(
                 baseAssignments.map(async (a: any) => {
+                  const assignmentId = Number(a.assignmentId ?? a.AssignmentId ?? 0);
                   try {
-                    const full = await assignmentService.getById(a.assignmentId);
-                    const staff = full.staffMember;
+                    if (assignmentId <= 0) throw new Error('Invalid assignment id');
+                    const full = await assignmentService.getById(assignmentId);
+                    const staff = (full as any).staffMember ?? (full as any).StaffMember;
+                    const staffUser = staff?.user ?? staff?.User ?? null;
                     return {
-                      assignmentId: full.assignmentId,
-                      staffMemberId: full.staffMemberId,
-                      staffRole: (full.staffRole || '').toUpperCase(),
-                      status: full.status,
+                      assignmentId: Number((full as any).assignmentId ?? (full as any).AssignmentId ?? assignmentId),
+                      staffMemberId: Number((full as any).staffMemberId ?? (full as any).StaffMemberId ?? 0),
+                      staffRole: String((full as any).staffRole ?? (full as any).StaffRole ?? '').toUpperCase(),
+                      status: String((full as any).status ?? (full as any).Status ?? ''),
                       fullName: staff?.fullName || '—',
-                      email: staff?.userEmail || '',
+                      email:
+                        staff?.userEmail ||
+                        staff?.email ||
+                        staff?.Email ||
+                        staffUser?.email ||
+                        staffUser?.Email ||
+                        '',
                       avatarUrl: staff?.avatarUrl || '',
                     } satisfies SessionAssignmentRow;
                   } catch {
                     const staff = a.staffMember ?? a.StaffMember ?? null;
                     const staffUser = staff?.user ?? staff?.User ?? null;
                     return {
-                      assignmentId: Number(a.assignmentId),
-                      staffMemberId: Number(a.staffMemberId ?? 0),
-                      staffRole: String(a.staffRole ?? '').toUpperCase(),
-                      status: String(a.status ?? ''),
+                      assignmentId,
+                      staffMemberId: Number(a.staffMemberId ?? a.StaffMemberId ?? 0),
+                      staffRole: String(a.staffRole ?? a.StaffRole ?? '').toUpperCase(),
+                      status: String(a.status ?? a.Status ?? ''),
                       fullName: staff?.fullName || staff?.FullName || '—',
-                      email: staffUser?.email ?? staffUser?.Email ?? '',
+                      email:
+                        staff?.userEmail ??
+                        staff?.email ??
+                        staff?.Email ??
+                        staffUser?.email ??
+                        staffUser?.Email ??
+                        '',
                       avatarUrl: staff?.avatarUrl || staff?.AvatarUrl || '',
                     } satisfies SessionAssignmentRow;
                   }
                 })
               );
 
-              return { sessionId: d.SessionId, rows };
+              return { sessionId: Number(d.SessionId ?? d.sessionId ?? sid), rows };
             } catch {
               return { sessionId: sid, rows: [] as SessionAssignmentRow[] };
             }
@@ -232,22 +376,13 @@ export const useRequestDetailManager = (params: {
       setLoading(true);
       const detail = await requestService.getById(Number(id));
       setRequest(detail);
-      const { mappedSessions, nextUiAssigned } = mapSessionsWithFlags(detail);
-      setSessions(mappedSessions);
-      setUiAssignedTeamIdsBySessionId(nextUiAssigned);
-      setUiQuantitiesBySessionId(
-        mappedSessions.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>((acc, s) => {
-          acc[s.sessionId] = {
-            teachersRequired: Math.max(0, Number((s as any).teachersRequired ?? 1) || 1),
-            tasRequired: Math.max(0, Number((s as any).tasRequired ?? 1) || 1),
-          };
-          return acc;
-        }, {})
-      );
+      const { mappedSessions } = mapSessionsWithFlags(detail);
+      const byFilter = await loadSessionsByRequestId(Number(detail.requestId ?? id));
+      applySessionState(byFilter.length ? byFilter : mappedSessions);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, applySessionState, loadSessionsByRequestId]);
 
   const handleApproveClick = useCallback(() => {
     if (!request || !id) return;
@@ -281,18 +416,7 @@ export const useRequestDetailManager = (params: {
         await assignmentService.approve(ids);
         message.success('Đã duyệt các assignment đã chọn.');
         const detail = await sessionService.getById(sessionId);
-        const rowsReload: SessionAssignmentRow[] =
-          ((detail as any).Assignments ?? [])
-            .filter((a: any) => a && (a.assignmentId || a.AssignmentId) && (a.staffMemberId || a.StaffMemberId))
-            .map((a) => ({
-              assignmentId: Number(a!.assignmentId ?? a!.AssignmentId),
-              staffMemberId: Number(a!.staffMemberId ?? a!.StaffMemberId),
-              staffRole: String(a!.staffRole ?? a!.StaffRole ?? '').toUpperCase(),
-              status: String(a!.status ?? a!.Status ?? ''),
-              fullName: a!.staffMember?.fullName || a!.StaffMember?.FullName || '—',
-              email: a!.staffMember?.userEmail || a!.StaffMember?.User?.Email || '',
-              avatarUrl: a!.staffMember?.avatarUrl || a!.StaffMember?.AvatarUrl || '',
-            })) ?? [];
+        const rowsReload = mapSessionAssignments(detail).filter((a) => a.staffMemberId > 0);
         setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
         setSelectedAssignmentIdsBySessionId((prev) => ({ ...prev, [sessionId]: [] }));
         await refreshDetail();
@@ -334,18 +458,7 @@ export const useRequestDetailManager = (params: {
       await assignmentService.reject(rejectAssignmentState.assignmentId, trimmed);
       message.success('Đã từ chối assignment.');
       const detail = await sessionService.getById(rejectAssignmentState.sessionId);
-      const rowsReload: SessionAssignmentRow[] =
-        ((detail as any).Assignments ?? [])
-          .filter((a: any) => a && (a.assignmentId || a.AssignmentId) && (a.staffMemberId || a.StaffMemberId))
-          .map((a) => ({
-            assignmentId: Number(a!.assignmentId ?? a!.AssignmentId),
-            staffMemberId: Number(a!.staffMemberId ?? a!.StaffMemberId),
-            staffRole: String(a!.staffRole ?? a!.StaffRole ?? '').toUpperCase(),
-            status: String(a!.status ?? a!.Status ?? ''),
-            fullName: a!.staffMember?.fullName || a!.StaffMember?.FullName || '—',
-            email: a!.staffMember?.userEmail || a!.StaffMember?.User?.Email || '',
-            avatarUrl: a!.staffMember?.avatarUrl || a!.StaffMember?.AvatarUrl || '',
-          })) ?? [];
+      const rowsReload = mapSessionAssignments(detail).filter((a) => a.staffMemberId > 0);
       setAssignmentsBySessionId((prev) => ({ ...prev, [rejectAssignmentState.sessionId!]: rowsReload }));
       setSelectedAssignmentIdsBySessionId((prev) => {
         const current = prev[rejectAssignmentState.sessionId!] ?? [];

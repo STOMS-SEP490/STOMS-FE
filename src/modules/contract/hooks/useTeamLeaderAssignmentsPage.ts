@@ -58,6 +58,19 @@ const mapSessionLite = (
   status: String(session.status ?? ''),
 });
 
+const mapFilteredSessionLite = (session: any, requestId: number): TeamSessionLite =>
+  mapSessionLite(
+    {
+      sessionId: Number(session?.SessionId ?? session?.sessionId ?? 0),
+      sessionNo: Number(session?.SessionNo ?? session?.sessionNo ?? 0),
+      startAt: String(session?.StartAt ?? session?.startAt ?? ''),
+      endAt: String(session?.EndAt ?? session?.endAt ?? ''),
+      location: String(session?.Location ?? session?.location ?? ''),
+      status: String(session?.Status ?? session?.status ?? ''),
+    },
+    requestId,
+  );
+
 const isAssigningTabRequest = (status?: string) => {
   const value = normalizeStatus(status);
   return value.includes('APPROVED') || value.includes('ASSIGNING') || value === '3' || value === '4';
@@ -180,6 +193,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   const [applyingToOtherSessions, setApplyingToOtherSessions] = useState(false);
   const [requests, setRequests] = useState<TeamRequestItem[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
+  const [currentTeamId, setCurrentTeamId] = useState<number | null>(null);
 
   const [sessionDetailsById, setSessionDetailsById] = useState<Record<number, SessionDetail>>({});
   const [suggestedByAssignmentId, setSuggestedByAssignmentId] = useState<
@@ -236,9 +250,11 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       const teamId = await fetchTeamId(memberId);
 
       if (!teamId) {
+        setCurrentTeamId(null);
         setRequests([]);
         return;
       }
+      setCurrentTeamId(teamId);
 
       const validRequests =
         tab === 'assigning'
@@ -502,6 +518,52 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   );
 
   useEffect(() => {
+    if (!selectedRequestId || !currentTeamId) return;
+
+    let cancelled = false;
+
+    const syncRequestSessionsByTeam = async () => {
+      try {
+        const response = await sessionApi.getFilter({
+          RequestId: selectedRequestId,
+          TeamId: currentTeamId,
+          PageNumber: 1,
+          PageSize: 500,
+        });
+        const mapped = (response.Items ?? response.items ?? [])
+          .map((session) => mapFilteredSessionLite(session, selectedRequestId))
+          .filter((session) => session.sessionId > 0)
+          .sort((a, b) => (a.sessionNo ?? 0) - (b.sessionNo ?? 0));
+
+        if (cancelled) return;
+
+        setRequests((prev) =>
+          prev.map((item) =>
+            item.requestId !== selectedRequestId
+              ? item
+              : {
+                  ...item,
+                  sessions: mapped,
+                },
+          ),
+        );
+
+        setActiveSession((prev) =>
+          prev && !mapped.some((session) => session.sessionId === prev.sessionId) ? null : prev,
+        );
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    void syncRequestSessionsByTeam();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRequestId, currentTeamId]);
+
+  useEffect(() => {
     if (!selectedRequest) return;
     const ids = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
     if (ids.length) {
@@ -749,6 +811,33 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     setStatusFilter(activeTab === 'assigning' ? 'assigning' : 'all');
   };
 
+  const refetchRequestById = useCallback(async (requestId: number) => {
+    if (!requestId || requestId <= 0) return;
+    try {
+      const request = await requestApi.getById(requestId);
+      setRequests((prev) =>
+        prev.map((item) =>
+          item.requestId !== requestId
+            ? item
+            : {
+                ...item,
+                requestCode: request.requestCode,
+                requestName: request.requestName,
+                customerName: request.customerName,
+                subjectId: request.subjectId,
+                courseId: request.courseId,
+                eventId: request.eventId,
+                status: request.status,
+                startDate: request.startDate,
+                sessions: (request.sessions ?? []).map((session) => mapSessionLite(session, requestId)),
+              },
+        ),
+      );
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Không thể làm mới thông tin yêu cầu.'));
+    }
+  }, []);
+
   return {
     loading,
     sendingAssignments,
@@ -778,6 +867,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     handleSelectStaff,
     handleApplyToOtherSessions,
     handleSendAssignments,
+    refetchRequestById,
     getSessionStats,
     handleResetFilters,
   };

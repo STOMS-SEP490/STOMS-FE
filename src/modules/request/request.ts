@@ -57,6 +57,7 @@ export type RequestListItem = {
   sessionsRequired: number;
 
   status: string;
+  reason?: string | null;
   createdAt: string;
 
   sessions?: RequestSessionSummary[];

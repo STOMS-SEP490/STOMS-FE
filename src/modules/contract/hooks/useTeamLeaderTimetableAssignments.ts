@@ -191,7 +191,20 @@ export function useTeamLeaderTimetableAssignments(
         pageSize,
       });
 
-      let rows = normalizeSessionsToRows(res.items ?? [], leaderMemberId);
+      const publishedItems: PublishedTeamSession[] = (res.items ?? res.Items ?? []).map((s) => ({
+        ...(s as PublishedTeamSession),
+        sessionId: Number((s as any).sessionId ?? (s as any).SessionId ?? 0),
+        requestId: Number((s as any).requestId ?? (s as any).RequestId ?? 0),
+        sessionNo: Number((s as any).sessionNo ?? (s as any).SessionNo ?? 0),
+        startAt: String((s as any).startAt ?? (s as any).StartAt ?? ''),
+        endAt: String((s as any).endAt ?? (s as any).EndAt ?? ''),
+        status: String((s as any).status ?? (s as any).Status ?? ''),
+        location: String((s as any).location ?? (s as any).Location ?? ''),
+        assignments: ((s as any).assignments ?? (s as any).Assignments ?? []) as PublishedTeamSession['assignments'],
+        attendances: ((s as any).attendances ?? (s as any).Attendances ?? []) as PublishedTeamSession['attendances'],
+      }));
+
+      let rows = normalizeSessionsToRows(publishedItems, leaderMemberId);
 
       // Tab điểm danh: backend chưa có filter theo ngày,
       // nên tạm filter client-side trên đúng page BE vừa lấy.

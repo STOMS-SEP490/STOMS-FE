@@ -17,6 +17,7 @@ export type SessionDetailProps = {
   requestId: number;
   requestCode: string;
   showReservedEquipment?: boolean;
+  sectionMode?: 'all' | 'info' | 'equipment';
 };
 
 export default function RequestSessionDetailPanel({
@@ -24,7 +25,13 @@ export default function RequestSessionDetailPanel({
   requestId,
   requestCode,
   showReservedEquipment = true,
+  sectionMode = 'all',
 }: SessionDetailProps) {
+  const renderInfoCard = sectionMode === 'all' || sectionMode === 'info';
+  const renderEquipmentCard = (sectionMode === 'all' || sectionMode === 'equipment') && showReservedEquipment;
+  const shouldFetchSessionDetail = renderInfoCard;
+
+  const [previewImage, setPreviewImage] = useState<{ src: string; name: string } | null>(null);
   const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -33,6 +40,12 @@ export default function RequestSessionDetailPanel({
   const [reservedError, setReservedError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!shouldFetchSessionDetail) {
+      setSessionDetail(null);
+      setSessionError(null);
+      setSessionLoading(false);
+      return;
+    }
     let cancelled = false;
     const run = async () => {
       setSessionLoading(true);
@@ -69,7 +82,7 @@ export default function RequestSessionDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [requestId, session.sessionId]);
+  }, [requestId, session.sessionId, shouldFetchSessionDetail]);
 
   const mergedSession = useMemo(() => {
     return sessionDetail;
@@ -100,12 +113,13 @@ export default function RequestSessionDetailPanel({
   const resolvedReservationId = useMemo(() => {
     const raw =
       (mergedSession as unknown as { ReservationId?: number | string | null })?.ReservationId ??
+      session.reservationId ??
       (mergedSession as any)?.reservationId ??
       null;
     if (raw == null) return null;
     const n = Number(raw);
     return !Number.isNaN(n) && n > 0 ? n : null;
-  }, [mergedSession]);
+  }, [mergedSession, session.reservationId]);
 
   useEffect(() => {
     if (!showReservedEquipment) {
@@ -153,7 +167,8 @@ export default function RequestSessionDetailPanel({
 
   return (
     <div className="space-y-4 text-sm">
-      <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
+      {renderInfoCard && (
+        <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
         <div className="px-4 py-2.5 border-b border-gray-100">
           <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
         </div>
@@ -230,8 +245,9 @@ export default function RequestSessionDetailPanel({
           </div>
         </div>
       </div>
+      )}
 
-      {showReservedEquipment && (
+      {renderEquipmentCard && (
         <>
           <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
             <div className="px-4 py-2.5 border-b border-gray-100">
@@ -255,21 +271,34 @@ export default function RequestSessionDetailPanel({
                     >
                       <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
                         {eq.imgLink ? (
-                          <img
-                            src={eq.imgLink}
-                            alt={eq.equipmentName}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewImage({
+                                src: eq.imgLink as string,
+                                name: eq.equipmentName || `Thiết bị #${eq.equipmentId}`,
+                              })
+                            }
+                            className="block w-full h-full cursor-zoom-in p-0 border-0 bg-transparent"
+                            aria-label={`Xem ảnh lớn của ${eq.equipmentName || `thiết bị ${eq.equipmentId}`}`}
+                            title="Bấm để xem ảnh lớn"
+                          >
+                            <img
+                              src={eq.imgLink}
+                              alt={eq.equipmentName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          </button>
                         ) : (
                           <ImageOff className="w-5 h-5 text-gray-400" />
                         )}
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
+                        <div>
                           <div>
                             <div className="font-medium text-sm text-gray-900 truncate">
                               {eq.equipmentName || `Thiết bị #${eq.equipmentId}`}
@@ -278,11 +307,6 @@ export default function RequestSessionDetailPanel({
                               Mã: {eq.equipmentCode || eq.equipmentId}
                             </div>
                           </div>
-                          {eq.status && (
-                            <Badge className="bg-gray-100 text-gray-700 text-[11px] flex-shrink-0">
-                              {eq.status}
-                            </Badge>
-                          )}
                         </div>
 
                         <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500">
@@ -296,6 +320,28 @@ export default function RequestSessionDetailPanel({
             </div>
           </div>
         </>
+      )}
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Xem ảnh thiết bị"
+        >
+          <div
+            className="relative max-w-4xl w-full flex flex-col items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewImage.src}
+              alt={previewImage.name}
+              className="max-h-[80vh] w-auto max-w-full rounded-lg shadow-2xl object-contain bg-white"
+            />
+            <p className="text-white text-sm">{previewImage.name}</p>
+          </div>
+        </div>
       )}
     </div>
   );

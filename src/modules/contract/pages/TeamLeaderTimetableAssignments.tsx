@@ -100,7 +100,8 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
     const keyword = memberSearch.trim().toLowerCase();
     if (!keyword) return attendanceItems;
     return attendanceItems.filter((item) => {
-      const detail = membersById[item.memberId];
+      const memberId = Number((item as any).memberId ?? item.MemberId ?? 0);
+      const detail = membersById[memberId];
       const name = detail?.fullName ?? '';
       const email = detail?.userEmail ?? '';
       return `${name} ${email}`.toLowerCase().includes(keyword);
