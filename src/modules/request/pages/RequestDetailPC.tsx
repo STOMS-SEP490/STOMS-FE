@@ -19,7 +19,6 @@ import type { RequestSessionSummary } from '../request';
 import { Dialog } from '@/shared/components/ui/dialog';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
-import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 
 export default function RequestDetailPC() {
   const { id } = useParams<{ id: string }>();
@@ -32,8 +31,6 @@ export default function RequestDetailPC() {
     setRightPanel,
     loading,
     uiAssignedTeamIdsBySessionId,
-    handleAssignSession,
-    handleQuantitiesChange,
   } = useRequestDetailManager({
     id,
     viewMode,
@@ -379,20 +376,10 @@ export default function RequestDetailPC() {
                     />
 
                     <div className="mt-6">
-                      {String(request.status ?? '').toLowerCase() !== 'pending' ? (
-                        <RequestDetailTeamSummary
-                          session={rightPanel.session}
-                          assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                        />
-                      ) : (
-                        <RequestDetailTeamPanel
-                          session={rightPanel.session}
-                          currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                          onClose={() => setRightPanel(null)}
-                          onAssignSession={handleAssignSession}
-                          onQuantitiesChange={handleQuantitiesChange}
-                        />
-                      )}
+                      <RequestDetailTeamSummary
+                        session={rightPanel.session}
+                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                      />
                     </div>
                   </>
                 )}

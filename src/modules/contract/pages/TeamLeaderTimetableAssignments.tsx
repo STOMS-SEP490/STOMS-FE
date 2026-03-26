@@ -608,7 +608,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         isAuthorizedDelegate ? (
                           <span className="inline-flex w-fit justify-self-end items-center gap-0.5 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 whitespace-nowrap">
                             <UserCheck className="h-3 w-3" />
-                            Đã được ủy quyền
+                            Người điểm danh
                           </span>
                         ) : (
                           <button

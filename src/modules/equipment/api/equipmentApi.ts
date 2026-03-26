@@ -1,76 +1,85 @@
 import axiosClient from '@/shared/lib/axios'
 import type { PaginationResponse } from '@/shared/types/api'
-import type { EquipmentFilterParams, EquipmentListItem } from '../equipment'
+import type {
+  EquipmentCreatePayload,
+  EquipmentFilterParams,
+  EquipmentListItem,
+  EquipmentUpdatePayload,
+} from '../equipment'
 
 const equipmentApi = {
   // GET PAGED + FILTER
   getEquipments: async (
     params?: EquipmentFilterParams
   ): Promise<PaginationResponse<EquipmentListItem>> => {
-    const res = await axiosClient.get<
-      PaginationResponse<EquipmentListItem>,
-      PaginationResponse<EquipmentListItem>
-    >(
-      '/equipment/filter',
-      { params }
-    )
-    return res
+    return (await axiosClient.get('/equipment/filter', { params })) as PaginationResponse<
+      EquipmentListItem
+    >
   },
 
   // GET BY ID
   getById: async (id: number): Promise<EquipmentListItem> => {
-    const res = await axiosClient.get<EquipmentListItem, EquipmentListItem>(
-      `/equipment/${id}`
-    )
-    return res
+    return (await axiosClient.get(`/equipment/${id}`)) as EquipmentListItem
   },
 
   // CREATE
   create: async (
-    data: Partial<EquipmentListItem>
+    payload: EquipmentCreatePayload
   ): Promise<EquipmentListItem> => {
-    const res = await axiosClient.post<EquipmentListItem, EquipmentListItem>(
-      '/equipment',
-      {
-        categoryId: data.categoryId,
-        sponsoredBy: data.sponsoredBy ?? '',
-        equipmentName: data.equipmentName ?? '',
-        equipmentCode: data.equipmentCode ?? '',
-        handoverMinute: data.handoverMinute ?? '',
-        description: data.description ?? '',
-        imgLink: data.imgLink ?? null,
-      }
-    )
-    return res
+    const formData = new FormData()
+    formData.append('categoryId', String(payload.categoryId))
+    formData.append('sponsoredBy', payload.sponsoredBy ?? '')
+    formData.append('equipmentName', payload.equipmentName ?? '')
+    formData.append('equipmentCode', payload.equipmentCode ?? '')
+    if (payload.description?.trim()) {
+      formData.append('description', payload.description.trim())
+    }
+    if (payload.imgFile) {
+      formData.append('Img', payload.imgFile)
+    }
+    formData.append('HandoverMinuteImg', payload.handoverMinuteImgFile)
+
+    // Axios instance đang set default Content-Type: application/json.
+    // Với multipart/form-data, cần để axios/browser tự set Content-Type + boundary.
+    return (await axiosClient.post('/equipment', formData, {
+      headers: { 'Content-Type': undefined },
+    })) as EquipmentListItem
   },
 
   // UPDATE INFO
-  updateInfo: (
+  updateInfo: async (
     id: number,
-    data: Partial<EquipmentListItem>
-  ): Promise<EquipmentListItem> =>
-    axiosClient
-      .put<EquipmentListItem, EquipmentListItem>(`/equipment/${id}/info`, {
-        categoryId: data.categoryId,
-        sponsoredBy: data.sponsoredBy ?? '',
-        equipmentName: data.equipmentName ?? '',
-        equipmentCode: data.equipmentCode ?? '',
-        handoverMinute: data.handoverMinute ?? '',
-        description: data.description ?? '',
-        imgLink: data.imgLink ?? null,
-      })
-      .then((res) => res),
+    payload: EquipmentUpdatePayload
+  ): Promise<EquipmentListItem> => {
+    const formData = new FormData()
+    formData.append('categoryId', String(payload.categoryId))
+    formData.append('sponsoredBy', payload.sponsoredBy ?? '')
+    formData.append('equipmentName', payload.equipmentName ?? '')
+    formData.append('equipmentCode', payload.equipmentCode ?? '')
+    if (payload.description?.trim()) {
+      formData.append('description', payload.description.trim())
+    }
+    if (payload.imgFile) {
+      formData.append('Img', payload.imgFile)
+    }
+    if (payload.handoverMinuteImgFile) {
+      formData.append('HandoverMinuteImg', payload.handoverMinuteImgFile)
+    }
+
+    return (await axiosClient.put(`/equipment/${id}/info`, formData, {
+      headers: { 'Content-Type': undefined },
+    })) as EquipmentListItem
+  },
 
   // UPDATE STATUS
-  updateStatus: (
+  updateStatus: async (
     id: number,
     data: { status: string }
-  ): Promise<EquipmentListItem> =>
-    axiosClient
-      .put<EquipmentListItem, EquipmentListItem>(`/equipment/${id}/status`, {
-        status: data.status,
-      })
-      .then((res) => res),
+  ): Promise<EquipmentListItem> => {
+    return (await axiosClient.put(`/equipment/${id}/status`, {
+      status: data.status,
+    })) as EquipmentListItem
+  },
 }
 
 export default equipmentApi

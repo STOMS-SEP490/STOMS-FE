@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { DatePicker, Select as AntdSelect, InputNumber, message, Modal } from 'antd'
 import { ExclamationCircleFilled } from '@ant-design/icons'
+import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import {
   ArrowLeft,
@@ -21,6 +22,7 @@ import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/shared/lib/utils'
+import { getRequestStatusLabel } from '@/constants/status'
 
 import type { CreateRequestPayload } from '../request'
 import type { SubjectListItem } from '@/modules/subject/subject'
@@ -34,9 +36,26 @@ import { useProgramCoordinatorId } from '../hooks/useProgramCoordinatorId'
 import requestApi from '../api/requestApi'
 import attachmentApi from '../api/attachmentApi'
 
+type RequestSessionFormHydrate = {
+  sessionId?: number
+  sessionNo: number
+  startAt?: string
+  endAt?: string
+  location?: string
+  isOnline?: boolean | null
+  teachersRequired?: number | null
+  tasRequired?: number | null
+  notes?: string | null
+}
+
 export default function CreateRequestPage() {
   const navigate = useNavigate()
   const programCoordinatorId = useProgramCoordinatorId()
+  const { id } = useParams<{ id?: string }>()
+  const isEditMode = Boolean(id)
+  const [isHydratingEdit, setIsHydratingEdit] = useState(isEditMode)
+  const [editRequestStatus, setEditRequestStatus] = useState<string | number | null>(null)
+  const canEditOrDelete = isEditMode && getRequestStatusLabel(editRequestStatus) === 'Chờ duyệt'
 
   const [requestName, setRequestName] = useState('')
   const [customerName, setCustomerName] = useState('')
@@ -111,10 +130,134 @@ export default function CreateRequestPage() {
   } = useCreateRequestSchedule()
 
   useEffect(() => {
+    if (isHydratingEdit) return
     if (!startDate || sessions.length === 0) return
     setSessions((prev) => applyAutoSchedule(startDate, prev))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleMode, gapDays])
+  }, [scheduleMode, gapDays, isHydratingEdit])
+
+  const computeDurationFromStartEnd = (start: Dayjs, end: Dayjs): string => {
+    const diffSeconds = end.diff(start, 'second')
+    const safeSeconds = Number.isFinite(diffSeconds) ? Math.max(0, diffSeconds) : 0
+    const h = Math.floor(safeSeconds / 3600)
+    const m = Math.floor((safeSeconds % 3600) / 60)
+    const s = safeSeconds % 60
+    const pad2 = (n: number) => String(n).padStart(2, '0')
+    return `${pad2(h)}:${pad2(m)}:${pad2(s)}`
+  }
+
+  useEffect(() => {
+    if (!isEditMode || !id) return
+    let cancelled = false
+
+    const run = async () => {
+      try {
+        setIsHydratingEdit(true)
+
+        const detail = await requestApi.getById(Number(id))
+
+        setEditRequestStatus((detail as any)?.status ?? null)
+        setRequestName(detail.requestName ?? '')
+        setCustomerName(detail.customerName ?? '')
+        setNote(((detail as any)?.note ?? (detail as any)?.notes ?? '') as string)
+
+        const rawSessions = (detail.sessions ?? []) as Array<
+          RequestSessionFormHydrate
+        >
+
+        const firstSession = rawSessions[0]
+        const inferredStart = firstSession?.startAt
+          ? dayjs(firstSession.startAt)
+          : detail.startDate
+            ? dayjs(detail.startDate)
+            : null
+
+        const inferredSourceType: SourceType = detail.subjectId
+          ? 'subject'
+          : detail.courseId
+            ? 'course'
+            : 'event'
+
+        setSourceType(inferredSourceType)
+        setSubjectId(inferredSourceType === 'subject' ? detail.subjectId ?? undefined : undefined)
+        setCourseId(inferredSourceType === 'course' ? detail.courseId ?? undefined : undefined)
+        setEventId(inferredSourceType === 'event' ? detail.eventId ?? undefined : undefined)
+
+        const defaultLoc = (firstSession?.location ?? '') as string
+        setDefaultLocation(defaultLoc)
+
+        let templateSessions: SessionFormItem[] = []
+        if (inferredSourceType === 'subject' && detail.subjectId) {
+          templateSessions = await loadSubjectSessions(detail.subjectId, defaultLoc)
+        } else if (inferredSourceType === 'course' && detail.courseId) {
+          const list = await loadCourseSubjects(detail.courseId)
+          if (cancelled) return
+          setCourseSubjects(list)
+
+          const combinedSessions = (
+            await Promise.all(
+              list.map(async (s) => {
+                const subjectSessions = await loadSubjectSessions(s.subjectId, defaultLoc)
+                return subjectSessions
+              }),
+            )
+          ).flat()
+
+          templateSessions = combinedSessions.map((s, idx) => ({
+            ...s,
+            sessionNo: idx + 1,
+          }))
+        } else if (inferredSourceType === 'event' && detail.eventId) {
+          templateSessions = await loadEventSessions(detail.eventId, defaultLoc)
+        }
+
+        const patched = templateSessions.map((ts, idx) => {
+          const ds =
+            rawSessions.find((s) => s.sessionNo === ts.sessionNo) ??
+            rawSessions[idx]
+
+          if (!ds) return ts
+
+          const startAt = ds.startAt ? dayjs(ds.startAt) : ts.startAt
+          const endAt = ds.endAt ? dayjs(ds.endAt) : ts.endAt
+
+          const location = (ds.location ?? '') as string
+          const isOnline = Boolean(ds.isOnline)
+          const notes = ((ds as any)?.notes ?? '') as string
+
+          const duration =
+            startAt && endAt && startAt.isValid() && endAt.isValid()
+              ? computeDurationFromStartEnd(startAt, endAt)
+              : ts.duration
+
+          return {
+            ...ts,
+            startAt: startAt ?? ts.startAt,
+            endAt: endAt ?? ts.endAt,
+            duration,
+            notes,
+            teachersRequired: ds.teachersRequired ?? ts.teachersRequired,
+            tasRequired: ds.tasRequired ?? ts.tasRequired,
+            location,
+            isOnline,
+            usesDefaultLocation: location.trim() === (defaultLoc ?? '').trim(),
+          }
+        })
+
+        if (!cancelled) {
+          setSessions(patched)
+          setStartDate(inferredStart ?? undefined)
+        }
+      } finally {
+        if (!cancelled) setIsHydratingEdit(false)
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [id, isEditMode, loadCourseSubjects, loadEventSessions, loadSubjectSessions])
 
   const handleSourceTypeChange = (type: SourceType) => {
     setSourceType(type)
@@ -186,6 +329,10 @@ export default function CreateRequestPage() {
   }
 
   const handleSubmit = () => {
+    if (isEditMode && !canEditOrDelete) {
+      message.error('Chỉ có thể chỉnh sửa/xóa khi yêu cầu đang ở trạng thái Chờ duyệt.')
+      return
+    }
     if (!requestName.trim()) {
       message.error('Vui lòng nhập tên yêu cầu.')
       return
@@ -270,7 +417,7 @@ export default function CreateRequestPage() {
       sourceType === 'subject' ? '#2197C0' : sourceType === 'course' ? '#8B5CF6' : '#F59E0B'
 
     Modal.confirm({
-      title: 'Xác nhận tạo yêu cầu',
+      title: isEditMode ? 'Xác nhận cập nhật yêu cầu' : 'Xác nhận tạo yêu cầu',
       icon: <ExclamationCircleFilled className="text-[#F59E0B]" />,
       width: 920,
       centered: true,
@@ -278,10 +425,17 @@ export default function CreateRequestPage() {
         maxHeight: 'calc(100vh - 220px)',
         overflowY: 'auto',
       },
-      okText: 'Tạo yêu cầu',
+      okText: isEditMode ? 'Cập nhật yêu cầu' : 'Tạo yêu cầu',
       cancelText: 'Chỉnh sửa',
       okButtonProps: {
-        className: 'bg-[#2197C0] hover:bg-[#208AAE] border-0 text-white font-medium',
+        className:
+          'bg-[#2197C0] hover:bg-[#208AAE] border-0 text-white font-medium rounded-lg px-4 shadow-sm',
+        style: {
+          backgroundColor: '#2197C0',
+          borderColor: '#2197C0',
+          color: '#FFFFFF',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 3px 10px rgba(33,151,192,0.18)',
+        },
       },
       cancelButtonProps: {
         className: 'border border-gray-300 bg-white text-black hover:bg-gray-100 font-medium',
@@ -427,16 +581,22 @@ export default function CreateRequestPage() {
       onOk: async () => {
         setSubmitLoading(true)
         try {
-          const created = await requestApi.create(payload)
-
-          const requestId = created.requestId
+          let requestId: number
+          if (isEditMode) {
+            requestId = id ? Number(id) : NaN
+            if (!Number.isFinite(requestId)) throw new Error('Missing request id')
+            await requestApi.update(requestId, payload)
+          } else {
+            const created = await requestApi.create(payload)
+            requestId = created.requestId
+          }
 
           // 1) Upload file từ máy
           if (attachmentFiles.length > 0) {
             await attachmentApi.uploadAttachmentsForRequest(requestId, attachmentFiles)
           }
 
-          message.success('Tạo yêu cầu thành công.')
+          message.success(isEditMode ? 'Cập nhật yêu cầu thành công.' : 'Tạo yêu cầu thành công.')
           navigate('/pc/requests')
         } catch (err: unknown) {
           const e = err as Record<string, unknown>
@@ -448,7 +608,7 @@ export default function CreateRequestPage() {
             (e?.error as string) ||
             (Array.isArray(e?.errors) && (e.errors[0] as string)) ||
             ((e?.response as Record<string, unknown>)?.data as string)
-          message.error((apiMessage as string) ?? 'Tạo yêu cầu thất bại.')
+          message.error((apiMessage as string) ?? (isEditMode ? 'Cập nhật yêu cầu thất bại.' : 'Tạo yêu cầu thất bại.'))
         } finally {
           setSubmitLoading(false)
         }
@@ -474,9 +634,9 @@ export default function CreateRequestPage() {
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Tạo yêu cầu mới</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{isEditMode ? 'Chỉnh sửa yêu cầu' : 'Tạo yêu cầu mới'}</h2>
               <p className="text-xs text-gray-500">
-                Điền thông tin yêu cầu giảng dạy hoặc sự kiện
+                Điền thông tin yêu cầu giảng dạy hoặc sự kiện {isEditMode ? '(từ bản ghi cũ)' : ''}
               </p>
             </div>
           </div>
@@ -484,21 +644,65 @@ export default function CreateRequestPage() {
             <Button variant="outline" size="sm" className="border-gray-300 text-black hover:bg-gray-100" onClick={() => navigate('/pc/requests')}>
               Huỷ bỏ
             </Button>
+            {isEditMode && canEditOrDelete && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-rose-200 bg-white text-rose-600 hover:bg-rose-50"
+                onClick={() => {
+                  if (!id) return
+                  Modal.confirm({
+                    title: 'Xác nhận xóa yêu cầu',
+                    icon: <ExclamationCircleFilled className="text-rose-500" />,
+                    okText: 'Xóa',
+                    cancelText: 'Hủy',
+                    okButtonProps: {
+                      className: 'bg-rose-500 hover:bg-rose-600 border-0 text-white font-medium rounded-lg px-4 shadow-sm',
+                      style: { color: '#FFFFFF' },
+                    },
+                    content: 'Yêu cầu sẽ bị xóa vĩnh viễn. Bạn có chắc không?',
+                    onOk: async () => {
+                      setSubmitLoading(true)
+                      try {
+                        await requestApi.remove(Number(id))
+                        message.success('Xóa yêu cầu thành công.')
+                        navigate('/pc/requests')
+                      } catch (err: unknown) {
+                        const e = err as Record<string, unknown>
+                        const apiMessage =
+                          (typeof err === 'string' && err) ||
+                          (e?.message as string) ||
+                          (e?.detail as string) ||
+                          (e?.title as string) ||
+                          (e?.error as string) ||
+                          (Array.isArray(e?.errors) && (e.errors[0] as string)) ||
+                          ((e?.response as Record<string, unknown>)?.data as string)
+                        message.error((apiMessage as string) ?? 'Xóa yêu cầu thất bại.')
+                      } finally {
+                        setSubmitLoading(false)
+                      }
+                    },
+                  })
+                }}
+              >
+                Xóa yêu cầu
+              </Button>
+            )}
             <Button
               size="sm"
               className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
               onClick={() => void handleSubmit()}
-              disabled={submitLoading}
+              disabled={submitLoading || isHydratingEdit || (isEditMode && !canEditOrDelete)}
             >
               {submitLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Đang tạo...
+                  {isEditMode ? 'Đang cập nhật...' : 'Đang tạo...'}
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  Tạo yêu cầu
+                  {isEditMode ? 'Cập nhật yêu cầu' : 'Tạo yêu cầu'}
                 </>
               )}
             </Button>
@@ -557,51 +761,6 @@ export default function CreateRequestPage() {
                 </div>
               </div>
 
-              {/* Row: Ngày bắt đầu + Lặp lại */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-gray-600">
-                    Ngày bắt đầu <span className="text-red-500">*</span>
-                  </Label>
-                  <DatePicker
-                    style={{ width: '100%' }}
-                    format="DD/MM/YYYY"
-                    placeholder="Chọn ngày"
-                    value={startDate}
-                    onChange={(value) => {
-                      setStartDate(value ?? undefined)
-                      if (value && sessions.length > 0) {
-                        setSessions(applyAutoSchedule(value, sessions))
-                      }
-                    }}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-gray-600">Lặp lại</Label>
-                  <div className="flex gap-2">
-                    <AntdSelect
-                      style={{ flex: 1 }}
-                      value={scheduleMode}
-                      onChange={(v) => setScheduleMode(v)}
-                      options={[
-                        { label: 'Hàng ngày', value: 'daily' },
-                        { label: 'Mỗi tuần', value: 'weekly' },
-                        { label: 'Cách N ngày', value: 'everyNDays' },
-                      ]}
-                    />
-                    {scheduleMode === 'everyNDays' && (
-                      <InputNumber
-                        min={1}
-                        value={gapDays}
-                        onChange={(v) => setGapDays(v ?? 1)}
-                        style={{ width: 100 }}
-                        addonAfter="ngày"
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Nguồn yêu cầu */}
               <div className="border-t pt-3.5">
                 <Label className="text-xs text-gray-600 mb-2 block">Loại yêu cầu</Label>
@@ -650,7 +809,10 @@ export default function CreateRequestPage() {
                     allowClear
                     style={{ width: '100%' }}
                     value={subjectId}
-                    options={subjects.map((s) => ({ label: s.subjectName, value: s.subjectId }))}
+                    options={subjects.map((s) => ({
+                      label: `${s.subjectName} - ${s.numberOfSession} buổi`,
+                      value: s.subjectId,
+                    }))}
                     filterOption={(input, option) =>
                       (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
                     }
@@ -671,7 +833,10 @@ export default function CreateRequestPage() {
                     allowClear
                     style={{ width: '100%' }}
                     value={courseId}
-                    options={courses.map((c) => ({ label: c.courseName, value: c.courseId }))}
+                    options={courses.map((c) => ({
+                      label: c.numberOfSession != null ? `${c.courseName} - ${c.numberOfSession} buổi` : c.courseName,
+                      value: c.courseId,
+                    }))}
                     filterOption={(input, option) =>
                       (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
                     }
@@ -692,7 +857,10 @@ export default function CreateRequestPage() {
                     allowClear
                     style={{ width: '100%' }}
                     value={eventId}
-                    options={events.map((e) => ({ label: e.eventName, value: e.eventId }))}
+                    options={events.map((e) => ({
+                      label: e.numberOfSession != null ? `${e.eventName} - ${e.numberOfSession} buổi` : e.eventName,
+                      value: e.eventId,
+                    }))}
                     filterOption={(input, option) =>
                       (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase())
                     }
@@ -700,6 +868,51 @@ export default function CreateRequestPage() {
                   />
                 </div>
               )}
+
+              {/* Row: Ngày bắt đầu + Lặp lại */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-gray-600">
+                    Ngày bắt đầu <span className="text-red-500">*</span>
+                  </Label>
+                  <DatePicker
+                    style={{ width: '100%' }}
+                    format="DD/MM/YYYY"
+                    placeholder="Chọn ngày"
+                    value={startDate}
+                    onChange={(value) => {
+                      setStartDate(value ?? undefined)
+                      if (value && sessions.length > 0) {
+                        setSessions(applyAutoSchedule(value, sessions))
+                      }
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-gray-600">Lặp lại</Label>
+                  <div className="flex gap-2">
+                    <AntdSelect
+                      style={{ flex: 1 }}
+                      value={scheduleMode}
+                      onChange={(v) => setScheduleMode(v)}
+                      options={[
+                        { label: 'Hàng ngày', value: 'daily' },
+                        { label: 'Mỗi tuần', value: 'weekly' },
+                        { label: 'Cách N ngày', value: 'everyNDays' },
+                      ]}
+                    />
+                    {scheduleMode === 'everyNDays' && (
+                      <InputNumber
+                        min={1}
+                        value={gapDays}
+                        onChange={(v) => setGapDays(v ?? 1)}
+                        style={{ width: 100 }}
+                        addonAfter="ngày"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
 
               {/* Tài liệu đính kèm */}
               <div className="border-t pt-3.5">
@@ -868,7 +1081,7 @@ export default function CreateRequestPage() {
                     </div>
 
                     {/* Date/time */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs text-gray-500">Ngày & giờ bắt đầu</Label>
                         <DatePicker
@@ -894,10 +1107,27 @@ export default function CreateRequestPage() {
                           className="w-full"
                           value={s.endAt}
                           onChange={(value) => {
+                            // Chặn endAt < startAt để tránh dữ liệu sai.
+                            if (!value) {
+                              updateSession(index, { endAt: undefined })
+                              return
+                            }
+                            if (s.startAt && value.isBefore(s.startAt)) {
+                              message.error('Giờ kết thúc không được nhỏ hơn giờ bắt đầu.')
+                              return
+                            }
                             // Người dùng có thể sửa thủ công endAt.
-                            updateSession(index, { endAt: value ?? undefined })
+                            updateSession(index, { endAt: value })
                           }}
                         />
+                      </div>
+
+                      {/* Show duration for this session */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-500">Thời lượng dự kiến</Label>
+                        <div className="text-sm font-medium text-gray-900">
+                          {s.duration?.includes(':') ? s.duration.split(':').slice(0, 2).join(':') : s.duration}
+                        </div>
                       </div>
                     </div>
 

@@ -27,7 +27,7 @@ const contractApi = {
 
   /** PUT /api/contracts/{id}/contract-status */
   markAsPaid: async (id: number): Promise<ContractListItem> => {
-    return axiosClient.put(`/contracts/${id}/contract-status`);
+    return axiosClient.put(`/contracts/${id}/mark-paid`);
   },
 };
 

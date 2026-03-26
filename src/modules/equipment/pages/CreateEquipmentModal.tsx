@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import equipmentApi from '../api/equipmentApi';
 import categoryApi from '@/modules/category/api/categoryApi';
@@ -26,12 +26,15 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
   const [equipmentCode, setEquipmentCode] = useState('');
   const [categoryId, setCategoryId] = useState<string>('');
   const [sponsoredBy, setSponsoredBy] = useState('');
-  const [handoverMinute, setHandoverMinute] = useState('');
   const [description, setDescription] = useState('');
-  const [imgLink, setImgLink] = useState('');
+  const [handoverMinuteImgFile, setHandoverMinuteImgFile] = useState<File | null>(null);
+  const [imgFile, setImgFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryListItem[]>([]);
   const [error, setError] = useState('');
+
+  const handoverMinuteInputRef = useRef<HTMLInputElement | null>(null);
+  const imgInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -61,6 +64,18 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
       setError('Vui lòng nhập bên cung cấp');
       return;
     }
+    if (!handoverMinuteImgFile) {
+      setError('Vui lòng chọn ảnh biên bản bàn giao');
+      return;
+    }
+    if (handoverMinuteImgFile.size <= 0 || handoverMinuteImgFile.size > 10 * 1024 * 1024) {
+      setError('Kích thước ảnh biên bản bàn giao tối đa 10MB');
+      return;
+    }
+    if (imgFile && (imgFile.size <= 0 || imgFile.size > 10 * 1024 * 1024)) {
+      setError('Kích thước ảnh thiết bị tối đa 10MB');
+      return;
+    }
     try {
       setLoading(true);
       await equipmentApi.create({
@@ -68,9 +83,9 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
         equipmentName: name,
         equipmentCode: code,
         sponsoredBy: sponsor,
-        handoverMinute: handoverMinute.trim(),
-        description: description.trim(),
-        imgLink: imgLink.trim() || null,
+        handoverMinuteImgFile,
+        description: description.trim() || undefined,
+        imgFile: imgFile ?? null,
       });
       message.success('Tạo thiết bị thành công');
       resetForm();
@@ -92,10 +107,12 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
     setEquipmentCode('');
     setCategoryId('');
     setSponsoredBy('');
-    setHandoverMinute('');
     setDescription('');
-    setImgLink('');
+    setHandoverMinuteImgFile(null);
+    setImgFile(null);
     setError('');
+    if (handoverMinuteInputRef.current) handoverMinuteInputRef.current.value = '';
+    if (imgInputRef.current) imgInputRef.current.value = '';
   };
 
   const handleClose = () => {
@@ -164,15 +181,21 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="handoverMinute" className="text-black font-medium">Biên bản bàn giao (link)</Label>
+          <Label htmlFor="handoverMinuteImg" className="text-black font-medium">
+            Biên bản bàn giao (ảnh) <span className="text-red-500">*</span>
+          </Label>
           <Input
-            id="handoverMinute"
-            value={handoverMinute}
-            onChange={(e) => setHandoverMinute(e.target.value)}
-            placeholder="https://..."
-            type="url"
-            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            id="handoverMinuteImg"
+            ref={handoverMinuteInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+            onChange={(e) => setHandoverMinuteImgFile(e.target.files?.[0] ?? null)}
+            className="h-auto text-black border-gray-200"
           />
+          {handoverMinuteImgFile && (
+            <p className="text-xs text-gray-600 break-all">{handoverMinuteImgFile.name}</p>
+          )}
+          <p className="text-xs text-gray-500">JPG/PNG/GIF/WebP, tối đa 10MB.</p>
         </div>
        
         <div className="space-y-1.5">
@@ -187,14 +210,16 @@ export default function CreateEquipmentModal({ open, onClose, onCreated }: Props
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="imgLink" className="text-black font-medium">Hình ảnh (link)</Label>
+          <Label htmlFor="img" className="text-black font-medium">Hình ảnh (ảnh)</Label>
           <Input
-            id="imgLink"
-            value={imgLink}
-            onChange={(e) => setImgLink(e.target.value)}
-            placeholder="https://..."
-            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            id="img"
+            ref={imgInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+            onChange={(e) => setImgFile(e.target.files?.[0] ?? null)}
+            className="h-auto text-black border-gray-200"
           />
+          {imgFile && <p className="text-xs text-gray-600 break-all">{imgFile.name}</p>}
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-3 pt-1">
