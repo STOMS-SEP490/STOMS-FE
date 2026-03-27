@@ -41,7 +41,7 @@ export default function TransactionLayout() {
       </div>
 
       {/* TABS */}
-      <div className=" px-6 py-2 mb-1">
+      <div className=" px-6 py-2 ">
         <Tabs value={currentTab}>
           <div className="flex items-center justify-between">
             <TabsList>

@@ -3,7 +3,7 @@ import type { ReservationDetail } from '@/modules/request/type';
 import { Badge } from '@/shared/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
-import { useState } from 'react';
+import { Image } from 'antd';
 
 type Props = {
   open: boolean;
@@ -29,10 +29,6 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function ReservationDetailSidebar({ open, onClose, reservation }: Props) {
-  const [imageOpen, setImageOpen] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageAlt, setImageAlt] = useState<string>('Hình ảnh thiết bị');
-
   if (!reservation) return null;
 
   const createdBy = reservation.createdByUser;
@@ -183,25 +179,14 @@ export default function ReservationDetailSidebar({ open, onClose, reservation }:
                       >
                         <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
                           {eq?.imgLink ? (
-                            <button
-                              type="button"
-                              className="w-full h-full"
-                              onClick={() => {
-                                setImageUrl(eq.imgLink ?? null);
-                                setImageAlt(eq.equipmentName ?? 'Hình ảnh thiết bị');
-                                setImageOpen(true);
-                              }}
-                              title="Xem ảnh thiết bị"
-                            >
-                              <img
-                                src={eq.imgLink}
-                                alt={eq.equipmentName ?? undefined}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                            </button>
+                            <Image
+                              src={eq.imgLink}
+                              alt={eq.equipmentName ?? `Thiết bị #${er.equipmentId}`}
+                              width={40}
+                              height={40}
+                              className="object-cover"
+                              preview={{ mask: 'Xem ảnh' }}
+                            />
                           ) : (
                             <ImageOff className="w-5 h-5 text-gray-400" />
                           )}
@@ -246,26 +231,6 @@ export default function ReservationDetailSidebar({ open, onClose, reservation }:
           </div>
         </div>
       </div>
-
-      {imageOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
-          onClick={() => setImageOpen(false)}
-        >
-          <div
-            className="max-w-3xl max-h-[80vh] bg-white rounded-2xl overflow-hidden shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={imageAlt}
-                className="w-full h-full object-contain bg-black"
-              />
-            ) : null}
-          </div>
-        </div>
-      )}
     </>
   );
 }

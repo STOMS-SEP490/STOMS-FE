@@ -17,6 +17,7 @@ export type MemberBorrowing = {
   userId: number
   avatarUrl?: string | null
   fullName?: string | null
+  email?: string | null
   phone?: string | null
   team?: { teamId: number; teamName: string } | null
 }
@@ -62,4 +63,14 @@ export type BorrowingCreatePayload = {
   returnedDueDate: string // ISO string
   equipmentIds: number[]
   sessionIds?: number[]
+}
+
+export type EquipmentBorrowingHandoverUpdateItem = {
+  equipmentBorrowingId: number
+  // Backend enum (case-insensitive): Returned / Damaged / Lost
+  status: string
+}
+
+export type EquipmentBorrowingHandoverUpdatePayload = {
+  items: EquipmentBorrowingHandoverUpdateItem[]
 }

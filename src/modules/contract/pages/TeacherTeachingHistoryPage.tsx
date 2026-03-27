@@ -42,6 +42,7 @@ export default function TeacherTeachingHistoryPage() {
     setPageNumber,
     setSearch,
     setHasContract,
+    refetch,
   } = useTeacherTeachingHistory({ pageSize: 8 });
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -307,6 +308,7 @@ export default function TeacherTeachingHistoryPage() {
           setCreateOpen(false);
           setCreateSessionId(null);
           setPageNumber(1);
+          void refetch();
         }}
         initialSessionId={createSessionId}
       />
