@@ -41,10 +41,13 @@ export default function BorrowingsManagementLayout() {
         </div>
       </div>
 
-      <div className="shrink-0 px-6 py-2">
-        <div className="flex items-center justify-between">
+      <div className="shrink-0 px-6 py-0 mb-2">
+        <div className="flex items-center justify-between ">
           <Tabs value={currentTab}>
             <TabsList>
+            <TabsTrigger value="borrowings" onClick={() => navigate('/em/equipments/history')}>
+                PHIẾU MƯỢN
+              </TabsTrigger>
               <TabsTrigger
                 value="reservations"
                 onClick={() => navigate('/em/equipments/history/reservations')}
@@ -52,9 +55,7 @@ export default function BorrowingsManagementLayout() {
                 ĐẶT TRƯỚC
               </TabsTrigger>
 
-              <TabsTrigger value="borrowings" onClick={() => navigate('/em/equipments/history')}>
-                PHIẾU MƯỢN
-              </TabsTrigger>
+             
             </TabsList>
           </Tabs>
 

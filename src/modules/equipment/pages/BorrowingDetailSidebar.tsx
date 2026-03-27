@@ -7,7 +7,7 @@ import { getBorrowingStatusColor, getBorrowingStatusDisplay } from '@/constants/
 import { cn } from '@/shared/lib/utils'
 import { Checkbox, Image, message } from 'antd'
 import { Button } from '@/shared/components/ui/button'
-import equipmentApi from '../api/equipmentApi'
+import borrowingApi from '../api/borrowingApi'
 
 type Props = {
   open: boolean
@@ -157,13 +157,26 @@ export default function BorrowingDetailSidebar({
       setReturning(true)
       const nowIso = new Date().toISOString()
 
-      for (const item of itemsToProcess) {
-        const returnStatus = returnAllAsReturned
-          ? 'RETURNED'
-          : (returnStatusById[item.equipmentBorrowingId] ?? 'RETURNED')
-        const equipmentStatus = returnStatus === 'DAMAGED' ? 'DAMAGED' : 'AVAILABLE'
-        await equipmentApi.updateStatus(item.equipmentId, { status: equipmentStatus })
+      const payload = {
+        items: itemsToProcess.map((item) => {
+          const returnStatus = returnAllAsReturned
+            ? 'RETURNED'
+            : (returnStatusById[item.equipmentBorrowingId] ?? 'RETURNED')
+
+          // Backend expects EquipmentBorrowingStatus: Returned / Damaged / Lost
+          const status =
+            returnStatus === 'DAMAGED'
+              ? ('Damaged' as const)
+              : ('Returned' as const)
+
+          return {
+            equipmentBorrowingId: item.equipmentBorrowingId,
+            status,
+          }
+        }),
       }
+
+      await borrowingApi.updateHandover(borrowing.borrowingId, payload)
 
       const nextStatusById: Record<number, string> = {}
       const nextReturnedAtById: Record<number, string> = {}
@@ -231,9 +244,6 @@ export default function BorrowingDetailSidebar({
                   {getBorrowingStatusDisplay(borrowing.status)}
                 </span>
               </div>
-              <p className="text-xs text-gray-500">
-                Ngày mượn: {formatDateTime(borrowing.createdAt)}
-              </p>
             </div>
             <button
               onClick={onClose}
@@ -264,9 +274,20 @@ export default function BorrowingDetailSidebar({
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <InfoRow
+                  label="Ngày mượn"
+                  value={<span className="text-gray-900">{formatDateTime(borrowing.createdAt)}</span>}
+                />
+                <InfoRow
                   label="Hạn trả"
                   value={
-                    <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>
+                    <span
+                      className={cn(
+                        'inline-flex items-center px-2 py-0.5 rounded-full font-semibold border',
+                        isOverdue
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      )}
+                    >
                       {formatDateTime(borrowing.returnedDueDate)}
                     </span>
                   }

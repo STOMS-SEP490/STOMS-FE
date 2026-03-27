@@ -64,3 +64,13 @@ export type BorrowingCreatePayload = {
   equipmentIds: number[]
   sessionIds?: number[]
 }
+
+export type EquipmentBorrowingHandoverUpdateItem = {
+  equipmentBorrowingId: number
+  // Backend enum (case-insensitive): Returned / Damaged / Lost
+  status: string
+}
+
+export type EquipmentBorrowingHandoverUpdatePayload = {
+  items: EquipmentBorrowingHandoverUpdateItem[]
+}
