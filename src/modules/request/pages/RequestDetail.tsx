@@ -27,7 +27,7 @@ export default function RequestDetail() {
     setRightPanel,
     loading,
     uiAssignedTeamIdsBySessionId,
-    uiQuantitiesBySessionId,
+    uiTeamQuantitiesBySessionId,
     assignmentsBySessionId,
     selectedAssignmentIdsBySessionId,
     approveOpen,
@@ -91,14 +91,20 @@ export default function RequestDetail() {
     (session: RequestSessionSummary & { sessionId: number; teachersRequired?: number | null; tasRequired?: number | null }) => {
       const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
       if (teamIds.length === 0) return false;
-      const reqTeachers = Number(session.teachersRequired ?? 1) || 1;
-      const reqTas = Number(session.tasRequired ?? 1) || 1;
-      const uiQ = uiQuantitiesBySessionId[session.sessionId];
-      const assignedTeachers = uiQ?.teachersRequired ?? reqTeachers;
-      const assignedTas = uiQ?.tasRequired ?? reqTas;
-      return assignedTeachers >= reqTeachers && assignedTas >= reqTas;
+      const reqTeachers = Math.max(0, Number(session.teachersRequired ?? 1) || 1);
+      const reqTas = Math.max(0, Number(session.tasRequired ?? 1) || 1);
+      const teamQuantityMap = uiTeamQuantitiesBySessionId[session.sessionId] ?? {};
+      const assignedTeachers = teamIds.reduce(
+        (sum, teamId) => sum + Math.max(0, Number(teamQuantityMap[teamId]?.teachersRequired ?? 0) || 0),
+        0
+      );
+      const assignedTas = teamIds.reduce(
+        (sum, teamId) => sum + Math.max(0, Number(teamQuantityMap[teamId]?.tasRequired ?? 0) || 0),
+        0
+      );
+      return assignedTeachers === reqTeachers && assignedTas === reqTas;
     },
-    [uiAssignedTeamIdsBySessionId, uiQuantitiesBySessionId]
+    [uiAssignedTeamIdsBySessionId, uiTeamQuantitiesBySessionId]
   );
 
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
@@ -645,7 +651,7 @@ export default function RequestDetail() {
                     ) : (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
-                        currentQuantities={uiQuantitiesBySessionId[rightPanel.session.sessionId]}
+                        currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                         onClose={() => setRightPanel(null)}
                         onAssignSession={handleAssignSession}
@@ -668,7 +674,7 @@ export default function RequestDetail() {
               {rightPanel.mode === 'team' && (
                 <RequestDetailTeamPanel
                   session={rightPanel.session}
-                  currentQuantities={uiQuantitiesBySessionId[rightPanel.session.sessionId]}
+                  currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                   onClose={() => setRightPanel(null)}
                   onAssignSession={handleAssignSession}
