@@ -22,6 +22,66 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN')
 }
 
+function getEquipmentBorrowingStatusMeta(rawStatus?: string | null) {
+  const normalized = String(rawStatus ?? '').trim().toLowerCase()
+
+  if (normalized.includes('returned') || normalized === '2') {
+    return {
+      isReturned: true,
+      label: 'Đã trả',
+      className: 'bg-emerald-100 text-emerald-700',
+    }
+  }
+
+  if (normalized.includes('damaged') || normalized === '3') {
+    return {
+      isReturned: false,
+      label: 'Bị hỏng',
+      className: 'bg-amber-100 text-amber-700',
+    }
+  }
+
+  // Lost / Mất
+  if (normalized.includes('lost') || normalized === '4' || normalized.includes('mất')) {
+    return {
+      isReturned: false,
+      label: 'Mất',
+      className: 'bg-red-100 text-red-700',
+    }
+  }
+
+  // Generic equipment statuses (to avoid EN/VN mismatch)
+  if (normalized.includes('available')) {
+    return {
+      isReturned: false,
+      label: 'Khả dụng',
+      className: 'bg-green-100 text-green-700',
+    }
+  }
+
+  if (normalized.includes('borrowed')) {
+    return {
+      isReturned: false,
+      label: 'Đang mượn',
+      className: 'bg-orange-100 text-orange-700',
+    }
+  }
+
+  if (normalized.includes('unavailable')) {
+    return {
+      isReturned: false,
+      label: 'Không khả dụng',
+      className: 'bg-gray-100 text-gray-700',
+    }
+  }
+
+  return {
+    isReturned: false,
+    label: rawStatus || 'Đang mượn',
+    className: 'bg-gray-100 text-gray-700',
+  }
+}
+
 export default function BorrowingDetailSidebar({
   open,
   onClose,
@@ -35,6 +95,7 @@ export default function BorrowingDetailSidebar({
   const lender = borrowing.lentByMember
   const isOverdue =
     borrowing.status === 'Overdue' || borrowing.status === '4'
+  const isBorrowingReturned = borrowing.status === 'Returned' || borrowing.status === '3'
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [returnStatusById, setReturnStatusById] = useState<Record<number, 'RETURNED' | 'DAMAGED'>>({})
   const [returning, setReturning] = useState(false)
@@ -220,13 +281,17 @@ export default function BorrowingDetailSidebar({
             <Card title="Thiết bị trong phiếu">
               {details.length > 0 ? (
                 <ul className="space-y-2">
-                  {details.map((item) => (
-                    <li
-                      key={item.equipmentBorrowingId}
-                      className="rounded-xl bg-white px-3 py-2.5"
-                    >
-                      <div className="flex items-center gap-3">
-                        {canManageReturn ? (
+                  {details.map((item) => {
+                    const statusMeta = getEquipmentBorrowingStatusMeta(
+                      localStatusById[item.equipmentBorrowingId] ?? item.status
+                    )
+                    return (
+                      <li
+                        key={item.equipmentBorrowingId}
+                        className="rounded-xl bg-white px-3 py-2.5"
+                      >
+                        <div className="flex items-center gap-3">
+                          {canManageReturn && !isBorrowingReturned && !statusMeta.isReturned ? (
                           <Checkbox
                             checked={selectedIds.includes(item.equipmentBorrowingId)}
                             disabled={!allActionableIds.includes(item.equipmentBorrowingId) || returning}
@@ -241,7 +306,7 @@ export default function BorrowingDetailSidebar({
                               alt={item.equipment.equipmentName}
                               width={40}
                               height={40}
-                              className="object-cover"
+                              className="object-contain"
                               preview={{ mask: 'Xem ảnh' }}
                             />
                           ) : (
@@ -259,8 +324,8 @@ export default function BorrowingDetailSidebar({
                               Mã: {item.equipment?.equipmentCode ?? item.equipmentId}
                             </div>
                           </div>
-                          <Badge className="bg-gray-100 text-gray-700 text-[11px] flex-shrink-0">
-                            {localStatusById[item.equipmentBorrowingId] ?? item.status}
+                          <Badge className={cn('text-[11px] flex-shrink-0', statusMeta.className)}>
+                            {statusMeta.label}
                           </Badge>
                         </div>
 
@@ -278,8 +343,8 @@ export default function BorrowingDetailSidebar({
                         </div>
                         </div>
                       </div>
-                      {canManageReturn && selectedIds.includes(item.equipmentBorrowingId) && (
-                        <div className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-sky-100 bg-sky-50/40 px-3 py-1.5">
+                        {canManageReturn && !isBorrowingReturned && selectedIds.includes(item.equipmentBorrowingId) && (
+                        <div className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg bg-sky-50/40 px-3 py-1.5">
                           <span className="text-[11px] text-sky-700 font-medium">Trạng thái trả:</span>
                           <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
                             <button
@@ -321,8 +386,9 @@ export default function BorrowingDetailSidebar({
                           </div>
                         </div>
                       )}
-                    </li>
-                  ))}
+                      </li>
+                    )
+                  })}
                 </ul>
               ) : (
                 <EmptyState text="Không có thiết bị trong phiếu." />
@@ -382,7 +448,7 @@ export default function BorrowingDetailSidebar({
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border bg-white shadow-sm">
+    <div className="rounded-2xl bg-white shadow-sm">
       <div className="px-4 py-2.5 border-b">
         <h3 className="font-semibold text-gray-900 text-sm">{title}</h3>
       </div>
@@ -423,7 +489,7 @@ function PersonCard({
   }
 
   return (
-    <div className="rounded-xl border bg-white px-3 py-2.5 flex flex-col gap-1.5">
+    <div className="rounded-xl bg-white px-3 py-2.5 flex flex-col gap-1.5">
       <div className="text-xs text-gray-500 font-medium">{label}</div>
       <div className="flex items-center gap-2">
         <Avatar className="h-8 w-8 flex-shrink-0">
@@ -439,14 +505,14 @@ function PersonCard({
           <div className="text-xs text-gray-500 truncate">{primaryLine || '—'}</div>
         </div>
       </div>
-      {subLine && <div className="text-xs text-gray-500 truncate">SĐT: {subLine}</div>}
+      {subLine && <div className="text-xs text-gray-500 truncate">Số điện thoại: {subLine}</div>}
     </div>
   )
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border bg-gray-50 px-3 py-3 text-sm text-gray-600">
+    <div className="rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-600">
       {text}
     </div>
   )

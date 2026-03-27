@@ -5,6 +5,7 @@ import CategoriesManagement from '@/modules/category/pages/CategoriesManagement'
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory'
 import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout'
 import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement';
+import BorrowingsManagementLayout from '@/app/layouts/BorrowingsManagementLayout';
 
 const EquipmentManagerRoutes = [
   {
@@ -24,16 +25,18 @@ const EquipmentManagerRoutes = [
     element: <Navigate to="/em/equipments/history" replace />,
   },
   {
-    path: 'equipments/history',
-    element: <EquipmentsHistory standalone />,
-  },
-  {
     path: 'equipments',
     element: <EquipmentsManagementLayout />,
     children: [
       { index: true, element: <EquipmentsManagement /> },
       { path: 'categories', element: <CategoriesManagement /> },
-      { path: 'history', element: <EquipmentsHistory /> },
+    ],
+  },
+  {
+    path: 'equipments/history',
+    element: <BorrowingsManagementLayout />,
+    children: [
+      { index: true, element: <EquipmentsHistory /> },
       { path: 'reservations', element: <ReservationsManagement /> },
     ],
   },

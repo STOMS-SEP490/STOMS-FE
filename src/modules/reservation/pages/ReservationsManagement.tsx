@@ -13,6 +13,7 @@ import ReservationDetailSidebar from './ReservationDetailSidebar';
 
 type OutletContext = {
   position?: string;
+  hideSectionTitle?: boolean;
 };
 
 const PAGE_SIZE = 10;
@@ -239,9 +240,11 @@ export default function ReservationsManagement() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold text-black">Lịch sử đặt trước</h3>
-      </div>
+      {!context?.hideSectionTitle ? (
+        <div>
+          <h3 className="text-lg font-semibold text-black">Lịch sử đặt trước</h3>
+        </div>
+      ) : null}
 
       <div className="pt-1">
         <DataTable
