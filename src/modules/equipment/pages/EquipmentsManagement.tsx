@@ -24,7 +24,7 @@ import {
   getEquipmentStatusColor,
 } from '@/constants/equipment';
 import equipmentApi from '../api/equipmentApi';
-import { message } from 'antd';
+import { Image, message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import EquipmentDetailSidebar from './EquipmentDetailSidebar';
 import EditEquipmentModal from './EditEquipmentModal';
@@ -42,9 +42,6 @@ export default function EquipmentsManagement() {
   const [editEquipment, setEditEquipment] = useState<EquipmentListItem | null>(null)
   const [disableOpen, setDisableOpen] = useState(false)
   const [equipmentToDisable, setEquipmentToDisable] = useState<EquipmentListItem | null>(null)
-  const [imageOpen, setImageOpen] = useState(false)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageAlt, setImageAlt] = useState<string>('Hình ảnh thiết bị')
   const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null)
   const {
     data,
@@ -140,12 +137,6 @@ export default function EquipmentsManagement() {
           : null
       message.error(msg || 'Cập nhật trạng thái thất bại')
     }
-  }
-
-  const handlePreviewImage = (url: string, alt: string) => {
-    setImageUrl(url)
-    setImageAlt(alt || 'Hình ảnh thiết bị')
-    setImageOpen(true)
   }
 
   const normalizeStatusValue = (status: string | number) => {
@@ -291,26 +282,14 @@ export default function EquipmentsManagement() {
       cell: ({ row }) => (
         row.original.imgLink ? (
           <div className="w-10 h-10 rounded-md overflow-hidden border bg-gray-50">
-            <button
-              type="button"
-              className="w-full h-full"
-              onClick={() =>
-                handlePreviewImage(
-                  row.original.imgLink as string,
-                  row.original.equipmentName
-                )
-              }
-              title="Xem ảnh"
-            >
-              <img
-                src={row.original.imgLink}
-                alt={row.original.equipmentName}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                }}
-              />
-            </button>
+            <Image
+              src={row.original.imgLink}
+              alt={row.original.equipmentName}
+              width={40}
+              height={40}
+              className="object-cover"
+              preview={{ mask: 'Xem ảnh' }}
+            />
           </div>
         ) : (
           <span className="text-xs text-gray-500">Không có ảnh</span>
@@ -472,31 +451,6 @@ export default function EquipmentsManagement() {
             Xác nhận
           </Button>
         </div>
-      </Dialog>
-      <Dialog
-        open={imageOpen}
-        onClose={() => {
-          setImageOpen(false)
-          setImageUrl(null)
-        }}
-        title="Hình ảnh thiết bị"
-        description={imageAlt}
-        className="max-w-3xl"
-      >
-        {imageUrl ? (
-          <div className="w-full">
-            <div className="w-full max-h-[70vh] overflow-auto rounded-lg border bg-gray-50">
-              <img
-                src={imageUrl}
-                alt={imageAlt}
-                className="w-full h-auto object-contain"
-              />
-            </div>
-            <p className="text-xs text-gray-500 break-all mt-2">{imageUrl}</p>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">Không có hình ảnh</p>
-        )}
       </Dialog>
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">

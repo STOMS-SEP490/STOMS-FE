@@ -1,4 +1,4 @@
-import { Copy, ExternalLink, X } from 'lucide-react'
+import { Copy, X } from 'lucide-react'
 import type { EquipmentListItem } from '../equipment'
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/shared/lib/utils'
@@ -6,7 +6,7 @@ import {
   getEquipmentStatusColor,
   getEquipmentStatusDisplay,
 } from '@/constants/equipment'
-import { message } from 'antd'
+import { Image, message } from 'antd'
 
 type Props = {
   open: boolean
@@ -165,32 +165,16 @@ export default function EquipmentDetailSidebar({
 
             <Card title="Hình ảnh">
               {equipment.imgLink ? (
-                <a
-                  href={equipment.imgLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block"
-                  title="Mở ảnh trong tab mới"
-                >
-                  <div className="relative overflow-hidden rounded-2xl border bg-gray-50">
-                    <img
-                      src={equipment.imgLink}
-                      alt={equipment.equipmentName}
-                      className="w-full h-[240px] object-cover"
-                      onError={(e) => {
-                        ;(e.currentTarget as HTMLImageElement).style.display =
-                          'none'
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
-                      <span className="text-white text-xs opacity-90 truncate">
-                        {equipment.imgLink}
-                      </span>
-                      <ExternalLink size={14} className="text-white/90" />
-                    </div>
-                  </div>
-                </a>
+                <div className="overflow-hidden rounded-2xl border bg-gray-50">
+                  <Image
+                    src={equipment.imgLink}
+                    alt={equipment.equipmentName}
+                    width="100%"
+                    height={240}
+                    className="object-cover"
+                    preview={{ mask: 'Xem ảnh' }}
+                  />
+                </div>
               ) : (
                 <div className="rounded-xl border bg-gray-50 px-3 py-3 text-sm text-gray-600">
                   Không có ảnh

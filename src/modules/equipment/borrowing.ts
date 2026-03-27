@@ -17,6 +17,7 @@ export type MemberBorrowing = {
   userId: number
   avatarUrl?: string | null
   fullName?: string | null
+  email?: string | null
   phone?: string | null
   team?: { teamId: number; teamName: string } | null
 }

@@ -189,6 +189,18 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
     }
   };
 
+  const handleReturned = async () => {
+    await refetch();
+    if (!detailBorrowing?.borrowingId) return;
+    try {
+      const refreshed = await borrowingApi.getById(detailBorrowing.borrowingId);
+      setDetailBorrowing(refreshed);
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('refresh borrowing detail after return error');
+    }
+  };
+
   useEffect(() => {
     if (openDetailFromUrl !== '1') return;
     if (!borrowingIdFromUrl) return;
@@ -273,6 +285,8 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
         open={detailOpen}
         onClose={closeDetailFromUrl}
         borrowing={detailBorrowing}
+        onReturned={handleReturned}
+        canManageReturn={isEquipmentManager}
       />
       <CreateBorrowingModal
         open={openCreate}

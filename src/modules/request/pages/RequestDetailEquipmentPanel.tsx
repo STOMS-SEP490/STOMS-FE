@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { Check, ImageOff, Search } from 'lucide-react';
-import { DatePicker, message } from 'antd';
+import { DatePicker, Image, message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -52,9 +52,6 @@ export default function RequestDetailEquipmentPanel({
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [reserveSubmitLoading, setReserveSubmitLoading] = useState(false);
   const [reserveSubmitError, setReserveSubmitError] = useState<string | null>(null);
-  const [imageOpen, setImageOpen] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageAlt, setImageAlt] = useState<string>('Hình ảnh thiết bị');
 
   // Load categories (for filter dropdown)
   useEffect(() => {
@@ -477,25 +474,14 @@ export default function RequestDetailEquipmentPanel({
                                 }`}
                               >
                                 {eq.imgLink ? (
-                                  <button
-                                    type="button"
-                                    className="w-full h-full"
-                                    onClick={() => {
-                                      setImageUrl(eq.imgLink ?? null);
-                                      setImageAlt(eq.equipmentName ?? 'Hình ảnh thiết bị');
-                                      setImageOpen(true);
-                                    }}
-                                    title="Xem ảnh thiết bị"
-                                  >
-                                    <img
-                                      src={eq.imgLink}
-                                      alt={eq.equipmentName}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                      }}
-                                    />
-                                  </button>
+                                  <Image
+                                    src={eq.imgLink}
+                                    alt={eq.equipmentName ?? `Thiết bị #${eq.equipmentId}`}
+                                    width={40}
+                                    height={40}
+                                    className="object-cover"
+                                    preview={{ mask: 'Xem ảnh' }}
+                                  />
                                 ) : (
                                   <ImageOff className="w-5 h-5 text-gray-300" />
                                 )}
@@ -565,22 +551,6 @@ export default function RequestDetailEquipmentPanel({
           </div>
         </div>
       </div>
-
-      {imageOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
-          onClick={() => setImageOpen(false)}
-        >
-          <div
-            className="max-w-3xl max-h-[80vh] bg-white rounded-2xl overflow-hidden shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {imageUrl ? (
-              <img src={imageUrl} alt={imageAlt} className="w-full h-full object-contain" />
-            ) : null}
-          </div>
-        </div>
-      )}
     </>
   );
 }
