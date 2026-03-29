@@ -39,6 +39,8 @@ export type TaskReportFilterParams = {
   sessionId?: number;
   title?: string;
   description?: string;
+  start?: string;
+  end?: string;
   startAt?: string;
   endAt?: string;
   createdAt?: string;

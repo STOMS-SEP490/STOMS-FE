@@ -22,8 +22,15 @@ export const taskReportApi = {
   /* ──────────── Task Reports ──────────── */
 
   /** GET /api/task-reports/filter */
-  getAll: (params?: TaskReportFilterParams): Promise<PaginationResponse<TaskReport>> =>
-    axiosClient.get('/task-reports/filter', { params }),
+  getAll: (params?: TaskReportFilterParams): Promise<PaginationResponse<TaskReport>> => {
+    const queryParams = {
+      ...params,
+      // BE filter model uses Start/End for date range
+      start: params?.start ?? params?.startAt,
+      end: params?.end ?? params?.endAt,
+    };
+    return axiosClient.get('/task-reports/filter', { params: queryParams });
+  },
 
   /** GET /api/task-reports/{id} */
   getById: (id: number): Promise<TaskReport> =>

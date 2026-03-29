@@ -35,6 +35,12 @@ export default function TaskReportsManagement() {
   const [filterRequestId, setFilterRequestId] = useState<string>('all');
   const [filterSessionId, setFilterSessionId] = useState<string>('all');
   const [filterTitle, setFilterTitle] = useState<string>('');
+  const [requestKeyword, setRequestKeyword] = useState<string>('');
+  const [requestStartAt, setRequestStartAt] = useState<string>('');
+  const [requestEndAt, setRequestEndAt] = useState<string>('');
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const [onlyPendingExpense, setOnlyPendingExpense] = useState(false);
 
   const [openView, setOpenView] = useState(false);
   const [viewTaskReport, setViewTaskReport] = useState<TaskReport | null>(null);
@@ -136,6 +142,12 @@ export default function TaskReportsManagement() {
     setFilterRequestId('all');
     setFilterSessionId('all');
     setFilterTitle('');
+    setRequestKeyword('');
+    setRequestStartAt('');
+    setRequestEndAt('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setOnlyPendingExpense(false);
     setPageNumber(1);
   };
 
@@ -154,6 +166,32 @@ export default function TaskReportsManagement() {
     for (const r of requests) map.set(r.requestId, r.requestName);
     return map;
   }, [requests]);
+
+  const requestListFiltered = useMemo(() => {
+    const q = requestKeyword.trim().toLowerCase();
+    const startBound = requestStartAt
+      ? new Date(`${requestStartAt}T00:00:00`)
+      : null;
+    const endBound = requestEndAt
+      ? new Date(`${requestEndAt}T23:59:59.999`)
+      : null;
+
+    return requests.filter((r) => {
+      const name = String(r.requestName ?? '').toLowerCase();
+      const code = String(r.requestCode ?? '').toLowerCase();
+      if (q && !name.includes(q) && !code.includes(q)) return false;
+
+      if (startBound || endBound) {
+        const requestStart = r.startDate ? new Date(r.startDate) : null;
+        if (!requestStart || Number.isNaN(requestStart.getTime())) return false;
+
+        if (startBound && requestStart < startBound) return false;
+        if (endBound && requestStart > endBound) return false;
+      }
+
+      return true;
+    });
+  }, [requests, requestKeyword, requestStartAt, requestEndAt]);
 
   const {
     data: selectedRequestDetail,
@@ -191,6 +229,9 @@ export default function TaskReportsManagement() {
       pageSize,
       selectedRequestIdNum ?? 'all',
       selectedSessionIdNum ?? 'all',
+      filterTitle.trim() || 'all',
+      filterStartDate || 'all',
+      filterEndDate || 'all',
     ],
     queryFn: () =>
       taskReportApi.getAll({
@@ -198,6 +239,9 @@ export default function TaskReportsManagement() {
         pageSize,
         requestId: selectedRequestIdNum ?? undefined,
         sessionId: selectedSessionIdNum ?? undefined,
+        title: filterTitle.trim() || undefined,
+        start: filterStartDate ? `${filterStartDate}T00:00:00` : undefined,
+        end: filterEndDate ? `${filterEndDate}T23:59:59.999` : undefined,
       }),
   });
 
@@ -207,12 +251,11 @@ export default function TaskReportsManagement() {
   );
 
   const filteredTaskReports = useMemo(() => {
-    const q = filterTitle.trim().toLowerCase();
-    if (!q) return taskReports;
-    return taskReports.filter((r) =>
-      String(r.title ?? '').toLowerCase().includes(q)
+    if (!onlyPendingExpense) return taskReports;
+    return taskReports.filter((report) =>
+      (report.expenses ?? []).some((e) => e.status === 1)
     );
-  }, [taskReports, filterTitle]);
+  }, [taskReports, onlyPendingExpense]);
 
   const totalItems = taskReportsPaged?.totalItems ?? 0;
 
@@ -232,7 +275,7 @@ export default function TaskReportsManagement() {
       accessorKey: 'title',
       header: 'Tiêu đề',
       cell: ({ row }) => (
-        <div className="max-w-[360px] truncate" title={row.original.title}>
+        <div className="max-w-[360px] truncate font-semibold text-gray-900" title={row.original.title}>
           {row.original.title}
         </div>
       ),
@@ -329,87 +372,185 @@ export default function TaskReportsManagement() {
         </Badge>
       </div>
 
-      <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch
-          placeholder="Tìm theo tên..."
-          value={filterTitle}
-          onChange={setFilterTitle}
-        />
+      <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4">
+        <div className="bg-white rounded-xl border shadow-sm p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">Danh sách yêu cầu</h3>
+            <Badge className="bg-slate-100 text-slate-700 border border-slate-200">
+              {requestsLoading ? '...' : `${requests.length}`}
+            </Badge>
+          </div>
 
-        <Select
-          value={filterRequestId}
-          onValueChange={(v) => {
-            setFilterRequestId(v);
-            setFilterSessionId('all');
-            setPageNumber(1);
-          }}
-        >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[260px]">
-            <SelectValue
-              placeholder={
-                requestsLoading ? 'Đang tải yêu cầu...' : 'Chọn yêu cầu'
-              }
+          <HoverSearch
+            placeholder="Tìm yêu cầu..."
+            value={requestKeyword}
+            onChange={setRequestKeyword}
+          />
+
+          <div className="grid grid-cols-1 gap-2">
+            <input
+              type="date"
+              value={requestStartAt}
+              onChange={(e) => {
+                setRequestStartAt(e.target.value);
+                setPageNumber(1);
+              }}
+              className="h-9 rounded-md border border-input bg-white px-3 text-sm text-gray-700"
+              title="Lọc startAt của yêu cầu"
             />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả yêu cầu</SelectItem>
-            {requests.map((r) => (
-              <SelectItem key={r.requestId} value={String(r.requestId)}>
-                {r.requestCode ? `[${r.requestCode}] ` : ''}
-                {r.requestName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filterSessionId}
-          onValueChange={(v) => {
-            setFilterSessionId(v);
-            setPageNumber(1);
-          }}
-          disabled={!canPickSession || requestDetailLoading}
-        >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[220px]">
-            <SelectValue
-              placeholder={
-                !canPickSession
-                  ? 'Chọn yêu cầu trước'
-                  : requestDetailLoading
-                    ? 'Đang tải buổi...'
-                    : 'Chọn buổi'
-              }
+            <input
+              type="date"
+              value={requestEndAt}
+              onChange={(e) => {
+                setRequestEndAt(e.target.value);
+                setPageNumber(1);
+              }}
+              className="h-9 rounded-md border border-input bg-white px-3 text-sm text-gray-700"
+              title="Lọc endAt của yêu cầu"
             />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả buổi</SelectItem>
-            {sessionsForSelectedRequest.map((s) => (
-              <SelectItem key={s.sessionId} value={String(s.sessionId)}>
-                Buổi {s.sessionNo}
-              </SelectItem>
+          </div>
+
+          <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+            <button
+              type="button"
+              onClick={() => {
+                setFilterRequestId('all');
+                setFilterSessionId('all');
+                setPageNumber(1);
+              }}
+              className={`w-full text-left rounded-lg border px-3 py-2 text-sm transition-colors ${
+                filterRequestId === 'all'
+                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+              }`}
+            >
+              Tất cả yêu cầu
+            </button>
+
+            {requestListFiltered.map((r) => (
+              <button
+                key={r.requestId}
+                type="button"
+                onClick={() => {
+                  setFilterRequestId(String(r.requestId));
+                  setFilterSessionId('all');
+                  setPageNumber(1);
+                }}
+                className={`w-full text-left rounded-lg border px-3 py-2 text-sm transition-colors ${
+                  filterRequestId === String(r.requestId)
+                    ? 'border-blue-200 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+                title={r.requestName}
+              >
+                <div className="font-medium truncate">
+                  {r.requestCode ? `[${r.requestCode}] ` : ''}
+                  {r.requestName}
+                </div>
+              </button>
             ))}
-          </SelectContent>
-        </Select>
 
-        <Button
-          variant="secondary"
-          className="bg-white"
-          onClick={resetFilters}
-          title="Đặt lại bộ lọc"
-        >
-          <RotateCcw />
-        </Button>
-      </div>
+            {!requestsLoading && requestListFiltered.length === 0 && (
+              <div className="text-xs text-gray-500 px-1">Không có yêu cầu phù hợp.</div>
+            )}
+          </div>
+        </div>
 
-      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
-        <DataTable
-          columns={columns}
-          data={filteredTaskReports}
-          pageNumber={pageNumber}
-          pageSize={pageSize}
-          totalItems={totalItems}
-          onPageChange={(page) => setPageNumber(page)}
-        />
+        <div className="space-y-4">
+          <div className="flex justify-end gap-3 mb-2">
+            <HoverSearch
+              placeholder="Tìm theo tên..."
+              value={filterTitle}
+              onChange={(v) => {
+                setFilterTitle(v);
+                setPageNumber(1);
+              }}
+            />
+
+            <input
+              type="date"
+              value={filterStartDate}
+              onChange={(e) => {
+                setFilterStartDate(e.target.value);
+                setPageNumber(1);
+              }}
+              className="h-9 rounded-md border border-input bg-white px-3 text-sm text-gray-700"
+              title="Lọc theo ngày bắt đầu"
+            />
+
+            <input
+              type="date"
+              value={filterEndDate}
+              onChange={(e) => {
+                setFilterEndDate(e.target.value);
+                setPageNumber(1);
+              }}
+              className="h-9 rounded-md border border-input bg-white px-3 text-sm text-gray-700"
+              title="Lọc theo ngày kết thúc"
+            />
+
+            <Select
+              value={filterSessionId}
+              onValueChange={(v) => {
+                setFilterSessionId(v);
+                setPageNumber(1);
+              }}
+              disabled={!canPickSession || requestDetailLoading}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[240px]">
+                <SelectValue
+                  placeholder={
+                    !canPickSession
+                      ? 'Chọn yêu cầu bên trái'
+                      : requestDetailLoading
+                        ? 'Đang tải buổi...'
+                        : 'Chọn buổi'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả buổi</SelectItem>
+                {sessionsForSelectedRequest.map((s) => (
+                  <SelectItem key={s.sessionId} value={String(s.sessionId)}>
+                    Buổi {s.sessionNo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="secondary"
+              className="bg-white"
+              onClick={resetFilters}
+              title="Đặt lại bộ lọc"
+            >
+              <RotateCcw />
+            </Button>
+
+            <Button
+              variant={onlyPendingExpense ? 'default' : 'secondary'}
+              className={onlyPendingExpense ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-white'}
+              onClick={() => {
+                setOnlyPendingExpense((prev) => !prev);
+                setPageNumber(1);
+              }}
+              title="Chỉ hiện task có expense đang chờ duyệt"
+            >
+              Chờ duyệt
+            </Button>
+          </div>
+
+          <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+            <DataTable
+              columns={columns}
+              data={filteredTaskReports}
+              pageNumber={pageNumber}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={(page) => setPageNumber(page)}
+            />
+          </div>
+        </div>
       </div>
 
       <Drawer
