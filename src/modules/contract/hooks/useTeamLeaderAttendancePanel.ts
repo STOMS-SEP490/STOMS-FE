@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/api/type';
+import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/type';
 import sessionApi from '@/modules/request/api/sessionApi';
 import attendanceApi from '@/modules/request/api/attendanceApi';
 import memberApi from '@/modules/request/api/memberApi';
@@ -13,8 +13,8 @@ const FIRST_PAGE = 1;
 const PAGE_SIZE = 100;
 
 function getSelectedIdsByMode(items: AttendanceItem[], mode: AttendanceWriteMode): number[] {
-  if (mode === 'checkin') return items.filter((x) => x.checkinAt != null).map((x) => x.memberId);
-  return items.filter((x) => x.checkoutAt != null).map((x) => x.memberId);
+  if (mode === 'checkin') return items.filter((x) => x.CheckinAt != null).map((x) => x.MemberId);
+  return items.filter((x) => x.CheckoutAt != null).map((x) => x.MemberId);
 }
 
 function buildAttendancePayload(
@@ -96,12 +96,12 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
       pageNumber: FIRST_PAGE,
       pageSize: PAGE_SIZE,
     });
-    return res.items ?? [];
+    return res.Items ?? [];
   }, []);
 
   const resolveAttendanceOwner = useCallback(
     async (detail: SessionDetail) => {
-      const ownerIdFromSession = detail.attendances?.[0]?.attendanceByMemberId ?? null;
+      const ownerIdFromSession = detail.Attendances?.[0]?.AttendanceByMemberId ?? null;
       const ownerId = ownerIdFromSession ?? currentMemberId;
 
       setAttendanceByMemberIdForSession(ownerId);
@@ -138,7 +138,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
       const attendanceByMemberId = await resolveAttendanceOwner(detail);
       const items = await loadAttendanceItems(row.sessionId, attendanceByMemberId);
       setAttendanceItems(items);
-      await hydrateMembersByIds(items.map((x) => x.memberId));
+      await hydrateMembersByIds(items.map((x) => x.MemberId));
 
       if (mode === 'checkin' || mode === 'checkout') {
         setSelectedMemberIds(getSelectedIdsByMode(items, mode));

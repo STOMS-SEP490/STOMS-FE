@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Power, PowerOff, Plus, X } from 'lucide-react';
+import { Eye, Pencil, Power, PowerOff, Plus, X } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Modal, message } from 'antd';
@@ -21,6 +21,7 @@ import { useCourses } from '@/modules/course/hooks/useCourses';
 import { useCourseDetailDrawer } from '@/modules/course/hooks/useCourseDetailDrawer';
 import { useActiveSubjects } from '@/modules/course/hooks/useActiveSubjects';
 import { CourseDetailDrawer } from '@/modules/course/components/CourseDetailDrawer';
+import { useAuth } from '@/app/providers/AuthProvider';
 
 type Props = {
   readOnly?: boolean;
@@ -46,6 +47,11 @@ function mapApiCourseSubjectToRow(
 
 export default function CoursesManagement({ readOnly = false }: Props) {
   const context = useOutletContext<{ position: string }>();
+
+  const { user } = useAuth();
+  const roleId = Number(user?.role ?? 0);
+  const isManager = roleId === 1;
+  const canEdit = isManager && !readOnly;
 
   const {
     data,
@@ -82,6 +88,10 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   const [showAddSubject, setShowAddSubject] = useState(false);
 
   const openCreateModal = () => {
+    if (!canEdit) {
+      message.warning('Bạn không có quyền thêm khóa học.');
+      return;
+    }
     setIsCreating(true);
     setEditingCourse(null);
     setCourseCode('');
@@ -96,6 +106,10 @@ export default function CoursesManagement({ readOnly = false }: Props) {
 
   const openEditModal = useCallback(
     async (c: CourseListItem) => {
+      if (!canEdit) {
+        message.warning('Bạn không có quyền chỉnh sửa khóa học.');
+        return;
+      }
       setIsCreating(false);
       try {
         const detail = await courseApi.getById(c.courseId);
@@ -287,8 +301,19 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex gap-2 items-center">
-            <TableTextAction onClick={() => void handleView(row.original)} />
-            {!readOnly && (
+            {isManager ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => void handleView(row.original)}
+                aria-label="Xem chi tiết"
+              >
+                <Eye size={16} className="text-gray-800" />
+              </Button>
+            ) : (
+              <TableTextAction onClick={() => void handleView(row.original)} />
+            )}
+            {canEdit && (
               <>
                 <Button
                   variant="ghost"
@@ -316,7 +341,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         ),
       },
     ],
-    [readOnly, handleView, openEditModal, handleToggleActive],
+    [isManager, canEdit, handleView, openEditModal, handleToggleActive],
   );
 
   if (context.position === 'toolbar') {
@@ -334,7 +359,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
           <h2 className="text-lg font-semibold text-black">Quản lý khóa học</h2>
           <p className="text-xs text-gray-500">Danh sách khóa học trong hệ thống</p>
         </div>
-        {!readOnly && (
+        {canEdit && (
           <Button className="bg-[#2197C0] hover:bg-[#208AAE] text-white" onClick={openCreateModal}>
             <Plus className="w-4 h-4 mr-1" />
             Thêm khóa học

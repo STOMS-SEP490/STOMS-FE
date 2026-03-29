@@ -11,7 +11,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { getSessionStatusInfo } from '@/constants/status';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   useTeamLeaderTimetableAssignments,
   type TeamLeaderTimetableAssignmentRow,
@@ -52,13 +52,16 @@ type TeamLeaderTimetableAssignmentsProps = {
 
 export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetableAssignmentsProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const rolePrefix = location.pathname.startsWith('/teacher/') ? '/teacher' : '/tl';
+  const byMember = rolePrefix === '/teacher';
   const isAttendanceTab = props?.isAttendanceTab ?? false;
   const isEmbedded = props?.embedded ?? false;
   const statuses = useMemo(
     () => (isAttendanceTab ? ['ASSIGNED', 'ONGOING'] : ['ASSIGNED', 'ONGOING']),
     [isAttendanceTab],
   );
-  const internal = useTeamLeaderTimetableAssignments({ pageSize: 8, statuses, todayOnly: isAttendanceTab });
+  const internal = useTeamLeaderTimetableAssignments({ pageSize: 8, statuses, todayOnly: isAttendanceTab, byMember });
 
   const items = props?.items ?? internal.items;
   const loading = props?.loading ?? internal.loading;
@@ -97,7 +100,8 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
     const keyword = memberSearch.trim().toLowerCase();
     if (!keyword) return attendanceItems;
     return attendanceItems.filter((item) => {
-      const detail = membersById[item.memberId];
+      const memberId = Number((item as any).memberId ?? item.MemberId ?? 0);
+      const detail = membersById[memberId];
       const name = detail?.fullName ?? '';
       const email = detail?.userEmail ?? '';
       return `${name} ${email}`.toLowerCase().includes(keyword);
@@ -419,7 +423,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
                 <button
                   type="button"
-                  onClick={() => navigate('/tl/timetable')}
+                  onClick={() => navigate(`${rolePrefix}/timetable`)}
                   className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors text-slate-500 hover:bg-slate-50"
                   title="Xem dạng thời khóa biểu"
                 >
@@ -531,11 +535,11 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         checked={
                           actionMode === 'checkin'
                           ? filteredAttendanceItems.length > 0 &&
-                            filteredAttendanceItems.every((item) => selectedMemberIds.includes(item.memberId))
-                          : filteredAttendanceItems.filter((item) => item.checkinAt != null).length > 0 &&
+                            filteredAttendanceItems.every((item) => selectedMemberIds.includes(item.MemberId))
+                          : filteredAttendanceItems.filter((item) => item.CheckinAt != null).length > 0 &&
                             filteredAttendanceItems
-                              .filter((item) => item.checkinAt != null)
-                              .every((item) => selectedMemberIds.includes(item.memberId))
+                              .filter((item) => item.CheckinAt != null)
+                              .every((item) => selectedMemberIds.includes(item.MemberId))
                         }
                         onChange={(event) => {
                           const checked = event.target.checked;
@@ -543,8 +547,8 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                             const eligible =
                               actionMode === 'checkin'
                               ? filteredAttendanceItems
-                              : filteredAttendanceItems.filter((item) => item.checkinAt != null);
-                            setSelectedMemberIds(eligible.map((item) => item.memberId));
+                              : filteredAttendanceItems.filter((item) => item.CheckinAt != null);
+                            setSelectedMemberIds(eligible.map((item) => item.MemberId));
                           } else {
                             setSelectedMemberIds([]);
                           }
@@ -554,7 +558,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                           isSubmitting ||
                           (actionMode === 'checkin'
                           ? filteredAttendanceItems.length === 0
-                          : filteredAttendanceItems.filter((item) => item.checkinAt != null).length === 0)
+                          : filteredAttendanceItems.filter((item) => item.CheckinAt != null).length === 0)
                         }
                       />
                       Chọn tất cả
@@ -571,21 +575,26 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 )}
 
                 {filteredAttendanceItems.map((attendance) => {
-                  const memberId = attendance.memberId;
-                  const assignedMember = (sessionDetail?.assignments ?? []).find(
-                    (assignment) => assignment.staffMember?.memberId === memberId,
+                  const memberId = attendance.MemberId;
+                  const assigned = (sessionDetail?.Assignments ?? []).find(
+                    (assignment) => assignment.StaffMemberId === memberId,
                   );
+                  const staff = assigned?.StaffMember;
                   const cachedMember = membersById[memberId];
-                  const member = assignedMember?.staffMember ?? cachedMember;
-                  const memberName = member?.fullName ?? `Member #${memberId}`;
-                  const memberEmail = member?.userEmail ?? cachedMember?.userEmail ?? 'Không có email';
-                  const isCheckedIn = attendance.checkinAt != null;
-                  const isCheckedOut = attendance.checkoutAt != null;
+                  const memberName =
+                    staff?.FullName ?? cachedMember?.fullName ?? `Member #${memberId}`;
+                  const memberEmail =
+                    staff?.Email ??
+                    staff?.User?.Email ??
+                    cachedMember?.userEmail ??
+                    'Không có email';
+                  const isCheckedIn = attendance.CheckinAt != null;
+                  const isCheckedOut = attendance.CheckoutAt != null;
                   const isAuthorizedDelegate =
                     attendanceByMemberIdForSession != null && attendanceByMemberIdForSession === memberId;
                   return (
                     <div
-                      key={attendance.attendanceId}
+                      key={attendance.AttendanceId}
                       className="grid grid-cols-1 items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 md:grid-cols-[1fr_1.2fr_auto]"
                     >
                       <div className="flex items-center gap-3">
@@ -605,7 +614,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         isAuthorizedDelegate ? (
                           <span className="inline-flex w-fit justify-self-end items-center gap-0.5 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 whitespace-nowrap">
                             <UserCheck className="h-3 w-3" />
-                            Đã được ủy quyền
+                            Người điểm danh
                           </span>
                         ) : (
                           <button
@@ -625,7 +634,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                   pageNumber: 1,
                                   pageSize: 100,
                                 });
-                                setAttendanceItems(attendanceList.items ?? []);
+                                setAttendanceItems(attendanceList.Items ?? []);
                                 // Refresh bảng ngoài để thẻ ủy quyền/khả năng check-out cập nhật ngay.
                                 await refetch?.();
                                 setActionMode(null);

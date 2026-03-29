@@ -6,6 +6,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   contract: ContractListItem | null;
+  loading?: boolean;
   roleLabel?: string | null;
 };
 
@@ -14,8 +15,44 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN');
 }
 
-export default function ContractDetailSidebar({ open, onClose, contract, roleLabel }: Props) {
-  if (!contract) return null;
+export default function ContractDetailSidebar({ open, onClose, contract, loading, roleLabel }: Props) {
+  if (!open) return null;
+
+  if (loading || !contract) {
+    return (
+      <>
+        <div className="fixed inset-0 bg-black/35 z-40 h-full" onClick={onClose} aria-hidden />
+        <div
+          className={`fixed top-0 right-0 h-full w-[520px] z-50
+          bg-white border-l shadow-2xl
+          transition-transform duration-300
+          ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        >
+          <div className="flex flex-col h-full">
+            <div className="sticky top-0 z-10 bg-white border-b">
+              <div className="px-5 pt-5 pb-3">
+                <div className="flex items-start justify-between gap-4">
+                  <h2 className="text-xl font-semibold text-black truncate">Chi tiết hợp đồng</h2>
+                  <button
+                    onClick={onClose}
+                    className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    aria-label="Đóng"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 flex items-center justify-center bg-[#f7f7f8]">
+              <span className="text-sm text-slate-500">
+                {loading ? 'Đang tải chi tiết hợp đồng...' : 'Không có dữ liệu hợp đồng'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   const lecturer = contract.createdByUser?.member;
   const lecturerName = lecturer?.fullName ?? '—';
@@ -126,9 +163,13 @@ export default function ContractDetailSidebar({ open, onClose, contract, roleLab
                 <InfoRow
                   label="Tên phiên"
                   value={
-                    contract.session?.title ? (
+                    (contract.session as { sessionTitle?: string; title?: string } | undefined)
+                      ?.sessionTitle ||
+                    (contract.session as { sessionTitle?: string; title?: string } | undefined)
+                      ?.title ? (
                       <span className="font-semibold text-slate-900">
-                        {contract.session.title}
+                        {(contract.session as { sessionTitle?: string; title?: string }).sessionTitle ||
+                          (contract.session as { sessionTitle?: string; title?: string }).title}
                       </span>
                     ) : (
                       '—'

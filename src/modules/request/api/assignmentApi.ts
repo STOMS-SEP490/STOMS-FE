@@ -2,7 +2,7 @@ import axiosClient from '@/shared/lib/axios';
 import type {
   AssignmentDetail,
   SuggestedStaff,
-} from './type';
+} from '../type';
 
 const assignmentApi = {
   getById: async (id: number): Promise<AssignmentDetail> => {
@@ -21,7 +21,11 @@ const assignmentApi = {
             memberId: Number(staff.memberId ?? staff.MemberId ?? 0),
             fullName: String(staff.fullName ?? staff.FullName ?? ''),
             avatarUrl: String(staff.avatarUrl ?? staff.AvatarUrl ?? ''),
-            userEmail: staffUser?.email ?? staffUser?.Email,
+            userEmail:
+              (staff.email != null ? String(staff.email) : undefined) ??
+              (staff.Email != null ? String(staff.Email) : undefined) ??
+              (staffUser?.email != null ? String(staffUser.email) : undefined) ??
+              (staffUser?.Email != null ? String(staffUser.Email) : undefined),
           }
         : null,
     };
@@ -37,7 +41,6 @@ const assignmentApi = {
   assignMembers: async (items: { assignmentId: number; staffMemberId: number }[]): Promise<void> => {
     if (!items.length) return;
     await axiosClient.put('/assignments/assign-members', {
-      // BE expects: { Items: [{ AssignmentId, StaffMemberId }] }
       Items: items.map((i) => ({
         AssignmentId: i.assignmentId,
         StaffMemberId: i.staffMemberId,

@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import type { SessionDetail } from '@/modules/request/api/type';
+import type { SessionDetail } from '@/modules/request/type';
 
 type Props = {
   open: boolean;
@@ -16,7 +16,7 @@ export default function SessionDetailSidebar({ open, onClose, session }: Props) 
   if (!session) return null;
 
   const modeLabel =
-    session.isOnline == null ? 'Không rõ' : session.isOnline ? 'Online' : 'Offline';
+    session.IsOnline == null ? 'Không rõ' : session.IsOnline ? 'Online' : 'Offline';
 
   return (
     <>
@@ -38,10 +38,10 @@ export default function SessionDetailSidebar({ open, onClose, session }: Props) 
             <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold text-black truncate">
-                  Phiên #{session.sessionNo} · ID {session.sessionId}
+                  Phiên #{session.SessionNo} · ID {session.SessionId}
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">
-                  Request ID: <span className="font-medium">{session.requestId}</span>
+                  Request ID: <span className="font-medium">{session.RequestId}</span>
                 </p>
               </div>
               <button
@@ -57,12 +57,12 @@ export default function SessionDetailSidebar({ open, onClose, session }: Props) 
           <div className="px-5 py-4 space-y-4 bg-[#f7f7f8]">
             <Card title="Thông tin chung">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <InfoRow label="Thời gian bắt đầu" value={formatDateTime(session.startAt)} />
-                <InfoRow label="Thời gian kết thúc" value={formatDateTime(session.endAt)} />
-                <InfoRow label="Địa điểm" value={session.location || '—'} />
+                <InfoRow label="Thời gian bắt đầu" value={formatDateTime(session.StartAt)} />
+                <InfoRow label="Thời gian kết thúc" value={formatDateTime(session.EndAt)} />
+                <InfoRow label="Địa điểm" value={session.Location || '—'} />
                 <InfoRow label="Hình thức" value={modeLabel} />
-                <InfoRow label="Trạng thái" value={session.status || '—'} />
-                <InfoRow label="Ghi chú" value={session.notes || '—'} />
+                <InfoRow label="Trạng thái" value={session.Status || '—'} />
+                <InfoRow label="Ghi chú" value={session.Notes || '—'} />
               </div>
             </Card>
 
@@ -71,12 +71,12 @@ export default function SessionDetailSidebar({ open, onClose, session }: Props) 
                 <InfoRow
                   label="Số giáo viên"
                   value={
-                    session.teachersRequired != null ? session.teachersRequired : 'Không rõ'
+                    session.TeachersRequired != null ? session.TeachersRequired : 'Không rõ'
                   }
                 />
                 <InfoRow
                   label="Số trợ giảng"
-                  value={session.tasRequired != null ? session.tasRequired : 'Không rõ'}
+                  value={session.TasRequired != null ? session.TasRequired : 'Không rõ'}
                 />
               </div>
             </Card>

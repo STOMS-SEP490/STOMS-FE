@@ -1,9 +1,11 @@
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Trash2, Plus, BookOpen } from 'lucide-react';
+import { Eye, Pencil, Trash2, Plus, List, Clock, CheckCircle2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { Modal, message } from 'antd';
+import { ExclamationCircleFilled } from '@ant-design/icons';
 import { useRequests } from '../hooks/useRequests';
 import type { RequestListItem } from '../request';
 import { getRequestStatusInfo, getRequestStatusLabel } from '@/constants/status';
@@ -11,6 +13,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Button } from '@/shared/components/ui/button';
+import requestApi from '../api/requestApi';
 
 const getRequestType = (row: RequestListItem) => {
   if (row.subjectId) return 'Subject';
@@ -23,16 +26,23 @@ export default function RequestsManagement() {
   const navigate = useNavigate();
   const [pageNumber, setPageNumber] = useState(1);
   const pageSize = 10;
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data, totalItems } = useRequests(pageNumber, pageSize);
+  const { data, totalItems } = useRequests(pageNumber, pageSize, refreshKey);
 
-  const stats = useMemo(() => {
-    const pending = data.filter((d) => getRequestStatusLabel(d.status) === 'Chờ duyệt').length;
-    const approved = data.filter((d) => getRequestStatusLabel(d.status) === 'Đã duyệt').length;
-    const rejected = data.filter((d) => getRequestStatusLabel(d.status) === 'Từ chối').length;
+  // Lấy đúng tổng theo từng trạng thái để hiển thị thẻ thống kê chính xác
+  const { totalItems: pendingTotalItems } = useRequests(1, 1, refreshKey, { statuses: ['PENDING'] });
+  const { totalItems: approvedTotalItems } = useRequests(1, 1, refreshKey, { statuses: ['APPROVED'] });
+  const { totalItems: rejectedTotalItems } = useRequests(1, 1, refreshKey, { statuses: ['REJECTED'] });
 
-    return { pending, approved, rejected };
-  }, [data]);
+  const stats = useMemo(
+    () => ({
+      pending: pendingTotalItems,
+      approved: approvedTotalItems,
+      rejected: rejectedTotalItems,
+    }),
+    [pendingTotalItems, approvedTotalItems, rejectedTotalItems]
+  );
 
   const columns: ColumnDef<RequestListItem>[] = [
     {
@@ -91,6 +101,10 @@ export default function RequestsManagement() {
       header: 'Thao tác',
       cell: ({ row }) => (
         <div className="flex gap-3">
+            {(() => {
+              const isPending = getRequestStatusLabel(row.original.status) === 'Chờ duyệt';
+              return (
+                <>
           <Eye
             size={16}
             className="cursor-pointer"
@@ -100,17 +114,56 @@ export default function RequestsManagement() {
           />
           <Pencil
             size={16}
-            className="cursor-pointer text-blue-600"
+              className={
+                isPending || getRequestStatusLabel(row.original.status) === 'Từ chối'
+                  ? 'cursor-pointer text-blue-600'
+                  : 'cursor-not-allowed text-blue-300'
+              }
             onClick={() =>
-              navigate(
-                `/pc/requests/edit/${row.original.requestId}`
-              )
+                isPending || getRequestStatusLabel(row.original.status) === 'Từ chối'
+                  ? navigate(`/pc/requests/edit/${row.original.requestId}`)
+                  : undefined
             }
           />
           <Trash2
             size={16}
-            className="cursor-pointer text-red-500"
+              className={isPending ? 'cursor-pointer text-red-500' : 'cursor-not-allowed text-red-300'}
+              onClick={() => {
+                if (!isPending) return;
+                Modal.confirm({
+                  title: 'Xác nhận xóa yêu cầu',
+                  icon: <ExclamationCircleFilled className="text-rose-500" />,
+                  okText: 'Xóa',
+                  cancelText: 'Hủy',
+                  okButtonProps: {
+                    className: 'bg-rose-500 hover:bg-rose-600 border-0 text-white font-medium rounded-lg px-4 shadow-sm',
+                    style: { color: '#FFFFFF' },
+                  },
+                  content: 'Yêu cầu sẽ bị xóa vĩnh viễn. Bạn có chắc không?',
+                  onOk: async () => {
+                    try {
+                      await requestApi.remove(row.original.requestId);
+                      message.success('Xóa yêu cầu thành công.');
+                      setRefreshKey((k) => k + 1);
+                    } catch (err: unknown) {
+                      const e = err as Record<string, unknown>;
+                      const apiMessage =
+                        (typeof err === 'string' && err) ||
+                        (e?.message as string) ||
+                        (e?.detail as string) ||
+                        (e?.title as string) ||
+                        (e?.error as string) ||
+                        (Array.isArray(e?.errors) && (e.errors[0] as string)) ||
+                        ((e?.response as Record<string, unknown>)?.data as string);
+                      message.error((apiMessage as string) ?? 'Xóa yêu cầu thất bại.');
+                    }
+                  },
+                });
+              }}
           />
+                </>
+              );
+            })()}
         </div>
       ),
     },
@@ -139,24 +192,28 @@ export default function RequestsManagement() {
 
       <div className="grid grid-cols-4 gap-2">
         <StatCard
-          icon={<BookOpen />}
+          icon={<List />}
           label="Tổng yêu cầu"
           value={totalItems.toString()}
+          variant="blue"
         />
         <StatCard
-          icon={<BookOpen />}
+          icon={<Clock />}
           label="Chờ duyệt"
           value={stats.pending.toString()}
+          variant="amber"
         />
         <StatCard
-          icon={<BookOpen />}
+          icon={<CheckCircle2 />}
           label="Đã duyệt"
           value={stats.approved.toString()}
+          variant="green"
         />
         <StatCard
-          icon={<BookOpen />}
+          icon={<X />}
           label="Từ chối"
           value={stats.rejected.toString()}
+          variant="rose"
         />
       </div>
 

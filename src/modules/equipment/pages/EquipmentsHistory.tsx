@@ -25,6 +25,12 @@ import borrowingApi from '../api/borrowingApi';
 import CreateBorrowingModal from './CreateBorrowingModal';
 import BorrowingDetailSidebar from './BorrowingDetailSidebar';
 
+const DEFAULT_AVATAR_SRC = '/img/ava.png';
+
+function getAvatarSrc(src?: string | null) {
+  return src && String(src).trim() ? String(src) : DEFAULT_AVATAR_SRC;
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -46,13 +52,27 @@ const columns = (
     header: 'Người mượn',
     cell: ({ row }) => {
       const m = row.original.borrowedByMember;
+      const email = m?.email?.trim() || '';
+      const sub =
+        email ||
+        (row.original.borrowedByMemberId ? `ID #${row.original.borrowedByMemberId}` : '—');
       return (
-        <div>
-          <div className="font-medium text-black">
-            {m?.fullName ?? '—'}
+        <div className="flex min-w-0 max-w-[280px] items-center gap-3">
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+            <img
+              src={getAvatarSrc(m?.avatarUrl)}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+              }}
+            />
           </div>
-          <div className="text-xs text-muted-foreground">
-            {m?.phone ?? row.original.borrowedByMemberId}
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-medium text-slate-900">{m?.fullName ?? '—'}</div>
+            <div className="truncate text-xs text-muted-foreground" title={sub}>
+              {sub}
+            </div>
           </div>
         </div>
       );
@@ -189,6 +209,18 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
     }
   };
 
+  const handleReturned = async () => {
+    await refetch();
+    if (!detailBorrowing?.borrowingId) return;
+    try {
+      const refreshed = await borrowingApi.getById(detailBorrowing.borrowingId);
+      setDetailBorrowing(refreshed);
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('refresh borrowing detail after return error');
+    }
+  };
+
   useEffect(() => {
     if (openDetailFromUrl !== '1') return;
     if (!borrowingIdFromUrl) return;
@@ -273,6 +305,8 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
         open={detailOpen}
         onClose={closeDetailFromUrl}
         borrowing={detailBorrowing}
+        onReturned={handleReturned}
+        canManageReturn={isEquipmentManager}
       />
       <CreateBorrowingModal
         open={openCreate}

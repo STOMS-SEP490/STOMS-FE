@@ -4,7 +4,8 @@ import EquipmentsManagement from '@/modules/equipment/pages/EquipmentsManagement
 import CategoriesManagement from '@/modules/category/pages/CategoriesManagement'
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory'
 import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout'
-import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement';
+import BorrowingsManagementLayout from '@/app/layouts/BorrowingsManagementLayout'
+import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement'
 
 const EquipmentManagerRoutes = [
   {
@@ -20,12 +21,16 @@ const EquipmentManagerRoutes = [
     element: <Navigate to="/em/equipments/categories" replace />,
   },
   {
-    path: 'borrowings',
-    element: <Navigate to="/em/equipments/history" replace />,
+    path: 'equipments/history',
+    element: <Navigate to="/em/borrowings" replace />,
   },
   {
-    path: 'equipments/history',
-    element: <EquipmentsHistory standalone />,
+    path: 'equipments/reservations',
+    element: <Navigate to="/em/borrowings/reservations" replace />,
+  },
+  {
+    path: 'equipments/history/reservations',
+    element: <Navigate to="/em/borrowings/reservations" replace />,
   },
   {
     path: 'equipments',
@@ -33,7 +38,13 @@ const EquipmentManagerRoutes = [
     children: [
       { index: true, element: <EquipmentsManagement /> },
       { path: 'categories', element: <CategoriesManagement /> },
-      { path: 'history', element: <EquipmentsHistory /> },
+    ],
+  },
+  {
+    path: 'borrowings',
+    element: <BorrowingsManagementLayout />,
+    children: [
+      { index: true, element: <EquipmentsHistory /> },
       { path: 'reservations', element: <ReservationsManagement /> },
     ],
   },

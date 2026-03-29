@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useOutletContext, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import {
   AlertCircle,
@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Paperclip } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { getRequestType } from '@/shared/components/request/RequestCard';
 import { getRequestStatusInfo } from '@/constants/status';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
@@ -23,14 +22,21 @@ import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 
 export default function RequestDetailPC() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
 
-  const { request, sessions, rightPanel, setRightPanel, loading, uiAssignedTeamIdsBySessionId } =
-    useRequestDetailManager({
-      id,
-      viewMode,
-      refreshRequestSidebar,
-    });
+  const {
+    request,
+    sessions,
+    rightPanel,
+    setRightPanel,
+    loading,
+    uiAssignedTeamIdsBySessionId,
+  } = useRequestDetailManager({
+    id,
+    viewMode,
+    refreshRequestSidebar,
+  });
 
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ fileName: string; fileUrl: string } | null>(null);
@@ -47,7 +53,7 @@ export default function RequestDetailPC() {
   const getAttachmentMeta = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
     const urlOrName = (fileUrl ?? fileName ?? '').toLowerCase();
     const extMatch = urlOrName.match(/\.([a-z0-9]{1,10})(?:\?|#|$)/);
-    const ext = extMatch?.[1]?.toUpperCase();
+    const ext = extMatch && extMatch.length > 1 ? String(extMatch[1]).toUpperCase() : undefined;
 
     if (/\.(png|jpg|jpeg|gif|webp)(?:\?|#|$)/.test(urlOrName)) {
       return { kind: 'image' as const, label: 'Hình ảnh', ext, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', iconClass: 'text-emerald-600' };
@@ -77,6 +83,7 @@ export default function RequestDetailPC() {
     eventId: request.eventId,
   });
   const statusInfo = getRequestStatusInfo(request.status);
+  const isRejected = statusInfo.label === 'Từ chối';
   const sessionCount = sessions.length || request.sessionsRequired || 0;
 
   return (
@@ -125,6 +132,24 @@ export default function RequestDetailPC() {
               </div>
             </div>
           </div>
+
+          {isRejected && (
+            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <p className="text-xs font-semibold text-rose-700">Lý do từ chối</p>
+              <p className="mt-1 text-sm text-rose-900 whitespace-pre-line">
+                {request.reason?.trim() || 'Không có lý do cụ thể.'}
+              </p>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 transition"
+                  onClick={() => navigate(`/pc/requests/edit/${request.requestId}`)}
+                >
+                  Chỉnh sửa và gửi duyệt lại
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4 text-black">
@@ -155,7 +180,16 @@ export default function RequestDetailPC() {
                     return (
                       <div
                         key={session.sessionId}
-                        className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setRightPanel({ mode: 'detail', session: session as SessionWithFlags })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setRightPanel({ mode: 'detail', session: session as SessionWithFlags });
+                          }
+                        }}
+                        className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -175,11 +209,12 @@ export default function RequestDetailPC() {
                             </span>
                           </div>
 
-                          <TableTextAction
-                            onClick={() => setRightPanel({ mode: 'detail', session: session as SessionWithFlags })}
-                            className="text-xs text-sky-600 hover:text-sky-700 shrink-0"
-                            chevronClassName="w-3.5 h-3.5"
-                          />
+                          <span
+                            className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 underline-offset-2 select-none"
+                            aria-hidden
+                          >
+                            Chi tiết
+                          </span>
                         </div>
 
                         <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">{sessionTitle}</p>
@@ -357,7 +392,9 @@ export default function RequestDetailPC() {
                       session={
                         sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
                       }
+                      requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
+                      showReservedEquipment={false}
                     />
 
                     <div className="mt-6">

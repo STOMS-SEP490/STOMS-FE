@@ -39,3 +39,26 @@ export type EquipmentFilterParams = {
   status?: string
 }
 
+export type EquipmentCreatePayload = {
+  categoryId: number
+  sponsoredBy: string
+  equipmentName: string
+  equipmentCode: string
+  description?: string
+  // BE expects multipart/form-data fields named:
+  // - Img (optional)
+  // - HandoverMinuteImg (required)
+  imgFile?: File | null
+  handoverMinuteImgFile: File
+}
+
+export type EquipmentUpdatePayload = {
+  categoryId: number
+  sponsoredBy: string
+  equipmentName: string
+  equipmentCode: string
+  description?: string
+  imgFile?: File | null
+  handoverMinuteImgFile?: File | null
+}
+

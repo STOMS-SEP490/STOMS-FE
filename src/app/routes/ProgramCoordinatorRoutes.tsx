@@ -19,6 +19,7 @@ const ProgramCoordinatorRoutes = [
     children: [
       { index: true, element: <RequestsManagement /> },
       { path: 'create', element: <CreateRequestPage /> },
+      { path: 'edit/:id', element: <CreateRequestPage /> },
       {
         path: ':id',
         element: <PCRequestLayout />,

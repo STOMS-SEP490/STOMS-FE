@@ -36,6 +36,8 @@ export type RequestCardProps = {
   statusInfoOverride?: RequestStatusInfo | null;
   /** Hiển thị "Cần xử lý" khi trạng thái chờ duyệt */
   showNeedsAction?: boolean;
+  /** Badges bổ sung (ví dụ tiến độ phân công team), hiển thị cạnh trạng thái từ API */
+  secondaryStatusPills?: { label: string; className: string }[];
   isActive?: boolean;
   isHovered?: boolean;
   onClick?: () => void;
@@ -53,6 +55,7 @@ export default function RequestCard({
   eventId,
   status,
   statusInfoOverride,
+  secondaryStatusPills,
   isActive = false,
   isHovered = false,
   onClick,
@@ -61,6 +64,14 @@ export default function RequestCard({
   hintText = 'Bấm để xem chi tiết',
 }: RequestCardProps) {
   const typeInfo = getRequestType({ subjectId, courseId, eventId });
+  // Thanh màu bên trái theo type (môn học: xanh, khóa học: tím, sự kiện: cam)
+  const accentColor = eventId
+    ? '#F59E0B'
+    : courseId
+      ? '#8B5CF6'
+      : subjectId
+        ? '#2197C0'
+        : '#94A3B8';
   const statusInfo =
     statusInfoOverride ??
     (status != null && String(status).trim() !== '' ? getRequestStatusInfo(status) : null);
@@ -72,14 +83,19 @@ export default function RequestCard({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`rounded-xl border border-l-4 border-slate-200 p-3 transition group text-left ${
+      className={`rounded-xl border border-slate-200 p-3 transition group text-left relative overflow-hidden ${
         onClick ? 'cursor-pointer' : ''
       } ${
         isActive
           ? 'bg-sky-50/80 border-sky-300 shadow-sm'
           : 'bg-white hover:border-slate-300 hover:shadow-sm'
-      } ${statusInfo ? statusInfo.leftBarClass : 'border-l-slate-300'}`}
+      }`}
     >
+      <div
+        aria-hidden
+        className="absolute left-0 top-0 bottom-0 w-1"
+        style={{ backgroundColor: `${accentColor}55` }}
+      />
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-slate-900 truncate">
@@ -99,7 +115,17 @@ export default function RequestCard({
             
           </div>
         </div>
-        {statusInfo && <StatusPill statusInfo={statusInfo} />}
+        <div className="flex flex-wrap items-center justify-end gap-1 shrink-0 max-w-[58%]">
+          {statusInfo && <StatusPill statusInfo={statusInfo} />}
+          {(secondaryStatusPills ?? []).map((pill, idx) => (
+            <span
+              key={`${pill.label}-${idx}`}
+              className={`inline-flex items-center whitespace-nowrap shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold border ${pill.className}`}
+            >
+              {pill.label}
+            </span>
+          ))}
+        </div>
       </div>
       {(isActive || isHovered) && hintText && (
         <div className="mt-2 text-[11px] text-slate-500">{hintText}</div>
