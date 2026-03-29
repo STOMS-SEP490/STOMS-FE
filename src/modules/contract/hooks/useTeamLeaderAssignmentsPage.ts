@@ -231,6 +231,13 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     assignSelectionsRef.current = assignSelections;
   }, [assignSelections]);
 
+  /**
+   * Optimistic selection rollback map.
+   * - value = previous override staffMemberId
+   * - null = previously had no override (fallback to server value)
+   */
+  const rollbackOverrideByAssignmentIdRef = useRef<Record<number, number | null>>({});
+
   const sessionDetailsByIdRef = useRef(sessionDetailsById);
   useEffect(() => {
     sessionDetailsByIdRef.current = sessionDetailsById;
@@ -606,17 +613,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     if (id > 0) void ensureSessionDetails([id]);
   }, [activeSession, ensureSessionDetails]);
 
-  useEffect(() => {
-    if (!activeSession) return;
-    const detail = sessionDetailsById[activeSession.sessionId];
-    const assignments = detail?.Assignments ?? [];
-    const assignmentIds = assignments
-      .filter((a) => a?.AssignmentId && isAssignableStatus(a.Status))
-      .map((a) => a?.AssignmentId)
-      .filter((x): x is number => typeof x === 'number' && x > 0);
-    void ensureSuggestedStaffForAssignments(assignmentIds);
-  }, [activeSession, sessionDetailsById, ensureSuggestedStaffForAssignments]);
-
   const flushAutoAssignSession = useCallback(
     async (sessionId: number) => {
       const existingT = autoAssignDebounceTimeoutBySessionIdRef.current[sessionId];
@@ -632,6 +628,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         autoAssignCounterRef.current += 1;
         if (autoAssignCounterRef.current === 1) setAutoAssigning(true);
 
+        let itemsForSession: AssignMemberPayload[] = [];
         try {
           const detailFromState = sessionDetailsByIdRef.current[sessionId];
           const detail = detailFromState ?? (await sessionApi.getById(sessionId));
@@ -644,7 +641,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
           const assignments = detail.Assignments ?? [];
           const selectionsNow = assignSelectionsRef.current;
 
-          const itemsForSession: AssignMemberPayload[] = [];
+          itemsForSession = [];
           for (const a of assignments) {
             if (!a?.AssignmentId) continue;
             if (!isAssignableStatus(a.Status)) continue;
@@ -667,10 +664,39 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
           itemsForSession.forEach((it) => {
             lastAutoAssignedStaffByAssignmentRef.current[it.assignmentId] = it.staffMemberId;
           });
+          // Clear rollback markers for succeeded assignments
+          itemsForSession.forEach((it: AssignMemberPayload) => {
+            delete rollbackOverrideByAssignmentIdRef.current[it.assignmentId];
+          });
 
           const refreshed = await sessionApi.getById(sessionId);
           setSessionDetailsById((prev) => ({ ...prev, [sessionId]: refreshed }));
           refreshSessionInRequestState(refreshed);
+        } catch (err) {
+          // Rollback optimistic selections for assignments we tried to persist
+          const rollbackEntries = rollbackOverrideByAssignmentIdRef.current;
+          const toRollback = itemsForSession
+            .map((it) => it.assignmentId)
+            .filter((aid) => Object.prototype.hasOwnProperty.call(rollbackEntries, aid));
+          if (toRollback.length) {
+            setAssignSelections((prev) => {
+              const next = { ...prev };
+              for (const aid of toRollback) {
+                const prevOverride = rollbackEntries[aid];
+                if (prevOverride == null) delete next[aid];
+                else next[aid] = prevOverride;
+                delete rollbackEntries[aid];
+              }
+              return next;
+            });
+          }
+
+          // Auto-assign chạy theo debounce khi chọn staff; nếu lỗi mà không toast sẽ rất khó nhận ra.
+          // Khi đang "Apply to other sessions", caller đã có toast riêng, tránh báo trùng.
+          if (!isApplyingRef.current) {
+            message.error(getErrorMessage(err, 'Phân công thất bại.'));
+          }
+          throw err;
         } finally {
           autoAssignCounterRef.current -= 1;
           if (autoAssignCounterRef.current === 0) setAutoAssigning(false);
@@ -691,6 +717,9 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
   const handleSelectStaff = useCallback(
     (sessionId: number, assignmentId: number, memberId: number) => {
+      // Store previous override for rollback (optimistic UI)
+      const prevOverride = assignSelectionsRef.current[assignmentId];
+      rollbackOverrideByAssignmentIdRef.current[assignmentId] = prevOverride === undefined ? null : prevOverride;
       setAssignSelections((prev) => ({ ...prev, [assignmentId]: memberId }));
 
       if (isApplyingRef.current) return;
@@ -943,6 +972,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     setActiveSession,
     sessionDetailsById,
     suggestedByAssignmentId,
+    ensureSuggestedStaffForAssignments,
     assignSelections,
     searchByAssignmentId,
     setSearchByAssignmentId,

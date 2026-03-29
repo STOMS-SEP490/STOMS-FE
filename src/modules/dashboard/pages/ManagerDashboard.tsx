@@ -38,7 +38,7 @@ function KpiCard(props: {
   const t = toneClass[props.tone];
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-start justify-between gap-3">
+    <div className="bg-white rounded-xl border border-border shadow-sm p-4 flex items-start justify-between gap-3">
       <div className="min-w-0">
         <p className="text-[11px] text-slate-500 font-medium">{props.title}</p>
         <p className="mt-1 text-2xl font-semibold text-slate-900 truncate">{props.value}</p>
@@ -359,44 +359,31 @@ export default function ManagerDashboard() {
   };
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-sky-50 via-white to-slate-50 px-4 py-6">
-      <div className="mx-auto max-w-6xl space-y-6">
+    <div className="p-6 space-y-6">
         {/* HEADER */}
-        <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-white px-6 py-5 shadow-sm">
-          <div className="absolute inset-y-0 right-0 w-40 bg-[radial-gradient(circle_at_top,_#0ea5e955,_transparent_60%),_radial-gradient(circle_at_bottom,_#22c55e55,_transparent_60%)] opacity-70 pointer-events-none" />
-          <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-sky-500">
-                Tổng quan hệ thống
-              </p>
-              <h2 className="mt-1 text-2xl font-semibold text-slate-900">
-                Dashboard quản lý
-              </h2>
-              <p className="mt-1 text-xs text-slate-500 max-w-xl">
-                Nắm bắt nhanh số liệu về người dùng, sự kiện, yêu cầu, buổi dạy và quỹ với các
-                biểu đồ trực quan.
-              </p>
-            </div>
-            <div className="flex flex-col items-start gap-2 md:items-end">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-slate-500">Khoảng thời gian:</span>
-                <select
-                  className="h-8 rounded-full border border-sky-100 bg-sky-50 px-3 text-xs font-medium text-sky-700 focus:outline-none focus:ring-1 focus:ring-sky-400"
-                  value={effectiveRange}
-                  onChange={(e) =>
-                    setRange(e.target.value as NonNullable<DashboardRangeParams['range']>)
-                  }
-                >
-                  <option value="today">Hôm nay</option>
-                  <option value="thisweek">Tuần này</option>
-                  <option value="thismonth">Tháng này</option>
-                  <option value="last3months">3 tháng gần đây</option>
-                  <option value="last6months">6 tháng gần đây</option>
-                  <option value="1year">1 năm gần đây</option>
-                </select>
-              </div>
-            
-            </div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-white px-6 py-4 rounded-xl border border-border shadow-sm">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold text-black">Dashboard quản lý</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Tổng quan hệ thống — số liệu người dùng, sự kiện, yêu cầu, buổi dạy và quỹ.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-500">Khoảng thời gian:</span>
+            <select
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-400/30 min-w-[160px]"
+              value={effectiveRange}
+              onChange={(e) =>
+                setRange(e.target.value as NonNullable<DashboardRangeParams['range']>)
+              }
+            >
+              <option value="today">Hôm nay</option>
+              <option value="thisweek">Tuần này</option>
+              <option value="thismonth">Tháng này</option>
+              <option value="last3months">3 tháng gần đây</option>
+              <option value="last6months">6 tháng gần đây</option>
+              <option value="1year">1 năm gần đây</option>
+            </select>
           </div>
         </div>
 
@@ -453,7 +440,7 @@ export default function ManagerDashboard() {
         {/* CHARTS ROW 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Biểu đồ phân bố role user (Pie chart) */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -467,7 +454,7 @@ export default function ManagerDashboard() {
             </div>
             {roleDistributionData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <RCPieChart>
                     <Pie
                       data={roleDistributionData}
@@ -497,7 +484,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Biểu đồ phân bố trạng thái sự kiện (Bar chart) */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -511,7 +498,7 @@ export default function ManagerDashboard() {
             </div>
             {eventStatusData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={eventStatusData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="status" tick={{ fontSize: 11 }} />
@@ -535,7 +522,7 @@ export default function ManagerDashboard() {
         {/* CHARTS ROW 2 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* So sánh trạng thái Request */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -584,7 +571,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* So sánh trạng thái Session */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -633,7 +620,7 @@ export default function ManagerDashboard() {
         {/* CHARTS ROW 3 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Tình trạng thiết bị */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -686,7 +673,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Top quỹ theo số dư (Bar chart) */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -698,7 +685,7 @@ export default function ManagerDashboard() {
             </div>
             {topWalletsByBalance.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={topWalletsByBalance} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -728,7 +715,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Biểu đồ thu / chi / net theo quỹ (Line + Bar kết hợp) */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -742,7 +729,7 @@ export default function ManagerDashboard() {
             </div>
             {walletMetricsChartData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={walletMetricsChartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -778,7 +765,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* CHARTS ROW 3.5: Tổng thu/chi theo thời gian (theo range) */}
-        <div className="bg-white rounded-xl border shadow-sm p-4">
+        <div className="bg-white rounded-xl border border-border shadow-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -792,7 +779,7 @@ export default function ManagerDashboard() {
           </div>
           {totalIncomeExpenseSeries && totalIncomeExpenseSeries.length > 0 ? (
             <div className="h-64">
-              <ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={totalIncomeExpenseSeries}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
@@ -841,7 +828,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* CHARTS ROW 3.75: Top người đóng góp */}
-        <div className="bg-white rounded-xl border shadow-sm p-4">
+        <div className="bg-white rounded-xl border border-border shadow-sm p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -892,7 +879,7 @@ export default function ManagerDashboard() {
               <div className="lg:col-span-2">
                 {contributorChartData.length > 0 ? (
                   <div className="h-64">
-                    <ResponsiveContainer>
+                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={contributorChartData} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                         <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -929,7 +916,7 @@ export default function ManagerDashboard() {
         {/* CHARTS ROW 4: Kỹ năng & team/topic */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
           {/* Thống kê kỹ năng tổng quan */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -972,7 +959,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Top kỹ năng (horizontal bar) */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -985,7 +972,7 @@ export default function ManagerDashboard() {
             </div>
             {topSkillsData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={topSkillsData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -1004,7 +991,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Phân bố team theo topic */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1017,7 +1004,7 @@ export default function ManagerDashboard() {
             </div>
             {topicTeamData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={topicTeamData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -1044,7 +1031,7 @@ export default function ManagerDashboard() {
         {/* CHARTS ROW 5: Học phần / môn / thiết bị */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
           {/* Courses summary */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1078,7 +1065,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Subject distribution by topic */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1089,7 +1076,7 @@ export default function ManagerDashboard() {
             </div>
             {subjectTopicData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={subjectTopicData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -1108,7 +1095,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Equipment category distribution */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1120,7 +1107,7 @@ export default function ManagerDashboard() {
             </div>
             {equipmentCategoryData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={equipmentCategoryData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -1142,7 +1129,7 @@ export default function ManagerDashboard() {
         {/* CHARTS ROW 6: Popular courses / session distributions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
           {/* Popular courses */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1153,7 +1140,7 @@ export default function ManagerDashboard() {
             </div>
             {popularCoursesData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={popularCoursesData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -1172,7 +1159,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Subject session distribution */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1183,7 +1170,7 @@ export default function ManagerDashboard() {
             </div>
             {subjectSessionDistData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={subjectSessionDistData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -1202,7 +1189,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Event session distribution */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1213,7 +1200,7 @@ export default function ManagerDashboard() {
             </div>
             {eventSessionDistData.length > 0 ? (
               <div className="h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={eventSessionDistData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -1235,7 +1222,7 @@ export default function ManagerDashboard() {
         {/* CHARTS ROW 7: Contracts + Upcoming events + Teams */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
           {/* Contract summary */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1293,7 +1280,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Upcoming events table */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1334,7 +1321,7 @@ export default function ManagerDashboard() {
           </div>
 
           {/* Teams statistics - top by sessions */}
-          <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -1364,7 +1351,6 @@ export default function ManagerDashboard() {
             )}
           </div>
         </div>
-      </div>
     </div>
   );
 }

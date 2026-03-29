@@ -42,7 +42,6 @@ export default function EquipmentsManagement() {
   const [editEquipment, setEditEquipment] = useState<EquipmentListItem | null>(null)
   const [disableOpen, setDisableOpen] = useState(false)
   const [equipmentToDisable, setEquipmentToDisable] = useState<EquipmentListItem | null>(null)
-  const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null)
   const {
     data,
     loading,
@@ -159,37 +158,6 @@ export default function EquipmentsManagement() {
     return EQUIPMENT_STATUS.AVAILABLE
   }
 
-  const handleInlineStatusChange = async (
-    item: EquipmentListItem,
-    nextStatus: string
-  ) => {
-    const current = normalizeStatusValue(item.status)
-    // Không cho đổi nếu đang Đang mượn (phải đổi qua phiếu mượn)
-    if (
-      !nextStatus ||
-      nextStatus === current ||
-      current === EQUIPMENT_STATUS.BORROWED
-    ) {
-      return
-    }
-
-    try {
-      setUpdatingStatusId(item.equipmentId)
-      await equipmentApi.updateStatus(item.equipmentId, { status: nextStatus })
-      message.success('Đã cập nhật trạng thái')
-      refetch()
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
-          : null
-      message.error(msg || 'Cập nhật trạng thái thất bại')
-    } finally {
-      setUpdatingStatusId(null)
-    }
-  }
-
   const columns: ColumnDef<EquipmentListItem>[] = [
     {
       accessorKey: 'equipmentCode',
@@ -224,55 +192,17 @@ export default function EquipmentsManagement() {
         const status = row.original.status
         const statusValue = normalizeStatusValue(status)
         const isBorrowed = statusValue === EQUIPMENT_STATUS.BORROWED
-        const isUnavailable = statusValue === EQUIPMENT_STATUS.UNAVAILABLE
-        const isUpdating = updatingStatusId === row.original.equipmentId
-        if (isBorrowed) {
-          return (
-            <span
-              className={`inline-flex items-center justify-center h-6 w-[120px] px-2 rounded-full text-[11px] font-medium ${getEquipmentStatusColor(status)}`}
-              title={
-                'Thiết bị đang được mượn (chỉ thay đổi qua phiếu mượn)'
-              }
-            >
-              {getEquipmentStatusDisplay(status)}
-            </span>
-          )
-        }
         return (
-          <Select
-            value={statusValue || undefined}
-            onValueChange={(v) => handleInlineStatusChange(row.original, v)}
-            disabled={isUpdating}
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-medium ${getEquipmentStatusColor(status)}`}
+            title={
+              isBorrowed
+                ? 'Thiết bị đang được mượn (chỉ thay đổi qua phiếu mượn)'
+                : undefined
+            }
           >
-            <SelectTrigger
-              className={`relative h-6 w-[120px] text-[11px] font-medium rounded-full border-0 shadow-none px-2 pr-6 ${
-                isUnavailable
-                  ? 'justify-start text-left [&>span]:text-left [&>span]:justify-start'
-                  : 'justify-center text-center [&>span]:text-center'
-              } [&>span]:w-full [&>svg]:absolute [&>svg]:right-2 [&>svg]:top-1/2 [&>svg]:-translate-y-1/2 ${getEquipmentStatusColor(status)}`}
-              title={
-                isUpdating ? 'Đang cập nhật...' : 'Đổi trạng thái'
-              }
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {EQUIPMENT_STATUS_OPTIONS.filter((opt) => {
-                if (opt.value === EQUIPMENT_STATUS.BORROWED) return false;
-                // Khi đang Không khả dụng: vẫn giữ option Không khả dụng để hiển thị label hiện tại
-                if (opt.value === EQUIPMENT_STATUS.UNAVAILABLE && !isUnavailable) return false;
-                return true;
-              }).map((opt) => (
-                <SelectItem
-                  key={opt.value}
-                  value={opt.value}
-                  disabled={opt.value === EQUIPMENT_STATUS.UNAVAILABLE}
-                >
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {getEquipmentStatusDisplay(status)}
+          </span>
         )
       },
     },

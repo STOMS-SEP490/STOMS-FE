@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  BarChart3,
   BookOpen,
   CalendarDays,
   Users,
@@ -28,6 +29,7 @@ export default function PCSidebar() {
 
   const menus = useMemo<PCMenuItem[]>(
     () => [
+      { label: 'Dashboard', icon: BarChart3, path: '/pc/dashboard' },
       { label: 'Yêu cầu', icon: CheckCircle, path: '/pc/requests', matchPrefixPath: '/pc/requests' },
       { label: 'Nhóm', icon: Users, path: '/pc/teams' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/pc/events' },
