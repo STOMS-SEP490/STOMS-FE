@@ -2,61 +2,27 @@ import axiosClient from '@/shared/lib/axios';
 import type { Team } from '@/modules/team/team';
 import { serializeParamsRepeatArray } from '@/shared/lib/paramsSerializer';
 import type { PagedResponse, SessionFilterRequest, SessionResponse } from '../session.types';
-import type { SessionDetail } from '../type';
-
-export type PublishedTeamSession = SessionResponse & {
-  sessionId: number;
-  requestId: number;
-  sessionNo: number;
-  startAt: string;
-  endAt: string;
-  status: string;
-  location: string;
-  assignments?: Array<{ staffMemberId?: number | null; staffRole?: string | null }>;
-  attendances?: Array<{
-    attendanceByMemberId?: number | null;
-    checkinAt?: string | null;
-    checkoutAt?: string | null;
-  }>;
-};
-
-const toSessionDetail = (raw: SessionResponse): SessionDetail =>
-  ({
-    ...raw,
-    sessionId: Number(raw.sessionId ?? raw.SessionId ?? 0),
-    requestId: Number(raw.requestId ?? raw.RequestId ?? 0),
-    sessionNo: Number(raw.sessionNo ?? raw.SessionNo ?? 0),
-    startAt: String(raw.startAt ?? raw.StartAt ?? ''),
-    endAt: String(raw.endAt ?? raw.EndAt ?? ''),
-    status: String(raw.status ?? raw.Status ?? ''),
-    location: String(raw.location ?? raw.Location ?? ''),
-    notes: String(raw.notes ?? raw.Notes ?? ''),
-    assignments: (raw.assignments ?? raw.Assignments ?? null) as SessionDetail['assignments'],
-    attendances: (raw.attendances ?? raw.Attendances ?? null) as SessionDetail['attendances'],
-    Assignments: (raw.Assignments ?? raw.assignments ?? null) as SessionDetail['Assignments'],
-    Attendances: (raw.Attendances ?? raw.attendances ?? null) as SessionDetail['Attendances'],
-  }) as SessionDetail;
+import {
+  normalizeSessionPagedResponse,
+  normalizeSessionResponse,
+} from '../utils/normalizeSessionResponse';
 
 const sessionApi = {
-  // SUGGEST TEAMS
-  suggestTeams: (sessionId: number): Promise<Team[]> => {
-    return axiosClient.get<Team[], Team[]>(`/sessions/${sessionId}/team-suggestions`);
-  },
+  suggestTeams: (sessionId: number): Promise<Team[]> =>
+    axiosClient.get<Team[], Team[]>(`/sessions/${sessionId}/team-suggestions`),
 
-  // GET BY ID
-  getById: async (id: number): Promise<SessionDetail> => {
-    const raw = await axiosClient.get<SessionResponse, SessionResponse>(`/sessions/${id}`);
-    return toSessionDetail(raw);
-  },
+  getById: (id: number): Promise<SessionResponse> =>
+    axiosClient
+      .get<SessionResponse, SessionResponse>(`/sessions/${id}`)
+      .then((raw) => normalizeSessionResponse(raw as SessionResponse)),
 
-  /** GET /api/sessions/filter */
-  getFilter: (params: SessionFilterRequest = {}): Promise<PagedResponse<SessionResponse>> => {
-    return axiosClient.get<PagedResponse<SessionResponse>, PagedResponse<SessionResponse>>('/sessions/filter', {
-      params,
-      paramsSerializer: serializeParamsRepeatArray,
-    });
-  },
+  getFilter: (params: SessionFilterRequest = {}): Promise<PagedResponse<SessionResponse>> =>
+    axiosClient
+      .get<PagedResponse<SessionResponse>, PagedResponse<SessionResponse>>('/sessions/filter', {
+        params,
+        paramsSerializer: serializeParamsRepeatArray,
+      })
+      .then((raw) => normalizeSessionPagedResponse(raw as PagedResponse<SessionResponse>)),
 };
 
 export default sessionApi;
-

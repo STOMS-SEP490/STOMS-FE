@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router-dom';
 import CoursesManagement from '../../modules/course/pages/CoursesManagement';
 import TopicsManagement from '@/modules/topic/pages/TopicsManagement';
 import CoursesLayout from '@/app/layouts/CoursesManagementLayout';
@@ -5,6 +6,7 @@ import SubjectsManagement from '@/modules/subject/pages/SubjectsManagement';
 import EquipmentsManagement from '@/modules/equipment/pages/EquipmentsManagement';
 import CategoriesManagement from '@/modules/category/pages/CategoriesManagement';
 import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout';
+import BorrowingsManagementLayout from '@/app/layouts/BorrowingsManagementLayout';
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory';
 import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement';
 import TeamsManagement from '@/modules/team/pages/TeamsManagement';
@@ -68,12 +70,30 @@ const ManagerRoutes = [
     ],
   },
   {
+    path: 'equipments/history',
+    element: <Navigate to="/manager/borrowings" replace />,
+  },
+  {
+    path: 'equipments/reservations',
+    element: <Navigate to="/manager/borrowings/reservations" replace />,
+  },
+  {
+    path: 'equipments/history/reservations',
+    element: <Navigate to="/manager/borrowings/reservations" replace />,
+  },
+  {
     path: 'equipments',
     element: <EquipmentsManagementLayout />,
     children: [
       { index: true, element: <EquipmentsManagement /> },
       { path: 'categories', element: <CategoriesManagement /> },
-      { path: 'history', element: <EquipmentsHistory /> },
+    ],
+  },
+  {
+    path: 'borrowings',
+    element: <BorrowingsManagementLayout />,
+    children: [
+      { index: true, element: <EquipmentsHistory /> },
       { path: 'reservations', element: <ReservationsManagement /> },
     ],
   },

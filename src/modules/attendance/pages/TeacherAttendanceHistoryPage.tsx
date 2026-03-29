@@ -7,7 +7,8 @@ import HoverSearch from '@/shared/components/ui/search';
 import { ChevronRight, X } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { attendanceApi, type AttendanceHistoryItem } from '../api/attendanceApi';
-import sessionApi, { type PublishedTeamSession } from '@/modules/request/api/sessionApi';
+import sessionApi from '@/modules/request/api/sessionApi';
+import type { PagedResponse, SessionResponse } from '@/modules/request/session.types';
 import memberApi from '@/modules/request/api/memberApi';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
@@ -380,33 +381,33 @@ export default function TeacherAttendanceHistoryPage() {
           }
 
           const res = await sessionApi.getFilter({
-            teamId,
-            statuses: ['COMPLETED'],
-            pageNumber,
-            pageSize,
+            TeamId: teamId,
+            Statuses: ['COMPLETED'],
+            PageNumber: pageNumber,
+            PageSize: pageSize,
           });
 
-          const items = (res.items ?? []) as PublishedTeamSession[];
+          const items = (res as PagedResponse<SessionResponse>).Items ?? [];
           let mapped: TLRow[] = items
-            .filter((s) => Number(s.sessionId) > 0)
+            .filter((s) => Number(s.SessionId) > 0)
             .map((s) => ({
-              sessionId: s.sessionId,
-              requestId: s.requestId,
-              sessionNo: s.sessionNo,
-              startAt: s.startAt,
-              endAt: s.endAt,
-              location: s.location,
-              isOnline: s.isOnline,
-              status: s.status,
+              sessionId: s.SessionId,
+              requestId: s.RequestId,
+              sessionNo: s.SessionNo,
+              startAt: s.StartAt,
+              endAt: s.EndAt,
+              location: s.Location,
+              isOnline: s.IsOnline,
+              status: s.Status,
             checkinAt: (() => {
-              const attendances = Array.isArray(s.attendances) ? s.attendances : [];
+              const attendances = Array.isArray(s.Attendances) ? s.Attendances : [];
               if (!attendances.length) return null;
-              const responsibleId = attendances[0]?.attendanceByMemberId ?? null;
+              const responsibleId = attendances[0]?.AttendanceByMemberId ?? null;
               let bestTs = Number.POSITIVE_INFINITY;
               let best: string | null = null;
               for (const a of attendances) {
-                if (responsibleId != null && a.attendanceByMemberId !== responsibleId) continue;
-                const v = a.checkinAt ?? null;
+                if (responsibleId != null && a.AttendanceByMemberId !== responsibleId) continue;
+                const v = a.CheckinAt ?? null;
                 if (!v) continue;
                 const ts = new Date(v).getTime();
                 if (Number.isNaN(ts)) continue;
@@ -418,14 +419,14 @@ export default function TeacherAttendanceHistoryPage() {
               return best;
             })(),
             checkoutAt: (() => {
-              const attendances = Array.isArray(s.attendances) ? s.attendances : [];
+              const attendances = Array.isArray(s.Attendances) ? s.Attendances : [];
               if (!attendances.length) return null;
-              const responsibleId = attendances[0]?.attendanceByMemberId ?? null;
+              const responsibleId = attendances[0]?.AttendanceByMemberId ?? null;
               let bestTs = Number.POSITIVE_INFINITY;
               let best: string | null = null;
               for (const a of attendances) {
-                if (responsibleId != null && a.attendanceByMemberId !== responsibleId) continue;
-                const v = a.checkoutAt ?? null;
+                if (responsibleId != null && a.AttendanceByMemberId !== responsibleId) continue;
+                const v = a.CheckoutAt ?? null;
                 if (!v) continue;
                 const ts = new Date(v).getTime();
                 if (Number.isNaN(ts)) continue;
@@ -448,7 +449,7 @@ export default function TeacherAttendanceHistoryPage() {
           }
 
           setRows(mapped);
-          setTotalItems(res.totalItems ?? mapped.length);
+          setTotalItems(res.TotalItems ?? mapped.length);
         } else {
           const res = await attendanceApi.getHistoryByMember(memberId, {
             pageNumber,

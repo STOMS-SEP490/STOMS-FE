@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { Clock, Calendar, MapPin, Hash, GraduationCap, Users } from 'lucide-react';
 import reservationService from '../../reservation/api/reservationApi';
-import type { ReservedEquipmentItem } from '../type';
+import type { EquipmentReservationItemResponse } from '@/modules/reservation/reservation.types';
+import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import { ImageOff } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
 import type { RequestSessionSummary } from '../request';
@@ -35,7 +36,7 @@ export default function RequestSessionDetailPanel({
   const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
-  const [reservedEquipments, setReservedEquipments] = useState<ReservedEquipmentItem[]>([]);
+  const [reservedEquipments, setReservedEquipments] = useState<EquipmentReservationItemResponse[]>([]);
   const [reservedLoading, setReservedLoading] = useState(false);
   const [reservedError, setReservedError] = useState<string | null>(null);
 
@@ -56,11 +57,9 @@ export default function RequestSessionDetailPanel({
           PageNumber: 1,
           PageSize: 500,
         });
-        const items = (res as PagedResponse<SessionResponse>).Items ?? (res as any).items ?? [];
+        const items = (res as PagedResponse<SessionResponse>).Items ?? [];
         const found =
-          (items as any[]).find(
-            (s) => Number(s?.SessionId ?? s?.sessionId ?? 0) === Number(session.sessionId),
-          ) ?? null;
+          items.find((s) => Number(s.SessionId) === Number(session.sessionId)) ?? null;
         if (cancelled) return;
         setSessionDetail(found);
         if (!found) {
@@ -136,21 +135,10 @@ export default function RequestSessionDetailPanel({
       setReservedLoading(true);
       setReservedError(null);
       try {
-        const detail = await reservationService.getById(resolvedReservationId);
-        const items: ReservedEquipmentItem[] = (detail.equipmentReservations ?? []).map((er: any) => {
-          const eq = er?.equipment ?? {};
-          return {
-            equipmentId: Number(eq.equipmentId ?? er.equipmentId ?? 0),
-            equipmentName: eq.equipmentName,
-            equipmentCode: eq.equipmentCode,
-            categoryId: eq.categoryId,
-            categoryName: eq.categoryName,
-            status: eq.status,
-            imgLink: eq.imgLink ?? null,
-            isTemporarilyCancelled: Boolean(er?.isTemporarilyCancelled ?? false),
-          };
-        });
-        setReservedEquipments(items);
+        const detail = normalizeReservationResponse(
+          await reservationService.getById(resolvedReservationId),
+        );
+        setReservedEquipments(detail.EquipmentReservations ?? []);
       } catch (err: unknown) {
         const msg =
           err && typeof err === 'object' && 'message' in err
@@ -264,16 +252,18 @@ export default function RequestSessionDetailPanel({
                 <p className="text-xs text-gray-500">Không có thiết bị nào trong danh sách mượn trước.</p>
               ) : (
                 <ul className="space-y-2">
-                  {reservedEquipments.map((eq) => (
+                  {reservedEquipments.map((er) => {
+                    const eq = er.Equipment;
+                    return (
                     <li
-                      key={eq.equipmentId}
+                      key={er.EquipmentId}
                       className="rounded-xl border border-gray-100 bg-gray-50/50 px-3 py-2 flex items-center gap-3"
                     >
                       <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
-                        {eq.imgLink ? (
+                        {eq?.ImgLink ? (
                           <Image
-                            src={eq.imgLink}
-                            alt={eq.equipmentName || `Thiết bị #${eq.equipmentId}`}
+                            src={eq.ImgLink}
+                            alt={eq.EquipmentName || `Thiết bị #${er.EquipmentId}`}
                             width={40}
                             height={40}
                             className="object-cover"
@@ -288,20 +278,21 @@ export default function RequestSessionDetailPanel({
                         <div>
                           <div>
                             <div className="font-medium text-sm text-gray-900 truncate">
-                              {eq.equipmentName || `Thiết bị #${eq.equipmentId}`}
+                              {eq?.EquipmentName || `Thiết bị #${er.EquipmentId}`}
                             </div>
                             <div className="text-xs text-gray-500">
-                              Mã: {eq.equipmentCode || eq.equipmentId}
+                              Mã: {eq?.EquipmentCode || er.EquipmentId}
                             </div>
                           </div>
                         </div>
 
                         <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500">
-                          <span className="truncate">Danh mục: {eq.categoryName || '—'}</span>
+                          <span className="truncate">Danh mục: {eq?.CategoryName || '—'}</span>
                         </div>
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
             </div>

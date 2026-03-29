@@ -77,5 +77,7 @@ export type RequestFilterParams = {
   pageSize?: number;
   requestId?: number;
   statuses?: string[];
+  /** Filter requests that have at least one session in these statuses (e.g. ASSIGNMENT_REJECTED). */
+  sessionStatuses?: string[];
   teamId?: number;
 };

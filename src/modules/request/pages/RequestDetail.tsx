@@ -27,7 +27,7 @@ export default function RequestDetail() {
     setRightPanel,
     loading,
     uiAssignedTeamIdsBySessionId,
-    uiQuantitiesBySessionId,
+    uiTeamQuantitiesBySessionId,
     assignmentsBySessionId,
     selectedAssignmentIdsBySessionId,
     approveOpen,
@@ -91,14 +91,20 @@ export default function RequestDetail() {
     (session: RequestSessionSummary & { sessionId: number; teachersRequired?: number | null; tasRequired?: number | null }) => {
       const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
       if (teamIds.length === 0) return false;
-      const reqTeachers = Number(session.teachersRequired ?? 1) || 1;
-      const reqTas = Number(session.tasRequired ?? 1) || 1;
-      const uiQ = uiQuantitiesBySessionId[session.sessionId];
-      const assignedTeachers = uiQ?.teachersRequired ?? reqTeachers;
-      const assignedTas = uiQ?.tasRequired ?? reqTas;
-      return assignedTeachers >= reqTeachers && assignedTas >= reqTas;
+      const reqTeachers = Math.max(0, Number(session.teachersRequired ?? 1) || 1);
+      const reqTas = Math.max(0, Number(session.tasRequired ?? 1) || 1);
+      const teamQuantityMap = uiTeamQuantitiesBySessionId[session.sessionId] ?? {};
+      const assignedTeachers = teamIds.reduce(
+        (sum, teamId) => sum + Math.max(0, Number(teamQuantityMap[teamId]?.teachersRequired ?? 0) || 0),
+        0
+      );
+      const assignedTas = teamIds.reduce(
+        (sum, teamId) => sum + Math.max(0, Number(teamQuantityMap[teamId]?.tasRequired ?? 0) || 0),
+        0
+      );
+      return assignedTeachers === reqTeachers && assignedTas === reqTas;
     },
-    [uiAssignedTeamIdsBySessionId, uiQuantitiesBySessionId]
+    [uiAssignedTeamIdsBySessionId, uiTeamQuantitiesBySessionId]
   );
 
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
@@ -645,7 +651,7 @@ export default function RequestDetail() {
                     ) : (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
-                        currentQuantities={uiQuantitiesBySessionId[rightPanel.session.sessionId]}
+                        currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                         onClose={() => setRightPanel(null)}
                         onAssignSession={handleAssignSession}
@@ -668,7 +674,7 @@ export default function RequestDetail() {
               {rightPanel.mode === 'team' && (
                 <RequestDetailTeamPanel
                   session={rightPanel.session}
-                  currentQuantities={uiQuantitiesBySessionId[rightPanel.session.sessionId]}
+                  currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                   onClose={() => setRightPanel(null)}
                   onAssignSession={handleAssignSession}
@@ -743,7 +749,6 @@ export default function RequestDetail() {
 
                         const renderAssignmentRow = (row: (typeof rows)[number]) => {
                           const checked = selectedIds.includes(row.assignmentId);
-                          const isTeacher = row.staffRole === 'TE' || row.staffRole === 'TEACHER';
                           const statusText = (row.status || '').toUpperCase();
                           const isApproved = statusText === 'APPROVED' || statusText === '2';
                           const isRejected = statusText === 'REJECTED' || statusText === '3';
@@ -756,13 +761,6 @@ export default function RequestDetail() {
                               }`}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <span
-                                  className={`shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                    isTeacher ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700'
-                                  }`}
-                                >
-                                  {isTeacher ? 'Giảng viên' : 'Trợ giảng'}
-                                </span>
                                 <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
                                   {row.avatarUrl ? (
                                     // eslint-disable-next-line @next/next/no-img-element

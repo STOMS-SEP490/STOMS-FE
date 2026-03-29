@@ -44,7 +44,7 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
   // Quyền hiển thị nút "Điểm danh" dựa vào người đang được ủy quyền điểm danh trong session.
   // Nếu backend không trả `attendanceByMemberId`, coi như người đang login là chủ sở hữu (giống logic timetable/attendance panel).
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
-  const ownerIdFromSession = session?.attendances?.[0]?.attendanceByMemberId ?? null;
+  const ownerIdFromSession = session?.Attendances?.[0]?.AttendanceByMemberId ?? null;
   const canSeeAttendanceButton = ownerIdFromSession == null ? true : ownerIdFromSession === memberId;
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -83,11 +83,11 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
     setDetailAssignedTeamIds([]);
 
     try {
-      const requestDetail = await requestApi.getById(session.requestId);
+      const requestDetail = await requestApi.getById(session.RequestId);
       if (seq !== detailFetchSeq.current) return;
 
       const rawSession = (requestDetail.sessions ?? []).find(
-        (s) => Number((s as any).sessionId) === session.sessionId,
+        (s) => Number(s.sessionId) === session.SessionId,
       ) as (RequestSessionSummary & Record<string, unknown>) | undefined;
 
       if (!rawSession) {
@@ -277,17 +277,17 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
 
           <div className="pr-12">
             <div className="text-lg font-semibold text-gray-900 truncate">
-              {requestName || session.notes || 'Phiên học'}
+              {requestName || session.Notes || 'Phiên học'}
             </div>
             <div className="text-sm text-gray-500 mt-1">
-              {requestCode ? `${requestCode} - ` : ''}Buổi {session.sessionNo}
+              {requestCode ? `${requestCode} - ` : ''}Buổi {session.SessionNo}
             </div>
             <div className="text-sm font-semibold text-gray-800 mt-2">
-              {formatTimeRange(session.startAt, session.endAt)}
+              {formatTimeRange(session.StartAt, session.EndAt)}
             </div>
             <div className="mt-2 flex items-center gap-2 text-sm text-gray-700">
               <MapPin size={16} className="text-gray-500" />
-              <span className="break-words whitespace-normal">{session.location || '—'}</span>
+              <span className="break-words whitespace-normal">{session.Location || '—'}</span>
             </div>
           </div>
         </div>
@@ -299,7 +299,7 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
               <button
                 type="button"
                 className="text-sm text-blue-600 hover:underline"
-                onClick={() => navigate(`/tl/attendance/${session.sessionId}`)}
+                onClick={() => navigate(`/tl/attendance/${session.SessionId}`)}
               >
                 Điểm danh
               </button>
@@ -387,7 +387,7 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
           <div className="mt-6 flex items-center justify-between gap-3 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-600 font-medium">Trạng thái:</span>
-              <Badge className="bg-gray-100 text-gray-700">{getSessionStatusLabel(session.status)}</Badge>
+              <Badge className="bg-gray-100 text-gray-700">{getSessionStatusLabel(session.Status)}</Badge>
             </div>
 
             <button

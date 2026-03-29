@@ -36,6 +36,8 @@ export type RequestCardProps = {
   statusInfoOverride?: RequestStatusInfo | null;
   /** Hiển thị "Cần xử lý" khi trạng thái chờ duyệt */
   showNeedsAction?: boolean;
+  /** Badges bổ sung (ví dụ tiến độ phân công team), hiển thị cạnh trạng thái từ API */
+  secondaryStatusPills?: { label: string; className: string }[];
   isActive?: boolean;
   isHovered?: boolean;
   onClick?: () => void;
@@ -53,6 +55,7 @@ export default function RequestCard({
   eventId,
   status,
   statusInfoOverride,
+  secondaryStatusPills,
   isActive = false,
   isHovered = false,
   onClick,
@@ -112,7 +115,17 @@ export default function RequestCard({
             
           </div>
         </div>
-        {statusInfo && <StatusPill statusInfo={statusInfo} />}
+        <div className="flex flex-wrap items-center justify-end gap-1 shrink-0 max-w-[58%]">
+          {statusInfo && <StatusPill statusInfo={statusInfo} />}
+          {(secondaryStatusPills ?? []).map((pill, idx) => (
+            <span
+              key={`${pill.label}-${idx}`}
+              className={`inline-flex items-center whitespace-nowrap shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold border ${pill.className}`}
+            >
+              {pill.label}
+            </span>
+          ))}
+        </div>
       </div>
       {(isActive || isHovered) && hintText && (
         <div className="mt-2 text-[11px] text-slate-500">{hintText}</div>

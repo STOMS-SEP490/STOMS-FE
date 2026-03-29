@@ -94,27 +94,27 @@ export function useCalendarEvents() {
           }
 
           const sessionsRes = await sessionApi.getFilter({
-            teamId,
-            statuses: ['ASSIGNED', 'ONGOING', 'COMPLETED'],
-            pageNumber: 1,
-            pageSize: 500,
+            TeamId: teamId,
+            Statuses: ['ASSIGNED', 'ONGOING', 'COMPLETED'],
+            PageNumber: 1,
+            PageSize: 500,
           });
-          const sessionsRaw = sessionsRes.items ?? [];
+          const sessionsRaw = sessionsRes.Items ?? [];
           const mapped: CalendarEvent[] =
-            (sessionsRaw ?? []).flatMap((s: any) => {
-              const startRaw = s.startAt ?? (s as any).StartAt;
-              const endRaw = s.endAt ?? (s as any).EndAt;
+            (sessionsRaw ?? []).flatMap((s) => {
+              const startRaw = s.StartAt;
+              const endRaw = s.EndAt;
               if (!startRaw || !endRaw) return [];
               const start = new Date(startRaw);
               const end = new Date(endRaw);
-              const statusRaw = s.status ?? (s as any).Status ?? null;
+              const statusRaw = s.Status ?? null;
               const statusInfo = getSessionStatusInfo(statusRaw);
               return {
-                id: s.sessionId ?? (s as any).SessionId,
-                title: `Phiên ${s.sessionNo ?? (s as any).SessionNo ?? ''}`.trim(),
+                id: s.SessionId,
+                title: `Phiên ${s.SessionNo ?? ''}`.trim(),
                 start,
                 end,
-                resource: s.location ?? (s as any).Location ?? undefined,
+                resource: s.Location ?? undefined,
                 color: '#0ea5e9',
                 status: statusRaw,
                 statusLabel: statusInfo.label,

@@ -5,8 +5,9 @@ import { DatePicker, Image, message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import type { EquipmentListItem } from '@/modules/equipment/equipment';
+import type { EquipmentResponse } from '@/modules/reservation/reservation.types';
 import reservationApi from '../../reservation/api/reservationApi';
+import { normalizeEquipmentPagedResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import categoryApi from '@/modules/category/api/categoryApi';
 import type { CategoryListItem } from '@/modules/category/category';
 
@@ -44,9 +45,9 @@ export default function RequestDetailEquipmentPanel({
   const [reservationRows, setReservationRows] = useState<ReservationRow[]>([
     { sessionId: null, startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' },
   ]);
-  const [selectedEquipmentById, setSelectedEquipmentById] = useState<Record<number, EquipmentListItem>>({});
+  const [selectedEquipmentById, setSelectedEquipmentById] = useState<Record<number, EquipmentResponse>>({});
   const [availabilityByKey, setAvailabilityByKey] = useState<
-    Record<string, { items: EquipmentListItem[]; total: number; loading: boolean; error: string | null }>
+    Record<string, { items: EquipmentResponse[]; total: number; loading: boolean; error: string | null }>
   >({});
   const [categories, setCategories] = useState<CategoryListItem[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -124,17 +125,19 @@ export default function RequestDetailEquipmentPanel({
           return;
         }
 
-        const res = await reservationApi.getAvailability({
-          startAt: start.format('YYYY-MM-DDTHH:mm:ss'),
-          endAt: end.format('YYYY-MM-DDTHH:mm:ss'),
-          categoryIds: row.categoryId != null ? [row.categoryId] : undefined,
-          pageNumber: 1,
-          pageSize: PAGE_SIZE,
-        });
+        const res = normalizeEquipmentPagedResponse(
+          await reservationApi.getAvailability({
+            StartAt: start.format('YYYY-MM-DDTHH:mm:ss'),
+            EndAt: end.format('YYYY-MM-DDTHH:mm:ss'),
+            CategoryIds: row.categoryId != null ? [row.categoryId] : undefined,
+            PageNumber: 1,
+            PageSize: PAGE_SIZE,
+          }),
+        );
 
         setAvailabilityByKey((prev) => ({
           ...prev,
-          [key]: { items: res.items, total: res.totalItems, loading: false, error: null },
+          [key]: { items: res.Items ?? [], total: res.TotalItems ?? 0, loading: false, error: null },
         }));
       } catch (err: unknown) {
         const msg =
@@ -194,21 +197,21 @@ export default function RequestDetailEquipmentPanel({
     });
   }, []);
 
-  const toggleReservationRowEquipment = useCallback((_rowIndex: number, equipment: EquipmentListItem) => {
+  const toggleReservationRowEquipment = useCallback((_rowIndex: number, equipment: EquipmentResponse) => {
     setReservationRows((prev) => {
       const next = prev.length ? [...prev] : [{ sessionId: null, startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' }];
       const row = next[0];
-      const exists = row.equipmentIds.includes(equipment.equipmentId);
+      const exists = row.equipmentIds.includes(equipment.EquipmentId);
       const ids = exists
-        ? row.equipmentIds.filter((id) => id !== equipment.equipmentId)
-        : [...row.equipmentIds, equipment.equipmentId];
+        ? row.equipmentIds.filter((id) => id !== equipment.EquipmentId)
+        : [...row.equipmentIds, equipment.EquipmentId];
       next[0] = { ...row, equipmentIds: ids };
       return [next[0]];
     });
     setSelectedEquipmentById((prev) => {
       const next = { ...prev };
-      if (next[equipment.equipmentId]) delete next[equipment.equipmentId];
-      else next[equipment.equipmentId] = equipment;
+      if (next[equipment.EquipmentId]) delete next[equipment.EquipmentId];
+      else next[equipment.EquipmentId] = equipment;
       return next;
     });
   }, []);
@@ -249,10 +252,10 @@ export default function RequestDetailEquipmentPanel({
         return;
       }
       await reservationApi.create({
-        sessionIds: [row.sessionId],
-        startAt: start.format('YYYY-MM-DDTHH:mm:ss'),
-        endAt: end.format('YYYY-MM-DDTHH:mm:ss'),
-        equipment: row.equipmentIds.map((equipmentId) => ({ equipmentId })),
+        SessionIds: [row.sessionId],
+        StartAt: start.format('YYYY-MM-DDTHH:mm:ss'),
+        EndAt: end.format('YYYY-MM-DDTHH:mm:ss'),
+        Equipment: row.equipmentIds.map((EquipmentId) => ({ EquipmentId })),
       });
       message.success('Đã tạo đặt trước thiết bị.');
       onClose();
@@ -379,7 +382,7 @@ export default function RequestDetailEquipmentPanel({
                               title="Bỏ chọn"
                             >
                               <span className="max-w-[220px] truncate">
-                                {meta?.equipmentName ?? `Thiết bị #${id}`}
+                                {meta?.EquipmentName ?? `Thiết bị #${id}`}
                               </span>
                               <span className="text-blue-500">×</span>
                             </button>
@@ -444,8 +447,8 @@ export default function RequestDetailEquipmentPanel({
                     const items = q
                       ? itemsBase.filter(
                           (eq) =>
-                            (eq.equipmentName ?? '').toLowerCase().includes(q) ||
-                            (eq.equipmentCode ?? '').toLowerCase().includes(q)
+                            (eq.EquipmentName ?? '').toLowerCase().includes(q) ||
+                            (eq.EquipmentCode ?? '').toLowerCase().includes(q)
                         )
                       : itemsBase;
                     if (items.length === 0) {
@@ -460,23 +463,23 @@ export default function RequestDetailEquipmentPanel({
                     return (
                       <div className="rounded-xl border border-gray-200 bg-white px-2 py-2 space-y-2">
                         {items.map((eq) => {
-                          const isSelected = row.equipmentIds.includes(eq.equipmentId);
+                          const isSelected = row.equipmentIds.includes(eq.EquipmentId);
                           return (
                             <div
-                              key={eq.equipmentId}
+                              key={eq.EquipmentId}
                               className={`rounded-xl border px-3 py-2 flex items-center gap-3 text-sm transition ${
                                 isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-blue-300 hover:bg-gray-50'
                               }`}
                             >
                               <div
                                 className={`w-10 h-10 rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center ${
-                                  eq.imgLink ? 'border bg-gray-50' : 'bg-gray-50'
+                                  eq.ImgLink ? 'border bg-gray-50' : 'bg-gray-50'
                                 }`}
                               >
-                                {eq.imgLink ? (
+                                {eq.ImgLink ? (
                                   <Image
-                                    src={eq.imgLink}
-                                    alt={eq.equipmentName ?? `Thiết bị #${eq.equipmentId}`}
+                                    src={eq.ImgLink}
+                                    alt={eq.EquipmentName ?? `Thiết bị #${eq.EquipmentId}`}
                                     width={40}
                                     height={40}
                                     className="object-cover"
@@ -494,14 +497,14 @@ export default function RequestDetailEquipmentPanel({
                               >
                                 <div className="min-w-0">
                                   <div className="font-medium text-gray-900 truncate">
-                                    {eq.equipmentName}
+                                    {eq.EquipmentName}
                                   </div>
                                   <div className="text-xs text-gray-500">
-                                    Mã: {eq.equipmentCode ?? eq.equipmentId}
+                                    Mã: {eq.EquipmentCode ?? eq.EquipmentId}
                                   </div>
                                   <div className="text-[11px] text-gray-500 truncate">
                                     Danh mục:{' '}
-                                    {(eq as any).categoryName ?? '---'}
+                                    {eq.CategoryName ?? '---'}
                                   </div>
                                 </div>
                                 <span
