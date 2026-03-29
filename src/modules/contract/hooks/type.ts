@@ -30,6 +30,8 @@ export type TeamRequestItem = {
   courseId?: number | null;
   eventId?: number | null;
   status: string;
+  /** Lý do / ghi chú từ API request (vd. từ chối phân công). */
+  reason?: string | null;
   startDate?: string;
   sessions: TeamSessionLite[];
 };

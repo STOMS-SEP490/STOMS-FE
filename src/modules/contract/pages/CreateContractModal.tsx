@@ -5,6 +5,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import sessionApi from '@/modules/request/api/sessionApi';
+import type { SessionResponse } from '@/modules/request/session.types';
 import contractApi from '../api/contractApi';
 
 type Props = {
@@ -27,13 +28,7 @@ export default function CreateContractModal({
   const [error, setError] = useState('');
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<
-    Array<{
-      sessionId: number;
-      sessionNo: number;
-      requestId: number;
-      startAt: string;
-      location: string;
-    }>
+    Array<Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'RequestId' | 'StartAt' | 'Location'>>
   >([]);
 
   const memberId =
@@ -52,15 +47,15 @@ export default function CreateContractModal({
           PageNumber: 1,
           PageSize: 100,
         });
-        const rows = (res.Items ?? res.items ?? [])
+        const rows = (res.Items ?? [])
           .map((raw) => ({
-            sessionId: Number((raw as any).SessionId ?? (raw as any).sessionId ?? 0),
-            sessionNo: Number((raw as any).SessionNo ?? (raw as any).sessionNo ?? 0),
-            requestId: Number((raw as any).RequestId ?? (raw as any).requestId ?? 0),
-            startAt: String((raw as any).StartAt ?? (raw as any).startAt ?? ''),
-            location: String((raw as any).Location ?? (raw as any).location ?? ''),
+            SessionId: Number(raw.SessionId ?? 0),
+            SessionNo: Number(raw.SessionNo ?? 0),
+            RequestId: Number(raw.RequestId ?? 0),
+            StartAt: String(raw.StartAt ?? ''),
+            Location: String(raw.Location ?? ''),
           }))
-          .filter((x) => x.sessionId > 0);
+          .filter((x) => x.SessionId > 0);
         setSessionOptions(rows);
 
         // Nếu có initialSessionId (từ lịch sử giảng dạy), ưu tiên set sẵn
@@ -155,7 +150,7 @@ export default function CreateContractModal({
             id="contractCode"
             value={contractCode}
             onChange={(e) => setContractCode(e.target.value)}
-            
+              
             className="h-10 text-black placeholder:text-gray-500 border-gray-200"
           />
         </div>
@@ -168,7 +163,7 @@ export default function CreateContractModal({
             id="amount"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="5000000"
+            placeholder="Ví dụ: 5000000"
             className="h-10 text-black placeholder:text-gray-500 border-gray-200"
           />
         </div>
@@ -187,10 +182,10 @@ export default function CreateContractModal({
               notFoundContent={sessionsLoading ? <Spin size="small" /> : 'Không có buổi học phù hợp'}
             >
               {sessionOptions.map((item) => (
-                <Select.Option key={item.sessionId} value={item.sessionId}>
-                  {`Request #${item.requestId} - Buổi ${item.sessionNo || item.sessionId} — ${new Date(
-                    item.startAt,
-                  ).toLocaleString('vi-VN')} (${item.location || '—'})`}
+                <Select.Option key={item.SessionId} value={item.SessionId}>
+                  {`Request #${item.RequestId} - Buổi ${item.SessionNo || item.SessionId} — ${new Date(
+                    item.StartAt,
+                  ).toLocaleString('vi-VN')} (${item.Location || '—'})`}
                 </Select.Option>
               ))}
             </Select>

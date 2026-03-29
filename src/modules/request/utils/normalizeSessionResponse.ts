@@ -1,0 +1,102 @@
+import type {
+  AssignmentResponse,
+  PagedResponse,
+  SessionResponse,
+  SessionStaffMemberResponse,
+  TeamSessionResponse,
+} from '../session.types';
+
+/** BE có thể trả PascalCase hoặc camelCase (System.Text.Json mặc định). Chuẩn hóa về PascalCase cho UI. */
+const pick = <T>(obj: Record<string, unknown>, pascal: string, camel: string): T | undefined =>
+  (obj[pascal] as T | undefined) ?? (obj[camel] as T | undefined);
+
+function normalizeStaffMember(raw: unknown): SessionStaffMemberResponse | null | undefined {
+  if (raw == null) return null;
+  const s = raw as Record<string, unknown>;
+  return {
+    MemberId: Number(pick(s, 'MemberId', 'memberId') ?? 0),
+    FullName: (pick(s, 'FullName', 'fullName') as string | null | undefined) ?? null,
+    AvatarUrl: (pick(s, 'AvatarUrl', 'avatarUrl') as string | null | undefined) ?? null,
+    Email: (pick(s, 'Email', 'email') as string | null | undefined) ?? null,
+    User: (pick(s, 'User', 'user') as SessionStaffMemberResponse['User']) ?? null,
+  };
+}
+
+function normalizeAssignment(raw: unknown): AssignmentResponse {
+  const a = raw as Record<string, unknown>;
+  return {
+    AssignmentId: Number(pick(a, 'AssignmentId', 'assignmentId') ?? 0),
+    SessionId: Number(pick(a, 'SessionId', 'sessionId') ?? 0),
+    StaffMemberId: Number(pick(a, 'StaffMemberId', 'staffMemberId') ?? 0),
+    StaffRole: String(pick(a, 'StaffRole', 'staffRole') ?? ''),
+    Status: String(pick(a, 'Status', 'status') ?? ''),
+    AssignedByMemberId: Number(pick(a, 'AssignedByMemberId', 'assignedByMemberId') ?? 0),
+    AssignedAt: (pick(a, 'AssignedAt', 'assignedAt') as string | null | undefined) ?? null,
+    Reason: (pick(a, 'Reason', 'reason') as string | null | undefined) ?? null,
+    ApprovedAt: (pick(a, 'ApprovedAt', 'approvedAt') as string | null | undefined) ?? null,
+    ApprovedByMemberId:
+      (pick(a, 'ApprovedByMemberId', 'approvedByMemberId') as number | null | undefined) ?? null,
+    StaffMember: normalizeStaffMember(pick(a, 'StaffMember', 'staffMember')) ?? null,
+  };
+}
+
+function normalizeTeamSession(raw: unknown): TeamSessionResponse {
+  const ts = raw as Record<string, unknown>;
+  return {
+    TeamId: pick(ts, 'TeamId', 'teamId') as number | undefined,
+    TeamName: (pick(ts, 'TeamName', 'teamName') as string | null | undefined) ?? null,
+    TeachersRequired: pick(ts, 'TeachersRequired', 'teachersRequired') as number | null | undefined,
+    TasRequired: pick(ts, 'TasRequired', 'tasRequired') as number | null | undefined,
+  };
+}
+
+export function normalizeSessionResponse(raw: SessionResponse | Record<string, unknown>): SessionResponse {
+  const r = raw as Record<string, unknown>;
+  const assignmentsRaw = (pick(r, 'Assignments', 'assignments') as unknown[] | null | undefined) ?? [];
+  const teamSessionsRaw = (pick(r, 'TeamSessions', 'teamSessions') as unknown[] | null | undefined) ?? [];
+
+  return {
+    SessionId: Number(pick(r, 'SessionId', 'sessionId') ?? 0),
+    RequestId: Number(pick(r, 'RequestId', 'requestId') ?? 0),
+    SessionNo: Number(pick(r, 'SessionNo', 'sessionNo') ?? 0),
+    StartAt: String(pick(r, 'StartAt', 'startAt') ?? ''),
+    EndAt: String(pick(r, 'EndAt', 'endAt') ?? ''),
+    Notes: String(pick(r, 'Notes', 'notes') ?? ''),
+    Status: String(pick(r, 'Status', 'status') ?? ''),
+    SubjectSessionId: (pick(r, 'SubjectSessionId', 'subjectSessionId') as number | null | undefined) ?? null,
+    EventSessionId: (pick(r, 'EventSessionId', 'eventSessionId') as number | null | undefined) ?? null,
+    TeachersRequired: pick(r, 'TeachersRequired', 'teachersRequired') as number | null | undefined,
+    TasRequired: pick(r, 'TasRequired', 'tasRequired') as number | null | undefined,
+    Location: String(pick(r, 'Location', 'location') ?? ''),
+    IsOnline: (pick(r, 'IsOnline', 'isOnline') as boolean | null | undefined) ?? null,
+    BorrowingId: (pick(r, 'BorrowingId', 'borrowingId') as number | null | undefined) ?? null,
+    ReservationId: (pick(r, 'ReservationId', 'reservationId') as number | null | undefined) ?? null,
+    CreatedAt: (pick(r, 'CreatedAt', 'createdAt') as string | null | undefined) ?? null,
+    UpdatedAt: (pick(r, 'UpdatedAt', 'updatedAt') as string | null | undefined) ?? null,
+    Assignments: assignmentsRaw.map(normalizeAssignment),
+    Attendances: (pick(r, 'Attendances', 'attendances') as SessionResponse['Attendances']) ?? null,
+    Contracts: (pick(r, 'Contracts', 'contracts') as SessionResponse['Contracts']) ?? null,
+    TaskReports: (pick(r, 'TaskReports', 'taskReports') as SessionResponse['TaskReports']) ?? null,
+    TeamSessions: teamSessionsRaw.map(normalizeTeamSession),
+    EventSessionSkill: (pick(r, 'EventSessionSkill', 'eventSessionSkill') as SessionResponse['EventSessionSkill']) ?? null,
+    SubjectSkill: (pick(r, 'SubjectSkill', 'subjectSkill') as SessionResponse['SubjectSkill']) ?? null,
+  };
+}
+
+export function normalizeSessionPagedResponse(
+  raw: PagedResponse<SessionResponse> | Record<string, unknown>,
+): PagedResponse<SessionResponse> {
+  const r = raw as Record<string, unknown>;
+  const itemsRaw =
+    (pick(r, 'Items', 'items') as unknown[] | null | undefined) ??
+    (r.Items as unknown[]) ??
+    (r.items as unknown[]) ??
+    [];
+  return {
+    PageNumber: Number(pick(r, 'PageNumber', 'pageNumber') ?? 0),
+    PageSize: Number(pick(r, 'PageSize', 'pageSize') ?? 0),
+    TotalItems: Number(pick(r, 'TotalItems', 'totalItems') ?? 0),
+    TotalPages: Number(pick(r, 'TotalPages', 'totalPages') ?? 0),
+    Items: itemsRaw.map((item) => normalizeSessionResponse(item as SessionResponse)),
+  };
+}

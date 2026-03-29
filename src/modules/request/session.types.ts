@@ -1,4 +1,4 @@
-// Session-related types must match BE shape (PascalCase).
+// Session-related types — match BE (PascalCase).
 
 export type PagedResponse<T> = {
   PageNumber: number;
@@ -6,13 +6,6 @@ export type PagedResponse<T> = {
   TotalItems: number;
   TotalPages: number;
   Items: T[];
-
-  // camelCase aliases (some environments)
-  pageNumber?: number;
-  pageSize?: number;
-  totalItems?: number;
-  totalPages?: number;
-  items?: T[];
 };
 
 export type EventSessionSkillResponse = {
@@ -29,6 +22,46 @@ export type SubjectSkillResponse = {
   SkillName: string;
   IsActive: boolean;
   CreatedAt?: string | null;
+};
+
+/** StaffMember nested trong Assignment (BE MemberResponse rút gọn cho session detail). */
+export type SessionStaffMemberResponse = {
+  MemberId: number;
+  FullName?: string | null;
+  AvatarUrl?: string | null;
+  Email?: string | null;
+  User?: { Email?: string | null } | null;
+};
+
+export type AssignmentResponse = {
+  AssignmentId: number;
+  SessionId: number;
+  StaffMemberId: number;
+  StaffRole: string;
+  Status: string;
+  AssignedByMemberId: number;
+  AssignedAt?: string | null;
+  Reason?: string | null;
+  ApprovedAt?: string | null;
+  ApprovedByMemberId?: number | null;
+  StaffMember?: SessionStaffMemberResponse | null;
+};
+
+export type AttendanceResponse = {
+  AttendanceId: number;
+  MemberId: number;
+  SessionId: number;
+  CheckinAt?: string | null;
+  CheckoutAt?: string | null;
+  AttendanceByMemberId?: number | null;
+  Note?: string | null;
+};
+
+export type TeamSessionResponse = {
+  TeamId?: number;
+  TeamName?: string | null;
+  TeachersRequired?: number | null;
+  TasRequired?: number | null;
 };
 
 export type SessionResponse = {
@@ -49,40 +82,13 @@ export type SessionResponse = {
   ReservationId?: number | null;
   CreatedAt?: string | null;
   UpdatedAt?: string | null;
-  Assignments?: any[] | null;
-  Attendances?: any[] | null;
-  Contracts?: any[] | null;
-  TaskReports?: any[] | null;
-  TeamSessions?: any[] | null;
+  Assignments?: AssignmentResponse[] | null;
+  Attendances?: AttendanceResponse[] | null;
+  Contracts?: unknown[] | null;
+  TaskReports?: unknown[] | null;
+  TeamSessions?: TeamSessionResponse[] | null;
   EventSessionSkill?: EventSessionSkillResponse[] | null;
   SubjectSkill?: SubjectSkillResponse[] | null;
-
-  // Some environments serialize JSON in camelCase (Swagger / default .NET settings).
-  // Keep these optional aliases to avoid losing data without adding mappers in API layer.
-  sessionId?: number;
-  requestId?: number;
-  sessionNo?: number;
-  startAt?: string;
-  endAt?: string;
-  notes?: string;
-  status?: string;
-  subjectSessionId?: number | null;
-  eventSessionId?: number | null;
-  teachersRequired?: number | null;
-  tasRequired?: number | null;
-  location?: string;
-  isOnline?: boolean | null;
-  borrowingId?: number | null;
-  reservationId?: number | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-  assignments?: any[] | null;
-  attendances?: any[] | null;
-  contracts?: any[] | null;
-  taskReports?: any[] | null;
-  teamSessions?: any[] | null;
-  eventSessionSkill?: Array<{ skillId: number; skillName: string; isActive?: boolean }> | null;
-  subjectSkill?: Array<{ skillId: number; skillName: string; isActive?: boolean }> | null;
 };
 
 export type SessionFilterRequest = {
@@ -103,24 +109,7 @@ export type SessionFilterRequest = {
   EndAt?: string;
   PageNumber?: number;
   PageSize?: number;
-
-  // camelCase aliases for existing call-sites
-  sessionId?: number;
-  requestId?: number;
-  sessionNo?: number;
-  statuses?: (string | number)[];
-  subjectSessionId?: number;
-  eventSessionId?: number;
-  location?: string;
-  isOnline?: boolean;
-  borrowingId?: number;
-  reservationId?: number;
-  teamId?: number;
-  memberId?: number;
-  hasContract?: boolean;
-  startAt?: string;
-  endAt?: string;
-  pageNumber?: number;
-  pageSize?: number;
 };
 
+/** Alias thống nhất cho UI/hook: cùng shape BE. */
+export type SessionDetail = SessionResponse;

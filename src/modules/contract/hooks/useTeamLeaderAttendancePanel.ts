@@ -101,7 +101,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
 
   const resolveAttendanceOwner = useCallback(
     async (detail: SessionDetail) => {
-      const ownerIdFromSession = detail.attendances?.[0]?.attendanceByMemberId ?? null;
+      const ownerIdFromSession = detail.Attendances?.[0]?.AttendanceByMemberId ?? null;
       const ownerId = ownerIdFromSession ?? currentMemberId;
 
       setAttendanceByMemberIdForSession(ownerId);

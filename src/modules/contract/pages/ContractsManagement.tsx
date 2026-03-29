@@ -166,19 +166,12 @@ export default function ContractsManagement() {
       // contracts/{id} response doesn't include assignment role, so resolve it from session detail
       try {
         const sessionDetail = await sessionApi.getById(full.sessionId);
-        const assignments = (sessionDetail.assignments ??
-          sessionDetail.Assignments ??
-          []) as Array<{
-          staffMemberId?: number | null;
-          StaffMemberId?: number | null;
-          staffRole?: string | null;
-          StaffRole?: string | null;
-        }>;
+        const assignments = sessionDetail.Assignments ?? [];
         const matched = assignments.find((a) => {
-          const staffMemberId = Number(a.staffMemberId ?? a.StaffMemberId ?? 0);
+          const staffMemberId = Number(a.StaffMemberId ?? 0);
           return staffMemberId === full.createdByMemberId;
         });
-        const rawRole = String(matched?.staffRole ?? matched?.StaffRole ?? '').toLowerCase();
+        const rawRole = String(matched?.StaffRole ?? '').toLowerCase();
         const roleLabel = rawRole
           ? rawRole.includes('ta') || rawRole.includes('trợ')
             ? 'Trợ giảng'

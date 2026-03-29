@@ -27,13 +27,13 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
     // reset request info when opening a new session
     setRequestCode('');
     setRequestName('');
-  }, [open, session?.sessionId]);
+  }, [open, session?.SessionId]);
 
   useEffect(() => {
-    if (!open || !session?.requestId) return;
+    if (!open || !session?.RequestId) return;
     let cancelled = false;
     requestService
-      .getById(session.requestId)
+      .getById(session.RequestId)
       .then((r) => {
         if (cancelled) return;
         setRequestCode(r.requestCode ?? '');
@@ -45,15 +45,15 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
     return () => {
       cancelled = true;
     };
-  }, [open, session?.requestId]);
+  }, [open, session?.RequestId]);
 
   useEffect(() => {
-    if (!open || !session?.assignments?.length) return;
+    if (!open || !session?.Assignments?.length) return;
 
     const assignmentIds = Array.from(
       new Set(
-        (session.assignments ?? [])
-          .map((a) => a?.assignmentId)
+        (session.Assignments ?? [])
+          .map((a) => a?.AssignmentId)
           .filter((x): x is number => typeof x === 'number' && x > 0)
       )
     );
@@ -86,8 +86,8 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
 
     const memberIds = Array.from(
       new Set(
-        (session.assignments ?? [])
-          .map((a) => a?.staffMemberId)
+        (session.Assignments ?? [])
+          .map((a) => a?.StaffMemberId)
           .filter((x): x is number => typeof x === 'number' && x > 0)
       )
     );
@@ -119,33 +119,34 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
     return () => {
       cancelled = true;
     };
-  }, [open, session?.assignments, assignmentById, membersById]);
+  }, [open, session?.Assignments, assignmentById, membersById]);
 
   const staff: PopoverStaffItem[] = useMemo(() => {
-    const items = session?.assignments ?? [];
+    const items = session?.Assignments ?? [];
     return items
       .filter(Boolean)
       .map((a) => ({
-        assignmentId: a!.assignmentId,
-        staffMemberId: a!.staffMemberId,
-        role: (a!.staffRole || '').toUpperCase(),
+        assignmentId: a!.AssignmentId,
+        staffMemberId: a!.StaffMemberId,
+        role: (a!.StaffRole || '').toUpperCase(),
         name:
-          membersById[a!.staffMemberId]?.fullName ??
-          assignmentById[a!.assignmentId]?.staffMember?.fullName ??
-          a!.staffMember?.fullName ??
+          membersById[a!.StaffMemberId]?.fullName ??
+          assignmentById[a!.AssignmentId]?.staffMember?.fullName ??
+          a!.StaffMember?.FullName ??
           '—',
         email:
-          membersById[a!.staffMemberId]?.email ??
-          assignmentById[a!.assignmentId]?.staffMember?.userEmail ??
-          a!.staffMember?.userEmail ??
+          membersById[a!.StaffMemberId]?.email ??
+          assignmentById[a!.AssignmentId]?.staffMember?.userEmail ??
+          a!.StaffMember?.Email ??
+          a!.StaffMember?.User?.Email ??
           '',
         avatarUrl:
-          membersById[a!.staffMemberId]?.avatarUrl ??
-          assignmentById[a!.assignmentId]?.staffMember?.avatarUrl ??
-          a!.staffMember?.avatarUrl ??
+          membersById[a!.StaffMemberId]?.avatarUrl ??
+          assignmentById[a!.AssignmentId]?.staffMember?.avatarUrl ??
+          a!.StaffMember?.AvatarUrl ??
           '',
       }));
-  }, [session?.assignments, membersById, assignmentById]);
+  }, [session?.Assignments, membersById, assignmentById]);
 
   return { requestCode, requestName, staff };
 }

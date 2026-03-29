@@ -260,8 +260,11 @@ export default function BorrowingDetailSidebar({
                 <PersonCard
                   label="Người mượn"
                   memberName={borrower?.fullName}
-                  primaryLine={borrower?.email ?? null}
-                  subLine={borrower?.phone ?? (borrower && `ID #${borrower.memberId}`)}
+                  primaryLine={
+                    borrower?.email?.trim() ||
+                    (borrower ? `ID #${borrower.memberId}` : null)
+                  }
+                  subLine={null}
                   avatarUrl={borrower?.avatarUrl ?? undefined}
                 />
                 <PersonCard

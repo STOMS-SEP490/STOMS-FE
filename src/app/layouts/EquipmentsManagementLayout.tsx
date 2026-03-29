@@ -9,12 +9,13 @@ export default function EquipmentsLayout() {
   const location = useLocation();
   const [createBorrowingOpen, setCreateBorrowingOpen] = useState(false);
 
-  let currentTab = 'equipments';
+  type EquipmentsTab = 'categories' | 'equipments';
+  let currentTab: EquipmentsTab = 'equipments';
 
   const isEquipmentManager = location.pathname.startsWith('/em/');
   const basePath = isEquipmentManager ? '/em/equipments' : '/manager/equipments';
 
-  if (location.pathname.includes('categories')) {
+  if (location.pathname.includes('/categories')) {
     currentTab = 'categories';
   }
 

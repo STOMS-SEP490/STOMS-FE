@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { BarChart3, Laptop, Menu, LogOut, Boxes, ClipboardList } from 'lucide-react'
+import { BarChart3, Laptop, Menu, LogOut, ClipboardList } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/modules/auth/pages/Logout'
 import NotificationBell from '@/shared/components/common/NotificationBell'
@@ -9,23 +9,21 @@ export default function EquipmentSidebar() {
   const [collapsed, setCollapsed] = useState(true)
   const navigate = useNavigate()
 
+  /** Chỉ Dashboard cần khớp đúng path; Thiết bị / Phiếu mượn có tab con (categories, reservations) nên không dùng end. */
   const menus = useMemo(
     () => [
-      { label: 'Dashboard', icon: BarChart3, path: '/em/dashboard' },
-      {
-        label: 'Danh mục',
-        icon: Boxes,
-        path: '/em/equipments/categories',
-      },
+      { label: 'Dashboard', icon: BarChart3, path: '/em/dashboard', end: true },
       {
         label: 'Thiết bị',
         icon: Laptop,
         path: '/em/equipments',
+        end: false,
       },
       {
         label: 'Phiếu mượn',
         icon: ClipboardList,
-        path: '/em/equipments/history',
+        path: '/em/borrowings',
+        end: false,
       },
     ],
     []
@@ -108,7 +106,7 @@ export default function EquipmentSidebar() {
             const Icon = m.icon
 
             return (
-              <NavLink key={m.path} to={m.path} end>
+              <NavLink key={m.path} to={m.path} end={m.end}>
                 {({ isActive }) => (
                   <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
                     <div

@@ -576,13 +576,18 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
 
                 {filteredAttendanceItems.map((attendance) => {
                   const memberId = attendance.MemberId;
-                  const assignedMember = (sessionDetail?.assignments ?? []).find(
-                    (assignment) => assignment.staffMember?.memberId === memberId,
+                  const assigned = (sessionDetail?.Assignments ?? []).find(
+                    (assignment) => assignment.StaffMemberId === memberId,
                   );
+                  const staff = assigned?.StaffMember;
                   const cachedMember = membersById[memberId];
-                  const member = assignedMember?.staffMember ?? cachedMember;
-                  const memberName = member?.fullName ?? `Member #${memberId}`;
-                  const memberEmail = member?.userEmail ?? cachedMember?.userEmail ?? 'Không có email';
+                  const memberName =
+                    staff?.FullName ?? cachedMember?.fullName ?? `Member #${memberId}`;
+                  const memberEmail =
+                    staff?.Email ??
+                    staff?.User?.Email ??
+                    cachedMember?.userEmail ??
+                    'Không có email';
                   const isCheckedIn = attendance.CheckinAt != null;
                   const isCheckedOut = attendance.CheckoutAt != null;
                   const isAuthorizedDelegate =

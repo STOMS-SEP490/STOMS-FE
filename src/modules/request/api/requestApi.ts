@@ -8,24 +8,23 @@ import type {
 } from '../request';
 
 const requestApi = {
-  async getRequests(
+  getRequests: (
     params?: RequestFilterParams,
-  ): Promise<PaginationResponse<RequestListItem>> {
-    const res = await axiosClient.get<
-      PaginationResponse<RequestListItem>,
-      PaginationResponse<RequestListItem>
-    >('/requests/filter', {
-      params: {
-        RequestId: params?.requestId,
-        Statuses: params?.statuses,
-        TeamId: params?.teamId,
-        PageNumber: params?.pageNumber,
-        PageSize: params?.pageSize,
+  ): Promise<PaginationResponse<RequestListItem>> =>
+    axiosClient.get<PaginationResponse<RequestListItem>, PaginationResponse<RequestListItem>>(
+      '/requests/filter',
+      {
+        params: {
+          RequestId: params?.requestId,
+          Statuses: params?.statuses,
+          SessionStatuses: params?.sessionStatuses,
+          TeamId: params?.teamId,
+          PageNumber: params?.pageNumber,
+          PageSize: params?.pageSize,
+        },
+        paramsSerializer: serializeParamsRepeatArray,
       },
-      paramsSerializer: serializeParamsRepeatArray,
-    });
-    return res;
-  },
+    ),
 
   getById: (id: number): Promise<RequestListItem> => {
     return axiosClient.get<RequestListItem, RequestListItem>(`/requests/${id}`);

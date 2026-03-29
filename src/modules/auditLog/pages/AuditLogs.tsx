@@ -231,7 +231,7 @@ export default function AuditLogs() {
 
       // Borrowing / Category / Subject (FE currently supports these via query param)
       if (normalizedEntityType === '4' || normalizedEntityType === 'borrowing') {
-        navigate(`/manager/equipments/history?openDetail=1&borrowingId=${entityId}`);
+        navigate(`/manager/borrowings?openDetail=1&borrowingId=${entityId}`);
         return;
       }
 
