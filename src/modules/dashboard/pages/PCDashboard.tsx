@@ -422,7 +422,7 @@ export default function PCDashboard() {
                     <XAxis dataKey="key" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={36} />
                     <Tooltip
-                      formatter={(value: number) => [Number(value ?? 0).toLocaleString('vi-VN'), 'Yêu cầu']}
+                      formatter={(value) => [Number(value ?? 0).toLocaleString('vi-VN'), 'Yêu cầu']}
                       wrapperClassName="text-xs"
                     />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={54}>

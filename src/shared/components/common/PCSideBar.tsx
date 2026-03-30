@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import memberApi from '@/modules/member/api/memberApi';
 import {
   BarChart3,
   BookOpen,
@@ -26,6 +27,46 @@ type PCMenuItem = {
 export default function PCSidebar() {
   const [collapsed, setCollapsed] = useState(true);
   const navigate = useNavigate();
+  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
+    const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
+    return avatarUrl.trim() ? avatarUrl : '/img/avatar.png';
+  });
+  const [memberName, setMemberName] = useState(() => localStorage.getItem('memberFullName') || '');
+
+  const userEmail = useMemo(() => {
+    try {
+      return (JSON.parse(localStorage.getItem('user') || '{}') as { email?: string })?.email || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
+  useEffect(() => {
+    const raw = localStorage.getItem('user');
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as { memberId?: number };
+      if (!parsed.memberId) return;
+
+      memberApi
+        .getMemberById(parsed.memberId)
+        .then((m) => {
+          if (m?.fullName) {
+            setMemberName(m.fullName);
+            localStorage.setItem('memberFullName', m.fullName);
+          }
+          const avatarUrl = m?.avatarUrl ?? '';
+          if (avatarUrl && String(avatarUrl).trim()) {
+            setSidebarAvatarSrc(String(avatarUrl));
+            localStorage.setItem('memberAvatarUrl', String(avatarUrl));
+          }
+        })
+        .catch(() => {});
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const menus = useMemo<PCMenuItem[]>(
     () => [
@@ -77,21 +118,32 @@ export default function PCSidebar() {
 
       {/* Top */}
 
-      {/* Avatar */}
       {!collapsed && (
-        <div className="flex flex-col items-center mb-8">
+        <button
+          type="button"
+          onClick={() => navigate('/pc/profile')}
+          className="flex flex-col items-center mb-8 w-full focus:outline-none"
+          title="Xem hồ sơ"
+        >
           <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center shadow-lg ring-4 ring-white">
             <img
-              src="/img/avatar.png"
+              src={sidebarAvatarSrc}
               alt="avatar"
               className="w-14 h-14 rounded-full object-cover"
+              onError={(e) => {
+                const img = e.currentTarget;
+                img.onerror = null;
+                img.src = '/img/avatar.png';
+              }}
             />
           </div>
           <div className="mt-4 text-center">
-            <div className="font-medium text-slate-700">Xin chào Phương</div>
-            <div className="text-sm text-slate-400">phuonglhk@fpt.edu.vn</div>
+            <div className="font-medium text-slate-700">
+              Xin chào{memberName ? ` ${memberName}` : ''}
+            </div>
+            {userEmail ? <div className="text-sm text-slate-400">{userEmail}</div> : null}
           </div>
-        </div>
+        </button>
       )}
 
       {collapsed && (

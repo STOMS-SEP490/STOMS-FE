@@ -13,7 +13,7 @@ import type { EquipmentListItem } from '@/modules/equipment/equipment';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useEquipments } from '../hooks/useEquipments';
 import CreateEquipmentModal from './CreateEquipmentModal';
 import { useCategories } from '@/modules/category/hooks/useCategories';
@@ -31,6 +31,8 @@ import EditEquipmentModal from './EditEquipmentModal';
 
 export default function EquipmentsManagement() {
   const context = useOutletContext<{ position?: string }>()
+  const location = useLocation();
+  const isEquipmentManager = location.pathname.startsWith('/em/');
   const [searchParams, setSearchParams] = useSearchParams();
   const [openCreateModal, setOpenCreateModal] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -111,12 +113,14 @@ export default function EquipmentsManagement() {
   }
 
   const handleEdit = (item: EquipmentListItem) => {
+    if (!isEquipmentManager) return;
     // Dùng luôn dữ liệu của hàng hiện tại để fill form (đã có đủ categoryId, status, ...).
     setEditEquipment(item)
     setEditOpen(true)
   }
 
   const handleDisableClick = (item: EquipmentListItem) => {
+    if (!isEquipmentManager) return;
     setEquipmentToDisable(item)
     setDisableOpen(true)
   }
@@ -237,22 +241,27 @@ export default function EquipmentsManagement() {
             className="text-blue-600 cursor-pointer"
             onClick={() => handleView(row.original)}
           />
-          <Pencil
-            size={16}
-            className="text-blue-600 cursor-pointer"
-            onClick={() => handleEdit(row.original)}
-          />
-          <Trash2
-            size={16}
-            className="text-red-500 cursor-pointer"
-            onClick={() => handleDisableClick(row.original)}
-          />
+          {isEquipmentManager ? (
+            <>
+              <Pencil
+                size={16}
+                className="text-blue-600 cursor-pointer"
+                onClick={() => handleEdit(row.original)}
+              />
+              <Trash2
+                size={16}
+                className="text-red-500 cursor-pointer"
+                onClick={() => handleDisableClick(row.original)}
+              />
+            </>
+          ) : null}
         </div>
       ),
     },
   ]
 
   if (context?.position === 'header') {
+    if (!isEquipmentManager) return null;
     return (
       <>
         <Button

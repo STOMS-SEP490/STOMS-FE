@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message } from 'antd';
 import { getRequestType } from '@/shared/components/request/RequestCard';
-import { getRequestStatusLabel, getTeamLeaderRequestStatusInfo } from '@/constants/status';
+import { getRequestStatusLabel, getTeamLeaderRequestStatusInfo, isSessionAssignmentRejectedStatus } from '@/constants/status';
 import { teamApi } from '@/modules/team/api/teamApi';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import requestApi from '@/modules/request/api/requestApi';
@@ -196,7 +196,9 @@ const buildRejectedRequests = async (teamId: number): Promise<TeamRequestItem[]>
     subjectId: request.subjectId,
     courseId: request.courseId,
     eventId: request.eventId,
-    status: 'ASSIGNMENT_REJECTED',
+    // Keep the canonical request status from BE so the status pill stays consistent across roles (like PC).
+    // Tab content (rejected) is determined by session assignment rejection, not by overriding request.status.
+    status: request.status,
     reason: request.reason ?? null,
     startDate: request.startDate,
     sessions: (request.sessions ?? []).map((session) => mapSessionLite(session, request.requestId)),
@@ -315,9 +317,17 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
             r.requestCode.toLowerCase().includes(q) || (r.requestName ?? '').toLowerCase().includes(q),
         );
 
+    const hasAssignmentRejectedSession = (r: TeamRequestItem) => {
+      if (r.sessions?.length) {
+        return r.sessions.some((s) => isSessionAssignmentRejectedStatus(s.status));
+      }
+      // Fallback: if sessions aren't present, keep old behavior using request.status.
+      return isRejectedTabRequest(r.status);
+    };
+
     const tabFiltered =
       activeTab === 'rejected'
-        ? base.filter((r) => isRejectedTabRequest(r.status))
+        ? base.filter((r) => hasAssignmentRejectedSession(r))
         : base.filter((r) => isAssigningTabRequest(r.status));
 
     if (activeTab === 'assigning' && onlyNeedsAction) {

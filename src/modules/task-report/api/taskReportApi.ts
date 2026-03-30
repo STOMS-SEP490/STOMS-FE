@@ -22,8 +22,17 @@ export const taskReportApi = {
   /* ──────────── Task Reports ──────────── */
 
   /** GET /api/task-reports/filter */
-  getAll: (params?: TaskReportFilterParams): Promise<PaginationResponse<TaskReport>> =>
-    axiosClient.get('/task-reports/filter', { params }),
+  getAll: (params?: TaskReportFilterParams): Promise<PaginationResponse<TaskReport>> => {
+    // Backend dùng query param tên `MemberId`, nhưng FE có thể gọi bằng `userId/memberId`.
+    const { MemberId, memberId, userId, ...rest } = params ?? {};
+    const memberIdNum = MemberId ?? memberId ?? userId;
+    return axiosClient.get('/task-reports/filter', {
+      params: {
+        ...rest,
+        ...(memberIdNum != null ? { MemberId: memberIdNum } : {}),
+      },
+    });
+  },
 
   /** GET /api/task-reports/{id} */
   getById: (id: number): Promise<TaskReport> =>

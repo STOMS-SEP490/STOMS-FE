@@ -2,7 +2,6 @@ import { Navigate } from 'react-router-dom';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import TeamLeaderTeamPage from '@/modules/team/pages/TeamLeaderTeamPage';
 import EventCalendar from '@/modules/event/pages/EventCalendar';
-import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
 import AvailableEquipmentsPage from '@/modules/equipment/pages/AvailableEquipmentsPage';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage';
@@ -11,6 +10,7 @@ import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout'
 import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
 import TeacherAttendanceHistoryPage from '@/modules/attendance/pages/TeacherAttendanceHistoryPage';
 import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeachingHistoryPage';
+import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherTaskReportPage from '@/modules/task-report/pages/TeacherTaskReportPage';
 import TeamLeaderAssignmentsLayout from '@/app/layouts/TeamLeaderAssignmentsLayout';

@@ -333,7 +333,7 @@ export default function EquipmentDashboard() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number) => [
+                      formatter={(value) => [
                         Number(value ?? 0).toLocaleString('vi-VN'),
                         'Số lượng',
                       ]}
@@ -370,7 +370,7 @@ export default function EquipmentDashboard() {
                       tickFormatter={(_, i) => categoryBarData[i]?.name ?? ''}
                     />
                     <Tooltip
-                      formatter={(value: number) => [Number(value ?? 0).toLocaleString('vi-VN'), 'Thiết bị']}
+                      formatter={(value) => [Number(value ?? 0).toLocaleString('vi-VN'), 'Thiết bị']}
                       labelFormatter={(_, payload) => {
                         const p = payload?.[0] as { payload?: { fullName?: string } } | undefined
                         return p?.payload?.fullName ?? ''

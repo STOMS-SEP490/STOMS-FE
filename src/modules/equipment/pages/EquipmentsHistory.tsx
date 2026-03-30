@@ -20,12 +20,15 @@ import {
   getBorrowingStatusColor,
 } from '@/constants/borrowing';
 import { Plus } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import borrowingApi from '../api/borrowingApi';
 import CreateBorrowingModal from './CreateBorrowingModal';
 import BorrowingDetailSidebar from './BorrowingDetailSidebar';
 
 const DEFAULT_AVATAR_SRC = '/img/ava.png';
+const QP_SEARCH = 'q';
+const QP_STATUS = 'st';
+const QP_PAGE = 'p';
 
 function getAvatarSrc(src?: string | null) {
   return src && String(src).trim() ? String(src) : DEFAULT_AVATAR_SRC;
@@ -34,7 +37,22 @@ function getAvatarSrc(src?: string | null) {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('vi-VN');
+}
+
+function formatTime(dateStr: string | null): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function parsePositiveInt(v: string | null, fallback: number): number {
+  const n = v ? Number(v) : NaN;
+  if (!Number.isFinite(n)) return fallback;
+  const i = Math.floor(n);
+  return i > 0 ? i : fallback;
 }
 
 const columns = (
@@ -111,7 +129,7 @@ const columns = (
               isOverdue ? 'text-red-500' : isReturned ? 'text-green-600' : 'text-muted-foreground'
             }`}
           >
-            {isReturned ? 'Đã trả' : isOverdue ? 'Quá hạn' : 'Chưa trả'}
+            {formatTime(due)}
           </div>
         </div>
       );
@@ -155,27 +173,77 @@ type Props = {
 export default function EquipmentsHistory({ borrowedByMemberId, standalone = false }: Props = {}) {
   const context = useOutletContext<OutletContext>();
   const location = useLocation();
-  const {
-    data,
-    loading,
-    search,
-    setSearch,
-    status,
-    setStatus,
-    resetFilters,
-    pageNumber,
-    pageSize,
-    totalItems,
-    setPageNumber,
-    refetch,
-  } = useBorrowings({ borrowedByMemberId });
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchValue = searchParams.get(QP_SEARCH) ?? '';
+  const statusValue = searchParams.get(QP_STATUS) ?? undefined;
+  const pageFromUrl = useMemo(() => parsePositiveInt(searchParams.get(QP_PAGE), 1), [searchParams]);
+
+  const setQuery = useCallback(
+    (updater: (next: URLSearchParams) => URLSearchParams) => {
+      setSearchParams((prev) => updater(new URLSearchParams(prev)));
+    },
+    [setSearchParams],
+  );
+
+  const setSearchQuery = useCallback(
+    (v: string) => {
+      setQuery((next) => {
+        const value = (v ?? '').trim();
+        if (value) next.set(QP_SEARCH, value);
+        else next.delete(QP_SEARCH);
+        next.delete(QP_PAGE);
+        return next;
+      });
+    },
+    [setQuery],
+  );
+
+  const setStatusQuery = useCallback(
+    (v: string | undefined) => {
+      setQuery((next) => {
+        if (v) next.set(QP_STATUS, v);
+        else next.delete(QP_STATUS);
+        next.delete(QP_PAGE);
+        return next;
+      });
+    },
+    [setQuery],
+  );
+
+  const resetFiltersQuery = useCallback(() => {
+    setQuery((next) => {
+      next.delete(QP_SEARCH);
+      next.delete(QP_STATUS);
+      next.delete(QP_PAGE);
+      return next;
+    });
+  }, [setQuery]);
+
+  const setPageQuery = useCallback(
+    (p: number) => {
+      setQuery((next) => {
+        if (p && p > 1) next.set(QP_PAGE, String(p));
+        else next.delete(QP_PAGE);
+        return next;
+      });
+    },
+    [setQuery],
+  );
+
+  const enabledFetch = context?.position !== 'header' && context?.position !== 'toolbar';
+  const { data, loading, pageSize, totalItems, refetch } = useBorrowings({
+    borrowedByMemberId,
+    search: searchValue,
+    status: statusValue,
+    pageNumber: pageFromUrl,
+    enabled: enabledFetch,
+  });
   const [createOpenLocal, setCreateOpenLocal] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailBorrowing, setDetailBorrowing] = useState<BorrowingListItem | null>(
     null
   );
-
-  const [searchParams, setSearchParams] = useSearchParams();
   const openDetailFromUrl = searchParams.get('openDetail');
   const borrowingIdFromUrl = searchParams.get('borrowingId');
 
@@ -273,12 +341,12 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
       <div className="flex gap-3 items-center">
         <HoverSearch
           placeholder="Tìm theo mô tả, ghi chú..."
-          value={search}
-          onChange={(v) => setSearch(v)}
+          value={searchValue}
+          onChange={(v) => setSearchQuery(v)}
         />
         <Select
-          value={status ?? 'all'}
-          onValueChange={(v: string) => setStatus(v === 'all' ? undefined : v)}
+          value={statusValue ?? 'all'}
+          onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}
         >
           <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
             <SelectValue placeholder="Trạng thái" />
@@ -292,7 +360,12 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
             ))}
           </SelectContent>
         </Select>
-        <Button variant="secondary" className="bg-white" onClick={resetFilters} type="button">
+        <Button
+          variant="secondary"
+          className="bg-white"
+          onClick={resetFiltersQuery}
+          type="button"
+        >
           <RotateCcw className="w-4 h-4" />
         </Button>
       </div>
@@ -325,10 +398,10 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
         <DataTable
           columns={columns(handleView)}
           data={data}
-          pageNumber={pageNumber}
+          pageNumber={pageFromUrl}
           pageSize={pageSize}
           totalItems={totalItems}
-          onPageChange={(page) => setPageNumber(page)}
+          onPageChange={(page) => setPageQuery(page)}
           fillHeight
         />
       </div>
@@ -360,12 +433,12 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
           <div className="flex gap-3 items-center justify-end">
             <HoverSearch
               placeholder="Tìm theo mô tả, ghi chú..."
-              value={search}
-              onChange={(v) => setSearch(v)}
+              value={searchValue}
+              onChange={(v) => setSearchQuery(v)}
             />
             <Select
-              value={status ?? 'all'}
-              onValueChange={(v: string) => setStatus(v === 'all' ? undefined : v)}
+              value={statusValue ?? 'all'}
+              onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}
             >
               <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
                 <SelectValue placeholder="Trạng thái" />
@@ -379,7 +452,12 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="secondary" className="bg-white" onClick={resetFilters} type="button">
+            <Button
+              variant="secondary"
+              className="bg-white"
+              onClick={resetFiltersQuery}
+              type="button"
+            >
               <RotateCcw className="w-4 h-4" />
             </Button>
           </div>

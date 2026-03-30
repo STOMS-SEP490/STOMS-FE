@@ -17,6 +17,7 @@ import {
   Menu,
   LogOut,
   Key,
+  ClipboardCheck,
 } from 'lucide-react';
 import { logout } from '@/modules/auth/pages/Logout';
 
@@ -71,6 +72,7 @@ export default function Sidebar() {
       { label: 'Giáo trình', icon: BookOpen, path: '/manager/courses' },
       { label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
       { label: 'Thiết bị', icon: Laptop, path: '/manager/equipments' },
+      { label: 'Phiếu mượn', icon: ClipboardCheck, path: '/manager/borrowings' },
       { label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
       { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
       { label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },

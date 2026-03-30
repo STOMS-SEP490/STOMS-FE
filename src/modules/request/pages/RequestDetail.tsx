@@ -159,20 +159,7 @@ export default function RequestDetail() {
     courseId: request.courseId,
     eventId: request.eventId,
   });
-  const statusInfo = (() => {
-    const base = getRequestStatusInfo(request.status);
-    if (viewMode !== 'assignment') return base;
-    const raw = String(request.status ?? '').trim();
-    const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
-    const code = Number(raw);
-    const isAssigning = normalized === 'ASSIGNING' || (!Number.isNaN(code) && code === 4);
-    if (!isAssigning) return base;
-    return {
-      label: 'Chờ duyệt phân công',
-      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      leftBarClass: 'border-l-indigo-500',
-    };
-  })();
+  const statusInfo = getRequestStatusInfo(request.status);
   const sessionCount = sessions.length || request.sessionsRequired || 0;
 
   return (
@@ -667,6 +654,7 @@ export default function RequestDetail() {
                       requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
                       sectionMode="equipment"
+                      onReservationUpdated={handleEquipmentSuccess}
                     />
                   </div>
                 </>
@@ -861,6 +849,7 @@ export default function RequestDetail() {
                       requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
                       sectionMode="equipment"
+                      onReservationUpdated={handleEquipmentSuccess}
                     />
                   )}
                 </div>

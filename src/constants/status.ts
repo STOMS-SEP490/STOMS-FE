@@ -223,27 +223,9 @@ export function getTeamLeaderRequestStatusInfo(
   className: string;
   leftBarClass: string;
 } {
-  const base = getRequestStatusInfo(status);
-  const code = normalizeStatusCode(status, REQUEST_STATUS_LABEL);
-  if (!code) return base;
-
-  if (code === REQUEST_STATUS.APPROVED) {
-    return {
-      label: 'Chờ phân công',
-      className: 'bg-amber-50 text-amber-700 border-amber-200',
-      leftBarClass: 'border-l-amber-500',
-    };
-  }
-
-  if (code === REQUEST_STATUS.ASSIGNING) {
-    return {
-      label: 'Đã phân công',
-      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      leftBarClass: 'border-l-indigo-500',
-    };
-  }
-
-  return base;
+  // Team Leader request status should be consistent with PC.
+  // Use the same mapping so all roles render identical labels/colors for the same BE status code.
+  return getRequestStatusInfo(status);
 }
 
 
