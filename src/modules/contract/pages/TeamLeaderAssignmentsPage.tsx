@@ -205,6 +205,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     setActiveSession,
     sessionDetailsById,
     suggestedByAssignmentId,
+    ensureSuggestedStaffForAssignments,
     assignSelections,
     searchByAssignmentId,
     setSearchByAssignmentId,
@@ -233,6 +234,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     if (staffPickerAssignmentId != null) return;
     setHoveredStaff(null);
   }, [staffPickerAssignmentId]);
+
+  useEffect(() => {
+    if (staffPickerAssignmentId == null) return;
+    void ensureSuggestedStaffForAssignments([staffPickerAssignmentId]);
+  }, [staffPickerAssignmentId, ensureSuggestedStaffForAssignments]);
 
   useEffect(() => {
     const closeHover = () => setHoveredStaff(null);

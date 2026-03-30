@@ -7,13 +7,32 @@ export const useTeamByMember = (memberId: number) => {
   const [loading, setLoading] = useState(false);
 
   const refetch = useCallback(async () => {
-    if (!memberId) return;
+    if (!memberId) {
+      setData(null);
+      return;
+    }
     try {
       setLoading(true);
-      const res = await teamApi.getTeamByMember(memberId);
-      setData(res);
+
+      // GET /api/teams/filter -> lấy teamId theo leader hiện tại
+      const paged = await teamApi.getTeams({
+        leaderMemberId: memberId,
+        pageNumber: 1,
+        pageSize: 10,
+      });
+
+      const teamId = paged.items?.[0]?.teamId;
+      if (!teamId) {
+        setData(null);
+        return;
+      }
+
+      // GET /api/teams/{teamId} -> trả về TeamDetailResponse (có members)
+      const team = await teamApi.getById(teamId);
+      setData(team as unknown as TeamDetail);
     } catch (err) {
       console.error('fetch team by member error:', err);
+      setData(null);
     } finally {
       setLoading(false);
     }

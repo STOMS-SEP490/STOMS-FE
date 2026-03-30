@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message } from 'antd';
 import { getRequestType } from '@/shared/components/request/RequestCard';
-import { getRequestStatusLabel, getTeamLeaderRequestStatusInfo } from '@/constants/status';
+import { getRequestStatusLabel, getTeamLeaderRequestStatusInfo, isSessionAssignmentRejectedStatus } from '@/constants/status';
 import { teamApi } from '@/modules/team/api/teamApi';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import requestApi from '@/modules/request/api/requestApi';
@@ -196,7 +196,9 @@ const buildRejectedRequests = async (teamId: number): Promise<TeamRequestItem[]>
     subjectId: request.subjectId,
     courseId: request.courseId,
     eventId: request.eventId,
-    status: 'ASSIGNMENT_REJECTED',
+    // Keep the canonical request status from BE so the status pill stays consistent across roles (like PC).
+    // Tab content (rejected) is determined by session assignment rejection, not by overriding request.status.
+    status: request.status,
     reason: request.reason ?? null,
     startDate: request.startDate,
     sessions: (request.sessions ?? []).map((session) => mapSessionLite(session, request.requestId)),
@@ -230,6 +232,13 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   useEffect(() => {
     assignSelectionsRef.current = assignSelections;
   }, [assignSelections]);
+
+  /**
+   * Optimistic selection rollback map.
+   * - value = previous override staffMemberId
+   * - null = previously had no override (fallback to server value)
+   */
+  const rollbackOverrideByAssignmentIdRef = useRef<Record<number, number | null>>({});
 
   const sessionDetailsByIdRef = useRef(sessionDetailsById);
   useEffect(() => {
@@ -308,9 +317,17 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
             r.requestCode.toLowerCase().includes(q) || (r.requestName ?? '').toLowerCase().includes(q),
         );
 
+    const hasAssignmentRejectedSession = (r: TeamRequestItem) => {
+      if (r.sessions?.length) {
+        return r.sessions.some((s) => isSessionAssignmentRejectedStatus(s.status));
+      }
+      // Fallback: if sessions aren't present, keep old behavior using request.status.
+      return isRejectedTabRequest(r.status);
+    };
+
     const tabFiltered =
       activeTab === 'rejected'
-        ? base.filter((r) => isRejectedTabRequest(r.status))
+        ? base.filter((r) => hasAssignmentRejectedSession(r))
         : base.filter((r) => isAssigningTabRequest(r.status));
 
     if (activeTab === 'assigning' && onlyNeedsAction) {
@@ -606,17 +623,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     if (id > 0) void ensureSessionDetails([id]);
   }, [activeSession, ensureSessionDetails]);
 
-  useEffect(() => {
-    if (!activeSession) return;
-    const detail = sessionDetailsById[activeSession.sessionId];
-    const assignments = detail?.Assignments ?? [];
-    const assignmentIds = assignments
-      .filter((a) => a?.AssignmentId && isAssignableStatus(a.Status))
-      .map((a) => a?.AssignmentId)
-      .filter((x): x is number => typeof x === 'number' && x > 0);
-    void ensureSuggestedStaffForAssignments(assignmentIds);
-  }, [activeSession, sessionDetailsById, ensureSuggestedStaffForAssignments]);
-
   const flushAutoAssignSession = useCallback(
     async (sessionId: number) => {
       const existingT = autoAssignDebounceTimeoutBySessionIdRef.current[sessionId];
@@ -632,6 +638,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         autoAssignCounterRef.current += 1;
         if (autoAssignCounterRef.current === 1) setAutoAssigning(true);
 
+        let itemsForSession: AssignMemberPayload[] = [];
         try {
           const detailFromState = sessionDetailsByIdRef.current[sessionId];
           const detail = detailFromState ?? (await sessionApi.getById(sessionId));
@@ -644,7 +651,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
           const assignments = detail.Assignments ?? [];
           const selectionsNow = assignSelectionsRef.current;
 
-          const itemsForSession: AssignMemberPayload[] = [];
+          itemsForSession = [];
           for (const a of assignments) {
             if (!a?.AssignmentId) continue;
             if (!isAssignableStatus(a.Status)) continue;
@@ -667,10 +674,39 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
           itemsForSession.forEach((it) => {
             lastAutoAssignedStaffByAssignmentRef.current[it.assignmentId] = it.staffMemberId;
           });
+          // Clear rollback markers for succeeded assignments
+          itemsForSession.forEach((it: AssignMemberPayload) => {
+            delete rollbackOverrideByAssignmentIdRef.current[it.assignmentId];
+          });
 
           const refreshed = await sessionApi.getById(sessionId);
           setSessionDetailsById((prev) => ({ ...prev, [sessionId]: refreshed }));
           refreshSessionInRequestState(refreshed);
+        } catch (err) {
+          // Rollback optimistic selections for assignments we tried to persist
+          const rollbackEntries = rollbackOverrideByAssignmentIdRef.current;
+          const toRollback = itemsForSession
+            .map((it) => it.assignmentId)
+            .filter((aid) => Object.prototype.hasOwnProperty.call(rollbackEntries, aid));
+          if (toRollback.length) {
+            setAssignSelections((prev) => {
+              const next = { ...prev };
+              for (const aid of toRollback) {
+                const prevOverride = rollbackEntries[aid];
+                if (prevOverride == null) delete next[aid];
+                else next[aid] = prevOverride;
+                delete rollbackEntries[aid];
+              }
+              return next;
+            });
+          }
+
+          // Auto-assign chạy theo debounce khi chọn staff; nếu lỗi mà không toast sẽ rất khó nhận ra.
+          // Khi đang "Apply to other sessions", caller đã có toast riêng, tránh báo trùng.
+          if (!isApplyingRef.current) {
+            message.error(getErrorMessage(err, 'Phân công thất bại.'));
+          }
+          throw err;
         } finally {
           autoAssignCounterRef.current -= 1;
           if (autoAssignCounterRef.current === 0) setAutoAssigning(false);
@@ -691,6 +727,9 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
   const handleSelectStaff = useCallback(
     (sessionId: number, assignmentId: number, memberId: number) => {
+      // Store previous override for rollback (optimistic UI)
+      const prevOverride = assignSelectionsRef.current[assignmentId];
+      rollbackOverrideByAssignmentIdRef.current[assignmentId] = prevOverride === undefined ? null : prevOverride;
       setAssignSelections((prev) => ({ ...prev, [assignmentId]: memberId }));
 
       if (isApplyingRef.current) return;
@@ -943,6 +982,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     setActiveSession,
     sessionDetailsById,
     suggestedByAssignmentId,
+    ensureSuggestedStaffForAssignments,
     assignSelections,
     searchByAssignmentId,
     setSearchByAssignmentId,

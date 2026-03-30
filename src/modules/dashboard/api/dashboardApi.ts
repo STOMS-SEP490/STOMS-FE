@@ -251,6 +251,129 @@ export type DashboardUserWorkloadParams = {
   to?: string;
 };
 
+export type DashboardTeachingHistoryItem = {
+  sessionId: number;
+  sessionNo: number;
+  sessionTitle: string;
+  startAt: string;
+  endAt: string;
+  location: string;
+  isOnline: boolean | null;
+  role: string;
+  status: string;
+  request: {
+    requestId: number;
+    requestCode: string;
+    requestName: string;
+  };
+  contract: {
+    contractId: number;
+    createdByMemberId: number;
+    sessionId: number;
+    amount: number | null;
+    contractCode: string;
+    isPaid: boolean | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+  } | null;
+};
+
+export type DashboardAttendanceHistoryItem = {
+  attendanceId: number;
+  checkinAt: string | null;
+  checkoutAt: string | null;
+  note: string;
+  attendanceByMember: {
+    memberId: number;
+    userId: number;
+    email: string;
+    avatarUrl: string | null;
+    fullName: string;
+    phone: string | null;
+    team: { teamId: number; teamName: string } | null;
+  } | null;
+  session: {
+    sessionId: number;
+    sessionNo: number;
+    sessionTitle: string;
+    startAt: string;
+    endAt: string;
+    location: string;
+    isOnline: boolean | null;
+    status: string;
+  };
+  request: {
+    requestId: number;
+    requestCode: string;
+    requestName: string;
+  };
+};
+
+export type DashboardTeachingHistoryFilterParams = {
+  keyword?: string;
+  from?: string;
+  toExclusive?: string;
+  sessionStatus?: string;
+  staffRole?: string;
+  isOnline?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
+};
+
+export type DashboardAttendanceHistoryFilterParams = {
+  keyword?: string;
+  from?: string;
+  toExclusive?: string;
+  missingCheckin?: boolean;
+  missingCheckout?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
+};
+
+export type DashboardMemberContractItem = {
+  contractId: number;
+  contractCode: string;
+  amount: number | null;
+  isPaid: boolean | null;
+  sessionId: number;
+  sessionTitle: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type DashboardMemberContractSummary = {
+  member: {
+    memberId: number;
+    userId: number;
+    roleId: number;
+    teamId: number | null;
+    fullName: string;
+    email: string;
+    avatarUrl: string;
+    phone: string;
+    address: string;
+    cin: string;
+    bankCode: string;
+    bankName: string;
+    taxNumber: string;
+    teamName: string;
+  };
+  totalContracts: number;
+  paidContracts: number;
+  unpaidContracts: number;
+  paidValue: number;
+  unpaidValue: number;
+  contracts: PaginationResponse<DashboardMemberContractItem>;
+};
+
+export type DashboardMemberContractSummaryParams = {
+  keyword?: string;
+  fromDate?: string;
+  toDate?: string;
+  pageNumber?: number;
+  pageSize?: number;
+};
+
 export const dashboardApi = {
   getUsersOverview(): Promise<DashboardUsersOverview> {
     return axiosClient.get('/dashboard/users/statistics');
@@ -338,6 +461,27 @@ export const dashboardApi = {
 
   getUserWorkload(memberId: number, params?: DashboardUserWorkloadParams): Promise<DashboardUserWorkload> {
     return axiosClient.get(`/dashboard/users/${memberId}/workload`, { params });
+  },
+
+  getUserTeachingHistory(
+    memberId: number,
+    params?: DashboardTeachingHistoryFilterParams,
+  ): Promise<PaginationResponse<DashboardTeachingHistoryItem>> {
+    return axiosClient.get(`/dashboard/users/${memberId}/teaching-history`, { params });
+  },
+
+  getUserAttendanceHistory(
+    memberId: number,
+    params?: DashboardAttendanceHistoryFilterParams,
+  ): Promise<PaginationResponse<DashboardAttendanceHistoryItem>> {
+    return axiosClient.get(`/dashboard/users/${memberId}/attendance-history`, { params });
+  },
+
+  getMemberContractsStatistics(
+    memberId: number,
+    params?: DashboardMemberContractSummaryParams,
+  ): Promise<DashboardMemberContractSummary> {
+    return axiosClient.get(`/dashboard/members/${memberId}/contracts-statistics`, { params });
   },
 };
 

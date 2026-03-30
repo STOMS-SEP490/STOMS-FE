@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import sessionApi from '@/modules/request/api/sessionApi';
+import requestApi from '@/modules/request/api/requestApi';
 import memberApi from '@/modules/request/api/memberApi';
 import type { SessionResponse } from '@/modules/request/session.types';
+import { getAttendanceOwnerId } from '@/shared/utils/attendanceOwner';
 
 export type TeamLeaderTimetableAssignmentRow = {
   sessionId: number;
   sessionNo?: number;
   requestId?: number;
+  requestCode?: string;
+  requestName?: string;
   startAt?: string;
   endAt?: string;
   location?: string;
+  isOnline?: boolean | null;
   status?: string;
   roleLabel?: string;
   attendanceByMemberId?: number | null;
@@ -60,6 +65,7 @@ function normalizeSessionsToRows(
       startAt: s.StartAt,
       endAt: s.EndAt,
       location: s.Location,
+      isOnline: s.IsOnline ?? null,
       status: s.Status,
       roleLabel: (() => {
         if (currentMemberId == null) return undefined;
@@ -79,14 +85,14 @@ function normalizeSessionsToRows(
         const arr = Array.from(labels);
         return arr.length > 0 ? arr.join(', ') : undefined;
       })(),
-      attendanceByMemberId: (s.Attendances ?? [])[0]?.AttendanceByMemberId ?? null,
+      attendanceByMemberId: getAttendanceOwnerId(s.Attendances),
 
       checkinAt: (() => {
-        const responsibleId = (s.Attendances ?? [])[0]?.AttendanceByMemberId ?? null;
+        const responsibleId = getAttendanceOwnerId(s.Attendances);
         return getEarliestAttendanceTime(s.Attendances, responsibleId, 'CheckinAt');
       })(),
       checkoutAt: (() => {
-        const responsibleId = (s.Attendances ?? [])[0]?.AttendanceByMemberId ?? null;
+        const responsibleId = getAttendanceOwnerId(s.Attendances);
         return getEarliestAttendanceTime(s.Attendances, responsibleId, 'CheckoutAt');
       })(),
     }));
@@ -169,6 +175,11 @@ export function useTeamLeaderTimetableAssignments(
 
       setLoading(true);
 
+      let rows: TeamLeaderTimetableAssignmentRow[] = [];
+      let remoteTotalItems = 0;
+
+      // TL (timetable/assignments): bắt buộc lấy theo session/filter để đúng trạng thái phiên và TeamId.
+      // Teacher: giữ luồng session-level để đảm bảo lọc đúng theo MemberId.
       const res = await sessionApi.getFilter({
         TeamId: byMember ? undefined : teamId,
         MemberId: byMember ? leaderMemberId ?? undefined : undefined,
@@ -178,7 +189,34 @@ export function useTeamLeaderTimetableAssignments(
       });
 
       const publishedItems: SessionResponse[] = res.Items ?? [];
-      let rows = normalizeSessionsToRows(publishedItems, leaderMemberId);
+      remoteTotalItems = Number(res.TotalItems ?? 0);
+      rows = normalizeSessionsToRows(publishedItems, leaderMemberId);
+
+      // SessionResponse chỉ có RequestId, nên cần fetch Request để hiển thị requestCode/requestName.
+      const requestIdSet = new Set<number>(
+        rows.map((r) => r.requestId).filter((id): id is number => typeof id === 'number' && id > 0),
+      );
+
+      const requestMap = new Map<number, { requestCode?: string; requestName?: string }>();
+      await Promise.all(
+        Array.from(requestIdSet).map(async (rid) => {
+          try {
+            const req = await requestApi.getById(rid);
+            requestMap.set(rid, { requestCode: req.requestCode, requestName: req.requestName });
+          } catch {
+            // Nếu lỗi fetch request, vẫn giữ row session để không chặn UI.
+          }
+        }),
+      );
+
+      rows = rows.map((r) => {
+        const meta = r.requestId != null ? requestMap.get(r.requestId) : undefined;
+        return {
+          ...r,
+          requestCode: meta?.requestCode ?? r.requestCode,
+          requestName: meta?.requestName ?? r.requestName,
+        };
+      });
 
       if (todayOnly) {
         const tz = 'Asia/Ho_Chi_Minh';
@@ -216,7 +254,7 @@ export function useTeamLeaderTimetableAssignments(
       });
 
       setServerItems(rows);
-      setTotalItems(todayOnly ? rows.length : Number(res.TotalItems ?? 0));
+      setTotalItems(todayOnly ? rows.length : remoteTotalItems);
     } catch (err) {
       console.error('fetch teamleader timetable assignments error', err);
       if (lastFetchKeyRef.current != null) {
@@ -241,6 +279,8 @@ export function useTeamLeaderTimetableAssignments(
       (r) =>
         match(r.location ?? '') ||
         match(r.requestId?.toString() ?? '') ||
+        match(r.requestCode ?? '') ||
+        match(r.requestName ?? '') ||
         match(r.sessionNo?.toString() ?? '') ||
         match(r.roleLabel ?? ''),
     );

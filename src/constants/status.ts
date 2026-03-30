@@ -170,6 +170,10 @@ export function getSessionStatusLabel(status: string | number | null | undefined
   return SESSION_STATUS_LABEL[code] ?? String(status);
 }
 
+export function getRequestStatusCode(status: string | number | null | undefined): number | null {
+  return normalizeStatusCode(status, REQUEST_STATUS_LABEL);
+}
+
 export function getRequestStatusLabel(status: string | number | null | undefined): string {
   const code = normalizeStatusCode(status, REQUEST_STATUS_LABEL);
   if (!code) return String(status || '—');
@@ -192,7 +196,7 @@ export function getRequestStatusInfo(status: string | number | null | undefined)
     [REQUEST_STATUS.APPROVED]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     [REQUEST_STATUS.REJECTED]: 'bg-rose-50 text-rose-700 border-rose-200',
     [REQUEST_STATUS.ASSIGNING]: 'bg-sky-50 text-sky-700 border-sky-200',
-    [REQUEST_STATUS.PUBLISHED]: baseClass,
+    [REQUEST_STATUS.PUBLISHED]: 'bg-violet-50 text-violet-700 border-violet-200',
     [REQUEST_STATUS.COMPLETED]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     [REQUEST_STATUS.CANCELLED]: 'bg-slate-50 text-slate-700 border-slate-200',
   };
@@ -201,7 +205,7 @@ export function getRequestStatusInfo(status: string | number | null | undefined)
     [REQUEST_STATUS.APPROVED]: 'border-l-emerald-500',
     [REQUEST_STATUS.REJECTED]: 'border-l-rose-500',
     [REQUEST_STATUS.ASSIGNING]: 'border-l-sky-500',
-    [REQUEST_STATUS.PUBLISHED]: 'border-l-slate-400',
+    [REQUEST_STATUS.PUBLISHED]: 'border-l-violet-500',
     [REQUEST_STATUS.COMPLETED]: 'border-l-emerald-500',
     [REQUEST_STATUS.CANCELLED]: 'border-l-slate-400',
   };
@@ -219,27 +223,9 @@ export function getTeamLeaderRequestStatusInfo(
   className: string;
   leftBarClass: string;
 } {
-  const base = getRequestStatusInfo(status);
-  const code = normalizeStatusCode(status, REQUEST_STATUS_LABEL);
-  if (!code) return base;
-
-  if (code === REQUEST_STATUS.APPROVED) {
-    return {
-      label: 'Chờ phân công',
-      className: 'bg-amber-50 text-amber-700 border-amber-200',
-      leftBarClass: 'border-l-amber-500',
-    };
-  }
-
-  if (code === REQUEST_STATUS.ASSIGNING) {
-    return {
-      label: 'Đã phân công',
-      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      leftBarClass: 'border-l-indigo-500',
-    };
-  }
-
-  return base;
+  // Team Leader request status should be consistent with PC.
+  // Use the same mapping so all roles render identical labels/colors for the same BE status code.
+  return getRequestStatusInfo(status);
 }
 
 

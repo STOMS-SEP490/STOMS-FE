@@ -11,8 +11,10 @@ import AvailableEquipmentsPage from '@/modules/equipment/pages/AvailableEquipmen
 import CoursesReadonlyPage from '@/modules/course/pages/CoursesReadonlyPage';
 import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout';
 import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
+import TeacherDashboard from '@/modules/dashboard/pages/TeacherDashboard';
 
 const TeacherRoutes = [
+  { path: 'dashboard', element: <TeacherDashboard /> },
   { path: 'events', element: <EventsManagement /> },
   {
     path: 'courses',
@@ -28,8 +30,7 @@ const TeacherRoutes = [
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'contracts/:id', element: <ContractsManagement /> },
   { path: 'fund-contributions', element: <TeacherContributionHistoryPage /> },
-  { path: 'attendance', element: <TeacherAttendanceHistoryPage  /> },
-  { path: 'attendance-history', element: <TeacherAttendanceHistoryPage  /> },
+  { path: 'attendance-history', element: <TeacherAttendanceHistoryPage /> },
   { path: 'tasks', element: <TeacherTaskReportPage /> },
   { path: 'equipments', element: <AvailableEquipmentsPage /> },
   { path: 'profile', element: <UserProfile /> },

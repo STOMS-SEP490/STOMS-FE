@@ -6,7 +6,7 @@ export interface StatCardProps {
   label: string;
   value: string | number;
   sub?: string;
-  variant?: 'green' | 'blue' | 'amber' | 'rose' | 'white';
+  variant?: 'green' | 'blue' | 'amber' | 'rose' | 'white' | 'violet' | 'orange';
   className?: string;
 }
 
@@ -20,7 +20,11 @@ export function StatCard({ icon, label, value, sub, variant = 'blue', className 
           ? 'bg-rose-100 text-rose-600'
           : variant === 'white'
             ? 'bg-white text-gray-700'
-            : 'bg-blue-100 text-blue-600';
+            : variant === 'violet'
+              ? 'bg-violet-100 text-violet-600'
+              : variant === 'orange'
+                ? 'bg-orange-100 text-orange-600'
+                : 'bg-blue-100 text-blue-600';
 
   return (
     <div

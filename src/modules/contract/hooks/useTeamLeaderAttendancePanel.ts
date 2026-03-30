@@ -2,8 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/type';
 import sessionApi from '@/modules/request/api/sessionApi';
 import attendanceApi from '@/modules/request/api/attendanceApi';
-import memberApi from '@/modules/request/api/memberApi';
 import type { TeamLeaderTimetableAssignmentRow } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
+import { getAttendanceOwnerId } from '@/shared/utils/attendanceOwner';
+import { normalizeAttendanceFilterResponse } from '@/shared/utils/normalizeAttendanceFilter';
+import { extractMembersFromAttendanceFilterResponse } from '@/shared/utils/extractMembersFromAttendanceFilter';
 
 type AttendanceActionMode = 'delegate' | 'checkin' | 'checkout' | null;
 type AttendanceWriteMode = Exclude<AttendanceActionMode, 'delegate' | null>;
@@ -67,28 +69,6 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
     setMembersById({});
   }, []);
 
-  const hydrateMembersByIds = useCallback(async (memberIds: number[]) => {
-    const uniqueIds = Array.from(new Set(memberIds)).filter((id) => Number(id) > 0);
-    if (uniqueIds.length === 0) {
-      setMembersById({});
-      return;
-    }
-
-    const pairs = await Promise.all(
-      uniqueIds.map(async (id) => ({
-        id,
-        detail: await memberApi.getById(id),
-      })),
-    );
-
-    const map = pairs.reduce<Record<number, MemberDetail>>((acc, item) => {
-      acc[item.id] = item.detail;
-      return acc;
-    }, {});
-
-    setMembersById(map);
-  }, []);
-
   const loadAttendanceItems = useCallback(async (sessionId: number, attendanceByMemberId: number | null) => {
     const res = await attendanceApi.getFilter({
       sessionId,
@@ -96,32 +76,41 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
       pageNumber: FIRST_PAGE,
       pageSize: PAGE_SIZE,
     });
-    return res.Items ?? [];
+    const normalized = normalizeAttendanceFilterResponse(res as any);
+    return {
+      items: normalized.Items ?? [],
+      membersById: extractMembersFromAttendanceFilterResponse(res),
+    };
   }, []);
 
   const resolveAttendanceOwner = useCallback(
     async (detail: SessionDetail) => {
-      const ownerIdFromSession = detail.Attendances?.[0]?.AttendanceByMemberId ?? null;
+      const ownerIdFromSession = getAttendanceOwnerId(detail.Attendances as any);
       const ownerId = ownerIdFromSession ?? currentMemberId;
 
       setAttendanceByMemberIdForSession(ownerId);
-
-      if (!ownerId) {
-        setAttendanceByMemberFullName('');
-        return ownerId;
-      }
-
-      try {
-        const by = await memberApi.getById(ownerId);
-        setAttendanceByMemberFullName(by.fullName || by.userEmail || '');
-      } catch {
-        setAttendanceByMemberFullName('');
-      }
-
+      setAttendanceByMemberFullName('');
       return ownerId;
     },
     [currentMemberId],
   );
+
+  const refreshAttendanceItems = useCallback(async () => {
+    if (!activeSession) return;
+    const attendanceByMemberId = attendanceByMemberIdForSession ?? null;
+    const res = await attendanceApi.getFilter({
+      sessionId: activeSession.sessionId,
+      attendanceByMemberId: attendanceByMemberId ?? undefined,
+      pageNumber: FIRST_PAGE,
+      pageSize: PAGE_SIZE,
+    });
+    const normalized = normalizeAttendanceFilterResponse(res as any);
+    const nextItems = normalized.Items ?? [];
+    const nextMembers = extractMembersFromAttendanceFilterResponse(res);
+    setAttendanceItems(nextItems);
+    setMembersById(nextMembers);
+    return { items: nextItems, membersById: nextMembers };
+  }, [activeSession, attendanceByMemberIdForSession]);
 
   const openPanel = useCallback(
     async (row: TeamLeaderTimetableAssignmentRow, mode: Exclude<AttendanceActionMode, null>) => {
@@ -136,15 +125,15 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
       setSessionDetail(detail);
 
       const attendanceByMemberId = await resolveAttendanceOwner(detail);
-      const items = await loadAttendanceItems(row.sessionId, attendanceByMemberId);
-      setAttendanceItems(items);
-      await hydrateMembersByIds(items.map((x) => x.MemberId));
+      const loaded = await loadAttendanceItems(row.sessionId, attendanceByMemberId);
+      setAttendanceItems(loaded.items);
+      setMembersById(loaded.membersById);
 
       if (mode === 'checkin' || mode === 'checkout') {
-        setSelectedMemberIds(getSelectedIdsByMode(items, mode));
+        setSelectedMemberIds(getSelectedIdsByMode(loaded.items, mode));
       }
     },
-    [hydrateMembersByIds, loadAttendanceItems, resolveAttendanceOwner],
+    [loadAttendanceItems, resolveAttendanceOwner],
   );
 
   const saveAttendance = useCallback(async () => {
@@ -161,9 +150,8 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
         await attendanceApi.checkOut({ sessionId: activeSession.sessionId, items });
       }
 
-      const updatedItems = await loadAttendanceItems(activeSession.sessionId, attendanceByMemberIdForSession);
-      setAttendanceItems(updatedItems);
-      setSelectedMemberIds(getSelectedIdsByMode(updatedItems, actionMode));
+      const next = await refreshAttendanceItems();
+      if (next) setSelectedMemberIds(getSelectedIdsByMode(next.items, actionMode));
 
       await refetch?.();
     } finally {
@@ -173,7 +161,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
     activeSession,
     actionMode,
     attendanceByMemberIdForSession,
-    loadAttendanceItems,
+    refreshAttendanceItems,
     memberNotes,
     refetch,
     selectedMemberIds,
@@ -201,6 +189,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
     openPanel,
     closePanel,
     saveAttendance,
+    refreshAttendanceItems,
   };
 }
 

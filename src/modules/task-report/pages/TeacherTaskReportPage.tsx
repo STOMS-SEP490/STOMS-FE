@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import RequestCard from '@/shared/components/request/RequestCard';
+import { expenseApi } from '@/modules/transaction/api/expenseApi';
+import { REQUEST_STATUS, getRequestStatusCode } from '@/constants/status';
 
 const COMPLETED_STATUSES = ['completed', 'hoàn thành', 'done', 'finished'];
 
@@ -59,6 +61,17 @@ type EditingExpenseRow = {
   expenseId?: number;
   amount: string;
   description: string;
+  status: number;
+  rejectReason: string | null;
+  paymentImg: string | null;
+};
+
+type CreateExpenseRow = {
+  key: string;
+  amount: string;
+  description: string;
+  file: File | null;
+  preview: string;
 };
 
 function formatDateRange(start?: string | null, end?: string | null) {
@@ -107,6 +120,14 @@ export default function TeacherTaskReportPage() {
   const isRequestLevelReport = activeTarget === 'request';
   const showRightPanel = activeTarget !== null;
 
+  const selectedRequestStatusCode = useMemo(() => {
+    if (!selectedRequestId) return null;
+    return getRequestStatusCode(requestMap.get(selectedRequestId)?.status);
+  }, [selectedRequestId, requestMap]);
+
+  const isRequestCompleted = selectedRequestStatusCode === REQUEST_STATUS.COMPLETED;
+  const canEditTask = !isRequestCompleted;
+
   const [formState, setFormState] = useState<ReportRow>({
     title: '',
     description: '',
@@ -116,19 +137,28 @@ export default function TeacherTaskReportPage() {
     expenseAmount: '',
     expenseNote: '',
   });
-  const [expenseEvidenceFile, setExpenseEvidenceFile] = useState<File | null>(null);
-  const [expenseEvidencePreview, setExpenseEvidencePreview] = useState<string>('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [openReportModal, setOpenReportModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expandedExpensesReportId, setExpandedExpensesReportId] = useState<number | null>(null);
   const [editingExpenses, setEditingExpenses] = useState<EditingExpenseRow[]>([]);
+  const [createExpenses, setCreateExpenses] = useState<CreateExpenseRow[]>([]);
 
   const [showNewExpenseForm, setShowNewExpenseForm] = useState(false);
   const [newExpense, setNewExpense] = useState({ amount: '', description: '' });
   const [newExpenseFile, setNewExpenseFile] = useState<File | null>(null);
   const [newExpensePreview, setNewExpensePreview] = useState('');
   const [savingExpense, setSavingExpense] = useState(false);
+
+  // Edit từng khoản chi (chỉ cho phép khi expense đang ở trạng thái "Đang chờ")
+  const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
+  const [expenseEditAmount, setExpenseEditAmount] = useState('');
+  const [expenseEditDescription, setExpenseEditDescription] = useState('');
+  const [expenseEditFile, setExpenseEditFile] = useState<File | null>(null);
+  const [expenseEditPreview, setExpenseEditPreview] = useState('');
+  const [savingExpenseEdit, setSavingExpenseEdit] = useState(false);
+
+  const [expenseProofPreview, setExpenseProofPreview] = useState<string | null>(null);
 
   // ─── Derived data ───
 
@@ -213,7 +243,7 @@ export default function TeacherTaskReportPage() {
       try {
         const [sessRes, reportRes] = await Promise.all([
           teachingHistoryApi.getSessionsByMember(memberId, { pageNumber: 1, pageSize: 500 }),
-          taskReportApi.getAll({ pageNumber: 1, pageSize: 500 }),
+          taskReportApi.getAll({ pageNumber: 1, pageSize: 500, MemberId: memberId }),
         ]);
         setSessions(sessRes.items ?? []);
         setTaskReports(reportRes.items ?? []);
@@ -245,30 +275,30 @@ export default function TeacherTaskReportPage() {
   useEffect(() => {
     if (!selectedGroup) {
       setFormState({ title: '', description: '', startAt: '', endAt: '', hasExpense: false, expenseAmount: '', expenseNote: '' });
-      setExpenseEvidenceFile(null);
-      setExpenseEvidencePreview('');
+      setCreateExpenses([]);
       setEditingId(null);
+      setEditingExpenses([]);
+      setEditingExpenseId(null);
+      setExpenseEditAmount('');
+      setExpenseEditDescription('');
+      setExpenseEditFile(null);
+      setExpenseEditPreview('');
       return;
     }
     if (editingId == null) {
       setFormState((prev) => ({ ...prev, title: '', description: '', startAt: '', endAt: '', hasExpense: false, expenseAmount: '', expenseNote: '' }));
-      setExpenseEvidenceFile(null);
-      setExpenseEvidencePreview('');
+      setCreateExpenses([]);
+      setEditingExpenses([]);
+      setEditingExpenseId(null);
+      setExpenseEditAmount('');
+      setExpenseEditDescription('');
+      setExpenseEditFile(null);
+      setExpenseEditPreview('');
     }
-  }, [selectedGroup?.requestId, activeTarget]);
+  }, [selectedGroup?.requestId, activeTarget, editingId]);
 
   const setFormField = useCallback((field: keyof ReportRow, value: string | boolean) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const handleExpenseFileChange = useCallback((file: File | null) => {
-    if (!file) { setExpenseEvidenceFile(null); setExpenseEvidencePreview(''); return; }
-    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { message.warning('Vui lòng chọn ảnh PNG hoặc JPG.'); return; }
-    if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
-    setExpenseEvidenceFile(file);
-    const reader = new FileReader();
-    reader.onload = () => { if (typeof reader.result === 'string') setExpenseEvidencePreview(reader.result); };
-    reader.readAsDataURL(file);
   }, []);
 
   const resetNewExpenseForm = useCallback(() => {
@@ -278,14 +308,109 @@ export default function TeacherTaskReportPage() {
     setNewExpensePreview('');
   }, []);
 
+  const resetExpenseEdit = useCallback(() => {
+    setEditingExpenseId(null);
+    setExpenseEditAmount('');
+    setExpenseEditDescription('');
+    setExpenseEditFile(null);
+    setExpenseEditPreview('');
+  }, []);
+
+  const createEmptyExpense = useCallback(
+    (): CreateExpenseRow => ({
+      key: `ce-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      amount: '',
+      description: '',
+      file: null,
+      preview: '',
+    }),
+    [],
+  );
+
+  const resetCreateExpenses = useCallback(() => {
+    setCreateExpenses([]);
+  }, []);
+
+  const handleExpenseEditImgChange = useCallback((file: File | null) => {
+    if (!file) {
+      setExpenseEditFile(null);
+      setExpenseEditPreview('');
+      return;
+    }
+    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
+      message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      message.warning('Ảnh tối đa 5MB.');
+      return;
+    }
+    setExpenseEditFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setExpenseEditPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleHasExpenseToggle = useCallback(
+    (checked: boolean) => {
+      setFormState((prev) => ({ ...prev, hasExpense: checked, expenseAmount: '', expenseNote: '' }));
+      if (!checked) {
+        resetCreateExpenses();
+        return;
+      }
+      setCreateExpenses([createEmptyExpense()]);
+    },
+    [createEmptyExpense, resetCreateExpenses],
+  );
+
+  const updateCreateExpense = useCallback(
+    (key: string, patch: Partial<CreateExpenseRow>) => {
+      setCreateExpenses((prev) => prev.map((e) => (e.key === key ? { ...e, ...patch } : e)));
+    },
+    [],
+  );
+
+  const handleCreateExpenseImgChange = useCallback(
+    (key: string, file: File | null) => {
+      if (!file) {
+        updateCreateExpense(key, { file: null, preview: '' });
+        return;
+      }
+      if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
+        message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        message.warning('Ảnh tối đa 5MB.');
+        return;
+      }
+      updateCreateExpense(key, { file, preview: '' });
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') updateCreateExpense(key, { preview: reader.result });
+      };
+      reader.readAsDataURL(file);
+    },
+    [updateCreateExpense],
+  );
+
+  const addCreateExpense = useCallback(() => {
+    setCreateExpenses((prev) => [...prev, createEmptyExpense()]);
+  }, [createEmptyExpense]);
+
+  const removeCreateExpense = useCallback((key: string) => {
+    setCreateExpenses((prev) => (prev.length <= 1 ? prev : prev.filter((e) => e.key !== key)));
+  }, []);
+
   const startEdit = useCallback((r: TaskReport) => {
     setFormState({
       title: r.title || '', description: r.description || '',
       startAt: r.startAt || '', endAt: r.endAt || '',
       hasExpense: false, expenseAmount: '', expenseNote: '',
     });
-    setExpenseEvidenceFile(null);
-    setExpenseEvidencePreview('');
+    resetCreateExpenses();
     setEditingId(r.taskReportId);
     setEditingExpenses(
       (r.expenses?.length ? r.expenses : []).map((e, i) => ({
@@ -293,29 +418,52 @@ export default function TeacherTaskReportPage() {
         expenseId: e.expenseId,
         amount: String(e.amount ?? ''),
         description: e.description ?? '',
+        status: e.status,
+        rejectReason: e.rejectReason ?? null,
+        paymentImg: e.paymentImg ?? null,
       })),
     );
     resetNewExpenseForm();
-  }, [resetNewExpenseForm]);
+  }, [resetCreateExpenses, resetNewExpenseForm]);
 
   const cancelEdit = useCallback(() => {
     setEditingId(null);
     setFormState({ title: '', description: '', startAt: '', endAt: '', hasExpense: false, expenseAmount: '', expenseNote: '' });
-    setExpenseEvidenceFile(null);
-    setExpenseEvidencePreview('');
     setEditingExpenses([]);
+    resetCreateExpenses();
+    resetExpenseEdit();
     resetNewExpenseForm();
-  }, [resetNewExpenseForm]);
+  }, [resetCreateExpenses, resetExpenseEdit, resetNewExpenseForm]);
 
   const closeReportModal = useCallback(() => { cancelEdit(); setOpenReportModal(false); }, [cancelEdit]);
 
+  const closeExpenseProofPreview = useCallback(() => { setExpenseProofPreview(null); }, []);
+
   const handleSaveForm = useCallback(async () => {
     if (!selectedRequestId) return;
-    if (!formState.title.trim() || !formState.description.trim()) { message.warning('Vui lòng nhập tiêu đề và mô tả'); return; }
-    if (editingId == null && formState.hasExpense) {
-      const amountNum = Number((formState.expenseAmount || '').replace(/\D/g, ''));
-      if (!amountNum || Number.isNaN(amountNum) || amountNum <= 0) { message.warning('Vui lòng nhập số tiền chi phí hợp lệ.'); return; }
-      if (!expenseEvidenceFile) { message.warning('Mỗi khoản chi phí bắt buộc có ảnh chứng từ chuyển khoản.'); return; }
+    if (canEditTask && (!formState.title.trim() || !formState.description.trim())) { message.warning('Vui lòng nhập tiêu đề và mô tả'); return; }
+    if (!canEditTask && editingId == null) {
+      message.warning('Yêu cầu đã hoàn thành, không thể thêm báo cáo mới.');
+      return;
+    }
+
+    if (editingId == null && canEditTask && formState.hasExpense) {
+      if (createExpenses.length === 0) {
+        message.warning('Vui lòng thêm ít nhất 1 khoản chi phí.');
+        return;
+      }
+      for (let i = 0; i < createExpenses.length; i += 1) {
+        const exp = createExpenses[i];
+        const amountNum = Number((exp.amount || '').replace(/\D/g, ''));
+        if (!amountNum || Number.isNaN(amountNum) || amountNum <= 0) {
+          message.warning(`Vui lòng nhập số tiền chi phí hợp lệ (khoản #${i + 1}).`);
+          return;
+        }
+        if (!exp.file) {
+          message.warning(`Mỗi khoản chi phí bắt buộc có ảnh chứng từ chuyển khoản (khoản #${i + 1}).`);
+          return;
+        }
+      }
     }
     setSaving(true);
     try {
@@ -323,18 +471,53 @@ export default function TeacherTaskReportPage() {
       const endAtVal = formState.endAt ? dayjs(formState.endAt).toISOString() : undefined;
 
       if (editingId != null) {
-        const updated = await taskReportApi.update(editingId, {
-          requestId: isRequestLevelReport ? selectedRequestId : undefined,
-          sessionId: isRequestLevelReport ? null : selectedSessionId ?? undefined,
-          title: formState.title.trim(),
-          description: formState.description.trim(),
-          startAt: startAtVal ?? null,
-          endAt: endAtVal ?? null,
-        });
-        setTaskReports((prev) => prev.map((r) => (r.taskReportId === editingId ? updated : r)));
-        message.success('Đã cập nhật báo cáo');
+        // Khi đang edit: bấm "Cập nhật" sẽ tự lưu chi phí (thêm mới / chỉnh sửa) trước.
+        let didSaveExpense = false;
+        if (showNewExpenseForm) {
+          const ok = await handleSaveNewExpense();
+          if (!ok) return;
+          didSaveExpense = true;
+        }
+        if (editingExpenseId != null) {
+          const ok = await handleSaveExpenseEdit();
+          if (!ok) return;
+          didSaveExpense = true;
+        }
+
+        if (canEditTask) {
+          const updated = await taskReportApi.update(editingId, {
+            requestId: isRequestLevelReport ? selectedRequestId : undefined,
+            sessionId: isRequestLevelReport ? null : selectedSessionId ?? undefined,
+            title: formState.title.trim(),
+            description: formState.description.trim(),
+            startAt: startAtVal ?? null,
+            endAt: endAtVal ?? null,
+          });
+          setTaskReports((prev) => prev.map((r) => (r.taskReportId === editingId ? updated : r)));
+          message.success('Đã cập nhật báo cáo');
+        } else if (!didSaveExpense) {
+          message.info('Không có chi phí để lưu.');
+          return;
+        }
       } else {
-        const amountNum = formState.hasExpense ? Number((formState.expenseAmount || '').replace(/\D/g, '')) || 0 : 0;
+        if (!canEditTask) return;
+        const expensesInput =
+          formState.hasExpense && createExpenses.length
+            ? createExpenses.map((exp, idx) => {
+                const amountNum = Number((exp.amount || '').replace(/\D/g, ''));
+                return {
+                  amount: amountNum,
+                  description: exp.description.trim() || 'Không ghi chú',
+                  paymentImgIndex: idx,
+                };
+              })
+            : undefined;
+
+        const paymentImages =
+          formState.hasExpense && createExpenses.length
+            ? createExpenses.map((exp) => exp.file!).filter(Boolean)
+            : undefined;
+
         const created = await taskReportApi.create({
           requestId: isRequestLevelReport ? selectedRequestId : undefined,
           sessionId: isRequestLevelReport ? undefined : selectedSessionId ?? undefined,
@@ -342,17 +525,12 @@ export default function TeacherTaskReportPage() {
           description: formState.description.trim(),
           startAt: startAtVal,
           endAt: endAtVal,
-          ...(formState.hasExpense && amountNum > 0 && expenseEvidenceFile
-            ? { expenses: [{ amount: amountNum, description: formState.expenseNote.trim() || 'Không ghi chú', paymentImgIndex: 0 }], paymentImages: [expenseEvidenceFile] }
-            : {}),
+          ...(expensesInput && paymentImages ? { expenses: expensesInput, paymentImages } : {}),
         });
         setTaskReports((prev) => [...prev, created]);
         message.success('Đã tạo báo cáo');
       }
-      setFormState({ title: '', description: '', startAt: '', endAt: '', hasExpense: false, expenseAmount: '', expenseNote: '' });
-      setExpenseEvidenceFile(null);
-      setExpenseEvidencePreview('');
-      setEditingId(null);
+      cancelEdit();
       setOpenReportModal(false);
     } catch (err) {
       console.error(err);
@@ -360,7 +538,25 @@ export default function TeacherTaskReportPage() {
     } finally {
       setSaving(false);
     }
-  }, [selectedRequestId, selectedSessionId, isRequestLevelReport, formState, editingId, expenseEvidenceFile]);
+  }, [
+    selectedRequestId,
+    selectedSessionId,
+    isRequestLevelReport,
+    formState,
+    editingId,
+    createExpenses,
+    resetCreateExpenses,
+    canEditTask,
+    cancelEdit,
+    showNewExpenseForm,
+    editingExpenseId,
+    newExpense,
+    newExpenseFile,
+    editingExpenses,
+    expenseEditAmount,
+    expenseEditDescription,
+    expenseEditFile,
+  ]);
 
   const handleDeleteReport = useCallback(async (taskReportId: number) => {
     try {
@@ -384,7 +580,14 @@ export default function TeacherTaskReportPage() {
   );
 
   const clearFilter = useCallback(() => { setFilterFrom(null); setFilterTo(null); setSearch(''); }, []);
-  const openAddReportModal = useCallback(() => { cancelEdit(); setOpenReportModal(true); }, [cancelEdit]);
+  const openAddReportModal = useCallback(() => {
+    if (isRequestCompleted) {
+      message.warning('Yêu cầu đã hoàn thành, không thể tạo báo cáo mới.');
+      return;
+    }
+    cancelEdit();
+    setOpenReportModal(true);
+  }, [cancelEdit, isRequestCompleted]);
 
   const handleNewExpenseImgChange = useCallback((file: File | null) => {
     if (!file) { setNewExpenseFile(null); setNewExpensePreview(''); return; }
@@ -395,12 +598,12 @@ export default function TeacherTaskReportPage() {
     reader.onload = () => { if (typeof reader.result === 'string') setNewExpensePreview(reader.result); };
     reader.readAsDataURL(file);
   }, []);
-  const handleSaveNewExpense = useCallback(async () => {
-    if (!editingId) return;
+  const handleSaveNewExpense = useCallback(async (): Promise<boolean> => {
+    if (!editingId) return false;
     const amountNum = Number((newExpense.amount || '').replace(/\D/g, ''));
-    if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return; }
-    if (!newExpense.description.trim()) { message.warning('Vui lòng nhập mô tả cho chi phí.'); return; }
-    if (!newExpenseFile) { message.warning('Vui lòng chọn ảnh chứng từ chuyển khoản.'); return; }
+    if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return false; }
+    if (!newExpense.description.trim()) { message.warning('Vui lòng nhập mô tả cho chi phí.'); return false; }
+    if (!newExpenseFile) { message.warning('Vui lòng chọn ảnh chứng từ chuyển khoản.'); return false; }
     setSavingExpense(true);
     try {
       await taskReportApi.addExpense({
@@ -417,17 +620,86 @@ export default function TeacherTaskReportPage() {
           expenseId: e.expenseId,
           amount: String(e.amount ?? ''),
           description: e.description ?? '',
+          status: e.status,
+          rejectReason: e.rejectReason ?? null,
+          paymentImg: e.paymentImg ?? null,
         })),
       );
       message.success('Đã thêm chi phí');
       resetNewExpenseForm();
+      return true;
     } catch (err) {
       console.error(err);
       message.error('Thêm chi phí thất bại');
+      return false;
     } finally {
       setSavingExpense(false);
     }
   }, [editingId, newExpense, newExpenseFile, resetNewExpenseForm]);
+
+  const handleSaveExpenseEdit = useCallback(async (): Promise<boolean> => {
+    if (!editingId) return false;
+    if (editingExpenseId == null) return false;
+
+    const current = editingExpenses.find((e) => e.expenseId === editingExpenseId);
+    if (current?.status !== 1) {
+      message.warning('Chỉ được sửa khi manager chưa duyệt.');
+      return false;
+    }
+
+    const amountNum = Number((expenseEditAmount || '').replace(/\D/g, ''));
+    if (!amountNum || Number.isNaN(amountNum) || amountNum <= 0) {
+      message.warning('Vui lòng nhập số tiền chi phí hợp lệ.');
+      return false;
+    }
+
+    if (!expenseEditDescription.trim()) {
+      message.warning('Vui lòng nhập mô tả cho khoản chi.');
+      return false;
+    }
+
+    setSavingExpenseEdit(true);
+    try {
+      await expenseApi.update({
+        expenseId: editingExpenseId,
+        amount: amountNum,
+        description: expenseEditDescription.trim(),
+        paymentImg: expenseEditFile,
+      });
+
+      const updated = await taskReportApi.getById(editingId);
+      setTaskReports((prev) => prev.map((r) => (r.taskReportId === editingId ? updated : r)));
+      setEditingExpenses(
+        (updated.expenses?.length ? updated.expenses : []).map((e, i) => ({
+          key: `exp-${e.expenseId ?? i}-${Date.now()}`,
+          expenseId: e.expenseId,
+          amount: String(e.amount ?? ''),
+          description: e.description ?? '',
+          status: e.status,
+          rejectReason: e.rejectReason ?? null,
+          paymentImg: e.paymentImg ?? null,
+        })),
+      );
+
+      resetExpenseEdit();
+      message.success('Đã cập nhật khoản chi');
+      return true;
+    } catch (err) {
+      console.error(err);
+      message.error('Cập nhật khoản chi thất bại');
+      return false;
+    } finally {
+      setSavingExpenseEdit(false);
+    }
+  }, [
+    editingId,
+    editingExpenseId,
+    editingExpenses,
+    expenseEditAmount,
+    expenseEditDescription,
+    expenseEditFile,
+    resetExpenseEdit,
+  ]);
 
   // ─── Render ───
 
@@ -528,9 +800,13 @@ export default function TeacherTaskReportPage() {
         </div>
 
         {/* ─── Content area ─── */}
-        <div className="flex-1 flex gap-4 min-w-0 min-h-0">
+          <div className="flex-1 flex gap-4 min-w-0 min-h-0">
           {/* Session list */}
-          <div className="flex-1 min-w-0 space-y-3 overflow-y-auto no-scrollbar">
+          <div
+            className={`flex-1 ${
+              showRightPanel ? 'min-w-[360px]' : 'min-w-0'
+            } space-y-3 overflow-y-auto no-scrollbar`}
+          >
             {!selectedGroup ? (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
@@ -642,7 +918,7 @@ export default function TeacherTaskReportPage() {
 
           {/* ─── Right panel: Reports timeline ─── */}
           {showRightPanel && selectedGroup && (
-            <div className="w-[400px] shrink-0 overflow-y-auto no-scrollbar space-y-4">
+            <div className="w-[400px] shrink-0 overflow-y-auto no-scrollbar space-y-4 min-[1200px]:w-auto min-[1200px]:flex-1 min-[1200px]:shrink min-[1200px]:min-w-0">
               {/* Panel header */}
               <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
@@ -666,6 +942,7 @@ export default function TeacherTaskReportPage() {
                       size="sm"
                       className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white text-xs"
                       onClick={openAddReportModal}
+                      disabled={isRequestCompleted}
                     >
                       <Plus size={14} />
                       Tạo báo cáo
@@ -695,8 +972,8 @@ export default function TeacherTaskReportPage() {
                         return (
                           <div key={r.taskReportId} className="relative pb-4 last:pb-0">
                             <div className="absolute -left-[23px] top-3 w-2.5 h-2.5 rounded-full bg-sky-500 border-2 border-white shadow-sm" />
-                            <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5">
-                              <div className="text-[11px] font-medium text-sky-700">
+                            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                              <div className="text-xs font-medium text-sky-700">
                                 {formatDateRange(r.startAt, r.endAt)}
                               </div>
                               <div className="text-sm font-semibold text-slate-900 mt-0.5">{r.title || '—'}</div>
@@ -711,13 +988,13 @@ export default function TeacherTaskReportPage() {
                                         e.stopPropagation();
                                         setExpandedExpensesReportId((prev) => prev === r.taskReportId ? null : r.taskReportId);
                                       }}
-                                      className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.5 hover:bg-amber-100 transition"
+                                      className="inline-flex items-center gap-1 text-xs font-medium text-sky-900 bg-sky-100 border border-sky-200 rounded-full px-2 py-0.5 hover:bg-sky-200 transition shadow-sm"
                                     >
                                       <Wallet size={11} />
                                       Chi phí ({r.expenses!.length})
                                     </button>
                                   ) : (
-                                    <span className="text-[11px] text-gray-400">Không có chi phí</span>
+                                    <span className="text-xs text-gray-400">Không có chi phí</span>
                                   )}
                                 </div>
                                 <div className="flex gap-1">
@@ -731,15 +1008,80 @@ export default function TeacherTaskReportPage() {
                               </div>
 
                               {hasExpenses && expandedExpensesReportId === r.taskReportId && (
-                                <div className="mt-2 pt-2 border-t border-amber-100 space-y-1">
-                                  {r.expenses!.map((exp, idx) => (
-                                    <div key={exp.expenseId ?? idx} className="flex items-center justify-between text-xs bg-amber-50 rounded-lg px-2.5 py-1.5 border border-amber-100">
-                                      <span className="text-gray-700">{exp.description || `Khoản ${idx + 1}`}</span>
-                                      <span className="font-semibold text-amber-800 whitespace-nowrap">
-                                        {exp.amount != null ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(exp.amount) : '—'}
-                                      </span>
-                                    </div>
-                                  ))}
+                                <div className="mt-2 pt-2 border-t border-slate-200 space-y-1">
+                                  {r.expenses!.map((exp, idx) => {
+                                    const badgeClass =
+                                      exp.status === 1
+                                        ? 'bg-sky-100 text-sky-900 border border-sky-200'
+                                        : exp.status === 2
+                                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                          : exp.status === 3
+                                            ? 'bg-rose-100 text-rose-900 border border-rose-200'
+                                            : 'bg-gray-100 text-gray-600 border border-gray-200';
+
+                                    const accentBorderClass =
+                                      exp.status === 1
+                                        ? 'border-sky-200'
+                                        : exp.status === 2
+                                          ? 'border-emerald-200'
+                                          : exp.status === 3
+                                            ? 'border-rose-200'
+                                            : 'border-slate-200';
+
+                                    const amountClass =
+                                      exp.status === 1
+                                        ? 'text-amber-800'
+                                        : exp.status === 2
+                                          ? 'text-emerald-800'
+                                          : exp.status === 3
+                                            ? 'text-rose-800'
+                                            : 'text-slate-700';
+
+                                    return (
+                                      <div
+                                        key={exp.expenseId ?? idx}
+                                        className={`rounded-lg px-2.5 py-1.5 border border-slate-200 bg-slate-50 border-l-4 ${accentBorderClass}`}
+                                      >
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="min-w-0">
+                                            <div className="flex flex-col items-start gap-1">
+                                              <span className="text-gray-700 text-xs">
+                                                {exp.description || `Khoản ${idx + 1}`}
+                                              </span>
+                                              <Badge className={`${badgeClass} text-[10px] px-2 py-0.5`}>
+                                                {exp.status === 1 ? 'Đang chờ' : exp.status === 2 ? 'Đã duyệt' : exp.status === 3 ? 'Đã từ chối' : '—'}
+                                              </Badge>
+                                            </div>
+                                            {exp.status === 3 && exp.rejectReason && (
+                                              <div className="text-xs text-rose-700 mt-1">{exp.rejectReason}</div>
+                                            )}
+                                          </div>
+
+                                          <div className="flex flex-col items-end gap-1 shrink-0">
+                                            <span className={`font-semibold whitespace-nowrap text-xs ${amountClass}`}>
+                                              {exp.amount != null
+                                                ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(exp.amount)
+                                                : '—'}
+                                            </span>
+                                            {exp.paymentImg ? (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setExpenseProofPreview(exp.paymentImg ?? null);
+                                                }}
+                                                className="text-xs text-sky-700 hover:text-sky-900 hover:underline underline-offset-2 px-0 py-0 bg-transparent border-0"
+                                              >
+                                                Xem ảnh
+                                              </button>
+                                            ) : (
+                                              <span className="text-xs text-gray-400">No image</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -760,48 +1102,247 @@ export default function TeacherTaskReportPage() {
         <Dialog
           open={openReportModal}
           onClose={closeReportModal}
-          title={editingId != null ? 'Chỉnh sửa báo cáo' : 'Thêm báo cáo'}
-          description={editingId != null ? 'Cập nhật nội dung báo cáo.' : 'Điền thông tin báo cáo công việc.'}
+          title={
+            editingId != null
+              ? isRequestCompleted
+                ? 'Thêm chi phí phát sinh'
+                : 'Chỉnh sửa báo cáo'
+              : 'Thêm báo cáo'
+          }
+          description={
+            editingId != null
+              ? isRequestCompleted
+                ? 'Yêu cầu đã hoàn thành, không thể chỉnh sửa task. Bạn có thể thêm/cập nhật chi phí.'
+                : 'Cập nhật nội dung báo cáo.'
+              : 'Điền thông tin báo cáo công việc.'
+          }
           className="max-w-xl"
         >
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Thời gian bắt đầu</label>
-                <DatePicker showTime format="DD/MM/YYYY HH:mm" className="w-full [&_.ant-picker-input>input]:text-black" value={formState.startAt ? dayjs(formState.startAt) : null} onChange={(d) => setFormField('startAt', d ? d.toISOString() : '')} />
+                <DatePicker
+                  showTime
+                  format="DD/MM/YYYY HH:mm"
+                  className="w-full [&_.ant-picker-input>input]:text-black"
+                  value={formState.startAt ? dayjs(formState.startAt) : null}
+                  onChange={(d) => setFormField('startAt', d ? d.toISOString() : '')}
+                  disabled={isRequestCompleted}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Thời gian kết thúc</label>
-                <DatePicker showTime format="DD/MM/YYYY HH:mm" className="w-full [&_.ant-picker-input>input]:text-black" value={formState.endAt ? dayjs(formState.endAt) : null} onChange={(d) => setFormField('endAt', d ? d.toISOString() : '')} />
+                <DatePicker
+                  showTime
+                  format="DD/MM/YYYY HH:mm"
+                  className="w-full [&_.ant-picker-input>input]:text-black"
+                  value={formState.endAt ? dayjs(formState.endAt) : null}
+                  onChange={(d) => setFormField('endAt', d ? d.toISOString() : '')}
+                  disabled={isRequestCompleted}
+                />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề *</label>
-              <input className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white" placeholder="Ví dụ: Chuẩn bị bài, Giảng phần 1" value={formState.title} onChange={(e) => setFormField('title', e.target.value)} />
+              <input
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                placeholder="Ví dụ: Chuẩn bị bài, Giảng phần 1"
+                value={formState.title}
+                onChange={(e) => setFormField('title', e.target.value)}
+                disabled={isRequestCompleted}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả *</label>
-              <textarea className="w-full min-h-[80px] rounded-lg border border-gray-300 px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-y bg-white" placeholder="Nội dung công việc đã làm..." value={formState.description} onChange={(e) => setFormField('description', e.target.value)} />
+              <textarea
+                className="w-full min-h-[80px] rounded-lg border border-gray-300 px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-y bg-white"
+                placeholder="Nội dung công việc đã làm..."
+                value={formState.description}
+                onChange={(e) => setFormField('description', e.target.value)}
+                disabled={isRequestCompleted}
+              />
             </div>
 
             {editingId != null && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 space-y-3">
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-700">Chi phí phát sinh</p>
-                  <span className="text-[11px] text-slate-500">{editingExpenses.length} khoản</span>
+                      <span className="text-xs text-slate-500">{editingExpenses.length} khoản</span>
                 </div>
                 {editingExpenses.length > 0 && (
-                  <ul className="space-y-1.5">
-                    {editingExpenses.map((row, idx) => (
-                      <li key={row.key} className="flex justify-between gap-2 text-xs bg-white rounded border border-slate-100 px-2.5 py-1.5">
-                        <span className="text-gray-700">{row.description || `Khoản ${idx + 1}`}</span>
-                        <span className="font-medium text-slate-700 whitespace-nowrap">
-                          {row.amount && !Number.isNaN(Number(row.amount.replace(/\D/g, '')))
-                            ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(row.amount.replace(/\D/g, '')))
-                            : '—'}
-                        </span>
-                      </li>
-                    ))}
+                  <ul className="space-y-2">
+                    {editingExpenses.map((row, idx) => {
+                      const status = row.status ?? 0;
+                      const canEdit = status === 1; // Đang chờ
+                      const isEditing = editingExpenseId != null && editingExpenseId === row.expenseId;
+
+                      const statusBadgeClass =
+                        status === 1
+                              ? 'bg-sky-100 text-sky-900 border border-sky-200'
+                          : status === 2
+                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                            : status === 3
+                                  ? 'bg-rose-100 text-rose-900 border border-rose-200'
+                              : 'bg-gray-100 text-gray-600 border border-gray-200';
+
+                      const statusLabel =
+                        status === 1
+                          ? 'Đang chờ'
+                          : status === 2
+                            ? 'Chấp nhận duyệt'
+                            : status === 3
+                              ? 'Đã từ chối'
+                              : '—';
+
+                      const amountNum = row.amount ? Number(row.amount.replace(/\D/g, '')) : NaN;
+                      const formattedAmount =
+                        amountNum && !Number.isNaN(amountNum)
+                          ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amountNum)
+                          : '—';
+
+                      const amountColorClass =
+                        status === 1 ? 'text-amber-800' : status === 2 ? 'text-emerald-800' : status === 3 ? 'text-rose-800' : 'text-slate-700';
+
+                      return (
+                        <li key={row.key} className="rounded-xl bg-slate-50 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-col items-start gap-1">
+                                <div className="text-xs text-gray-500">
+                                  Khoản chi #{row.expenseId ?? idx + 1}
+                                </div>
+                                <Badge className={`${statusBadgeClass} text-[10px] px-2 py-0.5`}>
+                                  {statusLabel}
+                                </Badge>
+                              </div>
+
+                              {status === 3 && row.rejectReason && (
+                                <div className="text-xs text-rose-700 mt-1">{row.rejectReason}</div>
+                              )}
+
+                              {row.paymentImg && !isEditing && (
+                                <div className="mt-2">
+                                  <button
+                                    type="button"
+                                    className="text-xs text-sky-700 hover:text-sky-900 hover:underline underline-offset-2 px-0 py-0 bg-transparent border-0"
+                                    onClick={() => setExpenseProofPreview(row.paymentImg ?? null)}
+                                  >
+                                    Xem ảnh minh chứng
+                                  </button>
+                                </div>
+                              )}
+
+                              <div className="text-sm font-medium text-gray-800 mt-1 whitespace-pre-wrap break-words leading-5">
+                                {row.description || `Khoản ${idx + 1}`}
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <div className="text-xs text-gray-500 mb-0.5">Số tiền</div>
+                              <div className={`text-sm font-semibold tabular-nums whitespace-nowrap ${amountColorClass}`}>
+                                {formattedAmount}
+                              </div>
+                            </div>
+                          </div>
+
+                          {canEdit && !isEditing && (
+                            <div className="mt-2 flex justify-end">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="text-sky-700 hover:bg-sky-50"
+                                onClick={() => {
+                                  setEditingExpenseId(row.expenseId ?? null);
+                                  setExpenseEditAmount(row.amount ?? '');
+                                  setExpenseEditDescription(row.description ?? '');
+                                  setExpenseEditFile(null);
+                                  setExpenseEditPreview('');
+                                }}
+                              >
+                                Sửa
+                              </Button>
+                            </div>
+                          )}
+
+                          {canEdit && isEditing && (
+                            <div className="mt-3 space-y-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Số tiền <span className="text-red-500">*</span>
+                                </label>
+                                <div className="flex items-center rounded-lg border border-gray-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-sky-500">
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={expenseEditAmount}
+                                    onChange={(e) => setExpenseEditAmount(e.target.value)}
+                                    placeholder="0"
+                                    className="flex-1 min-w-0 px-3 py-1.5 text-sm text-black placeholder:text-gray-400 focus:outline-none"
+                                  />
+                                  <span className="px-3 py-1.5 text-sm text-gray-500 border-l border-gray-200">₫</span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Mô tả <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                  className="w-full min-h-[50px] rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-y bg-white"
+                                  value={expenseEditDescription}
+                                  onChange={(e) => setExpenseEditDescription(e.target.value)}
+                                  placeholder="Mô tả khoản chi phí..."
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Ảnh chuyển khoản <span className="text-red-500">*</span>
+                                </label>
+                                <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 rounded-xl py-4 px-3 cursor-pointer bg-white hover:bg-slate-50 transition">
+                                  <input
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/jpg"
+                                    className="hidden"
+                                    onChange={(e) => handleExpenseEditImgChange(e.target.files?.[0] ?? null)}
+                                    disabled={savingExpenseEdit}
+                                  />
+
+                                  {expenseEditPreview || row.paymentImg ? (
+                                    <img
+                                      src={expenseEditPreview || row.paymentImg || ''}
+                                      alt="Chứng từ"
+                                      className="max-h-28 rounded-md object-contain"
+                                    />
+                                  ) : (
+                                    <div className="text-center space-y-0.5">
+                                      <CloudUpload className="mx-auto h-6 w-6 text-slate-400" />
+                                      <div className="text-xs font-medium text-slate-600">Nhấn để tải ảnh chứng từ</div>
+                                      <div className="text-[10px] text-slate-400">PNG, JPG (tối đa 5MB)</div>
+                                    </div>
+                                  )}
+                                </label>
+                              </div>
+
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs h-7"
+                                  onClick={resetExpenseEdit}
+                                  disabled={savingExpenseEdit}
+                                >
+                                  Hủy
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
 
@@ -815,7 +1356,7 @@ export default function TeacherTaskReportPage() {
                     Thêm chi phí mới
                   </button>
                 ) : (
-                  <div className="space-y-2.5 rounded-lg border border-sky-200 bg-white p-3">
+                  <div className="space-y-2.5 rounded-lg border border-slate-200 bg-white p-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Số tiền <span className="text-red-500">*</span></label>
                       <div className="flex items-center rounded-lg border border-gray-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-sky-500">
@@ -844,10 +1385,6 @@ export default function TeacherTaskReportPage() {
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button type="button" variant="outline" size="sm" className="text-xs h-7" onClick={resetNewExpenseForm} disabled={savingExpense}>Hủy</Button>
-                      <Button type="button" size="sm" className="text-xs h-7 gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white" disabled={savingExpense} onClick={handleSaveNewExpense}>
-                        <Save size={12} />
-                        {savingExpense ? 'Đang lưu...' : 'Lưu chi phí'}
-                      </Button>
                     </div>
                   </div>
                 )}
@@ -857,38 +1394,100 @@ export default function TeacherTaskReportPage() {
             {editingId == null && (
               <>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={formState.hasExpense} onChange={(e) => setFormField('hasExpense', e.target.checked)} className="rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
+                  <input type="checkbox" checked={formState.hasExpense} onChange={(e) => handleHasExpenseToggle(e.target.checked)} className="rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
                   <span className="text-sm font-medium text-gray-800">Có chi phí phát sinh</span>
                 </label>
 
                 {formState.hasExpense && (
-                  <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền chi phí <span className="text-red-500">*</span></label>
-                      <div className="flex items-center rounded-lg border border-gray-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-sky-500">
-                        <input type="text" inputMode="numeric" value={formState.expenseAmount} onChange={(e) => setFormField('expenseAmount', e.target.value)} placeholder="0" className="flex-1 min-w-0 px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none" />
-                        <span className="px-3 py-2 text-sm text-gray-500 border-l border-gray-200">₫</span>
-                      </div>
+                  <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-800">Chi phí phát sinh</p>
+                      <span className="text-[11px] text-slate-500">{createExpenses.length} khoản</span>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh chuyển khoản <span className="text-red-500">*</span></label>
-                      <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 rounded-xl py-6 px-4 cursor-pointer bg-white hover:bg-slate-50 transition">
-                        <input type="file" accept="image/png,image/jpeg,image/jpg" className="hidden" onChange={(e) => handleExpenseFileChange(e.target.files?.[0] ?? null)} disabled={saving} />
-                        {expenseEvidencePreview ? (
-                          <img src={expenseEvidencePreview} alt="Chứng từ" className="max-h-36 rounded-md object-contain" />
-                        ) : (
-                          <div className="text-center space-y-1">
-                            <CloudUpload className="mx-auto h-8 w-8 text-slate-400" />
-                            <div className="text-sm font-medium text-slate-700">Nhấn để tải lên ảnh chứng từ</div>
-                            <div className="text-xs text-slate-500">PNG, JPG (tối đa 5MB)</div>
+
+                    <div className="space-y-3">
+                      {createExpenses.map((exp, idx) => (
+                        <div key={exp.key} className="space-y-2.5 rounded-lg bg-slate-50 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-medium text-gray-700">Khoản chi #{idx + 1}</p>
+                            {createExpenses.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeCreateExpense(exp.key)}
+                                className="p-1 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600"
+                                disabled={saving}
+                                title="Xóa khoản chi"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </div>
-                        )}
-                      </label>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Số tiền chi phí <span className="text-red-500">*</span>
+                            </label>
+                            <div className="flex items-center rounded-lg border border-gray-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-sky-500">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={exp.amount}
+                                onChange={(e) => updateCreateExpense(exp.key, { amount: e.target.value })}
+                                placeholder="0"
+                                className="flex-1 min-w-0 px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none"
+                                disabled={saving}
+                              />
+                              <span className="px-3 py-2 text-sm text-gray-500 border-l border-gray-200">₫</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Mô tả (Tùy chọn)</label>
+                            <textarea
+                              className="w-full min-h-[50px] rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-y bg-white"
+                              placeholder="Mô tả khoản chi phí..."
+                              value={exp.description}
+                              onChange={(e) => updateCreateExpense(exp.key, { description: e.target.value })}
+                              disabled={saving}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Ảnh chuyển khoản <span className="text-red-500">*</span>
+                            </label>
+                            <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 rounded-xl py-5 px-4 cursor-pointer bg-white hover:bg-slate-50 transition">
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/jpg"
+                                className="hidden"
+                                onChange={(e) => handleCreateExpenseImgChange(exp.key, e.target.files?.[0] ?? null)}
+                                disabled={saving}
+                              />
+                              {exp.preview ? (
+                                <img src={exp.preview} alt="Chứng từ" className="max-h-36 rounded-md object-contain" />
+                              ) : (
+                                <div className="text-center space-y-1">
+                                  <CloudUpload className="mx-auto h-8 w-8 text-slate-400" />
+                                  <div className="text-sm font-medium text-slate-700">Nhấn để tải lên ảnh chứng từ</div>
+                                  <div className="text-xs text-slate-500">PNG, JPG (tối đa 5MB)</div>
+                                </div>
+                              )}
+                            </label>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú (Tùy chọn)</label>
-                      <textarea className="w-full min-h-[60px] rounded-lg border border-gray-300 px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-y bg-white" placeholder="Thêm ghi chú về khoản chi phí..." value={formState.expenseNote} onChange={(e) => setFormField('expenseNote', e.target.value)} />
-                    </div>
+
+                    <button
+                      type="button"
+                      onClick={addCreateExpense}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-sky-700 bg-sky-50 border border-sky-100 rounded-lg px-3 py-1.5 hover:bg-sky-100 transition w-full justify-center"
+                      disabled={saving}
+                    >
+                      <Plus size={14} />
+                      Thêm chi phí mới
+                    </button>
                   </div>
                 )}
               </>
@@ -898,9 +1497,33 @@ export default function TeacherTaskReportPage() {
               <Button type="button" variant="outline" size="sm" onClick={closeReportModal} disabled={saving}>Hủy</Button>
               <Button type="button" size="sm" disabled={saving} className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white" onClick={handleSaveForm}>
                 <Save size={14} />
-                {saving ? 'Đang lưu...' : editingId != null ? 'Cập nhật' : 'Thêm báo cáo'}
+                {saving
+                  ? 'Đang lưu...'
+                  : editingId != null
+                    ? isRequestCompleted
+                      ? 'Lưu chi phí'
+                      : 'Cập nhật'
+                    : 'Thêm báo cáo'}
               </Button>
             </div>
+          </div>
+        </Dialog>
+      )}
+
+      {expenseProofPreview && (
+        <Dialog
+          open
+          onClose={closeExpenseProofPreview}
+          title="Ảnh minh chứng"
+          description="Nhấn ra ngoài để đóng."
+          className="max-w-2xl"
+        >
+          <div className="w-full flex items-center justify-center">
+            <img
+              src={expenseProofPreview}
+              alt="Minh chứng"
+              className="max-h-[70vh] w-auto rounded-lg border border-slate-200"
+            />
           </div>
         </Dialog>
       )}

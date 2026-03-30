@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { Check, ImageOff, Search } from 'lucide-react';
-import { DatePicker, Image, message } from 'antd';
+import { DatePicker, Image, Select as AntSelect, message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -19,7 +19,7 @@ export type SessionOption = {
 };
 
 type ReservationRow = {
-  sessionId: number | null;
+  sessionIds: number[];
   startAtLocal: string;
   endAtLocal: string;
   categoryId: number | null;
@@ -43,8 +43,9 @@ export default function RequestDetailEquipmentPanel({
   onSuccess,
 }: Props) {
   const [reservationRows, setReservationRows] = useState<ReservationRow[]>([
-    { sessionId: null, startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' },
+    { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' },
   ]);
+  const [sessionPickerOpen, setSessionPickerOpen] = useState(false);
   const [selectedEquipmentById, setSelectedEquipmentById] = useState<Record<number, EquipmentResponse>>({});
   const [availabilityByKey, setAvailabilityByKey] = useState<
     Record<string, { items: EquipmentResponse[]; total: number; loading: boolean; error: string | null }>
@@ -79,20 +80,21 @@ export default function RequestDetailEquipmentPanel({
 
   const getRowAvailabilityKey = useCallback((row: ReservationRow) => {
     return [
-      row.sessionId ?? 'none',
+      row.sessionIds.join(',') || 'none',
       row.startAtLocal || 'none',
       row.endAtLocal || 'none',
       row.categoryId ?? 'all',
     ].join('|');
   }, []);
 
-  // UX: chỉ cho đặt 1 lần / 1 phiên trong panel này => không cần "giữ chỗ" giữa nhiều dòng.
+  // UX: panel này hỗ trợ "đặt dài hạn" bằng cách chọn nhiều phiên cùng lúc,
+  // lấy khung thời gian mượn/trả từ session đầu-cuối để check availability.
 
   // Load thiết bị khả dụng theo từng dòng (session + start/end + category)
   useEffect(() => {
     if (sessions.length === 0) return;
     const rowsToLoad = reservationRows
-      .filter((r) => r.sessionId != null && r.startAtLocal && r.endAtLocal)
+      .filter((r) => r.sessionIds.length > 0 && r.startAtLocal && r.endAtLocal)
       .filter((r) => {
         const key = getRowAvailabilityKey(r);
         return !availabilityByKey[key]?.loading && !availabilityByKey[key]?.items?.length;
@@ -100,7 +102,6 @@ export default function RequestDetailEquipmentPanel({
     if (rowsToLoad.length === 0) return;
 
     const load = async (row: ReservationRow) => {
-      if (row.sessionId == null) return;
       const key = getRowAvailabilityKey(row);
       setAvailabilityByKey((prev) => ({
         ...prev,
@@ -154,28 +155,46 @@ export default function RequestDetailEquipmentPanel({
     rowsToLoad.forEach((r) => void load(r));
   }, [reservationRows, sessions, availabilityByKey, getRowAvailabilityKey]);
 
-  const setReservationRowSession = useCallback((_index: number, sessionId: number | null) => {
-    setReservationRows((prev) => {
-      const next = prev.length ? [...prev] : [{ sessionId: null, startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' }];
-      const session = sessionId != null ? sessions.find((s) => s.sessionId === sessionId) : undefined;
-      const startAtLocal = session?.startAt ? dayjs(session.startAt).format('YYYY-MM-DDTHH:mm') : '';
-      const endAtLocal = session?.endAt ? dayjs(session.endAt).format('YYYY-MM-DDTHH:mm') : '';
-      next[0] = {
-        ...next[0],
-        sessionId,
-        startAtLocal,
-        endAtLocal,
-        categoryId: null,
-        equipmentIds: [],
-        search: next[0].search ?? '',
-      };
-      return [next[0]];
-    });
-  }, [sessions]);
+  const setReservationRowSessions = useCallback(
+    (_index: number, nextSessionIds: number[]) => {
+      // Đổi phiên => đổi khung thời gian => bỏ lựa chọn thiết bị để tránh stale.
+      setSelectedEquipmentById({});
+      setReservationRows((prev) => {
+        const next =
+          prev.length
+            ? [...prev]
+            : [
+                { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' },
+              ];
+
+        const selectedSessions = nextSessionIds
+          .map((id) => sessions.find((s) => s.sessionId === id))
+          .filter((s): s is SessionOption => !!s);
+
+        const earliest = [...selectedSessions].sort((a, b) => dayjs(a.startAt).valueOf() - dayjs(b.startAt).valueOf())[0];
+        const latest = [...selectedSessions].sort((a, b) => dayjs(a.endAt).valueOf() - dayjs(b.endAt).valueOf()).slice(-1)[0];
+
+        const startAtLocal = earliest?.startAt ? dayjs(earliest.startAt).format('YYYY-MM-DDTHH:mm') : '';
+        const endAtLocal = latest?.endAt ? dayjs(latest.endAt).format('YYYY-MM-DDTHH:mm') : '';
+
+        next[0] = {
+          ...next[0],
+          sessionIds: nextSessionIds,
+          startAtLocal,
+          endAtLocal,
+          categoryId: null,
+          equipmentIds: [],
+          search: next[0].search ?? '',
+        };
+        return [next[0]];
+      });
+    },
+    [sessions],
+  );
 
   const setReservationRowTime = useCallback((_index: number, patch: Partial<Pick<ReservationRow, 'startAtLocal' | 'endAtLocal'>>) => {
     setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionId: null, startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' };
+      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' };
       return [{ ...base, ...patch, equipmentIds: [] }];
     });
     // Changing time invalidates availability; clear selected items to avoid stale reservations.
@@ -184,7 +203,7 @@ export default function RequestDetailEquipmentPanel({
 
   const setReservationRowCategory = useCallback((_index: number, categoryId: number | null) => {
     setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionId: null, startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' };
+      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' };
       // Changing category is only a filter; do NOT clear selected equipments.
       return [{ ...base, categoryId }];
     });
@@ -192,14 +211,16 @@ export default function RequestDetailEquipmentPanel({
 
   const setReservationRowSearch = useCallback((_index: number, search: string) => {
     setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionId: null, startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' };
+      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' };
       return [{ ...base, search }];
     });
   }, []);
 
   const toggleReservationRowEquipment = useCallback((_rowIndex: number, equipment: EquipmentResponse) => {
     setReservationRows((prev) => {
-      const next = prev.length ? [...prev] : [{ sessionId: null, startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' }];
+      const next = prev.length
+        ? [...prev]
+        : [{ sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' }];
       const row = next[0];
       const exists = row.equipmentIds.includes(equipment.EquipmentId);
       const ids = exists
@@ -220,12 +241,17 @@ export default function RequestDetailEquipmentPanel({
     () =>
       reservationRows.filter(
         (r) =>
-          r.sessionId != null &&
+          r.sessionIds.length > 0 &&
           r.equipmentIds.length > 0 &&
           dayjs(r.startAtLocal).isValid() &&
           dayjs(r.endAtLocal).isValid() &&
           dayjs(r.endAtLocal).isAfter(dayjs(r.startAtLocal))
-      ) as { sessionId: number; equipmentIds: number[]; startAtLocal: string; endAtLocal: string }[],
+      ) as {
+        sessionIds: number[];
+        equipmentIds: number[];
+        startAtLocal: string;
+        endAtLocal: string;
+      }[],
     [reservationRows]
   );
 
@@ -241,8 +267,10 @@ export default function RequestDetailEquipmentPanel({
       const row = validReservationRows[0];
       // Sessions prop is expected to contain only sessions that are NOT reserved yet.
       // Guard against stale UI state: if session is no longer in selectable list, block submit.
-      if (!sessions.some((s) => s.sessionId === row.sessionId)) {
-        setReserveSubmitError('Phiên này đã có thiết bị đặt trước. Vui lòng chỉnh sửa trong chi tiết phiên.');
+      const selectableIds = new Set(sessions.map((s) => s.sessionId));
+      const notSelectable = row.sessionIds.filter((id) => !selectableIds.has(id));
+      if (notSelectable.length > 0) {
+        setReserveSubmitError('Một số phiên đã có thiết bị đặt trước. Vui lòng chỉnh sửa trong chi tiết phiên.');
         return;
       }
       const start = dayjs(row.startAtLocal);
@@ -252,7 +280,7 @@ export default function RequestDetailEquipmentPanel({
         return;
       }
       await reservationApi.create({
-        SessionIds: [row.sessionId],
+        SessionIds: row.sessionIds,
         StartAt: start.format('YYYY-MM-DDTHH:mm:ss'),
         EndAt: end.format('YYYY-MM-DDTHH:mm:ss'),
         Equipment: row.equipmentIds.map((EquipmentId) => ({ EquipmentId })),
@@ -278,7 +306,7 @@ export default function RequestDetailEquipmentPanel({
     <>
       <div className="flex flex-col gap-4 h-full min-h-[70vh]">
         <p className="text-xs text-gray-500">
-          Mỗi dòng: chọn 1 phiên và 1 hoặc nhiều thiết bị → tạo 1 đặt trước. Có thể đặt thiết bị A cho phiên 1, thiết bị B cho phiên 2, hoặc cùng thiết bị A cho nhiều phiên (nhiều dòng).
+          Chọn nhiều phiên để đặt dài hạn: Giờ mượn tự lấy từ session sớm nhất và Giờ trả tự lấy từ session muộn nhất. Sau đó chọn 1 hoặc nhiều thiết bị để đặt trước 1 lần.
         </p>
 
         <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
@@ -288,31 +316,81 @@ export default function RequestDetailEquipmentPanel({
               className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-3"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-gray-700">Đặt trước cho 1 phiên</span>
+                <span className="text-xs font-semibold text-gray-700">Đặt trước dài hạn (nhiều phiên)</span>
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Phiên học</label>
-                <Select
-                  value={row.sessionId != null ? String(row.sessionId) : ''}
-                  onValueChange={(v) =>
-                    setReservationRowSession(rowIndex, v ? Number(v) : null)
-                  }
-                >
-                  <SelectTrigger className="h-10 w-full text-sm bg-white text-gray-700 border-gray-300">
-                    <SelectValue placeholder="— Chọn phiên —" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sessions.map((s) => (
-                      <SelectItem key={s.sessionId} value={String(s.sessionId)} className="text-gray-800">
-                        Phiên {s.sessionNo} · {dayjs(s.startAt).format('DD/MM HH:mm')}–{dayjs(s.endAt).format('HH:mm')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label className="block text-[11px] font-medium text-gray-500">Phiên học (chọn nhiều)</label>
+                  {row.sessionIds.length > 0 && (
+                    <span className="text-[11px] text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5">
+                      {row.sessionIds.length} phiên
+                    </span>
+                  )}
+                </div>
+                {row.sessionIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {row.sessionIds.map((id) => {
+                      const s = sessions.find((x) => x.sessionId === id);
+                      if (!s) return null;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setReservationRowSessions(rowIndex, row.sessionIds.filter((x) => x !== id))}
+                          className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] text-sky-800 hover:bg-sky-100"
+                          title="Bỏ phiên"
+                        >
+                          <span className="font-semibold">Phiên {s.sessionNo}</span>
+                          <span className="text-sky-600">×</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {sessionPickerOpen ? (
+                  <AntSelect
+                    mode="multiple"
+                    open={sessionPickerOpen}
+                    onDropdownVisibleChange={(open) => setSessionPickerOpen(open)}
+                    style={{ width: '100%' }}
+                    placeholder="— Chọn phiên —"
+                    value={row.sessionIds.map((id) => String(id))}
+                    showSearch
+                    maxTagCount={0}
+                    maxTagPlaceholder={() => null}
+                    optionFilterProp="label"
+                    filterOption={(input, option) => {
+                      const label = String((option as any)?.label ?? '');
+                      return label.toLowerCase().includes(String(input).toLowerCase());
+                    }}
+                    onChange={(vals) => {
+                      const next = (vals as Array<string | number>)
+                        .map((v) => Number(v))
+                        .filter((n) => Number.isFinite(n) && n > 0);
+                      setReservationRowSessions(rowIndex, next);
+                      setSessionPickerOpen(false);
+                    }}
+                    options={sessions.map((s) => ({
+                      value: String(s.sessionId),
+                      label: `Phiên ${s.sessionNo} · ${dayjs(s.startAt).format('DD/MM HH:mm')}–${dayjs(s.endAt).format('HH:mm')}`,
+                    }))}
+                  />
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full w-full"
+                    onClick={() => setSessionPickerOpen(true)}
+                  >
+                    {row.sessionIds.length > 0 ? 'Chọn thêm' : 'Chọn phiên'}
+                  </Button>
+                )}
               </div>
 
-              {row.sessionId != null && (
+              {row.sessionIds.length > 0 && (
                 <div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                     <div>

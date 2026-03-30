@@ -15,26 +15,50 @@ import {
   Wallet,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import memberApi from '@/modules/member/api/memberApi';
 import { logout } from '@/modules/auth/pages/Logout';
 import NotificationBell from '@/shared/components/common/NotificationBell';
 export default function TeamLeaderSidebar() {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
-  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState('/img/avatar.png');
-  const [memberName, setMemberName] = useState<string>('');
+  const [collapsed, setCollapsed] = useState(true);
+  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
+    const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
+    return avatarUrl.trim() ? avatarUrl : '/img/avatar.png';
+  });
+  const [memberName, setMemberName] = useState(() => localStorage.getItem('memberFullName') || '');
+
+  const userEmail = useMemo(() => {
+    try {
+      return (JSON.parse(localStorage.getItem('user') || '{}') as { email?: string })?.email || '';
+    } catch {
+      return '';
+    }
+  }, []);
 
   useEffect(() => {
+    const raw = localStorage.getItem('user');
+    if (!raw) return;
+
     try {
-      const u = JSON.parse(localStorage.getItem('user') || '{}') as {
-        fullName?: string;
-        email?: string;
-        avatarUrl?: string;
-      };
-      setMemberName(u.fullName || u.email || '');
-      setSidebarAvatarSrc(u.avatarUrl || '/img/avatar.png');
+      const parsed = JSON.parse(raw) as { memberId?: number };
+      if (!parsed.memberId) return;
+
+      memberApi
+        .getMemberById(parsed.memberId)
+        .then((m) => {
+          if (m?.fullName) {
+            setMemberName(m.fullName);
+            localStorage.setItem('memberFullName', m.fullName);
+          }
+          const avatarUrl = m?.avatarUrl ?? '';
+          if (avatarUrl && String(avatarUrl).trim()) {
+            setSidebarAvatarSrc(String(avatarUrl));
+            localStorage.setItem('memberAvatarUrl', String(avatarUrl));
+          }
+        })
+        .catch(() => {});
     } catch {
-      setMemberName('');
-      setSidebarAvatarSrc('/img/avatar.png');
+      // ignore
     }
   }, []);
 
@@ -47,7 +71,8 @@ export default function TeamLeaderSidebar() {
       {
         label: 'Thời khóa biểu & phân công',
         icon: Clock,
-        path: '/tl/timetable',
+        // Default to list view; calendar is accessible via the toggle inside timetable pages.
+        path: '/tl/timetable/assignments',
         matchPrefixPath: '/tl/timetable',
       },
       { label: 'Danh sách phiên đã dạy', icon: Clock, path: '/tl/teaching-history' },
@@ -116,11 +141,11 @@ export default function TeamLeaderSidebar() {
           </div>
           <div className="mt-4 text-center">
             <div className="font-medium text-slate-700">
-              Xin chào {memberName || JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
+              Xin chào{memberName ? ` ${memberName}` : ''}
             </div>
-            <div className="text-sm text-slate-400">
-              {JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
-            </div>
+            {userEmail ? (
+              <div className="text-sm text-slate-400">{userEmail}</div>
+            ) : null}
           </div>
         </button>
       )}

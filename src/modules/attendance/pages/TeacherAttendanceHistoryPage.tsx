@@ -5,8 +5,9 @@ import 'dayjs/locale/vi';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { ChevronRight, X } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { attendanceApi, type AttendanceHistoryItem } from '../api/attendanceApi';
+import { useLocation, useNavigate } from 'react-router-dom';
+import attendanceApi from '../api/attendanceApi';
+import type { AttendanceHistoryItem } from '../attendance';
 import sessionApi from '@/modules/request/api/sessionApi';
 import type { PagedResponse, SessionResponse } from '@/modules/request/session.types';
 import memberApi from '@/modules/request/api/memberApi';
@@ -94,7 +95,6 @@ export default function TeacherAttendanceHistoryPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const isTeamLeader = location.pathname.startsWith('/tl/');
-  const attendanceDetailPrefix = '/teacher/attendance';
   const activeTab: TeamLeaderAttendanceHistoryTab = isTeamLeader
     ? location.pathname.includes('/attendance-history')
       ? 'history'
@@ -328,18 +328,19 @@ export default function TeacherAttendanceHistoryPage() {
           cell: ({ row }) => {
             const r = row.original as AttendanceHistoryItem;
             return (
-              <Link
-                to={`${attendanceDetailPrefix}/${r.session.sessionId}`}
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-sky-600 underline-offset-2 hover:text-sky-800 hover:underline"
+              <button
+                type="button"
+                onClick={() => openDetail(r.session.sessionId)}
+                className="inline-flex items-center gap-0.5 text-sm font-medium text-sky-600 underline-offset-2 hover:text-sky-800 hover:underline whitespace-nowrap"
               >
                 Chi tiết <ChevronRight className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-              </Link>
+              </button>
             );
           },
         },
       ];
     },
-    [isTeamLeader, attendanceDetailPrefix],
+    [isTeamLeader],
   );
 
   useEffect(() => {
@@ -581,6 +582,69 @@ export default function TeacherAttendanceHistoryPage() {
     };
   }, [activeTab, detailOpen, isTeamLeader, rows, selectedSessionId]);
 
+  useEffect(() => {
+    if (isTeamLeader) return;
+    if (!detailOpen) return;
+    if (!selectedSessionId) return;
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        setDetailLoading(true);
+        setDetailError(null);
+        setDetailRequest(null);
+        setDetailSession(null);
+        setDetailAssignedTeamIds([]);
+
+        const teacherRow = rows.find(
+          (r) =>
+            'session' in (r as any) &&
+            (r as AttendanceHistoryItem).session?.sessionId === selectedSessionId,
+        ) as AttendanceHistoryItem | undefined;
+
+        let requestId = teacherRow?.request?.requestId ?? null;
+        if (!requestId) {
+          const sessionDetail = await sessionApi.getById(selectedSessionId);
+          requestId = (sessionDetail as any)?.requestId ?? null;
+        }
+
+        const parsed = requestId != null ? Number(requestId) : NaN;
+        if (Number.isNaN(parsed) || parsed <= 0) {
+          throw new Error('Không tìm thấy mã request để tải chi tiết phiên.');
+        }
+
+        const requestDetail = await requestApi.getById(parsed);
+        if (cancelled) return;
+
+        const rawSession = (requestDetail.sessions ?? []).find(
+          (s) => Number(s.sessionId) === selectedSessionId,
+        ) as RequestSessionSummary | undefined;
+
+        if (!rawSession) {
+          throw new Error('Không tìm thấy phiên trong yêu cầu.');
+        }
+
+        setDetailRequest(requestDetail);
+        setDetailSession(rawSession);
+      } catch (err) {
+        if (cancelled) return;
+        const msg =
+          err && typeof err === 'object' && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : 'Không tải được chi tiết phiên.';
+        setDetailError(msg);
+      } finally {
+        if (cancelled) return;
+        setDetailLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [detailOpen, isTeamLeader, rows, selectedSessionId]);
+
   if (isTeamLeader) {
     return (
       <div className="relative p-6 space-y-6 flex flex-col min-h-0" style={{ height: 'var(--content-height, 100vh)' }}>
@@ -759,6 +823,49 @@ export default function TeacherAttendanceHistoryPage() {
         />
       </div>
 
+      {detailOpen && (
+        <div className="fixed inset-0 z-40 flex justify-end">
+          <div className="flex-1 bg-black/30" onClick={closeDetail} />
+
+          <div className="w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden max-w-xl border-l">
+            <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Phiên {detailSession?.sessionNo ?? '—'}
+                  {(detailSession as any)?.notes ? `: ${(detailSession as any).notes}` : ''}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDetail}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                aria-label="Đóng chi tiết phiên"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
+              {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết phiên...</p>}
+
+              {detailError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">
+                  {detailError}
+                </p>
+              )}
+
+              {detailRequest && detailSession && !detailLoading && !detailError && (
+                <TeamLeaderSessionDetailPanel
+                  session={detailSession}
+                  requestCode={detailRequest.requestCode ?? ''}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
   
     </div>
   );

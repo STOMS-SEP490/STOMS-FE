@@ -11,13 +11,13 @@ import type {
 
 const attendanceApi = {
   delegate: (payload: AttendanceDelegatePayload): Promise<void> => {
-    return axiosClient.post<void, void>('/attendance/delegations', {
+    return axiosClient.post<void, void>('/attendances/delegations', {
       SessionId: payload.sessionId,
       DelegateToMemberId: payload.delegateToMemberId,
     });
   },
   checkIn: (payload: AttendanceCheckInPayload): Promise<AttendanceBatchResponse> => {
-    return axiosClient.post<AttendanceBatchResponse, AttendanceBatchResponse>('/attendance/checkin', {
+    return axiosClient.post<AttendanceBatchResponse, AttendanceBatchResponse>('/attendances/checkin', {
       SessionId: payload.sessionId,
       Items: payload.items.map((x) => ({
         MemberId: x.memberId,
@@ -26,7 +26,7 @@ const attendanceApi = {
     });
   },
   checkOut: (payload: AttendanceCheckOutPayload): Promise<AttendanceBatchResponse> => {
-    return axiosClient.post<AttendanceBatchResponse, AttendanceBatchResponse>('/attendance/checkout', {
+    return axiosClient.post<AttendanceBatchResponse, AttendanceBatchResponse>('/attendances/checkout', {
       SessionId: payload.sessionId,
       Items: payload.items.map((x) => ({
         MemberId: x.memberId,
