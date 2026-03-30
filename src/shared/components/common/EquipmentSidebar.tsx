@@ -1,13 +1,48 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BarChart3, Laptop, Menu, LogOut, ClipboardList } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/modules/auth/pages/Logout'
 import NotificationBell from '@/shared/components/common/NotificationBell'
+import memberApi from '@/modules/member/api/memberApi'
 
 // Sidebar riêng cho Equipment Manager nhưng UI giống hệt Sidebar manager
 export default function EquipmentSidebar() {
   const [collapsed, setCollapsed] = useState(true)
   const navigate = useNavigate()
+  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
+    const avatarUrl = localStorage.getItem('memberAvatarUrl') || ''
+    return avatarUrl.trim() ? avatarUrl : '/img/avatar.png'
+  })
+  const [memberName, setMemberName] = useState(() => localStorage.getItem('memberFullName') || '')
+  const [userEmail, setUserEmail] = useState('')
+
+  useEffect(() => {
+    const raw = localStorage.getItem('user')
+    if (!raw) return
+
+    try {
+      const parsed = JSON.parse(raw) as { memberId?: number; email?: string }
+      if (parsed.email) setUserEmail(parsed.email)
+      if (!parsed.memberId) return
+
+      memberApi
+        .getMemberById(parsed.memberId)
+        .then((m) => {
+          if (m?.fullName) {
+            setMemberName(m.fullName)
+            localStorage.setItem('memberFullName', m.fullName)
+          }
+          const avatarUrl = m?.avatarUrl ?? ''
+          if (avatarUrl && String(avatarUrl).trim()) {
+            setSidebarAvatarSrc(String(avatarUrl))
+            localStorage.setItem('memberAvatarUrl', String(avatarUrl))
+          }
+        })
+        .catch(() => {})
+    } catch {
+      // ignore parse errors
+    }
+  }, [])
 
   /** Chỉ Dashboard cần khớp đúng path; Thiết bị / Phiếu mượn có tab con (categories, reservations) nên không dùng end. */
   const menus = useMemo(
@@ -67,15 +102,22 @@ export default function EquipmentSidebar() {
         <div className="flex flex-col items-center mb-8">
           <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center shadow-lg ring-4 ring-white">
             <img
-              src="/img/avatar.png"
+              src={sidebarAvatarSrc}
               alt="avatar"
               className="w-14 h-14 rounded-full object-cover"
+              onError={(e) => {
+                const img = e.currentTarget
+                img.onerror = null
+                img.src = '/img/avatar.png'
+              }}
             />
           </div>
           <div className="mt-4 text-center">
-            <div className="font-medium text-slate-700">Equipment Manager</div>
+            <div className="font-medium text-slate-700">
+              Xin chào {memberName || userEmail || 'Equipment Manager'}
+            </div>
             <div className="text-sm text-slate-400">
-              {JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
+              {userEmail}
             </div>
           </div>
         </div>

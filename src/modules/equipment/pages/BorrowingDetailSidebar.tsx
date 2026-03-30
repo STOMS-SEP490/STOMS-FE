@@ -97,7 +97,7 @@ export default function BorrowingDetailSidebar({
     borrowing.status === 'Overdue' || borrowing.status === '4'
   const isBorrowingReturned = borrowing.status === 'Returned' || borrowing.status === '3'
   const [selectedIds, setSelectedIds] = useState<number[]>([])
-  const [returnStatusById, setReturnStatusById] = useState<Record<number, 'RETURNED' | 'DAMAGED'>>({})
+  const [returnStatusById, setReturnStatusById] = useState<Record<number, 'RETURNED' | 'DAMAGED' | 'LOST'>>({})
   const [returning, setReturning] = useState(false)
   const [localReturnedAtById, setLocalReturnedAtById] = useState<Record<number, string>>({})
   const [localStatusById, setLocalStatusById] = useState<Record<number, string>>({})
@@ -107,7 +107,15 @@ export default function BorrowingDetailSidebar({
     () =>
       details.filter((item) => {
         const raw = String(localStatusById[item.equipmentBorrowingId] ?? item.status ?? '').toLowerCase()
-        return !raw.includes('returned') && raw !== '2' && !raw.includes('damaged') && raw !== '3'
+        return (
+          !raw.includes('returned') &&
+          raw !== '2' &&
+          !raw.includes('damaged') &&
+          raw !== '3' &&
+          !raw.includes('lost') &&
+          raw !== '4' &&
+          !raw.includes('mất')
+        )
       }),
     [details, localStatusById]
   )
@@ -167,7 +175,9 @@ export default function BorrowingDetailSidebar({
           const status =
             returnStatus === 'DAMAGED'
               ? ('Damaged' as const)
-              : ('Returned' as const)
+              : returnStatus === 'LOST'
+                ? ('Lost' as const)
+                : ('Returned' as const)
 
           return {
             equipmentBorrowingId: item.equipmentBorrowingId,
@@ -184,7 +194,12 @@ export default function BorrowingDetailSidebar({
         const returnStatus = returnAllAsReturned
           ? 'RETURNED'
           : (returnStatusById[item.equipmentBorrowingId] ?? 'RETURNED')
-        nextStatusById[item.equipmentBorrowingId] = returnStatus === 'DAMAGED' ? 'Damaged' : 'Returned'
+        nextStatusById[item.equipmentBorrowingId] =
+          returnStatus === 'DAMAGED'
+            ? 'Damaged'
+            : returnStatus === 'LOST'
+              ? 'Lost'
+              : 'Returned'
         nextReturnedAtById[item.equipmentBorrowingId] = nowIso
       })
       setLocalStatusById((prev) => ({ ...prev, ...nextStatusById }))
@@ -361,9 +376,11 @@ export default function BorrowingDetailSidebar({
                                 ? `#${item.equipment.categoryId}`
                                 : '—')}
                           </span>
-                          <span className="whitespace-nowrap">
-                            Ngày trả: {formatDateTime(localReturnedAtById[item.equipmentBorrowingId] ?? item.checkinAt)}
-                          </span>
+                          {(localReturnedAtById[item.equipmentBorrowingId] ?? item.checkinAt) ? (
+                            <span className="whitespace-nowrap">
+                              Ngày trả: {formatDateTime(localReturnedAtById[item.equipmentBorrowingId] ?? item.checkinAt)}
+                            </span>
+                          ) : null}
                         </div>
                         </div>
                       </div>
@@ -406,6 +423,24 @@ export default function BorrowingDetailSidebar({
                               )}
                             >
                               Hỏng
+                            </button>
+                            <button
+                              type="button"
+                              disabled={returning}
+                              onClick={() =>
+                                setReturnStatusById((prev) => ({
+                                  ...prev,
+                                  [item.equipmentBorrowingId]: 'LOST',
+                                }))
+                              }
+                              className={cn(
+                                'px-2 py-0.5 text-[10px] rounded-sm font-medium transition-colors',
+                                (returnStatusById[item.equipmentBorrowingId] ?? 'RETURNED') === 'LOST'
+                                  ? 'bg-red-600 text-white'
+                                  : 'text-slate-600 hover:bg-slate-100'
+                              )}
+                            >
+                              Mất
                             </button>
                           </div>
                         </div>
@@ -458,7 +493,7 @@ export default function BorrowingDetailSidebar({
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Có thể chọn từng thiết bị để đánh dấu "Bị hỏng" trước khi xác nhận trả.
+                    Có thể chọn từng thiết bị để đánh dấu "Bị hỏng" hoặc "Mất" trước khi xác nhận trả.
                   </p>
                 </div>
               </Card>

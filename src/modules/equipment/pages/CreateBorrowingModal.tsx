@@ -75,6 +75,16 @@ function equipmentReservationToRow(er: EquipmentReservationItemResponse): Equipm
   }
 }
 
+function sessionOptionLabel(s: {
+  SessionNo?: number | null
+  SessionTitle?: string | null
+  Notes?: string | null
+}): string {
+  const base = `Phiên ${s.SessionNo ?? ''}`.trim()
+  const title = (s.SessionTitle ?? s.Notes ?? '').trim()
+  return title ? `${base} - ${title}` : base
+}
+
 type Props = {
   open: boolean
   onClose: () => void
@@ -112,7 +122,6 @@ export default function CreateBorrowingModal({
 
   const [modeTab, setModeTab] = useState<'immediate' | 'reservation'>('immediate')
   const [reservationIdInput, setReservationIdInput] = useState('')
-  const [loadingReservation, setLoadingReservation] = useState(false)
   const [loadedReservation, setLoadedReservation] = useState<ReservationDetail | null>(null)
   /** Tab "Theo đặt trước": khung StartAt khi gọi availability (mặc định từ đặt trước hoặc hiện tại). */
   const [reservationBorrowStartAt, setReservationBorrowStartAt] = useState<Dayjs | null>(null)
@@ -121,7 +130,11 @@ export default function CreateBorrowingModal({
     requestId: number
     requestCode: string
     requestName: string
-    sessions: Array<Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'StartAt' | 'EndAt'>>
+    sessions: Array<
+      Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'StartAt' | 'EndAt' | 'Notes'> & {
+        SessionTitle?: string | null
+      }
+    >
   }
   type ImmediateBorrowerOption = {
     memberId: number
@@ -134,7 +147,9 @@ export default function CreateBorrowingModal({
     requestCode: string
     requestName: string
     sessions: Array<
-      Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'StartAt' | 'EndAt' | 'ReservationId'>
+      Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'StartAt' | 'EndAt' | 'ReservationId' | 'Notes'> & {
+        SessionTitle?: string | null
+      }
     >
   }
 
@@ -145,11 +160,17 @@ export default function CreateBorrowingModal({
   const [immediateRequestSearch, setImmediateRequestSearch] = useState('')
   const [immediateRequestDropdownOpen, setImmediateRequestDropdownOpen] = useState(false)
   const [immediateSessionId, setImmediateSessionId] = useState<number | null>(null)
+  const [immediateSessionSearch, setImmediateSessionSearch] = useState('')
+  const [immediateSessionDropdownOpen, setImmediateSessionDropdownOpen] = useState(false)
   const [immediateBorrowerOptions, setImmediateBorrowerOptions] = useState<
     ImmediateBorrowerOption[]
   >([])
   const [loadingImmediateRequests, setLoadingImmediateRequests] = useState(false)
   const [loadingImmediateBorrowers, setLoadingImmediateBorrowers] = useState(false)
+
+  const [sessionBorrowerDropdownOpen, setSessionBorrowerDropdownOpen] = useState(false)
+  const [sessionBorrowerSearch, setSessionBorrowerSearch] = useState('')
+  const sessionBorrowerPickerRef = useRef<HTMLDivElement | null>(null)
 
   // Theo đặt trước: chọn Request -> Session (session có ReservationId) để lấy detail đặt trước
   const [reservationRequestOptions, setReservationRequestOptions] = useState<
@@ -159,6 +180,8 @@ export default function CreateBorrowingModal({
   const [reservationRequestSearch, setReservationRequestSearch] = useState('')
   const [reservationRequestDropdownOpen, setReservationRequestDropdownOpen] = useState(false)
   const [reservationSessionId, setReservationSessionId] = useState<number | null>(null)
+  const [reservationSessionSearch, setReservationSessionSearch] = useState('')
+  const [reservationSessionDropdownOpen, setReservationSessionDropdownOpen] = useState(false)
   const [loadingReservationRequests, setLoadingReservationRequests] = useState(false)
   const [reservationBorrowerOptions, setReservationBorrowerOptions] = useState<
     ImmediateBorrowerOption[]
@@ -187,13 +210,6 @@ export default function CreateBorrowingModal({
   }
 
   const applyReservationDetail = (detail: ReservationDetail) => {
-    const memberId =
-      detail.CreatedByUser?.MemberId ?? detail.CreatedByMemberId ?? null
-    if (memberId == null || memberId <= 0) {
-      message.error('Đặt trước không có thông tin người đặt hợp lệ')
-      return false
-    }
-
     if (!detail.EndAt) {
       message.error('Đặt trước không có thời gian kết thúc (EndAt)')
       return false
@@ -204,19 +220,10 @@ export default function CreateBorrowingModal({
       message.warning('Thời gian kết thúc đặt trước đã qua — vui lòng kiểm tra lại trước khi tạo phiếu')
     }
 
-    setBorrowedByMemberId(memberId)
-    // Trong tab "Theo đặt trước" bắt buộc chọn member => hiển thị đúng người đã tạo reservation.
-    setReservationBorrowerOptions([
-      {
-        memberId,
-        fullName: detail.CreatedByUser?.FullName?.trim() || `Member #${memberId}`,
-        email: detail.CreatedByUser?.Email ?? undefined,
-        avatarUrl: detail.CreatedByUser?.AvatarUrl ?? null,
-      },
-    ])
-    setBorrowerSearch(
-      detail.CreatedByUser?.FullName?.trim() || `Member #${memberId}`
-    )
+    // Theo đặt trước: Người mượn phải chọn từ danh sách thành viên tham gia session.
+    setBorrowedByMemberId(null)
+    setReservationBorrowerOptions([])
+    setBorrowerSearch('')
     setBorrowerOptions([])
     setReturnedDueDate(end)
     if (detail.StartAt) {
@@ -252,7 +259,6 @@ export default function CreateBorrowingModal({
     }
     setError('')
     try {
-      setLoadingReservation(true)
       const raw = await reservationApi.getById(id)
       const detail = normalizeReservationResponse(raw)
       setLoadedReservation(detail)
@@ -266,7 +272,6 @@ export default function CreateBorrowingModal({
       setBorrowerOptions([])
       message.error('Không tải được đặt trước — kiểm tra mã hoặc quyền truy cập')
     } finally {
-      setLoadingReservation(false)
     }
   }
 
@@ -302,6 +307,54 @@ export default function CreateBorrowingModal({
 
       const list = Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'))
       setImmediateBorrowerOptions(list)
+    } catch {
+      message.error('Không tải được danh sách người mượn từ session')
+    } finally {
+      setLoadingImmediateBorrowers(false)
+    }
+  }
+
+  const loadBorrowersFromReservationSession = async (sessionId: number) => {
+    try {
+      setLoadingImmediateBorrowers(true)
+      setReservationBorrowerOptions([])
+      setBorrowedByMemberId(null)
+      setBorrowerSearch('')
+      setBorrowerOptions([])
+
+      const detail = await sessionApi.getById(sessionId)
+      const assignments = detail.Assignments ?? []
+
+      const map = new Map<number, ImmediateBorrowerOption>()
+      for (const a of assignments) {
+        const staff = a?.StaffMember
+        const memberId = Number(a?.StaffMemberId ?? staff?.MemberId ?? 0)
+        if (!memberId || memberId <= 0) continue
+
+        const fullName =
+          (staff?.FullName ?? null) ||
+          (staff?.FullName ? String(staff.FullName) : '') ||
+          `Member #${memberId}`
+
+        const email =
+          staff?.Email ??
+          staff?.User?.Email ??
+          undefined
+
+        const avatarUrl = staff?.AvatarUrl ?? null
+
+        if (!map.has(memberId)) {
+          map.set(memberId, {
+            memberId,
+            fullName,
+            email,
+            avatarUrl,
+          })
+        }
+      }
+
+      const list = Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'))
+      setReservationBorrowerOptions(list)
     } catch {
       message.error('Không tải được danh sách người mượn từ session')
     } finally {
@@ -375,72 +428,25 @@ export default function CreateBorrowingModal({
         setBorrowerSearch('')
         setBorrowerOptions([])
 
-        const now = dayjs()
-        const res = await sessionApi.getFilter({
-          PageNumber: 1,
-          PageSize: 500,
+        // Chỉ gọi 1 lần request filter để lấy danh sách request cho dropdown.
+        const reqRes = await requestApi.getRequests({
+          sessionStatuses: ['ASSIGNED'],
+          pageNumber: 1,
+          pageSize: 200,
         })
-
-        const rawSessions = res.Items ?? []
-        const filteredSessions = rawSessions
-          .filter((s) => Number(s.SessionId) > 0)
-          .filter((s) => {
-            if (!s.StartAt || !s.EndAt) return false
-            const st = dayjs(s.StartAt)
-            const en = dayjs(s.EndAt)
-            if (!st.isValid() || !en.isValid()) return false
-            // Chỉ lấy session "đang diễn ra" để mượn ngay khớp BE (và đúng với mô tả của bạn)
-            return (st.isBefore(now) || st.isSame(now)) && (en.isAfter(now) || en.isSame(now))
-          })
-
-        // Nếu không có session đang diễn ra, vẫn cho chọn theo danh sách (không để UI trống)
-        const sessionsForUi = filteredSessions.length ? filteredSessions : rawSessions.filter((s) => Number(s.SessionId) > 0)
-
-        const requestIds = Array.from(
-          new Set(sessionsForUi.map((s) => Number(s.RequestId)).filter((id) => id > 0))
-        ).slice(0, 30)
-
-        const requestDetails = await Promise.all(
-          requestIds.map(async (id) => {
-            try {
-              const r = await requestApi.getById(id)
-              return [id, r] as const
-            } catch {
-              return [id, null] as const
-            }
-          })
-        )
-
         if (cancelled) return
 
-        const reqMap = new Map<number, RequestListItem>()
-        requestDetails.forEach(([id, r]) => {
-          if (r) reqMap.set(id, r as RequestListItem)
-        })
+        const requests = (reqRes.items ?? []) as RequestListItem[]
+        const options: ImmediateRequestOption[] = requests
+          .filter((r) => Number(r.requestId) > 0)
+          .map((r) => ({
+            requestId: Number(r.requestId),
+            requestCode: r.requestCode ?? '',
+            requestName: r.requestName ?? '',
+            sessions: [],
+          }))
 
-        const grouped: ImmediateRequestOption[] = requestIds
-          .map((rid) => {
-            const sessions = sessionsForUi
-              .filter((s) => Number(s.RequestId) === rid)
-              .sort((a, b) => dayjs(a.StartAt).valueOf() - dayjs(b.StartAt).valueOf())
-              .map((s) => ({
-                SessionId: Number(s.SessionId),
-                SessionNo: Number(s.SessionNo),
-                StartAt: String(s.StartAt ?? ''),
-                EndAt: String(s.EndAt ?? ''),
-              }))
-
-            const req = reqMap.get(rid)
-            return {
-              requestId: rid,
-              requestCode: req?.requestCode ?? '',
-              requestName: req?.requestName ?? '',
-              sessions,
-            }
-          })
-          .filter((x) => x.sessions.length > 0)
-
-        setImmediateRequestOptions(grouped)
+        setImmediateRequestOptions(options)
       } catch {
         // ignore (UI sẽ hiển thị dropdown rỗng, submit vẫn validate lỗi "chọn session")
       } finally {
@@ -503,51 +509,45 @@ export default function CreateBorrowingModal({
             return en.isAfter(now) || en.isSame(now)
           })
 
-        const requestIds = Array.from(
-          new Set(reservedSessions.map((s) => Number(s.RequestId)).filter((id) => id > 0))
-        ).slice(0, 30)
-
-        if (requestIds.length === 0) {
-          setReservationRequestOptions([])
-          return
-        }
-
-        const requestDetails = await Promise.all(
-          requestIds.map(async (id) => {
-            try {
-              const r = await requestApi.getById(id)
-              return [id, r] as const
-            } catch {
-              return [id, null] as const
-            }
-          })
-        )
-
         if (cancelled) return
 
-        const reqMap = new Map<number, RequestListItem>()
-        requestDetails.forEach(([id, r]) => {
-          if (r) reqMap.set(id, r as RequestListItem)
+        const sessionsByRequestId = new Map<number, ReservationRequestOption['sessions']>()
+        for (const s of reservedSessions) {
+          const rid = Number(s.RequestId)
+          if (!rid || rid <= 0) continue
+          const row = {
+            SessionId: Number(s.SessionId),
+            SessionNo: Number(s.SessionNo),
+            StartAt: String(s.StartAt ?? ''),
+            EndAt: String(s.EndAt ?? ''),
+            ReservationId: s.ReservationId != null ? Number(s.ReservationId) : null,
+            Notes: String(s.Notes ?? ''),
+            SessionTitle: s.SubjectSession?.Title ?? s.EventSession?.Title ?? null,
+          }
+          const prev = sessionsByRequestId.get(rid) ?? []
+          sessionsByRequestId.set(rid, [...prev, row])
+        }
+
+        // Chỉ gọi 1 lần request filter để lấy code/tên request cho dropdown.
+        // Không gọi hàng loạt request/{id} khi mở modal.
+        const reqRes = await requestApi.getRequests({
+          sessionStatuses: ['ASSIGNED', 'ONGOING'],
+          pageNumber: 1,
+          pageSize: 200,
         })
+        if (cancelled) return
 
-        const grouped: ReservationRequestOption[] = requestIds
-          .map((rid) => {
-            const sessions = reservedSessions
-              .filter((s) => Number(s.RequestId) === rid)
+        const requests = (reqRes.items ?? []) as RequestListItem[]
+        const grouped: ReservationRequestOption[] = requests
+          .filter((r) => Number(r.requestId) > 0)
+          .map((r) => {
+            const rid = Number(r.requestId)
+            const sessions = (sessionsByRequestId.get(rid) ?? [])
               .sort((a, b) => dayjs(a.StartAt).valueOf() - dayjs(b.StartAt).valueOf())
-              .map((s) => ({
-                SessionId: Number(s.SessionId),
-                SessionNo: Number(s.SessionNo),
-                StartAt: String(s.StartAt ?? ''),
-                EndAt: String(s.EndAt ?? ''),
-                ReservationId: s.ReservationId != null ? Number(s.ReservationId) : null,
-              }))
-
-            const req = reqMap.get(rid)
             return {
               requestId: rid,
-              requestCode: req?.requestCode ?? '',
-              requestName: req?.requestName ?? '',
+              requestCode: r.requestCode ?? '',
+              requestName: r.requestName ?? '',
               sessions,
             }
           })
@@ -744,6 +744,8 @@ export default function CreateBorrowingModal({
     setImmediateRequestSearch('')
     setImmediateRequestDropdownOpen(false)
     setImmediateSessionId(null)
+    setImmediateSessionSearch('')
+    setImmediateSessionDropdownOpen(false)
     setImmediateBorrowerOptions([])
     setLentByMemberId(null)
     setReturnedDueDate(null)
@@ -762,6 +764,8 @@ export default function CreateBorrowingModal({
     setReservationRequestSearch('')
     setReservationRequestDropdownOpen(false)
     setReservationSessionId(null)
+    setReservationSessionSearch('')
+    setReservationSessionDropdownOpen(false)
     setReservationBorrowerOptions([])
     onClose()
   }
@@ -785,7 +789,24 @@ export default function CreateBorrowingModal({
       : reservationSelectedRequest.requestName || `Request #${reservationSelectedRequest.requestId}`
     : ''
 
+  const reservationSessions = reservationSelectedRequest?.sessions ?? []
+  const reservationSessionSearchQ = reservationSessionSearch.trim().toLowerCase()
+  const filteredReservationSessions = reservationSessions.filter((s) => {
+    if (!reservationSessionSearchQ) return true
+    const noStr = String(s.SessionNo ?? '').toLowerCase()
+    const label = sessionOptionLabel(s).toLowerCase()
+    return noStr.includes(reservationSessionSearchQ) || label.includes(reservationSessionSearchQ)
+  })
+  const reservationSelectedSession =
+    reservationSessionId != null
+      ? reservationSessions.find((s) => s.SessionId === reservationSessionId) ?? null
+      : null
+  const reservationSelectedSessionLabel = reservationSelectedSession
+    ? sessionOptionLabel(reservationSelectedSession)
+    : ''
+
   const reservationRequestPickerRef = useRef<HTMLDivElement | null>(null)
+  const reservationSessionPickerRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (!reservationRequestDropdownOpen) return
 
@@ -812,12 +833,40 @@ export default function CreateBorrowingModal({
     }
   }, [reservationRequestDropdownOpen])
 
+  useEffect(() => {
+    if (!reservationSessionDropdownOpen) return
+
+    const onMouseDown = (e: MouseEvent) => {
+      const el = reservationSessionPickerRef.current
+      if (!el) return
+      if (e.target instanceof Node && el.contains(e.target)) return
+      setReservationSessionDropdownOpen(false)
+      setReservationSessionSearch('')
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setReservationSessionDropdownOpen(false)
+        setReservationSessionSearch('')
+      }
+    }
+
+    window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [reservationSessionDropdownOpen])
+
   const pickReservationRequest = (rid: number | null) => {
     if (rid == null) {
       setReservationRequestId(null)
       setReservationRequestSearch('')
       setReservationRequestDropdownOpen(false)
       setReservationSessionId(null)
+      setReservationSessionSearch('')
+      setReservationSessionDropdownOpen(false)
       setReservationIdInput('')
       setLoadedReservation(null)
       setReservationBorrowerOptions([])
@@ -835,6 +884,8 @@ export default function CreateBorrowingModal({
     setReservationRequestSearch('')
     setReservationRequestDropdownOpen(false)
     setReservationSessionId(null)
+    setReservationSessionSearch('')
+    setReservationSessionDropdownOpen(false)
 
     setReservationIdInput('')
     setLoadedReservation(null)
@@ -847,6 +898,41 @@ export default function CreateBorrowingModal({
     setReturnedDueDate(null)
     setSelectedEquipmentIds([])
     setSessionIds([])
+
+    // Khi user chọn request mới gọi request/{id} để đồng bộ sessions theo request (nếu cần).
+    // Ưu tiên giữ session có ReservationId.
+    ;(async () => {
+      try {
+        const now = dayjs()
+        const r = await requestApi.getById(rid)
+        const sessionsRaw = ((r as any)?.sessions ?? (r as any)?.Sessions ?? []) as any[]
+        const sessions = (sessionsRaw ?? [])
+          .map((s) => ({
+            SessionId: Number(s?.SessionId ?? s?.sessionId ?? 0),
+            SessionNo: Number(s?.SessionNo ?? s?.sessionNo ?? 0),
+            StartAt: String(s?.StartAt ?? s?.startAt ?? ''),
+            EndAt: String(s?.EndAt ?? s?.endAt ?? ''),
+            ReservationId: s?.ReservationId != null ? Number(s.ReservationId) : (s?.reservationId != null ? Number(s.reservationId) : null),
+            Notes: String(s?.Notes ?? s?.notes ?? ''),
+            SessionTitle: s?.SubjectSession?.Title ?? s?.subjectSession?.title ?? s?.EventSession?.Title ?? s?.eventSession?.title ?? null,
+          }))
+          .filter((s) => s.SessionId > 0)
+          .filter((s) => s.ReservationId != null && Number(s.ReservationId) > 0)
+          .filter((s) => {
+            const st = dayjs(s.StartAt)
+            const en = dayjs(s.EndAt)
+            if (!st.isValid() || !en.isValid()) return false
+            return en.isAfter(now) || en.isSame(now)
+          })
+          .sort((a, b) => dayjs(a.StartAt).valueOf() - dayjs(b.StartAt).valueOf())
+
+        setReservationRequestOptions((prev) =>
+          prev.map((x) => (x.requestId === rid ? { ...x, sessions } : x)),
+        )
+      } catch {
+        // ignore
+      }
+    })()
   }
 
   const handlePickReservationSession = async (sid: number) => {
@@ -854,7 +940,6 @@ export default function CreateBorrowingModal({
 
     setReservationIdInput('')
     setLoadedReservation(null)
-    setReservationBorrowerOptions([])
     setBorrowedByMemberId(null)
     setBorrowerSearch('')
     setBorrowerOptions([])
@@ -874,7 +959,10 @@ export default function CreateBorrowingModal({
     }
 
     setReservationIdInput(String(reservationId))
+    // Lưu ý: handleLoadReservation/applyReservationDetail có reset borrower options,
+    // nên phải load reservation trước rồi mới load danh sách người được assign theo session.
     await handleLoadReservation(reservationId)
+    await loadBorrowersFromReservationSession(sid)
   }
 
   const immediateRequestSearchQ = immediateRequestSearch.trim().toLowerCase()
@@ -896,7 +984,24 @@ export default function CreateBorrowingModal({
       : immediateSelectedRequest.requestName || `Request #${immediateSelectedRequest.requestId}`
     : ''
 
+  const immediateSessions = immediateSelectedRequest?.sessions ?? []
+  const immediateSessionSearchQ = immediateSessionSearch.trim().toLowerCase()
+  const filteredImmediateSessions = immediateSessions.filter((s) => {
+    if (!immediateSessionSearchQ) return true
+    const noStr = String(s.SessionNo ?? '').toLowerCase()
+    const label = sessionOptionLabel(s).toLowerCase()
+    return noStr.includes(immediateSessionSearchQ) || label.includes(immediateSessionSearchQ)
+  })
+  const immediateSelectedSession =
+    immediateSessionId != null
+      ? immediateSessions.find((s) => s.SessionId === immediateSessionId) ?? null
+      : null
+  const immediateSelectedSessionLabel = immediateSelectedSession
+    ? sessionOptionLabel(immediateSelectedSession)
+    : ''
+
   const requestPickerRef = useRef<HTMLDivElement | null>(null)
+  const immediateSessionPickerRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (!immediateRequestDropdownOpen) return
 
@@ -923,6 +1028,58 @@ export default function CreateBorrowingModal({
     }
   }, [immediateRequestDropdownOpen])
 
+  useEffect(() => {
+    if (!immediateSessionDropdownOpen) return
+
+    const onMouseDown = (e: MouseEvent) => {
+      const el = immediateSessionPickerRef.current
+      if (!el) return
+      if (e.target instanceof Node && el.contains(e.target)) return
+      setImmediateSessionDropdownOpen(false)
+      setImmediateSessionSearch('')
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setImmediateSessionDropdownOpen(false)
+        setImmediateSessionSearch('')
+      }
+    }
+
+    window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [immediateSessionDropdownOpen])
+
+  useEffect(() => {
+    if (!sessionBorrowerDropdownOpen) return
+
+    const onMouseDown = (e: MouseEvent) => {
+      const el = sessionBorrowerPickerRef.current
+      if (!el) return
+      if (e.target instanceof Node && el.contains(e.target)) return
+      setSessionBorrowerDropdownOpen(false)
+      setSessionBorrowerSearch('')
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSessionBorrowerDropdownOpen(false)
+        setSessionBorrowerSearch('')
+      }
+    }
+
+    window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [sessionBorrowerDropdownOpen])
+
   const pickImmediateRequest = (rid: number | null) => {
     if (rid == null) {
       setImmediateRequestId(null)
@@ -940,10 +1097,43 @@ export default function CreateBorrowingModal({
     setImmediateRequestSearch('')
     setImmediateRequestDropdownOpen(false)
     setImmediateSessionId(null)
+    setImmediateSessionSearch('')
+    setImmediateSessionDropdownOpen(false)
     setSessionIds([])
     setImmediateBorrowerOptions([])
     setBorrowedByMemberId(null)
     setBorrowerSearch('')
+
+    // Chỉ khi user chọn request mới gọi session filter để lấy sessions của request đó.
+    ;(async () => {
+      try {
+        const res = await sessionApi.getFilter({
+          RequestId: rid,
+          Statuses: ['ASSIGNED'],
+          PageNumber: 1,
+          PageSize: 500,
+        })
+        const allSessions = (res.Items ?? [])
+          .filter((s) => Number(s.SessionId) > 0)
+        const sessionsForUi = allSessions
+          .map((s) => ({
+            SessionId: Number(s.SessionId),
+            SessionNo: Number(s.SessionNo),
+            StartAt: String(s.StartAt ?? ''),
+            EndAt: String(s.EndAt ?? ''),
+            Notes: String(s.Notes ?? ''),
+            SessionTitle: s.SubjectSession?.Title ?? s.EventSession?.Title ?? null,
+          }))
+
+        setImmediateRequestOptions((prev) =>
+          prev.map((r) => (r.requestId === rid ? { ...r, sessions: sessionsForUi } : r)),
+        )
+      } catch {
+        setImmediateRequestOptions((prev) =>
+          prev.map((r) => (r.requestId === rid ? { ...r, sessions: [] } : r)),
+        )
+      }
+    })()
   }
 
   return (
@@ -971,12 +1161,16 @@ export default function CreateBorrowingModal({
               setReservationRequestSearch('')
               setReservationRequestDropdownOpen(false)
               setReservationSessionId(null)
+              setReservationSessionSearch('')
+              setReservationSessionDropdownOpen(false)
               setReservationBorrowerOptions([])
               setImmediateRequestOptions([])
               setImmediateRequestId(null)
               setImmediateRequestSearch('')
               setImmediateRequestDropdownOpen(false)
               setImmediateSessionId(null)
+              setImmediateSessionSearch('')
+              setImmediateSessionDropdownOpen(false)
               setImmediateBorrowerOptions([])
               setBorrowerSearch('')
               setBorrowedByMemberId(null)
@@ -999,6 +1193,8 @@ export default function CreateBorrowingModal({
               setReservationRequestSearch('')
               setReservationRequestDropdownOpen(false)
               setReservationSessionId(null)
+              setReservationSessionSearch('')
+              setReservationSessionDropdownOpen(false)
               setReservationBorrowerOptions([])
               setReservationBorrowStartAt((prev) => prev ?? dayjs())
               setReturnedDueDate(null)
@@ -1113,93 +1309,137 @@ export default function CreateBorrowingModal({
                 <Label className="text-black font-medium">
                   Session <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={reservationSessionId != null ? String(reservationSessionId) : ''}
-                  onValueChange={(value) => {
-                    const sid = Number(value)
-                    void handlePickReservationSession(sid)
-                  }}
-                  disabled={
-                    loadingReservationRequests ||
-                    reservationRequestId == null ||
-                    (reservationSelectedRequest?.sessions.length ?? 0) === 0
-                  }
-                >
-                  <SelectTrigger className="h-9 text-xs text-black border-gray-200">
-                    <SelectValue placeholder={reservationRequestId == null ? 'Chọn request trước' : 'Chọn session'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(reservationSelectedRequest?.sessions ?? []).map((s) => (
-                      <SelectItem key={s.SessionId} value={String(s.SessionId)}>
-                        {`Phiên ${s.SessionNo ?? ''}`.trim()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div ref={reservationSessionPickerRef} className="relative">
+                  <Input
+                    placeholder={reservationRequestId == null ? 'Chọn request trước' : 'Tìm session'}
+                    disabled={
+                      loadingReservationRequests ||
+                      reservationRequestId == null ||
+                      reservationSessions.length === 0
+                    }
+                    value={
+                      reservationSessionDropdownOpen
+                        ? reservationSessionSearch
+                        : reservationSelectedSessionLabel
+                    }
+                    autoComplete="off"
+                    onChange={(e) => setReservationSessionSearch(e.target.value)}
+                    onFocus={() => {
+                      if (loadingReservationRequests || reservationRequestId == null) return
+                      if (reservationSessions.length === 0) return
+                      setReservationSessionDropdownOpen(true)
+                      setReservationSessionSearch('')
+                    }}
+                    className="h-9 text-xs text-black border-gray-200"
+                  />
+
+                  {reservationSessionDropdownOpen && (
+                    <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow">
+                      {filteredReservationSessions.map((s) => (
+                        <button
+                          key={s.SessionId}
+                          type="button"
+                          className={cn(
+                            'w-full text-left px-3 py-2 text-sm hover:bg-gray-50',
+                            reservationSessionId === s.SessionId && 'bg-[#2197C0]/10',
+                          )}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            void handlePickReservationSession(s.SessionId)
+                            setReservationSessionDropdownOpen(false)
+                            setReservationSessionSearch('')
+                          }}
+                        >
+                          {sessionOptionLabel(s)}
+                        </button>
+                      ))}
+                      {reservationSessionSearchQ && filteredReservationSessions.length === 0 && (
+                        <div className="px-3 pb-2 text-xs text-gray-500">
+                          Không tìm thấy session phù hợp.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-black font-medium">
-                Ngày giờ bắt đầu mượn <span className="text-red-500">*</span>
-              </Label>
-              <DatePicker
-                className="w-full h-9 text-black"
-                placeholder="Chọn ngày giờ bắt đầu (khung mượn / availability)"
-                format="DD/MM/YYYY HH:mm"
-                showTime={{ format: 'HH:mm' }}
-                value={reservationBorrowStartAt}
-                onChange={(v) => setReservationBorrowStartAt(v)}
-                allowClear={false}
-                disabledDate={(current) => {
-                  if (!current) return false
-                  const start = loadedReservation?.StartAt ? dayjs(loadedReservation.StartAt) : null
-                  const end = loadedReservation?.EndAt
-                    ? dayjs(loadedReservation.EndAt)
-                    : returnedDueDate
-                      ? returnedDueDate
-                      : null
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-black font-medium">
+                  Ngày giờ bắt đầu mượn <span className="text-red-500">*</span>
+                </Label>
+                <DatePicker
+                  className="w-full h-9 text-black"
+                  placeholder="Chọn ngày giờ bắt đầu (khung mượn / availability)"
+                  format="DD/MM/YYYY HH:mm"
+                  showTime={{ format: 'HH:mm' }}
+                  value={reservationBorrowStartAt}
+                  onChange={(v) => setReservationBorrowStartAt(v)}
+                  allowClear={false}
+                  disabledDate={(current) => {
+                    if (!current) return false
+                    const start = loadedReservation?.StartAt ? dayjs(loadedReservation.StartAt) : null
+                    const end = loadedReservation?.EndAt
+                      ? dayjs(loadedReservation.EndAt)
+                      : returnedDueDate
+                        ? returnedDueDate
+                        : null
 
-                  if (start && start.isValid() && current.isBefore(start, 'day')) return true
-                  if (end && end.isValid() && current.isAfter(end, 'day')) return true
-                  return false
-                }}
-                disabledTime={(current) => {
-                  if (!current) return {}
-                  const start = loadedReservation?.StartAt ? dayjs(loadedReservation.StartAt) : null
-                  const end = loadedReservation?.EndAt
-                    ? dayjs(loadedReservation.EndAt)
-                    : returnedDueDate
-                      ? returnedDueDate
-                      : null
-                  if (!start || !end) return {}
+                    if (start && start.isValid() && current.isBefore(start, 'day')) return true
+                    if (end && end.isValid() && current.isAfter(end, 'day')) return true
+                    return false
+                  }}
+                  disabledTime={(current) => {
+                    if (!current) return {}
+                    const start = loadedReservation?.StartAt ? dayjs(loadedReservation.StartAt) : null
+                    const end = loadedReservation?.EndAt
+                      ? dayjs(loadedReservation.EndAt)
+                      : returnedDueDate
+                        ? returnedDueDate
+                        : null
+                    if (!start || !end) return {}
 
-                  const disabledHours = new Set<number>()
-                  const disabledMinutesByHour = new Map<number, Set<number>>()
-                  const markDisabledMinute = (h: number, m: number) => {
-                    if (!disabledMinutesByHour.has(h)) disabledMinutesByHour.set(h, new Set<number>())
-                    disabledMinutesByHour.get(h)!.add(m)
-                  }
+                    const disabledHours = new Set<number>()
+                    const disabledMinutesByHour = new Map<number, Set<number>>()
+                    const markDisabledMinute = (h: number, m: number) => {
+                      if (!disabledMinutesByHour.has(h)) disabledMinutesByHour.set(h, new Set<number>())
+                      disabledMinutesByHour.get(h)!.add(m)
+                    }
 
-                  // If selected day equals start day: disable times before start (hour/minute)
-                  if (start.isValid() && current.isSame(start, 'day')) {
-                    for (let h = 0; h < start.hour(); h++) disabledHours.add(h)
-                    // same hour -> minutes before start.minute disabled
-                    for (let m = 0; m < start.minute(); m++) markDisabledMinute(start.hour(), m)
-                  }
+                    // If selected day equals start day: disable times before start (hour/minute)
+                    if (start.isValid() && current.isSame(start, 'day')) {
+                      for (let h = 0; h < start.hour(); h++) disabledHours.add(h)
+                      // same hour -> minutes before start.minute disabled
+                      for (let m = 0; m < start.minute(); m++) markDisabledMinute(start.hour(), m)
+                    }
 
-                  // If selected day equals end day: disable times after end (hour/minute)
-                  if (end.isValid() && current.isSame(end, 'day')) {
-                    for (let h = end.hour() + 1; h < 24; h++) disabledHours.add(h)
-                    for (let m = end.minute() + 1; m < 60; m++) markDisabledMinute(end.hour(), m)
-                  }
+                    // If selected day equals end day: disable times after end (hour/minute)
+                    if (end.isValid() && current.isSame(end, 'day')) {
+                      for (let h = end.hour() + 1; h < 24; h++) disabledHours.add(h)
+                      for (let m = end.minute() + 1; m < 60; m++) markDisabledMinute(end.hour(), m)
+                    }
 
-                  return {
-                    disabledHours: () => Array.from(disabledHours).sort((a, b) => a - b),
-                    disabledMinutes: (selectedHour: number) =>
-                      Array.from(disabledMinutesByHour.get(selectedHour) ?? []).sort((a, b) => a - b),
-                  }
-                }}
-              />
+                    return {
+                      disabledHours: () => Array.from(disabledHours).sort((a, b) => a - b),
+                      disabledMinutes: (selectedHour: number) =>
+                        Array.from(disabledMinutesByHour.get(selectedHour) ?? []).sort((a, b) => a - b),
+                    }
+                  }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-black font-medium">
+                  Hạn trả <span className="text-red-500">*</span>
+                </Label>
+                <DatePicker
+                  className="w-full h-9 text-black"
+                  placeholder="Chọn ngày và giờ hạn trả"
+                  format="DD/MM/YYYY HH:mm"
+                  showTime={{ format: 'HH:mm' }}
+                  value={returnedDueDate}
+                  onChange={(value) => setReturnedDueDate(value)}
+                />
+              </div>
             </div>
             {loadedReservation && (
               <div className="rounded-lg border border-[#2197C0]/30 bg-[#2197C0]/5 px-4 py-3 text-sm text-gray-800">
@@ -1300,32 +1540,60 @@ export default function CreateBorrowingModal({
               <Label className="text-black font-medium">
                 Session
               </Label>
-              <Select
-                value={immediateSessionId != null ? String(immediateSessionId) : ''}
-                onValueChange={(value) => {
-                  const sid = Number(value)
-                  setImmediateSessionId(sid)
-                  setSessionIds([sid])
-                  void loadBorrowersFromImmediateSession(sid)
-                }}
-                disabled={
-                  loadingImmediateRequests ||
-                  immediateRequestId == null ||
-                  (immediateRequestOptions.find((r) => r.requestId === immediateRequestId)?.sessions.length ??
-                    0) === 0
-                }
-              >
-                <SelectTrigger className="h-9 text-xs text-black border-gray-200">
-                  <SelectValue placeholder={immediateRequestId == null ? 'Chọn request trước (tuỳ chọn)' : 'Chọn session (tuỳ chọn)'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(immediateRequestOptions.find((r) => r.requestId === immediateRequestId)?.sessions ?? []).map((s) => (
-                    <SelectItem key={s.SessionId} value={String(s.SessionId)}>
-                      {`Phiên ${s.SessionNo ?? ''}`.trim()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div ref={immediateSessionPickerRef} className="relative">
+                <Input
+                  placeholder={immediateRequestId == null ? 'Chọn request trước (tuỳ chọn)' : 'Tìm session (tuỳ chọn)'}
+                  disabled={
+                    loadingImmediateRequests ||
+                    immediateRequestId == null ||
+                    immediateSessions.length === 0
+                  }
+                  value={
+                    immediateSessionDropdownOpen
+                      ? immediateSessionSearch
+                      : immediateSelectedSessionLabel
+                  }
+                  autoComplete="off"
+                  onChange={(e) => setImmediateSessionSearch(e.target.value)}
+                  onFocus={() => {
+                    if (loadingImmediateRequests || immediateRequestId == null) return
+                    if (immediateSessions.length === 0) return
+                    setImmediateSessionDropdownOpen(true)
+                    setImmediateSessionSearch('')
+                  }}
+                  className="h-9 text-xs text-black border-gray-200"
+                />
+
+                {immediateSessionDropdownOpen && (
+                  <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow">
+                    {filteredImmediateSessions.map((s) => (
+                      <button
+                        key={s.SessionId}
+                        type="button"
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-sm hover:bg-gray-50',
+                          immediateSessionId === s.SessionId && 'bg-[#2197C0]/10',
+                        )}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setImmediateSessionId(s.SessionId)
+                          setSessionIds([s.SessionId])
+                          void loadBorrowersFromImmediateSession(s.SessionId)
+                          setImmediateSessionDropdownOpen(false)
+                          setImmediateSessionSearch('')
+                        }}
+                      >
+                        {sessionOptionLabel(s)}
+                      </button>
+                    ))}
+                    {immediateSessionSearchQ && filteredImmediateSessions.length === 0 && (
+                      <div className="px-3 pb-2 text-xs text-gray-500">
+                        Không tìm thấy session phù hợp.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1333,75 +1601,81 @@ export default function CreateBorrowingModal({
           <Label className="text-black font-medium">
             Người mượn <span className="text-red-500">*</span>
           </Label>
-          {isEquipmentManager && modeTab === 'immediate' && immediateSessionId != null && immediateBorrowerOptions.length > 0 ? (
+          {isEquipmentManager && (modeTab === 'immediate' ? immediateSessionId != null : reservationSessionId != null) ? (
             <div className="space-y-2">
-              <Select
-                value={borrowedByMemberId != null ? String(borrowedByMemberId) : 'all'}
-                onValueChange={(value) => {
-                  const id = value === 'all' ? null : Number(value)
-                  setBorrowedByMemberId(id)
-                  if (!id) {
-                    setBorrowerSearch('')
-                  } else {
-                    const picked = immediateBorrowerOptions.find((m) => m.memberId === id)
-                    setBorrowerSearch(picked?.fullName ?? String(id))
-                  }
-                }}
-                disabled={loadingImmediateBorrowers || immediateBorrowerOptions.length === 0}
-              >
-                <SelectTrigger className="h-9 text-xs text-black border-gray-200">
-                  <SelectValue placeholder="Chọn người mượn" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Chọn người mượn</SelectItem>
-                  {immediateBorrowerOptions.map((m) => (
-                    <SelectItem key={m.memberId} value={String(m.memberId)}>
-                      {m.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div ref={sessionBorrowerPickerRef} className="relative">
+                <Input
+                  placeholder="Tìm người mượn trong session..."
+                  disabled={loadingImmediateBorrowers}
+                  value={sessionBorrowerDropdownOpen ? sessionBorrowerSearch : borrowerSearch}
+                  autoComplete="off"
+                  onChange={(e) => setSessionBorrowerSearch(e.target.value)}
+                  onFocus={() => {
+                    setSessionBorrowerDropdownOpen(true)
+                    setSessionBorrowerSearch('')
+                  }}
+                  className="h-9 text-xs text-black border-gray-200"
+                />
 
-              {loadingImmediateBorrowers && (
-                <p className="text-xs text-gray-500">Đang tải danh sách người mượn...</p>
-              )}
+                {sessionBorrowerDropdownOpen && (
+                  <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow">
+                    {(() => {
+                      const list =
+                        modeTab === 'immediate' ? immediateBorrowerOptions : reservationBorrowerOptions
+                      const q = sessionBorrowerSearch.trim().toLowerCase()
+                      const filtered = !q
+                        ? list
+                        : list.filter((m) => {
+                            const name = (m.fullName ?? '').toLowerCase()
+                            const email = (m.email ?? '').toLowerCase()
+                            const idStr = String(m.memberId ?? '').toLowerCase()
+                            return name.includes(q) || email.includes(q) || idStr.includes(q)
+                          })
+
+                      if (loadingImmediateBorrowers) {
+                        return (
+                          <div className="px-3 py-2 text-xs text-gray-500">
+                            Đang tải danh sách người mượn...
+                          </div>
+                        )
+                      }
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="px-3 py-2 text-xs text-gray-500">
+                            Không tìm thấy người phù hợp.
+                          </div>
+                        )
+                      }
+
+                      return filtered.map((m) => (
+                        <button
+                          key={m.memberId}
+                          type="button"
+                          className={cn(
+                            'w-full text-left px-3 py-2 text-sm hover:bg-gray-50',
+                            borrowedByMemberId === m.memberId && 'bg-[#2197C0]/10',
+                          )}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setBorrowedByMemberId(m.memberId)
+                            setBorrowerSearch(m.fullName ?? String(m.memberId))
+                            setSessionBorrowerDropdownOpen(false)
+                            setSessionBorrowerSearch('')
+                          }}
+                        >
+                          <div className="font-medium text-black">{m.fullName}</div>
+                          <div className="text-xs text-gray-500">
+                            {(m.email ?? '').trim() || `Member #${m.memberId}`}
+                          </div>
+                        </button>
+                      ))
+                    })()}
+                  </div>
+                )}
+              </div>
             </div>
           ) : modeTab === 'reservation' ? (
-            reservationSessionId != null ? (
-              reservationBorrowerOptions.length > 0 ? (
-                <div className="space-y-2">
-                  <Select
-                    value={borrowedByMemberId != null ? String(borrowedByMemberId) : ''}
-                    onValueChange={(value) => {
-                      const id = value ? Number(value) : null
-                      setBorrowedByMemberId(id)
-                      if (!id) {
-                        setBorrowerSearch('')
-                      } else {
-                        const picked = reservationBorrowerOptions.find((m) => m.memberId === id)
-                        setBorrowerSearch(picked?.fullName ?? String(id))
-                      }
-                    }}
-                    disabled={loadingReservation || reservationBorrowerOptions.length === 0}
-                  >
-                    <SelectTrigger className="h-9 text-xs text-black border-gray-200">
-                      <SelectValue placeholder="Chọn người mượn" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {reservationBorrowerOptions.map((m) => (
-                        <SelectItem key={m.memberId} value={String(m.memberId)}>
-                          {m.fullName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500">Đang tải người mượn từ đặt trước...</p>
-              )
-            ) : (
-              <p className="text-xs text-gray-500">Vui lòng chọn Request & Session trước</p>
-            )
+            <p className="text-xs text-gray-500">Vui lòng chọn Request & Session trước</p>
           ) : (
             <>
               <div className="flex gap-2">
@@ -1473,6 +1747,7 @@ export default function CreateBorrowingModal({
           )}
         </div>
 
+        {modeTab !== 'reservation' && (
         <div className="space-y-1.5">
           <Label className="text-black font-medium">
             Hạn trả <span className="text-red-500">*</span>
@@ -1513,6 +1788,7 @@ export default function CreateBorrowingModal({
             }}
           />
         </div>
+        )}
 
         <div className="space-y-1.5">
           <Label className="text-black font-medium">

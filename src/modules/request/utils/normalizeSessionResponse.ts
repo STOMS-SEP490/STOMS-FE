@@ -50,6 +50,19 @@ function normalizeTeamSession(raw: unknown): TeamSessionResponse {
   };
 }
 
+function normalizeSessionTopicRef(raw: unknown): SessionResponse['SubjectSession'] {
+  if (raw == null || typeof raw !== 'object') return null;
+  const t = raw as Record<string, unknown>;
+  return {
+    SubjectSessionId:
+      (pick(t, 'SubjectSessionId', 'subjectSessionId') as number | null | undefined) ?? null,
+    EventSessionId:
+      (pick(t, 'EventSessionId', 'eventSessionId') as number | null | undefined) ?? null,
+    Title: (pick(t, 'Title', 'title') as string | null | undefined) ?? null,
+    Description: (pick(t, 'Description', 'description') as string | null | undefined) ?? null,
+  };
+}
+
 export function normalizeSessionResponse(raw: SessionResponse | Record<string, unknown>): SessionResponse {
   const r = raw as Record<string, unknown>;
   const assignmentsRaw = (pick(r, 'Assignments', 'assignments') as unknown[] | null | undefined) ?? [];
@@ -78,6 +91,8 @@ export function normalizeSessionResponse(raw: SessionResponse | Record<string, u
     Contracts: (pick(r, 'Contracts', 'contracts') as SessionResponse['Contracts']) ?? null,
     TaskReports: (pick(r, 'TaskReports', 'taskReports') as SessionResponse['TaskReports']) ?? null,
     TeamSessions: teamSessionsRaw.map(normalizeTeamSession),
+    SubjectSession: normalizeSessionTopicRef(pick(r, 'SubjectSession', 'subjectSession')),
+    EventSession: normalizeSessionTopicRef(pick(r, 'EventSession', 'eventSession')),
     EventSessionSkill: (pick(r, 'EventSessionSkill', 'eventSessionSkill') as SessionResponse['EventSessionSkill']) ?? null,
     SubjectSkill: (pick(r, 'SubjectSkill', 'subjectSkill') as SessionResponse['SubjectSkill']) ?? null,
   };
