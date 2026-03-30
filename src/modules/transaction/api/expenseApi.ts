@@ -118,5 +118,23 @@ export const expenseApi = {
     });
     return mapExpenseFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
+
+  async update(payload: {
+    expenseId: number;
+    amount?: number | null;
+    description?: string | null;
+    paymentImg?: File | null;
+  }): Promise<ExpenseListItem> {
+    const fd = new FormData();
+    if (payload.amount != null) fd.append('Amount', String(payload.amount));
+    if (payload.description != null) fd.append('Description', payload.description);
+    if (payload.paymentImg) fd.append('PaymentImg', payload.paymentImg);
+
+    const res = await axiosClient.put<Record<string, unknown>>(`/expenses/${payload.expenseId}`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return mapExpenseFromApi((res ?? {}) as unknown as Record<string, unknown>);
+  },
 };
 

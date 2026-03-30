@@ -48,7 +48,6 @@ export default function RequestSidebar({
 }: RequestSidebarProps) {
   const navigate = useNavigate();
   const { id } = useParams();
-  const isAssignmentView = basePath.includes('/assignments');
 
   const apiStatuses = (() => {
     if (onlyPending) return ['PENDING'];
@@ -66,22 +65,11 @@ export default function RequestSidebar({
   });
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
+  // Manager assignment view should still display the same request status UI as PC.
+  // Always use the canonical mapping: getRequestStatusInfo.
   const getManagerAssignmentStatusInfo = useMemo(
-    () => (status: string | number | null | undefined) => {
-      const base = getRequestStatusInfo(status);
-      if (!isAssignmentView) return base;
-      const raw = String(status ?? '').trim();
-      const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
-      const code = Number(raw);
-      const isAssigning = normalized === 'ASSIGNING' || (!Number.isNaN(code) && code === 4);
-      if (!isAssigning) return base;
-      return {
-        label: 'Chờ duyệt phân công',
-        className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-        leftBarClass: 'border-l-indigo-500',
-      };
-    },
-    [isAssignmentView],
+    () => (status: string | number | null | undefined) => getRequestStatusInfo(status),
+    [],
   );
 
   const filtered = requestList

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Drawer, message } from 'antd';
-import { BookOpen, CheckCircle, Clock, Eye, GraduationCap, RotateCcw } from 'lucide-react';
+import { Eye, PlusCircle, Pencil, Trash2, ClipboardList, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -284,6 +284,30 @@ export default function AuditLogs() {
       }),
   });
 
+  // Stats (use same audit log API, minimal payload)
+  const { data: totalPaged, isLoading: totalLoading } = useQuery({
+    queryKey: ['audit-logs-summary', 'all'],
+    queryFn: () => auditLogApi.getAuditLogs({ pageNumber: 1, pageSize: 1 }),
+  });
+
+  const { data: createPaged, isLoading: createLoading } = useQuery({
+    queryKey: ['audit-logs-summary', 'Create'],
+    queryFn: () => auditLogApi.getAuditLogs({ pageNumber: 1, pageSize: 1, action: 'Create' }),
+  });
+
+  const { data: updatePaged, isLoading: updateLoading } = useQuery({
+    queryKey: ['audit-logs-summary', 'Update'],
+    queryFn: () => auditLogApi.getAuditLogs({ pageNumber: 1, pageSize: 1, action: 'Update' }),
+  });
+
+  const { data: deletePaged, isLoading: deleteLoading } = useQuery({
+    queryKey: ['audit-logs-summary', 'Delete'],
+    queryFn: () => auditLogApi.getAuditLogs({ pageNumber: 1, pageSize: 1, action: 'Delete' }),
+  });
+
+  const statValue = (loading: boolean, value: number) =>
+    loading ? '—' : value.toLocaleString('vi-VN');
+
   const logs = useMemo(() => paged?.items ?? [], [paged]);
   const totalItems = paged?.totalItems ?? 0;
 
@@ -322,27 +346,32 @@ export default function AuditLogs() {
         )}
       </div>
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-2">
+      <div className="grid grid-cols-4 gap-4 mb-4">
         <StatCard
-          icon={<GraduationCap />}
-          label="Tổng người dùng"
-          value="186"
-          sub="tài khoản đang hoạt động"
+          icon={<ClipboardList />}
+          label="Tổng nhật ký"
+          value={statValue(totalLoading, totalPaged?.totalItems ?? 0)}
+          sub="Bản ghi"
         />
         <StatCard
-          icon={<CheckCircle />}
-          label="Tổng giảng viên"
-          value="42"
-          sub="giảng viên và trợ giảng"
+          icon={<PlusCircle />}
+          label="Tạo mới"
+          value={statValue(createLoading, createPaged?.totalItems ?? 0)}
+          sub="Bản ghi"
           variant="green"
         />
         <StatCard
-          icon={<BookOpen />}
-          label="Vô hiệu hóa"
-          value="156"
-          sub="người dùng đã bị vô hiệu hóa"
+          icon={<Pencil />}
+          label="Cập nhật"
+          value={statValue(updateLoading, updatePaged?.totalItems ?? 0)}
+          sub="Bản ghi"
         />
-        <StatCard icon={<Clock />} label="Tổng buổi học" value="1,248" sub="Buổi học" />
+        <StatCard
+          icon={<Trash2 />}
+          label="Xóa"
+          value={statValue(deleteLoading, deletePaged?.totalItems ?? 0)}
+          sub="Bản ghi"
+        />
       </div>
       {/* <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center ">
   <HoverSearch />

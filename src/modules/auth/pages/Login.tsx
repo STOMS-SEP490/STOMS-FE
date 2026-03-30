@@ -14,7 +14,7 @@ function getHomePathByRole(roleId: number) {
   if (roleId === 3) return '/pc';
   if (roleId === 4 || roleId === 5) return '/teacher';
   if (roleId === 6) return '/em';
-  return '/manager';
+  return '/manager/dashboard';
 }
 
 export default function Login() {
@@ -38,7 +38,7 @@ export default function Login() {
         const roleId = raw ? Number(JSON.parse(raw)?.roleId) : NaN;
         navigate(getHomePathByRole(roleId));
       } catch {
-        navigate('/manager');
+        navigate('/manager/dashboard');
       }
     }
   }, []);

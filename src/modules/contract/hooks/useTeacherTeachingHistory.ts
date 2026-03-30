@@ -51,7 +51,7 @@ export function useTeacherTeachingHistory(params?: { pageSize?: number }) {
         pageNumber: 1,
         pageSize: 500,
         sessionId: undefined,
-        userId: undefined,
+        MemberId: memberId,
       });
       const bySession: Record<number, TaskReport[]> = {};
       (reportRes.items ?? []).forEach((r) => {

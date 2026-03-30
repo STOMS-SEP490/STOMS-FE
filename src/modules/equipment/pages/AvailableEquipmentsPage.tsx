@@ -9,6 +9,7 @@ import { getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/
 import { useCategories } from '@/modules/category/hooks/useCategories';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory';
+import { Image } from 'antd';
 
 export default function AvailableEquipmentsPage() {
   const [items, setItems] = useState<EquipmentListItem[]>([]);
@@ -98,13 +99,13 @@ export default function AvailableEquipmentsPage() {
         cell: ({ row }) =>
           row.original.imgLink ? (
             <div className="w-10 h-10 rounded-md overflow-hidden border bg-gray-50">
-              <img
+              <Image
                 src={row.original.imgLink}
                 alt={row.original.equipmentName}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
+                width={40}
+                height={40}
+                className="object-cover"
+                preview={{ mask: 'Xem ảnh' }}
               />
             </div>
           ) : (

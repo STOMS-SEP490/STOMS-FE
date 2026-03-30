@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus } from 'lucide-react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
@@ -16,6 +16,8 @@ import CategoryDetailSidebar from './CategoryDetailSidebar';
 
 export default function CategoriesManagement() {
   const context = useOutletContext<{ position?: string }>();
+  const location = useLocation();
+  const isEquipmentManager = location.pathname.startsWith('/em/');
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editCategory, setEditCategory] = useState<CategoryListItem | null>(null);
@@ -56,6 +58,7 @@ export default function CategoriesManagement() {
   } = useCategories();
 
   const handleEdit = (category: CategoryListItem) => {
+    if (!isEquipmentManager) return;
     setEditCategory(category);
     setEditOpen(true);
   };
@@ -96,6 +99,7 @@ export default function CategoriesManagement() {
   }, [openDetailFromUrl, categoryIdFromUrl, detailOpen, detailCategory?.categoryId]);
 
   const handleDeleteConfirm = async () => {
+    if (!isEquipmentManager) return;
     if (!categoryToDelete) return;
     try {
       await categoryApi.remove(categoryToDelete.categoryId);
@@ -152,11 +156,13 @@ export default function CategoriesManagement() {
         const category = row.original;
         return (
           <div className="flex items-center gap-3">
-            <Pencil
-              size={16}
-              className="text-blue-600 cursor-pointer"
-              onClick={() => handleEdit(category)}
-            />
+            {isEquipmentManager ? (
+              <Pencil
+                size={16}
+                className="text-blue-600 cursor-pointer"
+                onClick={() => handleEdit(category)}
+              />
+            ) : null}
             <Eye
               size={16}
               className="text-gray-800 cursor-pointer"
@@ -169,6 +175,7 @@ export default function CategoriesManagement() {
   ];
 
   if (context?.position === 'header') {
+    if (!isEquipmentManager) return null;
     return (
       <>
         <Button

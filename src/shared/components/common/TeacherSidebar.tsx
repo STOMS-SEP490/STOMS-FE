@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import memberApi from '@/modules/member/api/memberApi';
 import {
   BookOpen,
+  BarChart3,
   CalendarDays,
-  CheckCircle2,
   ClipboardList,
   Clock,
   FileText,
@@ -18,38 +19,62 @@ import NotificationBell from '@/shared/components/common/NotificationBell';
 
 export default function TeacherSidebar() {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
-  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState('/img/avatar.png');
-  const [memberName, setMemberName] = useState<string>('');
+  const [collapsed, setCollapsed] = useState(true);
+  const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
+    const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
+    return avatarUrl.trim() ? avatarUrl : '/img/avatar.png';
+  });
+  const [memberName, setMemberName] = useState(() => localStorage.getItem('memberFullName') || '');
+
+  const userEmail = useMemo(() => {
+    try {
+      return (JSON.parse(localStorage.getItem('user') || '{}') as { email?: string })?.email || '';
+    } catch {
+      return '';
+    }
+  }, []);
 
   useEffect(() => {
+    const raw = localStorage.getItem('user');
+    if (!raw) return;
+
     try {
-      const u = JSON.parse(localStorage.getItem('user') || '{}') as {
-        fullName?: string;
-        email?: string;
-        avatarUrl?: string;
-      };
-      setMemberName(u.fullName || u.email || '');
-      setSidebarAvatarSrc(u.avatarUrl || '/img/avatar.png');
+      const parsed = JSON.parse(raw) as { memberId?: number };
+      if (!parsed.memberId) return;
+
+      memberApi
+        .getMemberById(parsed.memberId)
+        .then((m) => {
+          if (m?.fullName) {
+            setMemberName(m.fullName);
+            localStorage.setItem('memberFullName', m.fullName);
+          }
+          const avatarUrl = m?.avatarUrl ?? '';
+          if (avatarUrl && String(avatarUrl).trim()) {
+            setSidebarAvatarSrc(String(avatarUrl));
+            localStorage.setItem('memberAvatarUrl', String(avatarUrl));
+          }
+        })
+        .catch(() => {});
     } catch {
-      setMemberName('');
-      setSidebarAvatarSrc('/img/avatar.png');
+      // ignore
     }
   }, []);
 
   const menus = useMemo(
     () => [
+      { label: 'Thống kê', icon: BarChart3, path: '/teacher/dashboard' },
       { label: 'Hồ sơ', icon: UserCircle, path: '/teacher/profile' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/teacher/events' },
       { label: 'Giáo trình', icon: BookOpen, path: '/teacher/courses' },
       {
         label: 'Thời khóa biểu & phân công',
         icon: Clock,
-        path: '/teacher/timetable',
+        // Default to list view; calendar is accessible via the toggle inside timetable pages.
+        path: '/teacher/timetable/assignments',
         matchPrefixPath: '/teacher/timetable',
       },
       { label: 'Danh sách phiên đã dạy', icon: Clock, path: '/teacher/teaching-history' },
-      { label: 'Điểm danh', icon: CheckCircle2, path: '/teacher/attendance' },
       { label: 'Báo cáo công việc', icon: ClipboardList, path: '/teacher/tasks' },
       { label: 'Hợp đồng', icon: FileText, path: '/teacher/contracts' },
       { label: 'Đóng góp quỹ', icon: Wallet, path: '/teacher/fund-contributions' },
@@ -113,11 +138,11 @@ export default function TeacherSidebar() {
           </div>
           <div className="mt-4 text-center">
             <div className="font-medium text-slate-700">
-              Xin chào {memberName || JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
+              Xin chào{memberName ? ` ${memberName}` : ''}
             </div>
-            <div className="text-sm text-slate-400">
-              {JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
-            </div>
+            {userEmail ? (
+              <div className="text-sm text-slate-400">{userEmail}</div>
+            ) : null}
           </div>
         </button>
       )}
@@ -145,7 +170,7 @@ export default function TeacherSidebar() {
         >
           {menus.map((m) => {
             const Icon = m.icon;
-            const isTimetable = m.path === '/teacher/timetable';
+            const isTimetable = m.matchPrefixPath === '/teacher/timetable';
 
             return (
               <NavLink
@@ -153,14 +178,18 @@ export default function TeacherSidebar() {
                 to={m.path}
                 end={!isTimetable}
               >
-                {({ isActive }) => (
-                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
+                {({ isActive }) => {
+                  // NavLink `end` mặc định yêu cầu match chính xác; với route con (vd: /teacher/tasks/:id)
+                  // vẫn nên coi là active để hiển thị tooltip/hiệu ứng.
+                  const active = isActive || window.location.pathname.startsWith(`${m.path}/`);
+                  return (
+                    <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
                     <div
                       className={` 
                         h-full rounded-xl 
                         flex flex-col items-center justify-center
                         transition-all
-                        ${isActive ? 'opacity-0' : 'group-hover:opacity-0'}
+                        ${active ? 'opacity-0' : 'group-hover:opacity-0'}
                       `}
                     >
                       <Icon size={18} className="text-gray-400" />
@@ -175,7 +204,7 @@ export default function TeacherSidebar() {
                         flex flex-col items-center justify-center
                         transition-all duration-300
                         ${
-                          isActive
+                          active
                             ? 'bg-[#208aae] text-white scale-100'
                             : 'bg-[#208aae] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
                         }
@@ -198,13 +227,15 @@ export default function TeacherSidebar() {
                           transition-all duration-200
                           whitespace-nowrap
                           shadow-lg z-50
+                          ${active ? 'opacity-100' : ''}
                         "
                       >
                         {m.label}
                       </div>
                     )}
                   </div>
-                )}
+                  );
+                }}
               </NavLink>
             );
           })}

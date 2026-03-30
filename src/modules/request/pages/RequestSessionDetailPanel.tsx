@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { Clock, Calendar, MapPin, Hash, GraduationCap, Users } from 'lucide-react';
+import { Clock, Calendar, MapPin, Hash, GraduationCap, Users, SquarePen } from 'lucide-react';
+import { message } from 'antd';
 import reservationService from '../../reservation/api/reservationApi';
-import type { EquipmentReservationItemResponse } from '@/modules/reservation/reservation.types';
+import type { EquipmentReservationItemResponse, ReservationDetail } from '@/modules/reservation/reservation.types';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import { ImageOff } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import EditReservationModal from '@/modules/reservation/pages/EditReservationModal';
 import type { RequestSessionSummary } from '../request';
 import sessionService from '../api/sessionApi';
 import type { PagedResponse, SessionResponse } from '../session.types';
@@ -20,6 +23,8 @@ export type SessionDetailProps = {
   requestCode: string;
   showReservedEquipment?: boolean;
   sectionMode?: 'all' | 'info' | 'equipment';
+  /** Gọi sau khi sửa đặt trước thành công (vd. đồng bộ lại session / yêu cầu). */
+  onReservationUpdated?: () => void | Promise<void>;
 };
 
 export default function RequestSessionDetailPanel({
@@ -28,6 +33,7 @@ export default function RequestSessionDetailPanel({
   requestCode,
   showReservedEquipment = true,
   sectionMode = 'all',
+  onReservationUpdated,
 }: SessionDetailProps) {
   const renderInfoCard = sectionMode === 'all' || sectionMode === 'info';
   const renderEquipmentCard = (sectionMode === 'all' || sectionMode === 'equipment') && showReservedEquipment;
@@ -39,6 +45,11 @@ export default function RequestSessionDetailPanel({
   const [reservedEquipments, setReservedEquipments] = useState<EquipmentReservationItemResponse[]>([]);
   const [reservedLoading, setReservedLoading] = useState(false);
   const [reservedError, setReservedError] = useState<string | null>(null);
+  const [reservedListVersion, setReservedListVersion] = useState(0);
+
+  const [editReservationOpen, setEditReservationOpen] = useState(false);
+  const [editReservationDetail, setEditReservationDetail] = useState<ReservationDetail | null>(null);
+  const [editReservationLoading, setEditReservationLoading] = useState(false);
 
   useEffect(() => {
     if (!shouldFetchSessionDetail) {
@@ -151,7 +162,39 @@ export default function RequestSessionDetailPanel({
       }
     };
     void fetchReserved();
-  }, [resolvedReservationId, showReservedEquipment]);
+  }, [resolvedReservationId, showReservedEquipment, reservedListVersion]);
+
+  const handleOpenEditReservation = useCallback(async () => {
+    if (!resolvedReservationId) return;
+    setEditReservationLoading(true);
+    try {
+      const raw = await reservationService.getById(resolvedReservationId);
+      setEditReservationDetail(normalizeReservationResponse(raw));
+      setEditReservationOpen(true);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Không tải được thông tin đặt trước.';
+      message.error(msg);
+    } finally {
+      setEditReservationLoading(false);
+    }
+  }, [resolvedReservationId]);
+
+  const handleEditReservationSaved = useCallback(
+    async (_detail: ReservationDetail) => {
+      setEditReservationOpen(false);
+      setEditReservationDetail(null);
+      setReservedListVersion((v) => v + 1);
+      try {
+        await onReservationUpdated?.();
+      } catch {
+        /* parent đã toast lỗi nếu cần */
+      }
+    },
+    [onReservationUpdated],
+  );
 
   return (
     <div className="space-y-4 text-sm">
@@ -238,11 +281,24 @@ export default function RequestSessionDetailPanel({
       {renderEquipmentCard && (
         <>
           <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
-            <div className="px-4 py-2.5 border-b border-gray-100">
+            <div className="px-4 py-2.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold text-gray-900 text-sm">Danh sách thiết bị mượn trước</h3>
+              {resolvedReservationId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs border-sky-200 text-sky-700 hover:bg-sky-50"
+                  disabled={editReservationLoading}
+                  onClick={() => void handleOpenEditReservation()}
+                >
+                  <SquarePen className="w-3.5 h-3.5" />
+                  Sửa đặt trước
+                </Button>
+              ) : null}
             </div>
             <div className="px-4 py-3 space-y-2">
-              {session.reservationId == null ? (
+              {!resolvedReservationId ? (
                 <p className="text-xs text-gray-500">Chưa có thiết bị mượn trước cho phiên này.</p>
               ) : reservedLoading ? (
                 <p className="text-xs text-gray-500">Đang tải danh sách thiết bị...</p>
@@ -299,6 +355,16 @@ export default function RequestSessionDetailPanel({
           </div>
         </>
       )}
+
+      <EditReservationModal
+        open={editReservationOpen}
+        reservation={editReservationDetail}
+        onClose={() => {
+          setEditReservationOpen(false);
+          setEditReservationDetail(null);
+        }}
+        onSaved={handleEditReservationSaved}
+      />
     </div>
   );
 }

@@ -468,15 +468,17 @@ export default function UserProfile() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-800">Hồ sơ của tôi</h1>
-          <p className="text-sm text-gray-500">
-            Thông tin tài khoản hiện tại đang đăng nhập trong hệ thống.
+    <div
+      className="bg-slate-50 p-6"
+      style={{ minHeight: 'var(--content-height, 100vh)' }}
+    >
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="rounded-2xl border border-teal-800 bg-teal-700 shadow-sm px-6 py-5">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white">Hồ sơ người dùng</h1>
+          <p className="mt-1 text-sm text-white/80">
+            Quản lý thông tin cá nhân và bảo mật tài khoản.
           </p>
         </div>
-      </div>
 
       <Dialog
         open={openChangePassword}
@@ -552,33 +554,42 @@ export default function UserProfile() {
         </form>
       </Dialog>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="rounded-2xl border border-slate-200 shadow-sm">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
               <div>
                 <CardTitle className="text-lg">Thông tin tài khoản</CardTitle>
                 <CardDescription>Chi tiết tài khoản đăng nhập hiện tại.</CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100">
+              <div className="flex flex-wrap items-center gap-2 justify-end">
+                <Badge variant="secondary" className="bg-teal-50 text-teal-700 border-teal-100">
                   {roleLabel}
                 </Badge>
-                <Button variant="outline" onClick={() => setOpenChangePassword(true)}>
+                <Button
+                  variant="outline"
+                  className="bg-white border-slate-200 hover:bg-slate-50"
+                  onClick={() => setOpenChangePassword(true)}
+                >
                   Đổi mật khẩu
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
-              <Field label="User ID" value={userDetail?.userId ?? user.id} />
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Email" value={userDetail?.email ?? user.email} />
               <Field
                 label="Trạng thái"
                 value={
                   userDetail?.isActive ? (
-                    <span className="text-green-600">Đang hoạt động</span>
+                    <span className="inline-flex items-center gap-2 text-emerald-700">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Đang hoạt động
+                    </span>
                   ) : (
-                    <span className="text-red-600">Đã khóa</span>
+                    <span className="inline-flex items-center gap-2 text-rose-700">
+                      <span className="h-2 w-2 rounded-full bg-rose-500" />
+                      Đã khóa
+                    </span>
                   )
                 }
               />
@@ -593,7 +604,7 @@ export default function UserProfile() {
             </CardContent>
           </Card>
 
-          <Card>
+            <Card className="rounded-2xl border border-slate-200 shadow-sm">
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -629,14 +640,19 @@ export default function UserProfile() {
             <div className="text-sm text-gray-500">Tài khoản này chưa có thông tin thành viên.</div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <img
-                  src={memberDetail.avatarUrl || '/img/ava.png'}
-                  className="w-20 h-20 rounded-full object-cover border"
-                  alt=""
-                />
-                <div className="space-y-2">
-                  <div className="text-sm text-gray-600">Avatar</div>
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <img
+                    src={memberDetail.avatarUrl || '/img/ava.png'}
+                    className="w-20 h-20 rounded-2xl object-cover border border-slate-200 bg-white shadow-sm"
+                    alt=""
+                  />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="text-sm font-medium text-slate-900">Ảnh đại diện</div>
+                    <div className="text-xs text-slate-500">
+                      Hỗ trợ JPG/PNG/WebP · Tối đa 5MB
+                    </div>
+                  </div>
                   <label className="inline-flex">
                     <input
                       type="file"
@@ -645,85 +661,109 @@ export default function UserProfile() {
                       onChange={(e) => handleAvatarFile(e.target.files?.[0] ?? null)}
                       disabled={savingMember}
                     />
-                    <span
-                      className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm border cursor-pointer"
-                    >
-                      {savingMember ? 'Đang lưu...' : avatarFile ? 'Đã chọn avatar' : 'Tải ảnh lên'}
+                    <span className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
+                      {savingMember ? 'Đang lưu...' : avatarFile ? 'Đã chọn ảnh' : 'Đổi ảnh'}
                     </span>
                   </label>
-                  <div className="text-xs text-gray-500">Hỗ trợ JPG/PNG/WebP.</div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Member ID" value={memberDetail.memberId} />
                 <div>
-                  <Label className="text-xs text-gray-400 mb-1">Họ và tên</Label>
+                  <Label className="text-xs text-slate-500 mb-1">Họ và tên</Label>
                   {editingMember ? (
-                    <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                    <Input
+                      className="bg-white border-slate-200 focus-visible:ring-sky-400"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                    />
                   ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
+                    <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-900">
                       {memberDetail.fullName ?? '—'}
                     </div>
                   )}
                 </div>
-                <Field label="Nhóm (Team)" value={memberDetail.team?.teamName ?? '—'} />
                 <div>
-                  <Label className="text-xs text-gray-400 mb-1">Số điện thoại</Label>
+                  <Label className="text-xs text-slate-500 mb-1">Số điện thoại</Label>
                   {editingMember ? (
-                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    <Input
+                      className="bg-white border-slate-200 focus-visible:ring-sky-400"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
                   ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
+                    <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-900">
                       {memberDetail.phone ?? '—'}
                     </div>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-400 mb-1">Địa chỉ</Label>
+                  <Label className="text-xs text-slate-500 mb-1">Địa chỉ</Label>
                   {editingMember ? (
-                    <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+                    <Input
+                      className="bg-white border-slate-200 focus-visible:ring-sky-400"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                    />
                   ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
+                    <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-900">
                       {memberDetail.address ?? '—'}
                     </div>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-400 mb-1">CMND/CCCD</Label>
+                  <Label className="text-xs text-slate-500 mb-1">CMND/CCCD</Label>
                   {editingMember ? (
-                    <Input value={cin} onChange={(e) => setCin(e.target.value)} />
+                    <Input
+                      className="bg-white border-slate-200 focus-visible:ring-sky-400"
+                      value={cin}
+                      onChange={(e) => setCin(e.target.value)}
+                    />
                   ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
+                    <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-900">
                       {memberDetail.cin ?? '—'}
                     </div>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-400 mb-1">Mã số thuế</Label>
+                  <Label className="text-xs text-slate-500 mb-1">Mã số thuế</Label>
                   {editingMember ? (
-                    <Input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
+                    <Input
+                      className="bg-white border-slate-200 focus-visible:ring-sky-400"
+                      value={taxNumber}
+                      onChange={(e) => setTaxNumber(e.target.value)}
+                    />
                   ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
+                    <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-900">
                       {memberDetail.taxNumber ?? '—'}
                     </div>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-400 mb-1">Mã ngân hàng</Label>
+                  <Label className="text-xs text-slate-500 mb-1">Mã ngân hàng</Label>
                   {editingMember ? (
-                    <Input value={bankCode} onChange={(e) => setBankCode(e.target.value)} />
+                    <Input
+                      className="bg-white border-slate-200 focus-visible:ring-sky-400"
+                      value={bankCode}
+                      onChange={(e) => setBankCode(e.target.value)}
+                    />
                   ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
+                    <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-900">
                       {memberDetail.bankCode ?? '—'}
                     </div>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-400 mb-1">Tên ngân hàng</Label>
+                  <Label className="text-xs text-slate-500 mb-1">Tên ngân hàng</Label>
                   {editingMember ? (
-                    <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+                    <Input
+                      className="bg-white border-slate-200 focus-visible:ring-sky-400"
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                    />
                   ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
+                    <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-900">
                       {memberDetail.bankName ?? '—'}
                     </div>
                   )}
@@ -731,13 +771,13 @@ export default function UserProfile() {
               </div>
 
               <div className="border-t pt-4">
-                <div className="text-sm font-medium text-gray-700 mb-2">Kỹ năng</div>
+                <div className="text-sm font-medium text-slate-800 mb-2">Kỹ năng</div>
                 {skillNames.length === 0 ? (
                   <div className="text-sm text-gray-500">Chưa có kỹ năng nào</div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {skillNames.map((name) => (
-                      <Badge key={name} variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100">
+                      <Badge key={name} variant="secondary" className="bg-sky-50 text-sky-700 border-sky-100">
                         {name}
                       </Badge>
                     ))}
@@ -747,25 +787,26 @@ export default function UserProfile() {
             </div>
           )}
         </CardContent>
-          </Card>
-        </div>
+            </Card>
+          </div>
 
-        <div className="lg:sticky lg:top-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div className="lg:sticky lg:top-6">
+            <Card className="rounded-2xl border border-slate-200 shadow-sm">
+            <CardHeader className="space-y-3">
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-sky-600" />
+                  <BarChart3 className="h-5 w-5 text-teal-600" />
                   Workload của tôi
                 </CardTitle>
                 <CardDescription>
                   Thống kê hiệu suất giảng dạy của bạn theo khoảng thời gian.
                 </CardDescription>
               </div>
+
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-500">Khoảng:</span>
                 <select
-                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-sky-400"
+                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-teal-400"
                   value={workloadRange}
                   onChange={(e) =>
                     setWorkloadRange(e.target.value as NonNullable<DashboardRangeParams['range']>)
@@ -809,7 +850,7 @@ export default function UserProfile() {
                           labelFormatter={(label) => `Chỉ số: ${label}`}
                         />
                         <Legend />
-                        <Bar dataKey="value" name="Giá trị" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
+                        <Bar dataKey="value" name="Giá trị" fill="#14b8a6" radius={[8, 8, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -849,6 +890,7 @@ export default function UserProfile() {
             </CardContent>
           </Card>
         </div>
+        </div>
       </div>
     </div>
   );
@@ -857,8 +899,8 @@ export default function UserProfile() {
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
-      <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
+      <p className="text-xs text-slate-500 mb-1">{label}</p>
+      <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-900">
         {value ?? '—'}
       </div>
     </div>

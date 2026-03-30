@@ -1,9 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import dayjs from 'dayjs';
+import 'dayjs/locale/vi';
 import {
   CalendarDays,
+  ChevronRight,
+  Globe,
   LogIn,
   LogOut,
   List,
+  MapPin,
   UserCheck,
   X,
 } from 'lucide-react';
@@ -18,6 +23,9 @@ import {
 } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
 import attendanceApi from '../../request/api/attendanceApi';
 import { useTeamLeaderAttendancePanel } from '@/modules/contract/hooks/useTeamLeaderAttendancePanel';
+import requestApi from '@/modules/request/api/requestApi';
+import TeamLeaderSessionDetailPanel from '@/modules/request/pages/TeamLeaderSessionDetailPanel';
+import type { RequestListItem, RequestSessionSummary } from '@/modules/request/request';
 
 function formatDateTime(value?: string) {
   if (!value) return '—';
@@ -26,7 +34,17 @@ function formatDateTime(value?: string) {
 
 function formatDate(value?: string) {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString('vi-VN');
+  return dayjs(value).locale('vi').format('DD/MM/YYYY');
+}
+
+function formatTimeRange(startAt?: string, endAt?: string) {
+  if (!startAt || !endAt) return '—';
+  return `${dayjs(startAt).format('HH:mm')} - ${dayjs(endAt).format('HH:mm')}`;
+}
+
+function getSessionDisplayName(row: TeamLeaderTimetableAssignmentRow) {
+  if (row.sessionNo != null) return `Phiên ${row.sessionNo}`;
+  return 'Phiên dạy';
 }
 
 function getInitials(name?: string) {
@@ -57,10 +75,12 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
   const byMember = rolePrefix === '/teacher';
   const isAttendanceTab = props?.isAttendanceTab ?? false;
   const isEmbedded = props?.embedded ?? false;
-  const statuses = useMemo(
-    () => (isAttendanceTab ? ['ASSIGNED', 'ONGOING'] : ['ASSIGNED', 'ONGOING']),
-    [isAttendanceTab],
-  );
+  const statuses = useMemo(() => {
+    if (byMember) return ['ASSIGNED', 'ONGOING'];
+    if (isAttendanceTab) return ['ASSIGNED', 'ONGOING'];
+    // TL (timetable/assignments) phải theo đúng session/filter để đúng trạng thái phiên.
+    return ['ASSIGNED', 'ONGOING'];
+  }, [byMember, isAttendanceTab]);
   const internal = useTeamLeaderTimetableAssignments({ pageSize: 8, statuses, todayOnly: isAttendanceTab, byMember });
 
   const items = props?.items ?? internal.items;
@@ -80,7 +100,6 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
     activeSession,
     sessionDetail,
     attendanceItems,
-    setAttendanceItems,
     membersById,
     attendanceByMemberIdForSession,
     memberSearch,
@@ -94,7 +113,75 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
     openPanel,
     closePanel,
     saveAttendance,
+    refreshAttendanceItems,
   } = useTeamLeaderAttendancePanel({ refetch });
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailRequest, setDetailRequest] = useState<RequestListItem | null>(null);
+  const [detailSession, setDetailSession] = useState<RequestSessionSummary | null>(null);
+  const [detailRow, setDetailRow] = useState<TeamLeaderTimetableAssignmentRow | null>(null);
+  const detailFetchSeq = useRef(0);
+
+  const closeDetail = () => {
+    detailFetchSeq.current += 1;
+    setDetailOpen(false);
+    setDetailLoading(false);
+    setDetailError(null);
+    setDetailRequest(null);
+    setDetailSession(null);
+    setDetailRow(null);
+  };
+
+  const openDetail = async (row: TeamLeaderTimetableAssignmentRow) => {
+    if (!row?.sessionId) return;
+    if (!row?.requestId) {
+      setDetailOpen(true);
+      setDetailLoading(false);
+      setDetailRequest(null);
+      setDetailSession(null);
+      setDetailRow(row);
+      setDetailError('Không tìm thấy requestId của phiên này.');
+      return;
+    }
+
+    detailFetchSeq.current += 1;
+    const seq = detailFetchSeq.current;
+
+    setDetailOpen(true);
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetailRequest(null);
+    setDetailSession(null);
+    setDetailRow(row);
+
+    try {
+      const requestDetail = await requestApi.getById(row.requestId);
+      if (seq !== detailFetchSeq.current) return;
+
+      const rawSession = (requestDetail.sessions ?? []).find(
+        (s) => Number(s.sessionId) === row.sessionId,
+      ) as RequestSessionSummary | undefined;
+
+      if (!rawSession) {
+        throw new Error('Không tìm thấy phiên trong yêu cầu.');
+      }
+
+      setDetailRequest(requestDetail);
+      setDetailSession(rawSession);
+    } catch (err: unknown) {
+      if (seq !== detailFetchSeq.current) return;
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Không tải được chi tiết phiên.';
+      setDetailError(msg);
+    } finally {
+      if (seq !== detailFetchSeq.current) return;
+      setDetailLoading(false);
+    }
+  };
 
   const filteredAttendanceItems = useMemo(() => {
     const keyword = memberSearch.trim().toLowerCase();
@@ -109,286 +196,420 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
   }, [attendanceItems, memberSearch, membersById]);
 
   const columns: ColumnDef<TeamLeaderTimetableAssignmentRow>[] = useMemo(
-    () => [
-      {
-        id: 'date',
-        header: 'Ngày',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="text-xs text-gray-700 whitespace-nowrap">
-            <div className="font-medium text-gray-900">{formatDate(row.original.startAt)}</div>
-          </div>
-        ),
-      },
-      {
-        id: 'time',
-        header: 'Giờ',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="text-xs text-gray-700 whitespace-nowrap">
-            <div className="font-medium text-gray-900">
-              {formatDateTime(row.original.startAt)} - {formatDateTime(row.original.endAt)}
-            </div>
-          </div>
-        ),
-      },
-      {
-        id: 'location',
-        header: 'Địa điểm',
-        cell: ({ row }) => (
-          <div className="text-sm text-gray-700">
-            <span className="font-medium text-slate-900">{row.original.location || '—'}</span>
-            <span className="text-xs text-gray-500">
-              {' '}
-              • {(row.original.location ?? '').toLowerCase().includes('online') ? 'Online' : 'Offline'}
-            </span>
-          </div>
-        ),
-      },
-      {
-        id: 'status',
-        header: 'Trạng thái',
-        enableSorting: false,
-        cell: ({ row }) => {
-          const info = getSessionStatusInfo(row.original.status);
-          let label = info.label;
-          if (isAttendanceTab) {
-            const statusUpper = String(row.original.status ?? '').toUpperCase();
-            if (statusUpper.includes('ONGOING')) label = 'Đang diễn ra';
-            if (statusUpper.includes('ASSIGNED')) label = 'Sắp tới';
-          }
-          return (
-            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
-              {label}
-            </span>
-          );
-        },
-      },
-      ...(isAttendanceTab ? [
-        {
-        id: 'actions',
-        header: 'Điểm danh',
-        enableSorting: false,
-        cell: ({ row }: { row: { original: TeamLeaderTimetableAssignmentRow } }) => {
-          return (() => {
-            const statusUpper = String(row.original.status ?? '').toUpperCase();
-            const jwtMemberId = currentMemberId;
-            const attendanceByMemberId = row.original.attendanceByMemberId ?? null;
-            const isOngoing = statusUpper.includes('ONGOING');
-            const isCompletedSession = statusUpper.includes('COMPLETED');
-            const startAtMs = row.original.startAt ? new Date(row.original.startAt).getTime() : Number.NaN;
-            const endAtMs = row.original.endAt ? new Date(row.original.endAt).getTime() : Number.NaN;
-            const isPreCheckinWindow =
-              !Number.isNaN(startAtMs) &&
-              Date.now() >= startAtMs - 30 * 60 * 1000 &&
-              Date.now() < startAtMs;
-            const isAfterEnd = !Number.isNaN(endAtMs) && Date.now() >= endAtMs;
-
-            const isResponsibleForSession =
-              jwtMemberId != null && attendanceByMemberId != null && attendanceByMemberId === jwtMemberId;
-
-            const checkinAt = row.original.checkinAt ?? null;
-            const checkoutAt = row.original.checkoutAt ?? null;
-
-            const canCheckin =
-              isAttendanceTab && !isCompletedSession && (isOngoing || isPreCheckinWindow) && isResponsibleForSession;
-            const canCheckout =
-              isAttendanceTab &&
-              isResponsibleForSession &&
-              checkinAt != null &&
-              checkoutAt == null &&
-              (isOngoing || isCompletedSession || isAfterEnd);
-
-            if (isAttendanceTab && (isOngoing || isPreCheckinWindow) && !isResponsibleForSession) {
+    () => {
+      if (!isAttendanceTab && !byMember) {
+        return [
+          {
+            id: 'date',
+            header: 'NGÀY',
+            enableSorting: false,
+            cell: ({ row }) => (
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-slate-900">
+                  {formatDate(row.original.startAt)}
+                </span>
+                <span className="text-xs text-slate-500">{formatTimeRange(row.original.startAt, row.original.endAt)}</span>
+              </div>
+            ),
+          },
+          {
+            id: 'sessionName',
+            header: 'PHIÊN',
+            enableSorting: false,
+            cell: ({ row }) => (
+              <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
+                <div className="text-[13px] font-semibold text-slate-900 line-clamp-2">
+                  {row.original.requestName || row.original.requestCode || '—'}
+                </div>
+                <div className="text-[11px] text-slate-500">{getSessionDisplayName(row.original)}</div>
+              </div>
+            ),
+          },
+          {
+            id: 'requestCode',
+            header: 'YÊU CẦU',
+            enableSorting: false,
+            cell: ({ row }) => (
+              <div className="min-w-0 max-w-[180px]">
+                <div className="text-xs text-slate-600 truncate">
+                  <span className="font-semibold text-slate-900">{row.original.requestCode ?? '—'}</span>
+                </div>
+              </div>
+            ),
+          },
+          {
+            id: 'sessionStatus',
+            header: 'Trạng thái phiên',
+            enableSorting: false,
+            cell: ({ row }) => {
+              const info = getSessionStatusInfo(row.original.status);
               return (
-                <span className="inline-flex w-fit items-center gap-0.5 justify-self-end rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600 whitespace-nowrap">
-                  Chỉ người điểm danh
+                <span
+                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}
+                >
+                  {info.label}
                 </span>
               );
-            }
-
-            const dashNode = (
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-400 whitespace-nowrap">
-                --
-              </span>
-            );
-
-            const checkinNode = (() => {
-              if (isAttendanceTab) {
-                if (canCheckin && checkinAt == null) {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => void openPanel(row.original, 'checkin')}
-                      className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
-                      title="Check-in member cho phiên này"
-                    >
-                      <LogIn className="h-3 w-3" />
-                      Check-in
-                    </button>
-                  );
-                }
-
-                if (checkinAt != null) {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => void openPanel(row.original, 'checkin')}
-                      className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 whitespace-nowrap"
-                      title="Sửa điểm danh check-in"
-                    >
-                      <LogIn className="h-3 w-3" />
-                      Check-in: {formatDateTime(checkinAt ?? undefined)}
-                    </button>
-                  );
-                }
-                return dashNode;
-              }
-
-              // Tab phân công: chỉ hiển thị thời gian khi phiên đang diễn ra / completed
-              if (isOngoing || isCompletedSession) {
-                return checkinAt != null ? (
-                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 whitespace-nowrap">
-                    Check-in: {formatDateTime(checkinAt ?? undefined)}
-                  </span>
-                ) : (
-                  dashNode
-                );
-              }
-
-              return dashNode;
-            })();
-
-            const checkoutNode = (() => {
-              if (isAttendanceTab) {
-                  if ((isOngoing || isCompletedSession || isAfterEnd) && !isResponsibleForSession) {
-                    return dashNode;
-                  }
-                if (canCheckout && checkoutAt == null) {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => void openPanel(row.original, 'checkout')}
-                      className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
-                      title="Check-out member cho phiên này"
-                    >
-                      <LogOut className="h-3 w-3" />
-                      Check-out
-                    </button>
-                  );
-                }
-
-                if (checkoutAt != null) {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => void openPanel(row.original, 'checkout')}
-                      className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100 whitespace-nowrap"
-                      title="Sửa điểm danh check-out"
-                    >
-                      <LogOut className="h-3 w-3" />
-                      Check-out: {formatDateTime(checkoutAt ?? undefined)}
-                    </button>
-                  );
-                }
-                return dashNode;
-              }
-
-              if (isOngoing || isCompletedSession) {
-                return checkoutAt != null ? (
-                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 whitespace-nowrap">
-                    Check-out: {formatDateTime(checkoutAt ?? undefined)}
-                  </span>
-                ) : (
-                  dashNode
-                );
-              }
-
-              return dashNode;
-            })();
-
-            return (
-              <div className="grid grid-cols-2 items-center gap-2">
-                <div className="justify-self-start">{checkinNode}</div>
-                <div className="justify-self-start">{checkoutNode}</div>
-              </div>
-            );
-          })();
-        },
+            },
+          },
+          {
+            id: 'location',
+            header: 'ĐỊA ĐIỂM',
+            enableSorting: false,
+            cell: ({ row }) => {
+              const online =
+                row.original.isOnline === true ||
+                String(row.original.location ?? '').toLowerCase().includes('online');
+              return (
+                <div className="flex items-start gap-2 max-w-[220px]">
+                  {online ? (
+                    <Globe className="h-4 w-4 text-violet-500 mt-0.5" />
+                  ) : (
+                    <MapPin className="h-4 w-4 text-sky-600 mt-0.5" />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-slate-900 truncate">
+                      {row.original.location || '—'}
+                    </div>
+                    <div className="text-[11px] text-slate-500 truncate">{online ? 'Online' : 'Offline'}</div>
+                  </div>
+                </div>
+              );
+            },
+          },
+          {
+            id: 'operation',
+            header: 'THAO TÁC',
+            enableSorting: false,
+            cell: ({ row }) => (
+              <button
+                type="button"
+                onClick={() => void openDetail(row.original)}
+                className="inline-flex items-center gap-0.5 text-sm font-medium text-sky-600 underline-offset-2 hover:text-sky-800 hover:underline whitespace-nowrap"
+                title="Xem chi tiết phiên học"
+              >
+                Xem chi tiết
+                <ChevronRight className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              </button>
+            ),
+          },
+        ];
       }
-      ]
-      : [
+
+      // Attendance tab: giữ nguyên layout cũ (có cột Check-in/Check-out).
+      return [
         {
-          id: 'role',
-          header: 'Vai trò',
+          id: 'date',
+          header: 'Ngày',
           enableSorting: false,
-          cell: ({ row }: { row: { original: TeamLeaderTimetableAssignmentRow } }) => {
-            if (!row.original.roleLabel) return null;
+          cell: ({ row }) => (
+            <div className="text-xs text-gray-700 whitespace-nowrap">
+              <div className="font-medium text-gray-900">{formatDate(row.original.startAt)}</div>
+            </div>
+          ),
+        },
+        {
+          id: 'time',
+          header: 'Giờ',
+          enableSorting: false,
+          cell: ({ row }) => (
+            <div className="text-xs text-gray-700 whitespace-nowrap">
+              <div className="font-medium text-gray-900">
+                {formatDateTime(row.original.startAt)} - {formatDateTime(row.original.endAt)}
+              </div>
+            </div>
+          ),
+        },
+        {
+          id: 'location',
+          header: 'Địa điểm',
+          cell: ({ row }) => (
+            <div className="text-sm text-gray-700">
+              <span className="font-medium text-slate-900">{row.original.location || '—'}</span>
+              <span className="text-xs text-gray-500">
+                {' '}
+                • {(row.original.location ?? '').toLowerCase().includes('online') ? 'Online' : 'Offline'}
+              </span>
+            </div>
+          ),
+        },
+        {
+          id: 'requestCode',
+          header: 'Mã request',
+          enableSorting: false,
+          cell: ({ row }) => (
+            <span className="text-xs text-gray-700 whitespace-nowrap font-semibold">
+              {row.original.requestCode ?? '—'}
+            </span>
+          ),
+        },
+        {
+          id: 'sessionNo',
+          header: 'Buổi số',
+          enableSorting: false,
+          cell: ({ row }) => (
+            <span className="text-xs text-gray-700 whitespace-nowrap">
+              Buổi: {row.original.sessionNo ?? '—'}
+            </span>
+          ),
+        },
+        {
+          id: 'status',
+          header: 'Trạng thái',
+          enableSorting: false,
+          cell: ({ row }) => {
+            const info = getSessionStatusInfo(row.original.status);
+            let label = info.label;
+            if (isAttendanceTab) {
+              const statusUpper = String(row.original.status ?? '').toUpperCase();
+              if (statusUpper.includes('ONGOING')) label = 'Đang diễn ra';
+              if (statusUpper.includes('ASSIGNED')) label = 'Sắp tới';
+            }
             return (
-              <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border border-slate-200 bg-slate-50 text-slate-700 whitespace-nowrap">
-                {row.original.roleLabel}
+              <span
+                className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}
+              >
+                {label}
               </span>
             );
           },
         },
-      ]),
-      {
-        id: 'delegation',
-        header: 'Ủy quyền',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-2">
-            {(() => {
-              const statusUpper = String(row.original.status ?? '').toUpperCase();
-              const jwtMemberId = currentMemberId;
-              const attendanceByMemberId = row.original.attendanceByMemberId ?? null;
+        ...(isAttendanceTab
+          ? [
+              {
+                id: 'actions',
+                header: 'Điểm danh',
+                enableSorting: false,
+                cell: ({ row }: { row: { original: TeamLeaderTimetableAssignmentRow } }) => {
+                  return (() => {
+                    const statusUpper = String(row.original.status ?? '').toUpperCase();
+                    const jwtMemberId = currentMemberId;
+                    const attendanceByMemberId = row.original.attendanceByMemberId ?? null;
+                    const isOngoing = statusUpper.includes('ONGOING');
+                    const isCompletedSession = statusUpper.includes('COMPLETED');
+                    const isAssigned = statusUpper.includes('ASSIGNED');
 
-              const isAssigned = statusUpper.includes('ASSIGNED');
-              const isOngoing = statusUpper.includes('ONGOING');
-              const isCompletedSession = statusUpper.includes('COMPLETED');
+                    const isResponsibleForSession =
+                      jwtMemberId != null &&
+                      attendanceByMemberId != null &&
+                      attendanceByMemberId === jwtMemberId;
 
-              const isResponsibleForSession =
-                jwtMemberId != null && attendanceByMemberId != null && attendanceByMemberId === jwtMemberId;
-              const isDelegatedToOther =
-                jwtMemberId != null &&
-                attendanceByMemberId != null &&
-                attendanceByMemberId > 0 &&
-                attendanceByMemberId !== jwtMemberId;
+                    const checkinAt = row.original.checkinAt ?? null;
+                    const checkoutAt = row.original.checkoutAt ?? null;
 
-              const canDelegate = (isAssigned || isOngoing) && isResponsibleForSession && !isCompletedSession;
+                    const canCheckin =
+                      isAttendanceTab && !isCompletedSession && (isOngoing || isAssigned) && isResponsibleForSession;
+                    const canCheckout =
+                      isAttendanceTab && isResponsibleForSession && checkoutAt == null;
 
-              if (isDelegatedToOther) {
-                return (
-                  <span className="inline-flex w-fit items-center gap-0.5 justify-self-end rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 whitespace-nowrap">
-                    <UserCheck className="h-3 w-3" />
-                    Đã được ủy quyền
-                  </span>
-                );
-              }
+                    /** Đã ủy quyền / người khác là người điểm danh: chỉ disable 2 nút (không đổi nội dung ô). */
+                    const someoneElseIsDelegate =
+                      attendanceByMemberId != null && jwtMemberId != null && attendanceByMemberId !== jwtMemberId;
 
-              if (!canDelegate) return null;
+                    const dashNode = (
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-400 whitespace-nowrap">
+                        --
+                      </span>
+                    );
 
-              return (
-                <button
-                  type="button"
-                  onClick={() => void openPanel(row.original, 'delegate')}
-                  className="inline-flex w-fit items-center gap-0.5 justify-self-end rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100 whitespace-nowrap"
-                  title="Ủy quyền điểm danh cho member trong phiên này"
-                >
-                  <UserCheck className="h-3 w-3" />
-                  Ủy quyền
-                </button>
-              );
-            })()}
-          </div>
-        ),
-      },
-    ],
-    [
-      isAttendanceTab,
-      currentMemberId,
-      openPanel,
-    ],
+                    const checkinNode = (() => {
+                      if (isAttendanceTab) {
+                        const checkinDisabledCls =
+                          'inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 whitespace-nowrap opacity-60 cursor-not-allowed';
+
+                        if (someoneElseIsDelegate) {
+                          if (checkinAt != null) {
+                            return (
+                              <button
+                                type="button"
+                                disabled
+                                className={checkinDisabledCls}
+                                title="Bạn không còn là người điểm danh phiên này"
+                              >
+                                <LogIn className="h-3 w-3" />
+                                Check-in: {formatDateTime(checkinAt ?? undefined)}
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              disabled
+                              className={checkinDisabledCls}
+                              title="Bạn không còn là người điểm danh phiên này"
+                            >
+                              <LogIn className="h-3 w-3" />
+                              Check-in
+                            </button>
+                          );
+                        }
+
+                        if (canCheckin && checkinAt == null) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => void openPanel(row.original, 'checkin')}
+                              className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
+                              title="Check-in member cho phiên này"
+                            >
+                              <LogIn className="h-3 w-3" />
+                              Check-in
+                            </button>
+                          );
+                        }
+
+                        if (checkinAt != null) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => void openPanel(row.original, 'checkin')}
+                              className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 whitespace-nowrap"
+                              title="Sửa điểm danh check-in"
+                            >
+                              <LogIn className="h-3 w-3" />
+                              Check-in: {formatDateTime(checkinAt ?? undefined)}
+                            </button>
+                          );
+                        }
+                        return dashNode;
+                      }
+
+                      // Tab phân công: chỉ hiển thị thời gian khi phiên đang diễn ra / completed
+                      if (isOngoing || isCompletedSession) {
+                        return checkinAt != null ? (
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                            Check-in: {formatDateTime(checkinAt ?? undefined)}
+                          </span>
+                        ) : (
+                          dashNode
+                        );
+                      }
+
+                      return dashNode;
+                    })();
+
+                    const checkoutNode = (() => {
+                      if (isAttendanceTab) {
+                        const checkoutDisabledCls =
+                          'inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 whitespace-nowrap opacity-60 cursor-not-allowed';
+
+                        if (someoneElseIsDelegate) {
+                          if (checkoutAt != null) {
+                            return (
+                              <button
+                                type="button"
+                                disabled
+                                className={checkoutDisabledCls}
+                                title="Bạn không còn là người điểm danh phiên này"
+                              >
+                                <LogOut className="h-3 w-3" />
+                                Check-out: {formatDateTime(checkoutAt ?? undefined)}
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              disabled
+                              className={checkoutDisabledCls}
+                              title="Bạn không còn là người điểm danh phiên này"
+                            >
+                              <LogOut className="h-3 w-3" />
+                              Check-out
+                            </button>
+                          );
+                        }
+
+                        if (!isResponsibleForSession) {
+                          return dashNode;
+                        }
+                        if (canCheckout && checkoutAt == null) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => void openPanel(row.original, 'checkout')}
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
+                              title="Check-out member cho phiên này"
+                            >
+                              <LogOut className="h-3 w-3" />
+                              Check-out
+                            </button>
+                          );
+                        }
+
+                        if (checkoutAt != null) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => void openPanel(row.original, 'checkout')}
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100 whitespace-nowrap"
+                              title="Sửa điểm danh check-out"
+                            >
+                              <LogOut className="h-3 w-3" />
+                              Check-out: {formatDateTime(checkoutAt ?? undefined)}
+                            </button>
+                          );
+                        }
+                        return dashNode;
+                      }
+
+                      if (isOngoing || isCompletedSession) {
+                        return checkoutAt != null ? (
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                            Check-out: {formatDateTime(checkoutAt ?? undefined)}
+                          </span>
+                        ) : (
+                          dashNode
+                        );
+                      }
+
+                      return dashNode;
+                    })();
+
+                    return (
+                      <div className="grid grid-cols-2 items-center gap-2">
+                        <div className="justify-self-start">{checkinNode}</div>
+                        <div className="justify-self-start">{checkoutNode}</div>
+                      </div>
+                    );
+                  })();
+                },
+              },
+            ]
+          : [
+              {
+                id: 'role',
+                header: 'Vai trò',
+                enableSorting: false,
+                cell: ({ row }: { row: { original: TeamLeaderTimetableAssignmentRow } }) => {
+                  if (!row.original.roleLabel) return null;
+                  return (
+                    <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border border-slate-200 bg-slate-50 text-slate-700 whitespace-nowrap">
+                      {row.original.roleLabel}
+                    </span>
+                  );
+                },
+              },
+            ]),
+        {
+          id: 'operation',
+          header: 'Thao tác',
+          enableSorting: false,
+          cell: ({ row }) => (
+            <button
+              type="button"
+              onClick={() => void openDetail(row.original)}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:underline underline-offset-2 whitespace-nowrap"
+              title="Xem chi tiết phiên học"
+            >
+              Xem chi tiết
+              <ChevronRight className="h-4 w-4 shrink-0 text-sky-700 opacity-80" aria-hidden />
+            </button>
+          ),
+        },
+      ];
+    },
+    [isAttendanceTab, currentMemberId, openPanel],
   );
 
   return (
@@ -404,9 +625,9 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
         <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Quản lý phân công & điểm danh</h2>
+              <h2 className="text-2xl font-semibold text-slate-900">Lịch trình và phân công</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Theo dõi phiên dạy, ủy quyền điểm danh và check-in/check-out cho member theo từng buổi.
+                Theo dõi phiên dạy, lịch trình của team theo từng buổi.
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
@@ -417,7 +638,11 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                     setSearch(v);
                     setPageNumber(1);
                   }}
-                  placeholder="Tìm theo phiên/địa điểm/trạng thái..."
+                  placeholder={
+                    !isAttendanceTab && !byMember
+                      ? 'Tìm theo phiên/địa điểm/yêu cầu...'
+                      : 'Tìm theo phiên/địa điểm/trạng thái...'
+                  }
                 />
               </div>
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
@@ -461,6 +686,75 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           tableGap="tight"
         />
       </div>
+
+      <div
+        className={`fixed inset-0 z-[80] transition ${detailOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
+      >
+        <div
+          className={`absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity ${
+            detailOpen ? 'opacity-100' : 'opacity-0'
+          }`}
+          onClick={closeDetail}
+        />
+        <aside
+          className={`absolute right-0 top-0 h-full w-full max-w-[640px] border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ${
+            detailOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          <div className="flex h-full flex-col">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-sky-600">Chi tiết phiên</div>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                  Phiên {detailSession?.sessionNo ?? '—'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {detailSession
+                    ? `${formatDate(detailSession.startAt)} • ${formatDateTime(detailSession.startAt)}-${formatDateTime(detailSession.endAt)}`
+                    : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+                  onClick={closeDetail}
+                  aria-label="Đóng chi tiết phiên"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết phiên...</p>}
+              {detailError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">
+                  {detailError}
+                </p>
+              )}
+              {detailRequest && detailSession && !detailLoading && !detailError && (
+                <TeamLeaderSessionDetailPanel
+                  session={detailSession}
+                  requestCode={detailRequest.requestCode ?? ''}
+                  delegateColumn={
+                    detailRow
+                      ? {
+                          currentMemberId,
+                          sessionAttendanceByMemberId: detailRow.attendanceByMemberId ?? null,
+                          onDelegated: () => {
+                            void refetch();
+                          },
+                        }
+                      : undefined
+                  }
+                />
+              )}
+            </div>
+          </div>
+        </aside>
+      </div>
+
       <div
         className={`fixed inset-0 z-40 transition ${actionMode ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
@@ -581,6 +875,9 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                   );
                   const staff = assigned?.StaffMember;
                   const cachedMember = membersById[memberId];
+                  const staffUser = (staff?.User ?? null) as
+                    | { AvatarUrl?: string | null; avatarUrl?: string | null }
+                    | null;
                   const memberName =
                     staff?.FullName ?? cachedMember?.fullName ?? `Member #${memberId}`;
                   const memberEmail =
@@ -588,6 +885,12 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                     staff?.User?.Email ??
                     cachedMember?.userEmail ??
                     'Không có email';
+                  const memberAvatarUrl =
+                    staff?.AvatarUrl ??
+                    staffUser?.AvatarUrl ??
+                    staffUser?.avatarUrl ??
+                    cachedMember?.avatarUrl ??
+                    null;
                   const isCheckedIn = attendance.CheckinAt != null;
                   const isCheckedOut = attendance.CheckoutAt != null;
                   const isAuthorizedDelegate =
@@ -598,8 +901,19 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                       className="grid grid-cols-1 items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 md:grid-cols-[1fr_1.2fr_auto]"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
-                          {getInitials(memberName)}
+                        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                          {memberAvatarUrl ? (
+                            <img
+                              src={memberAvatarUrl}
+                              alt={memberName}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
+                              }}
+                            />
+                          ) : (
+                            getInitials(memberName)
+                          )}
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -627,14 +941,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                   sessionId: activeSession.sessionId,
                                   delegateToMemberId: memberId,
                                 });
-                                const attendanceList = await attendanceApi.getFilter({
-                                  sessionId: activeSession.sessionId,
-                                  attendanceByMemberId:
-                                    attendanceByMemberIdForSession ?? undefined,
-                                  pageNumber: 1,
-                                  pageSize: 100,
-                                });
-                                setAttendanceItems(attendanceList.Items ?? []);
+                                await refreshAttendanceItems();
                                 // Refresh bảng ngoài để thẻ ủy quyền/khả năng check-out cập nhật ngay.
                                 await refetch?.();
                                 setActionMode(null);

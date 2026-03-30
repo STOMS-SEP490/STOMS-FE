@@ -1,0 +1,454 @@
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import dayjs from 'dayjs';
+import {
+  BadgeDollarSign,
+  CalendarCheck2,
+  CalendarX2,
+  ChevronRight,
+  Clock,
+  AlertTriangle,
+  FileText,
+} from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
+import { Button } from '@/shared/components/ui/button';
+import {
+  dashboardApi,
+  type DashboardRangeParams,
+  type DashboardTeachingHistoryItem,
+  type DashboardAttendanceHistoryItem,
+} from '@/modules/dashboard/api/dashboardApi';
+
+type KpiTone = 'sky' | 'indigo' | 'emerald' | 'amber' | 'rose';
+
+function KpiCard(props: {
+  title: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  icon: React.ReactNode;
+  tone: KpiTone;
+}) {
+  const toneClass: Record<KpiTone, { ring: string; iconBg: string; iconFg: string }> = {
+    sky: { ring: 'ring-sky-100/80', iconBg: 'bg-sky-50', iconFg: 'text-sky-600' },
+    indigo: { ring: 'ring-indigo-100/80', iconBg: 'bg-indigo-50', iconFg: 'text-indigo-600' },
+    emerald: { ring: 'ring-emerald-100/80', iconBg: 'bg-emerald-50', iconFg: 'text-emerald-600' },
+    amber: { ring: 'ring-amber-100/80', iconBg: 'bg-amber-50', iconFg: 'text-amber-600' },
+    rose: { ring: 'ring-rose-100/80', iconBg: 'bg-rose-50', iconFg: 'text-rose-600' },
+  };
+  const t = toneClass[props.tone];
+  return (
+    <div className={cn('rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1', t.ring)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{props.title}</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{props.value}</p>
+          {props.sub != null && <p className="mt-1 text-[11px] text-slate-400">{props.sub}</p>}
+        </div>
+        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', t.iconBg, t.iconFg)}>
+          {props.icon}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const rangeLabelMap: Record<NonNullable<DashboardRangeParams['range']>, string> = {
+  today: 'Hôm nay',
+  thisweek: 'Tuần này',
+  thismonth: 'Tháng này',
+  last3months: '3 tháng gần đây',
+  last6months: '6 tháng gần đây',
+  '1year': '1 năm gần đây',
+};
+
+function getMemberId(): number | null {
+  try {
+    const raw = localStorage.getItem('user') || '{}';
+    const parsed = JSON.parse(raw) as any;
+
+    const candidates = [
+      parsed?.memberId,
+      parsed?.member?.memberId,
+      parsed?.memberDetail?.memberId,
+      parsed?.profile?.memberId,
+      parsed?.data?.memberId,
+    ];
+
+    const id = Number(candidates.find((x) => Number(x ?? 0) > 0) ?? 0);
+    return id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveRange(effectiveRange: NonNullable<DashboardRangeParams['range']>) {
+  const now = dayjs();
+  switch (effectiveRange) {
+    case 'today': {
+      const from = now.startOf('day');
+      const toExclusive = from.add(1, 'day');
+      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+    }
+    case 'thisweek': {
+      // ISO-like week: Monday start
+      const dow = now.day(); // Sunday=0
+      const monday = dow === 0 ? now.subtract(6, 'day') : now.subtract(dow - 1, 'day');
+      const from = monday.startOf('day');
+      const toExclusive = from.add(7, 'day');
+      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+    }
+    case 'thismonth': {
+      const from = now.startOf('month');
+      const toExclusive = from.add(1, 'month');
+      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+    }
+    case 'last3months': {
+      const startThisMonth = now.startOf('month');
+      const from = startThisMonth.subtract(2, 'month');
+      const toExclusive = startThisMonth.add(1, 'month');
+      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+    }
+    case 'last6months': {
+      const startThisMonth = now.startOf('month');
+      const from = startThisMonth.subtract(5, 'month');
+      const toExclusive = startThisMonth.add(1, 'month');
+      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+    }
+    case '1year': {
+      const startThisMonth = now.startOf('month');
+      const from = startThisMonth.subtract(11, 'month');
+      const toExclusive = startThisMonth.add(1, 'month');
+      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+    }
+  }
+}
+
+function formatVnd(amount: number) {
+  return amount.toLocaleString('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
+}
+
+function toDateOnly(iso: string) {
+  return dayjs(iso).format('YYYY-MM-DD');
+}
+
+function TeachingHistoryRow(props: { item: DashboardTeachingHistoryItem }) {
+  const it = props.item;
+  return (
+    <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-900 truncate">{it.sessionTitle || `Phiên ${it.sessionNo}`}</div>
+          <div className="mt-1 text-xs text-slate-500 truncate">
+            {it.request?.requestCode ? `${it.request.requestCode} · ` : ''}
+            {it.request?.requestName ?? '—'}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5 text-slate-400" />
+              {dayjs(it.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.endAt).format('HH:mm')}
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="truncate">{it.location || '—'}</span>
+            <span className="text-slate-300">•</span>
+            <span className="font-medium text-slate-700">{it.role || '—'}</span>
+          </div>
+        </div>
+
+        <div className="shrink-0 text-right">
+          {it.contract?.amount != null ? (
+            <div className="text-xs font-semibold text-emerald-700">{formatVnd(Number(it.contract.amount) || 0)}</div>
+          ) : (
+            <div className="text-xs text-slate-400">—</div>
+          )}
+          {it.contract?.isPaid != null && (
+            <span
+              className={cn(
+                'mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                it.contract.isPaid ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
+              )}
+            >
+              {it.contract.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
+  const it = props.item;
+  const missingCheckin = !it.checkinAt;
+  const missingCheckout = !!it.checkinAt && !it.checkoutAt;
+  const badgeLabel = missingCheckin ? 'Thiếu check-in' : missingCheckout ? 'Thiếu check-out' : '—';
+  const badgeTone = missingCheckin || missingCheckout ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600';
+  return (
+    <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-900 truncate">{it.session?.sessionTitle ?? '—'}</div>
+          <div className="mt-1 text-xs text-slate-500 truncate">
+            {it.request?.requestCode ? `${it.request.requestCode} · ` : ''}
+            {it.request?.requestName ?? '—'}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5 text-slate-400" />
+              {dayjs(it.session.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.session.endAt).format('HH:mm')}
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="truncate">{it.session.location || '—'}</span>
+          </div>
+        </div>
+
+        <span className={cn('shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap', badgeTone)}>
+          {badgeLabel}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default function TeacherDashboard() {
+  const memberId = useMemo(() => getMemberId(), []);
+  const [range, setRange] = useState<NonNullable<DashboardRangeParams['range']>>('thismonth');
+  const effectiveRange: NonNullable<DashboardRangeParams['range']> = range ?? 'thismonth';
+  const { from, toExclusive } = useMemo(() => resolveRange(effectiveRange), [effectiveRange]);
+  const toInclusiveIso = useMemo(
+    () => dayjs(toExclusive).subtract(1, 'millisecond').toISOString(),
+    [toExclusive]
+  );
+
+  const workloadQ = useQuery({
+    queryKey: ['teacher-dashboard', 'workload', memberId ?? 0, effectiveRange],
+    queryFn: () =>
+      dashboardApi.getUserWorkload(memberId as number, {
+        range: effectiveRange,
+        from,
+        to: toInclusiveIso,
+      }),
+    enabled: memberId != null,
+  });
+
+  const teachingHistoryQ = useQuery({
+    queryKey: ['teacher-dashboard', 'teaching-history', memberId ?? 0, effectiveRange],
+    queryFn: () =>
+      dashboardApi.getUserTeachingHistory(memberId as number, {
+        from,
+        toExclusive,
+        pageNumber: 1,
+        pageSize: 6,
+      }),
+    enabled: memberId != null,
+  });
+
+  const attendanceIssuesQ = useQuery({
+    queryKey: ['teacher-dashboard', 'attendance-issues', memberId ?? 0, effectiveRange],
+    queryFn: () =>
+      dashboardApi.getUserAttendanceHistory(memberId as number, {
+        from,
+        toExclusive,
+        // Teacher dashboard ưu tiên nhắc thiếu checkout (đã checkin nhưng chưa checkout)
+        missingCheckout: true,
+        pageNumber: 1,
+        pageSize: 6,
+      }),
+    enabled: memberId != null,
+  });
+
+  const contractsQ = useQuery({
+    queryKey: ['teacher-dashboard', 'contracts', memberId ?? 0, effectiveRange],
+    queryFn: () =>
+      dashboardApi.getMemberContractsStatistics(memberId as number, {
+        // Endpoint này thường filter theo DateOnly => gửi yyyy-mm-dd để tránh mismatch
+        fromDate: toDateOnly(from),
+        toDate: toDateOnly(toInclusiveIso),
+        pageNumber: 1,
+        pageSize: 5,
+      }),
+    enabled: memberId != null,
+  });
+
+  const teachingItems = teachingHistoryQ.data?.items ?? [];
+  const attendanceItems = attendanceIssuesQ.data?.items ?? [];
+
+  const estimatedIncome = Number(workloadQ.data?.estimatedIncome ?? 0) || 0;
+  const missingCheckoutTotal = Number(attendanceIssuesQ.data?.totalItems ?? 0) || 0;
+
+  const firstError =
+    workloadQ.error ?? teachingHistoryQ.error ?? attendanceIssuesQ.error ?? contractsQ.error ?? null;
+
+  return (
+    <div className="min-h-full space-y-5 bg-slate-50 p-6">
+      <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold text-slate-900">Dashboard giảng viên</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Tổng quan khối lượng giảng dạy, thu nhập ước tính và các phiên cần bạn chú ý.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-xs text-slate-500">Khoảng thời gian:</span>
+            <select
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400/30 min-w-[160px]"
+              value={effectiveRange}
+              onChange={(e) => setRange(e.target.value as NonNullable<DashboardRangeParams['range']>)}
+            >
+              <option value="today">Hôm nay</option>
+              <option value="thisweek">Tuần này</option>
+              <option value="thismonth">Tháng này</option>
+              <option value="last3months">3 tháng gần đây</option>
+              <option value="last6months">6 tháng gần đây</option>
+              <option value="1year">1 năm gần đây</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {memberId == null ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Không tìm thấy thông tin người dùng (memberId). Vui lòng đăng nhập lại.
+        </div>
+      ) : (
+        <>
+          {firstError ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+              Không tải được dữ liệu dashboard. Vui lòng kiểm tra đăng nhập/quyền truy cập hoặc API.
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <KpiCard
+              tone="sky"
+              title="Giờ dạy (hoàn thành)"
+              value={workloadQ.data ? Number(workloadQ.data.totalTeachingHours ?? 0).toFixed(1) : '—'}
+              sub={rangeLabelMap[effectiveRange]}
+              icon={<Clock className="h-5 w-5" />}
+            />
+            <KpiCard
+              tone="emerald"
+              title="Phiên hoàn thành"
+              value={workloadQ.data?.completedSessions ?? '—'}
+              sub={
+                workloadQ.data
+                  ? `${workloadQ.data.completedSessionsChangePercent >= 0 ? '+' : ''}${workloadQ.data.completedSessionsChangePercent}%`
+                  : undefined
+              }
+              icon={<CalendarCheck2 className="h-5 w-5" />}
+            />
+            <KpiCard
+              tone="rose"
+              title="Phiên bị hủy"
+              value={workloadQ.data?.canceledSessions ?? '—'}
+              sub={
+                workloadQ.data
+                  ? `${workloadQ.data.canceledSessionsChangePercent >= 0 ? '+' : ''}${workloadQ.data.canceledSessionsChangePercent}%`
+                  : undefined
+              }
+              icon={<CalendarX2 className="h-5 w-5" />}
+            />
+            <KpiCard
+              tone="indigo"
+              title="Thu nhập ước tính"
+              value={workloadQ.data ? formatVnd(estimatedIncome) : '—'}
+              sub={
+                workloadQ.data
+                  ? `${workloadQ.data.estimatedIncomeChangePercent >= 0 ? '+' : ''}${workloadQ.data.estimatedIncomeChangePercent}%`
+                  : undefined
+              }
+              icon={<BadgeDollarSign className="h-5 w-5" />}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-2">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Phiên đã dạy gần đây</p>
+                  <p className="text-xs text-slate-500">Trong {rangeLabelMap[effectiveRange]}</p>
+                </div>
+                <Button type="button" variant="ghost" size="sm" className="text-sky-700" onClick={() => (window.location.href = '/teacher/teaching-history')}>
+                  Xem danh sách
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {teachingItems.length === 0 ? (
+                  <p className="py-8 text-center text-xs text-slate-500">Chưa có dữ liệu.</p>
+                ) : (
+                  teachingItems.map((it) => <TeachingHistoryRow key={it.sessionId} item={it} />)
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Cần chú ý</p>
+                  <p className="text-xs text-slate-500">
+                    Thiếu check-out: <span className="font-semibold text-amber-700">{missingCheckoutTotal}</span>
+                  </p>
+                </div>
+                <div className="shrink-0 flex items-center gap-2 text-amber-600">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="space-y-3">
+                {attendanceItems.length === 0 ? (
+                  <p className="py-8 text-center text-xs text-slate-500">Không có phiên thiếu check-out.</p>
+                ) : (
+                  attendanceItems.map((it) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-indigo-600" />
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Hợp đồng & thanh toán</p>
+                  <p className="text-xs text-slate-500">Tổng quan trong {rangeLabelMap[effectiveRange]}</p>
+                </div>
+              </div>
+              <Button type="button" variant="ghost" size="sm" className="text-sky-700" onClick={() => (window.location.href = '/teacher/contracts')}>
+                Xem hợp đồng
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+
+            {contractsQ.data ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
+                  <p className="text-[11px] text-slate-500 font-medium uppercase">Tổng hợp đồng</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{contractsQ.data.totalContracts}</p>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
+                  <p className="text-[11px] text-emerald-700 font-medium uppercase">Đã thanh toán</p>
+                  <p className="mt-1 text-lg font-semibold text-emerald-800">{contractsQ.data.paidContracts}</p>
+                  <p className="mt-1 text-[11px] text-emerald-700">{formatVnd(Number(contractsQ.data.paidValue ?? 0) || 0)}</p>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                  <p className="text-[11px] text-amber-700 font-medium uppercase">Chưa thanh toán</p>
+                  <p className="mt-1 text-lg font-semibold text-amber-800">{contractsQ.data.unpaidContracts}</p>
+                  <p className="mt-1 text-[11px] text-amber-700">{formatVnd(Number(contractsQ.data.unpaidValue ?? 0) || 0)}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
+                  <p className="text-[11px] text-slate-500 font-medium uppercase">Hợp đồng gần đây</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {contractsQ.data.contracts?.items?.length ?? 0} mục (trang 1)
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="py-6 text-center text-xs text-slate-500">Chưa có dữ liệu hợp đồng.</p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+

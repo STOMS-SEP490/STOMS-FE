@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom';
+import PCDashboard from '@/modules/dashboard/pages/PCDashboard';
 import CreateRequestPage from '@/modules/request/pages/CreateRequestPage';
 import RequestsManagement from '@/modules/request/pages/RequestsManagement';
 import RequestDetailPC from '@/modules/request/pages/RequestDetailPC';
@@ -12,8 +13,8 @@ import ProgramCoordinatorTeamsPage from '@/modules/team/pages/ProgramCoordinator
 import PCRequestLayout from '@/app/layouts/PCRequestLayout';
 
 const ProgramCoordinatorRoutes = [
-  // { path: 'dashboard', element: <PCDashboard /> },
-  { index: true, element: <Navigate to="requests" replace /> },
+  { path: 'dashboard', element: <PCDashboard /> },
+  { index: true, element: <Navigate to="dashboard" replace /> },
   {
     path: 'requests',
     children: [
