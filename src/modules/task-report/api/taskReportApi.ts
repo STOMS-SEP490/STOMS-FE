@@ -23,15 +23,13 @@ export const taskReportApi = {
 
   /** GET /api/task-reports/filter */
   getAll: (params?: TaskReportFilterParams): Promise<PaginationResponse<TaskReport>> => {
-    // Backend dùng query param tên `MemberId`, nhưng FE có thể gọi bằng `userId/memberId`.
-    const { MemberId, memberId, userId, ...rest } = params ?? {};
-    const memberIdNum = MemberId ?? memberId ?? userId;
-    return axiosClient.get('/task-reports/filter', {
-      params: {
-        ...rest,
-        ...(memberIdNum != null ? { MemberId: memberIdNum } : {}),
-      },
-    });
+    const queryParams = {
+      ...params,
+      // BE filter model uses Start/End for date range
+      start: params?.start ?? params?.startAt,
+      end: params?.end ?? params?.endAt,
+    };
+    return axiosClient.get('/task-reports/filter', { params: queryParams });
   },
 
   /** GET /api/task-reports/{id} */

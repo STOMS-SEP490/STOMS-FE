@@ -16,8 +16,9 @@ import type { TopicListItem, TopicUpsertPayload } from '../topic';
 
 function TopicDetailBody({ t }: { t: TopicListItem }) {
   const subjectsCount = t.subjects?.length ?? 0;
-  const eventsCount = t.eventSessionTopics?.length ?? 0;
-  const groupsCount = t.teamTopics?.length ?? 0;
+  // BE GET by id trả `events` / `teams`; fallback tên cũ nếu có
+  const eventsCount = t.events?.length ?? t.eventSessionTopics?.length ?? 0;
+  const groupsCount = t.teams?.length ?? t.teamTopics?.length ?? 0;
   return (
     <div className="space-y-2">
       <div>
@@ -84,19 +85,17 @@ export default function TopicsManagement() {
     });
   };
 
-  const openTopicDetail = (t: TopicListItem) => {
-    setDetailTopic(t);
-    setDetailOpen(true);
-  };
-
   const loadTopicDetailById = async (id: number) => {
     try {
       setDetailLoading(true);
+      setDetailOpen(true);
+      setDetailTopic(null);
       const t = await topicApi.getById(id);
       setDetailTopic(t);
-      setDetailOpen(true);
     } catch {
       message.error('Không tải được chi tiết chủ đề');
+      setDetailOpen(false);
+      setDetailTopic(null);
     } finally {
       setDetailLoading(false);
     }
@@ -195,7 +194,7 @@ export default function TopicsManagement() {
   };
 
   const handleView = (t: TopicListItem) => {
-    openTopicDetail(t);
+    void loadTopicDetailById(t.topicId);
   };
 
   const stats = useMemo(() => {
@@ -214,21 +213,6 @@ export default function TopicsManagement() {
       accessorKey: 'topicName',
       header: 'TÊN CHỦ ĐỀ',
       cell: ({ row }) => <div className="text-sm font-medium">{row.original.topicName}</div>,
-    },
-    {
-      id: 'subjects',
-      header: 'MÔN HỌC',
-      cell: ({ row }) => <div className="text-sm text-center">{row.original.subjects?.length ?? 0}</div>,
-    },
-    {
-      id: 'events',
-      header: 'SỰ KIỆN',
-      cell: ({ row }) => <div className="text-sm text-center">{row.original.eventSessionTopics?.length ?? 0}</div>,
-    },
-    {
-      id: 'groups',
-      header: 'NHÓM',
-      cell: ({ row }) => <div className="text-sm text-center">{row.original.teamTopics?.length ?? 0}</div>,
     },
     {
       accessorKey: 'isActive',
@@ -340,7 +324,7 @@ export default function TopicsManagement() {
         footer={null}
         destroyOnClose
       >
-        {detailLoading && !detailTopic ? (
+        {detailLoading ? (
           <div className="text-sm text-gray-500 py-4">Đang tải chi tiết...</div>
         ) : detailTopic ? (
           <TopicDetailBody t={detailTopic} />

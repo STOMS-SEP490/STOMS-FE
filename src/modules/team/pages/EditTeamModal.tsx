@@ -99,8 +99,24 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         ];
 
         const inTeamIds = inTeam.map((m) => m.memberId);
-        const currentLeader =
+        let currentLeader =
           leaderId != null ? items.find((m) => Number(m.memberId) === Number(leaderId)) : undefined;
+
+        // Đảm bảo select có option cho leader hiện tại (tránh case value không match option => hiển thị rỗng)
+        if (!currentLeader && leaderId != null && (teamDetails as any)?.members?.length) {
+          const fromDetail = ((teamDetails as any).members as Member[]).find(
+            (m) => Number(m.memberId) === Number(leaderId),
+          );
+          if (fromDetail) currentLeader = fromDetail;
+        }
+        if (!currentLeader && leaderId != null) {
+          try {
+            const detail = await memberApi.getMemberById(leaderId);
+            currentLeader = detail as unknown as Member;
+          } catch {
+            // ignore: fallback sẽ hiện leaderId nhưng không có tên
+          }
+        }
 
     
         const leaderCandidates = items.filter((m: any) => isTeamLeaderRole(m));
@@ -155,7 +171,11 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
       await teamService.updateTeam(team.teamId, { teamName: name, leaderMemberId });
 
       const selectedUnique = Array.from(new Set(selectedMemberIds));
-      const toAdd = selectedUnique.filter((id) => !currentTeamMemberIds.includes(id));
+      // BE đã xử lý việc gán leader vào team khi đổi trưởng nhóm
+      // => không gọi API team-members cho leaderMemberId nữa để tránh duplicate/bug
+      const toAdd = selectedUnique.filter(
+        (id) => !currentTeamMemberIds.includes(id) && id !== leaderMemberId,
+      );
       const toRemove = currentTeamMemberIds.filter((id) => !selectedUnique.includes(id));
 
       // Không cho phép gỡ leader khỏi team
@@ -294,6 +314,12 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
             className="w-full rounded-md border border-gray-200 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="">— Chọn trưởng nhóm —</option>
+            {leaderMemberId != null &&
+              !leaderOptions.some((m) => Number(m.memberId) === Number(leaderMemberId)) && (
+                <option value={String(leaderMemberId)}>
+                  Trưởng nhóm hiện tại (ID: {leaderMemberId})
+                </option>
+              )}
             {leaderOptions.map((m) => (
               <option key={m.memberId} value={String(m.memberId)}>
                 {m.fullName} {m.team?.teamName ? `- ${m.team.teamName}` : ''}

@@ -19,8 +19,9 @@ const authService = {
   logout: (data: { refreshToken: string; deviceUid: string }) => {
     return axiosClient.post('/auth/logout', data);
   },
-  changePassword: (data: { currentPassword: string; newPassword: string }) => {
-    return axiosClient.put('/auth/change-password', data);
+  /** Admin reset mật khẩu user (Role 1). PUT api/auth/reset-password */
+  resetPassword: (data: { email: string; newPassword: string }) => {
+    return axiosClient.put('/auth/reset-password', data);
   },
   requestForgotPasswordOtp: async (email: string) => {
     return axiosClient.post('/auth/forgot-password/request-otp', {

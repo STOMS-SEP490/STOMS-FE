@@ -98,10 +98,14 @@ export default function SubjectsManagement() {
 
   const activeSubjectSkills = useMemo(() => {
     if (!detailSubject) return []
-    return (detailSubject.subjectSkills ?? []).filter((ss: any) =>
+    return (detailSubject.subjectSkills ?? []).filter((ss) =>
       ss?.isActive === undefined ? true : ss.isActive === true,
     )
   }, [detailSubject])
+
+  const skillDisplayName = (
+    ss: NonNullable<SubjectListItem['subjectSkills']>[number],
+  ) => ss.skillName ?? ss.skill?.skillName ?? `Skill #${ss.skillId}`
 
   const [openEdit, setOpenEdit] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
@@ -160,7 +164,10 @@ export default function SubjectsManagement() {
         const skill = (detail.subjectSkills ?? []).find((s) => s.skillId === it.skillId)
         return {
           ...it,
-          skillName: skill?.skill?.skillName ?? `Skill #${it.skillId}`,
+          skillName:
+            skill?.skillName ??
+            skill?.skill?.skillName ??
+            `Skill #${it.skillId}`,
         }
       })
       setSubjectSkills(withName)
@@ -619,12 +626,12 @@ export default function SubjectsManagement() {
                 <div className="rounded-md border p-2">
                   <div className="text-xs text-gray-500 mb-1">Kỹ năng liên quan</div>
                   <div className="flex flex-wrap gap-1">
-                    {activeSubjectSkills.map((ss: any) => (
+                    {activeSubjectSkills.map((ss) => (
                       <span
                         key={`${ss.subjectId}-${ss.skillId}`}
                         className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs border border-blue-100"
                       >
-                        {ss.skill?.skillName ?? `Skill #${ss.skillId}`}
+                        {skillDisplayName(ss)}
                       </span>
                     ))}
                   </div>

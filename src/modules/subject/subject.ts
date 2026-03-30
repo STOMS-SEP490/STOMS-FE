@@ -55,9 +55,12 @@ export type SubjectListItem = {
     createdAt: string | null;
   }[] | null;
 
+  /** GET /subjects/:id — BE có thể trả skillName phẳng; skill nested có thể null */
   subjectSkills?: {
     subjectId: number;
     skillId: number;
+    skillName?: string | null;
+    isActive?: boolean;
     createdAt: string | null;
     skill?: {
       skillId: number;
