@@ -25,6 +25,10 @@ export type Team = {
   leaderMemberName?: string | null;
   teamSessions?: TeamSession[];
   teamTopics?: TeamTopic[];
+  /** GET /teams/:id (TeamDetailResponse) — danh sách topic phẳng */
+  topics?: TeamTopicItem[];
+  /** GET /teams/:id — thành viên kèm response (không cần gọi /members/filter) */
+  members?: TeamMemberItem[];
 };
 
 /* ─── Filter / Payload types ─── */

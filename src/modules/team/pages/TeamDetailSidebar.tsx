@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import type { Team } from '../team';
+import type { Team, TeamMemberItem } from '../team';
 import { Badge } from '@/shared/components/ui/badge';
-import type { Member } from '@/modules/member/member';
 import memberApi from '@/modules/member/api/memberApi';
+import { useNavigate } from 'react-router-dom';
 
 type Props = {
   open: boolean;
@@ -16,20 +16,84 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN');
 }
 
+/** Topic để hiển thị: ưu tiên topics từ GET /teams/:id, không thì teamTopics (filter). */
+function getDisplayTopics(team: Team): Array<{
+  topicId: number;
+  topicName: string;
+  createdAt?: string | null;
+}> {
+  if (team.topics && team.topics.length > 0) {
+    return team.topics.map((t) => ({
+      topicId: t.topicId,
+      topicName: t.topicName,
+    }));
+  }
+  return (team.teamTopics ?? [])
+    .filter((tt) => tt.isActive !== false)
+    .map((tt) => ({
+      topicId: tt.topicId,
+      topicName: tt.topicName ?? `Chủ đề #${tt.topicId}`,
+      createdAt: tt.createdAt,
+    }));
+}
+
+function roleLabel(roleId: number) {
+  switch (roleId) {
+    case 6:
+      return 'Quản lý thiết bị';
+    case 5:
+      return 'Trợ giảng';
+    case 4:
+      return 'Giáo viên';
+    case 3:
+      return 'Điều phối chương trình';
+    case 2:
+      return 'Trưởng nhóm';
+    case 1:
+      return 'Quản lý';
+    default:
+      return '—';
+  }
+}
+
 export default function TeamDetailSidebar({ open, onClose, team }: Props) {
-  const [members, setMembers] = useState<Member[]>([]);
+  const navigate = useNavigate();
+  const [members, setMembers] = useState<TeamMemberItem[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
   useEffect(() => {
+    if (!open || !team) {
+      setMembers([]);
+      return;
+    }
+    if (team.members && team.members.length > 0) {
+      setMembers(team.members);
+      setLoadingMembers(false);
+      return;
+    }
+
     const fetchMembers = async () => {
-      if (!open || !team) {
-        setMembers([]);
-        return;
-      }
       try {
         setLoadingMembers(true);
         const res = await memberApi.getMembers({ TeamId: team.teamId, pageSize: 100 });
-        setMembers(res.items ?? []);
+        const items = res.items ?? [];
+        setMembers(
+          items.map((m) => ({
+            memberId: m.memberId,
+            userId: m.userId,
+            roleId: m.roleId,
+            teamId: m.teamId,
+            avatarUrl: m.avatarUrl,
+            fullName: m.fullName,
+            phone: m.phone,
+            address: m.address,
+            cin: m.cin,
+            bankCode: m.bankCode,
+            bankName: m.bankName,
+            taxNumber: m.taxNumber,
+            email: m.email ?? '',
+          }))
+        );
       } catch {
         setMembers([]);
       } finally {
@@ -37,10 +101,12 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
       }
     };
 
-    fetchMembers();
+    void fetchMembers();
   }, [open, team]);
 
   if (!team) return null;
+
+  const displayTopics = getDisplayTopics(team);
 
   return (
     <>
@@ -96,33 +162,28 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
                 {members.map((m) => (
                   <li
                     key={m.memberId}
-                    className="flex justify-between items-center bg-white rounded-md px-3 py-2 border border-gray-100"
+                    className="flex justify-between items-center bg-white rounded-md px-3 py-2 border border-gray-100 hover:bg-slate-50"
                   >
-                    <div>
-                      <p className="font-medium text-gray-900">{m.fullName}</p>
-                      <p className="text-xs text-gray-500">{m.email}</p>
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {(() => {
-                        const roleId = m.roleId;
-                        switch (roleId) {
-                          case 6:
-                            return 'Quản lý thiết bị';
-                          case 5:
-                            return 'Trợ giảng';
-                          case 4:
-                            return 'Giáo viên';
-                          case 3:
-                            return 'Điều phối chương trình';
-                          case 2:
-                            return 'Trưởng nhóm';
-                          case 1:
-                            return 'Quản lý';
-                          default:
-                            return '—';
-                        }
-                      })()}
-                    </span>
+                    <button
+                      type="button"
+                      className="flex flex-1 min-w-0 items-center gap-3 text-left"
+                      onClick={() => {
+                        onClose();
+                        navigate(`/manager/members?openDetail=1&memberId=${m.memberId}`);
+                      }}
+                      title="Xem chi tiết thành viên"
+                    >
+                      <img
+                        src={m.avatarUrl || '/img/ava.png'}
+                        alt=""
+                        className="h-9 w-9 rounded-full object-cover border border-gray-200 bg-white shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{m.fullName}</p>
+                        <p className="text-xs text-gray-500 truncate">{m.email}</p>
+                      </div>
+                    </button>
+                    <span className="text-xs text-gray-500 shrink-0 pl-3">{roleLabel(m.roleId)}</span>
                   </li>
                 ))}
               </ul>
@@ -132,23 +193,21 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
           </Section>
 
           <Section title="Chủ đề">
-            {team.teamTopics && team.teamTopics.filter((tt) => tt.isActive !== false).length > 0 ? (
+            {displayTopics.length > 0 ? (
               <ul className="space-y-2 text-sm">
-                {team.teamTopics.filter((tt) => tt.isActive !== false).map((tt, i) => (
-                  <li key={i} className="bg-gray-50 rounded-md px-3 py-2">
-                    <span className="font-medium">
-                      {tt.topicName ?? `Topic #${tt.topicId}`}
-                    </span>
-                    {tt.createdAt && (
+                {displayTopics.map((row) => (
+                  <li key={row.topicId} className="bg-gray-50 rounded-md px-3 py-2">
+                    <span className="font-medium">{row.topicName}</span>
+                    {row.createdAt ? (
                       <span className="text-gray-500 text-xs ml-2">
-                        ({formatDateTime(tt.createdAt)})
+                        ({formatDateTime(row.createdAt)})
                       </span>
-                    )}
+                    ) : null}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-500">Chưa có topic nào</p>
+              <p className="text-sm text-gray-500">Chưa có chủ đề nào</p>
             )}
           </Section>
         </div>

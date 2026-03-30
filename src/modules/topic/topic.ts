@@ -10,12 +10,46 @@ export type TopicTeamItem = {
   teamId: number
 }
 
+/** GET /topics/{id} — sự kiện gắn chủ đề */
+export type TopicDetailEventSession = {
+  eventSessionNo: number
+  title: string
+}
+
+export type TopicDetailEvent = {
+  eventId: number
+  eventCode: string
+  eventName: string
+  isActive: boolean
+  eventSessions?: TopicDetailEventSession[] | null
+}
+
+/** GET /topics/{id} — nhóm gắn chủ đề */
+export type TopicDetailTeamLeader = {
+  memberId: number
+  fullName: string
+  avatarUrl: string | null
+  email: string
+}
+
+export type TopicDetailTeam = {
+  teamId: number
+  teamName: string
+  teamTopicIsActive: boolean
+  teamTopicCreatedAt: string
+  leaderMember?: TopicDetailTeamLeader | null
+}
+
 export type TopicListItem = {
   topicId: number
   topicName: string
   description: string
   isActive: boolean
   createdAt: string | null
+  /** Response GET by id */
+  events?: TopicDetailEvent[] | null
+  teams?: TopicDetailTeam[] | null
+  /** Một số endpoint list cũ có thể vẫn trả */
   eventSessionTopics?: TopicEventSessionItem[] | null
   subjects?: SubjectListItem[] | null
   teamTopics?: TopicTeamItem[] | null

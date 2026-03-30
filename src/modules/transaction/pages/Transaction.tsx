@@ -9,9 +9,28 @@ import { Eye } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import transactionApi from '../api/transactionApi';
+import { walletApi } from '../api/walletApi';
+import type { WalletListItem } from '../api/walletApi';
 import { TRANSACTION_TYPE, TRANSACTION_TYPE_LABEL } from '@/constants/status';
 import type { TransactionListItem } from '../transaction';
 import { useTransactions } from '../hooks/useTransactions';
+
+const TX_PAGE = 'txPage';
+const TX_TYPE = 'txType';
+const TX_WALLET = 'txWallet';
+const TX_Q = 'txQ';
+
+function mergeListSearchParams(
+  prev: URLSearchParams,
+  updates: Record<string, string | null | undefined>
+): URLSearchParams {
+  const next = new URLSearchParams(prev);
+  for (const [key, value] of Object.entries(updates)) {
+    if (value === null || value === undefined || value === '') next.delete(key);
+    else next.set(key, value);
+  }
+  return next;
+}
 
 function formatTransactionAmountDisplay(amount: number | undefined, transactionType: number) {
   const abs = Math.abs(amount ?? 0);
@@ -38,9 +57,94 @@ export default function Transactions() {
   // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
   const skipNextAutoOpenRef = useRef(false);
 
-  const [search, setSearch] = useState('');
+  const [wallets, setWallets] = useState<WalletListItem[]>([]);
+  const [walletsLoading, setWalletsLoading] = useState(false);
 
-  const { data, loading, pageNumber, pageSize, totalItems, setPageNumber, transactionType, setTransactionType } = useTransactions();
+  /** Cùng URL cho cả 2 instance Transactions (toolbar + content) do TransactionsLayout có 2 Outlet. */
+  const pageNumber = Math.max(1, Number(searchParams.get(TX_PAGE) || '1') || 1);
+  const pageSize = 10;
+  const txTypeRaw = searchParams.get(TX_TYPE);
+  const transactionTypeParsed =
+    txTypeRaw && txTypeRaw !== 'all' ? Number(txTypeRaw) : undefined;
+  const transactionType =
+    transactionTypeParsed !== undefined && !Number.isNaN(transactionTypeParsed)
+      ? transactionTypeParsed
+      : undefined;
+  const txWalletRaw = searchParams.get(TX_WALLET);
+  const walletIdParsed =
+    txWalletRaw && txWalletRaw !== 'all' ? Number(txWalletRaw) : undefined;
+  const walletId =
+    walletIdParsed !== undefined && !Number.isNaN(walletIdParsed)
+      ? walletIdParsed
+      : undefined;
+  const search = searchParams.get(TX_Q) ?? '';
+
+  const setPageNumber = (n: number) => {
+    setSearchParams((prev) =>
+      mergeListSearchParams(prev, { [TX_PAGE]: String(Math.max(1, n)) })
+    );
+  };
+
+  const setTransactionType = (v: number | undefined) => {
+    setSearchParams((prev) =>
+      mergeListSearchParams(prev, {
+        [TX_TYPE]: v == null ? null : String(v),
+        [TX_PAGE]: '1',
+      })
+    );
+  };
+
+  const setWalletId = (v: number | undefined) => {
+    setSearchParams((prev) =>
+      mergeListSearchParams(prev, {
+        [TX_WALLET]: v == null ? null : String(v),
+        [TX_PAGE]: '1',
+      })
+    );
+  };
+
+  const setSearch = (q: string) => {
+    setSearchParams((prev) =>
+      mergeListSearchParams(prev, {
+        [TX_Q]: q.trim() ? q : null,
+        [TX_PAGE]: '1',
+      })
+    );
+  };
+
+  const resetListFilters = () => {
+    setSearchParams((prev) =>
+      mergeListSearchParams(prev, {
+        [TX_PAGE]: null,
+        [TX_TYPE]: null,
+        [TX_WALLET]: null,
+        [TX_Q]: null,
+      })
+    );
+  };
+
+  const { data, loading, totalItems } = useTransactions({
+    pageNumber,
+    pageSize,
+    transactionType,
+    walletId,
+    enabled: context.position !== 'toolbar',
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setWalletsLoading(true);
+        const res = await walletApi.getWallets({ pageNumber: 1, pageSize: 500 });
+        setWallets(res.items ?? []);
+      } catch {
+        setWallets([]);
+      } finally {
+        setWalletsLoading(false);
+      }
+    };
+    void load();
+  }, []);
 
   const [openDetail, setOpenDetail] = useState(false);
   const [detailItem, setDetailItem] = useState<TransactionListItem | null>(null);
@@ -90,13 +194,17 @@ export default function Transactions() {
   }, [openDetailFromUrl, transactionIdFromUrl, openDetail, detailItem?.transactionId]);
 
   const filtered = useMemo(() => {
+    let rows = data;
+    if (walletId != null && !Number.isNaN(walletId)) {
+      rows = rows.filter((x) => x.walletId === walletId);
+    }
     const q = search.trim().toLowerCase();
-    if (!q) return data;
-    return data.filter((x) => {
+    if (!q) return rows;
+    return rows.filter((x) => {
       const t = `${x.description ?? ''}`.toLowerCase();
       return t.includes(q);
     });
-  }, [data, search]);
+  }, [data, search, walletId]);
 
   if (context.position === 'toolbar') {
     return (
@@ -112,7 +220,6 @@ export default function Transactions() {
           onValueChange={(v) => {
             if (v === 'all') setTransactionType(undefined);
             else setTransactionType(Number(v));
-            setPageNumber(1);
           }}
         >
           <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px]">
@@ -125,14 +232,35 @@ export default function Transactions() {
           </SelectContent>
         </Select>
 
+        <Select
+          value={walletId != null ? String(walletId) : 'all'}
+          onValueChange={(v) => {
+            if (v === 'all') setWalletId(undefined);
+            else setWalletId(Number(v));
+          }}
+          disabled={walletsLoading}
+        >
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[240px]">
+            <SelectValue placeholder={walletsLoading ? 'Đang tải quỹ...' : 'Quỹ'} />
+          </SelectTrigger>
+          <SelectContent className="z-[1100]">
+            <SelectItem value="all">Tất cả quỹ</SelectItem>
+            {walletId != null &&
+              !wallets.some((w) => w.walletId === walletId) && (
+                <SelectItem value={String(walletId)}>Quỹ #{walletId}</SelectItem>
+              )}
+            {wallets.map((w) => (
+              <SelectItem key={w.walletId} value={String(w.walletId)}>
+                {w.walletName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Button
           variant="secondary"
           className="bg-white"
-          onClick={() => {
-            setSearch('');
-            setTransactionType(undefined);
-            setPageNumber(1);
-          }}
+          onClick={() => resetListFilters()}
           title="Đặt lại bộ lọc"
         >
           Đặt lại

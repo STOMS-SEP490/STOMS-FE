@@ -13,8 +13,8 @@ function normalizeTransaction(raw: Record<string, unknown>): TransactionListItem
     | undefined
 
   return {
-    transactionId: Number(raw.transactionId),
-    walletId: Number(raw.walletId),
+    transactionId: Number(raw.transactionId ?? raw.TransactionId),
+    walletId: Number(raw.walletId ?? raw.WalletId ?? 0),
     walletName:
       (raw.walletName as string | undefined) ?? wallet?.walletName ?? '',
     amount: Number(raw.amount),
@@ -38,8 +38,39 @@ const transactionApi = {
   getTransactions: async (
     params?: TransactionFilterParams
   ): Promise<PaginationResponse<TransactionListItem>> => {
+    const query: Record<string, number> = {
+      pageNumber: params?.pageNumber ?? 1,
+      pageSize: params?.pageSize ?? 10,
+    }
+    if (
+      params?.walletId != null &&
+      Number.isFinite(params.walletId) &&
+      params.walletId > 0
+    ) {
+      query.walletId = params.walletId
+    }
+    if (
+      params?.transactionType != null &&
+      Number.isFinite(params.transactionType)
+    ) {
+      query.transactionType = params.transactionType
+    }
+    if (
+      params?.transactionId != null &&
+      Number.isFinite(params.transactionId) &&
+      params.transactionId > 0
+    ) {
+      query.transactionId = params.transactionId
+    }
+    if (
+      params?.createdBy != null &&
+      Number.isFinite(params.createdBy) &&
+      params.createdBy > 0
+    ) {
+      query.createdBy = params.createdBy
+    }
     const res = (await axiosClient.get('/transactions/filter', {
-      params,
+      params: query,
     })) as PaginationResponse<Record<string, unknown>>
     return {
       ...res,
