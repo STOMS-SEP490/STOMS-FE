@@ -7,9 +7,16 @@ type Props = {
   onClose: () => void;
   detailCourse: CourseListItem | null;
   detailLoading: boolean;
+  onSubjectClick?: (subjectId: number) => void;
 };
 
-export function CourseDetailDrawer({ open, onClose, detailCourse, detailLoading }: Props) {
+export function CourseDetailDrawer({
+  open,
+  onClose,
+  detailCourse,
+  detailLoading,
+  onSubjectClick,
+}: Props) {
   return (
     <Drawer
       open={open}
@@ -43,13 +50,28 @@ export function CourseDetailDrawer({ open, onClose, detailCourse, detailLoading 
           <div className="pt-2">
             <div className="text-xs text-gray-500 mb-1">Môn học trong khóa</div>
             {detailCourse.courseSubjects && detailCourse.courseSubjects.length > 0 ? (
-              <div className="space-y-2">
-                {detailCourse.courseSubjects.map((cs: CourseSubjectSummary) => (
-                  <div key={cs.subjectId} className="rounded-md border p-2 space-y-1">
-                    <div className="text-sm font-medium">
-                      {cs.subject?.subjectCode} -{' '}
-                      {cs.subject?.subjectName ?? cs.subjectName ?? `Môn #${cs.subjectId}`}
-                    </div>
+              <div className="space-y-2 p-1">
+                {detailCourse.courseSubjects.map((cs: CourseSubjectSummary) => {
+                  const subjectId = Number(cs.subjectId);
+                  const canClick = Boolean(onSubjectClick) && Number.isFinite(subjectId) && subjectId > 0;
+                  return (
+                    <button
+                      key={cs.subjectId}
+                      type="button"
+                      className={`w-full text-left rounded-md border border-slate-200 bg-white p-2 space-y-1 ring-1 ring-slate-200 ${
+                        canClick ? 'hover:bg-slate-50 hover:border-slate-300 hover:ring-slate-300 cursor-pointer' : ''
+                      }`}
+                      onClick={() => {
+                        if (!canClick) return;
+                        onSubjectClick?.(subjectId);
+                      }}
+                      disabled={!canClick}
+                      title={canClick ? 'Xem chi tiết môn học' : undefined}
+                    >
+                      <div className="text-sm font-medium">
+                        {cs.subject?.subjectCode} -{' '}
+                        {cs.subject?.subjectName ?? cs.subjectName ?? `Môn #${cs.subjectId}`}
+                      </div>
 
                     {cs.subject?.subjectSessions && cs.subject.subjectSessions.length > 0 && (
                       <div className="pl-3 border-l border-gray-200 mt-1 space-y-1">
@@ -60,8 +82,9 @@ export function CourseDetailDrawer({ open, onClose, detailCourse, detailLoading 
                         ))}
                       </div>
                     )}
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-sm text-gray-500">Chưa có môn học nào trong khóa.</div>

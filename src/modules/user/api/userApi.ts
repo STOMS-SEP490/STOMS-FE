@@ -44,6 +44,15 @@ const userService = {
     return axiosClient.put(`/users/${userId}/change-password`, { newPassword });
   },
 
+  /** User đổi mật khẩu (trang hồ sơ). PUT api/users/change-password */
+  changeOwnPassword: async (payload: {
+    oldPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) => {
+    return axiosClient.put('/users/change-password', payload);
+  },
+
   createUser: async (payload: {
     email: string;
     passwordHash: string;

@@ -12,6 +12,12 @@ import { Input } from '@/shared/components/ui/input';
 import type { WalletListItem } from '../api/walletApi';
 import { walletApi } from '../api/walletApi';
 
+function walletBalanceTextClass(balance: number): string {
+  if (balance < 0) return 'font-semibold text-red-600';
+  if (balance === 0) return 'font-semibold text-yellow-600';
+  return 'font-semibold text-green-600';
+}
+
 const baseColumns: ColumnDef<WalletListItem>[] = [
   {
     accessorKey: 'walletId',
@@ -25,10 +31,10 @@ const baseColumns: ColumnDef<WalletListItem>[] = [
     accessorKey: 'balance',
     header: 'Số dư',
     cell: ({ row }) => {
-      const balance = row.original.balance ?? 0;
+      const balance = Number(row.original.balance ?? 0);
       return (
-        <span className="font-semibold text-green-600">
-          {Number(balance).toLocaleString('vi-VN')} đ
+        <span className={walletBalanceTextClass(balance)}>
+          {balance.toLocaleString('vi-VN')} đ
         </span>
       );
     },
@@ -216,7 +222,13 @@ export default function WalletsManagement() {
             </div>
             <div>
               <div className="text-xs text-gray-500">Số dư</div>
-              <div className="font-semibold text-green-600">
+              <div
+                className={
+                  detailItem.balance != null
+                    ? walletBalanceTextClass(Number(detailItem.balance))
+                    : 'font-semibold text-gray-600'
+                }
+              >
                 {detailItem.balance != null
                   ? `${Number(detailItem.balance).toLocaleString('vi-VN')} đ`
                   : '—'}

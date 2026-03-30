@@ -2,6 +2,10 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { GraduationCap, CheckCircle, BookOpen, Clock } from 'lucide-react';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { useQuery } from '@tanstack/react-query';
+import courseApi from '@/modules/course/api/courseApi';
+import subjectApi from '@/modules/subject/api/subjectApi';
+import sessionApi from '@/modules/request/api/sessionApi';
 
 export default function CoursesLayout() {
   const navigate = useNavigate();
@@ -12,6 +16,33 @@ export default function CoursesLayout() {
 
   const currentTab = location.pathname.includes('subjects') ? 'subjects' : 'courses';
 
+  const { data: coursesPaged, isLoading: coursesLoading } = useQuery({
+    queryKey: ['courses-summary'],
+    queryFn: () => courseApi.getCourses({ pageNumber: 1, pageSize: 1 }),
+  });
+
+  const { data: activeCoursesPaged, isLoading: activeCoursesLoading } = useQuery({
+    queryKey: ['courses-summary', 'active'],
+    queryFn: () => courseApi.getCourses({ pageNumber: 1, pageSize: 1, IsActive: true }),
+  });
+
+  const { data: subjectsPaged, isLoading: subjectsLoading } = useQuery({
+    queryKey: ['subjects-summary'],
+    queryFn: () => subjectApi.getSubjects({ pageNumber: 1, pageSize: 1 }),
+  });
+
+  const { data: sessionsPaged, isLoading: sessionsLoading } = useQuery({
+    queryKey: ['sessions-summary'],
+    queryFn: () => sessionApi.getFilter({ PageNumber: 1, PageSize: 1 }),
+  });
+
+  const totalCourses = coursesPaged?.totalItems ?? 0;
+  const totalActiveCourses = activeCoursesPaged?.totalItems ?? 0;
+  const totalSubjects = subjectsPaged?.totalItems ?? 0;
+  const totalSessions = sessionsPaged?.TotalItems ?? 0;
+
+  const statValue = (loading: boolean, value: number) => (loading ? '—' : value.toLocaleString('vi-VN'));
+
   return (
     <div className="overflow-y-auto p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
@@ -21,17 +52,32 @@ export default function CoursesLayout() {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4  mb-0">
-        <StatCard icon={<GraduationCap />} label="Tổng khóa học" value="48" sub="Khóa học" />
+      <div className="grid grid-cols-4 gap-4 mb-4">
+        <StatCard
+          icon={<GraduationCap />}
+          label="Tổng khóa học"
+          value={statValue(coursesLoading, totalCourses)}
+          sub="Khóa học"
+        />
         <StatCard
           icon={<CheckCircle />}
           label="Đang hoạt động"
-          value="42"
+          value={statValue(activeCoursesLoading, totalActiveCourses)}
           sub="Khóa học"
           variant="green"
         />
-        <StatCard icon={<BookOpen />} label="Tổng môn học" value="156" sub="Môn học" />
-        <StatCard icon={<Clock />} label="Tổng buổi học" value="1,248" sub="Buổi học" />
+        <StatCard
+          icon={<BookOpen />}
+          label="Tổng môn học"
+          value={statValue(subjectsLoading, totalSubjects)}
+          sub="Môn học"
+        />
+        <StatCard
+          icon={<Clock />}
+          label="Tổng buổi học"
+          value={statValue(sessionsLoading, totalSessions)}
+          sub="Buổi học"
+        />
       </div>
 
       {/* TABS */}

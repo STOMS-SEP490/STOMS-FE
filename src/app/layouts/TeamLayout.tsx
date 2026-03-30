@@ -1,8 +1,34 @@
 import { Outlet } from 'react-router-dom';
 import { StatCard } from '@/shared/components/common/StatCard';
-import { GraduationCap, CheckCircle, BookOpen, Clock } from 'lucide-react';
+import { GraduationCap, CheckCircle, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { teamApi } from '@/modules/team/api/teamApi';
+import memberApi from '@/modules/member/api/memberApi';
 
 export default function TeamLayout() {
+  const { data: teamsPaged, isLoading: teamsLoading } = useQuery({
+    queryKey: ['teams-summary'],
+    queryFn: () => teamApi.getTeams({ pageNumber: 1, pageSize: 1 }),
+  });
+
+  const { data: teamsForLeaderCount } = useQuery({
+    queryKey: ['teams-leader-count'],
+    queryFn: () => teamApi.getTeams({ pageNumber: 1, pageSize: 1000 }),
+  });
+
+  const { data: membersPaged, isLoading: membersLoading } = useQuery({
+    queryKey: ['members-summary'],
+    queryFn: () => memberApi.getMembers({ pageNumber: 1, pageSize: 1 }),
+  });
+
+  const totalTeams = teamsPaged?.totalItems ?? 0;
+  const teamsWithLeader =
+    (teamsForLeaderCount?.items ?? []).filter((t) => t.leaderMemberId != null).length ?? 0;
+  const totalMembers = membersPaged?.totalItems ?? 0;
+
+  const statValue = (loading: boolean, value: number) =>
+    loading ? '—' : value.toLocaleString('vi-VN');
+
   return (
     <div className="p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
@@ -14,21 +40,25 @@ export default function TeamLayout() {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-0">
-        <StatCard icon={<GraduationCap />} label="Tổng nhóm" value="48" sub="Nhóm" />
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <StatCard
+          icon={<GraduationCap />}
+          label="Tổng nhóm"
+          value={statValue(teamsLoading, totalTeams)}
+          sub="Nhóm"
+        />
         <StatCard
           icon={<CheckCircle />}
-          label="Đang hoạt động"
-          value="42"
+          label="Có trưởng nhóm"
+          value={statValue(teamsLoading, teamsWithLeader)}
           sub="Nhóm"
           variant="green"
         />
-        <StatCard icon={<BookOpen />} label="Tổng loại thiết bị" value="156" sub="Loại thiết bị" />
         <StatCard
-          icon={<Clock />}
-          label="Tổng số lượng tồn kho"
-          value="1,248"
-          sub="Sản phẩm tồn kho"
+          icon={<Users />}
+          label="Tổng thành viên"
+          value={statValue(membersLoading, totalMembers)}
+          sub="Thành viên"
         />
       </div>
 

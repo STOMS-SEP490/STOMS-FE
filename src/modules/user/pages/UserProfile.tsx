@@ -6,7 +6,6 @@ import { message } from 'antd';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import userService from '@/modules/user/api/userApi';
-import authService from '@/modules/auth/api/authApi';
 import type { User } from '@/modules/user/user';
 import memberApi from '@/modules/member/api/memberApi';
 import type { MemberDetail } from '@/modules/member/member';
@@ -429,9 +428,10 @@ export default function UserProfile() {
     }
     try {
       setChangingPassword(true);
-      await authService.changePassword({
-        currentPassword: currentPassword.trim(),
+      await userService.changeOwnPassword({
+        oldPassword: currentPassword.trim(),
         newPassword,
+        confirmPassword,
       });
       message.success('Đổi mật khẩu thành công');
       setCurrentPassword('');

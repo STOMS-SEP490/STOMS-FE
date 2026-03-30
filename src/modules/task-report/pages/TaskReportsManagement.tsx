@@ -297,11 +297,11 @@ export default function TaskReportsManagement() {
     },
     {
       id: 'session',
-      header: 'Phiên',
+      header: 'Buổi',
       cell: ({ row }) => {
         const sid = row.original.sessionId;
         if (!sid) return '—';
-        return sessionLabelById.get(sid) ?? `Session #${sid}`;
+        return sessionLabelById.get(sid) ?? `Buổi ${sid}`;
       },
     },
     {
@@ -587,11 +587,11 @@ export default function TaskReportsManagement() {
                 </div>
               </div>
               <div>
-                <div className="text-xs text-gray-500">Phiên</div>
+                <div className="text-xs text-gray-500">Buổi</div>
                 <div>
                   {viewTaskReport.sessionId
                     ? sessionLabelById.get(viewTaskReport.sessionId) ??
-                      `Session #${viewTaskReport.sessionId}`
+                      `Buổi ${viewTaskReport.sessionId}`
                     : '—'}
                 </div>
               </div>

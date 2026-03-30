@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Power, PowerOff, Plus, X } from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Modal, message } from 'antd';
 import courseApi from '@/modules/course/api/courseApi';
@@ -47,6 +47,7 @@ function mapApiCourseSubjectToRow(
 
 export default function CoursesManagement({ readOnly = false }: Props) {
   const context = useOutletContext<{ position: string }>();
+  const navigate = useNavigate();
 
   const { user } = useAuth();
   const roleId = Number(user?.role ?? 0);
@@ -384,6 +385,9 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         onClose={closeDetailFromUrl}
         detailCourse={detailCourse}
         detailLoading={detailLoading}
+        onSubjectClick={(subjectId) => {
+          navigate(`/manager/courses/subjects?openDetail=1&subjectId=${subjectId}`);
+        }}
       />
 
       {!readOnly && openEdit && (
