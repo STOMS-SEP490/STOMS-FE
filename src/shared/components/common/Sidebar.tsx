@@ -77,6 +77,7 @@ export default function Sidebar() {
       { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
       { label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },
       { label: 'Thời khóa biểu', icon: Clock, path: '/manager/timetable' },
+      { label: 'Tất cả yêu cầu', icon: CheckCircle, path: '/manager/requests-all' },
       { label: 'Trung tâm duyệt', icon: CheckCircle, path: '/manager/requests' },
       { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
       { label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },

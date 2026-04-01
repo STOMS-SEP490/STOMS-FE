@@ -1,4 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
+import { Image } from 'antd';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
@@ -51,14 +52,16 @@ const columns: ColumnDef<ContributionListItem>[] = [
       const url = row.original.paymentImg;
       if (!url) return '—';
       return (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sky-600 hover:underline text-xs"
-        >
-          Xem ảnh
-        </a>
+        <div className="flex items-center">
+          <Image
+            src={url}
+            alt="Chứng từ"
+            width={44}
+            height={44}
+            className="rounded-md object-cover"
+            preview
+          />
+        </div>
       );
     },
   },

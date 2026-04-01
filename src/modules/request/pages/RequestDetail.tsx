@@ -1,7 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, Paperclip } from 'lucide-react';
+import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, Paperclip, ImageOff, Users, Wrench, ChevronDown, ChevronRight } from 'lucide-react';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';
@@ -16,8 +16,29 @@ import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext } from '../requestDetail.types';
+import sessionService from '../api/sessionApi';
+import reservationService from '@/modules/reservation/api/reservationApi';
+import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
+import { teamApi } from '@/modules/team/api/teamApi';
 
 export default function RequestDetail() {
+  type ApproveSessionPreview = {
+    sessionId: number;
+    sessionNo: number;
+    startAt: string;
+    endAt: string;
+    location?: string | null;
+    teachersRequired?: number | null;
+    tasRequired?: number | null;
+    teams: { teamId: number; teamName: string }[];
+    equipments: {
+      equipmentId: number;
+      equipmentName: string;
+      equipmentCode?: string | null;
+      categoryName?: string | null;
+      imgLink?: string | null;
+    }[];
+  };
   const { id } = useParams<{ id: string }>();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
   const {
@@ -111,6 +132,95 @@ export default function RequestDetail() {
   const [attachmentPreview, setAttachmentPreview] = useState<{ fileName: string; fileUrl: string } | null>(
     null
   );
+  const [approvePreviewLoading, setApprovePreviewLoading] = useState(false);
+  const [approveSessionPreviews, setApproveSessionPreviews] = useState<ApproveSessionPreview[]>([]);
+  const [expandedEquipmentsBySessionId, setExpandedEquipmentsBySessionId] = useState<Record<number, boolean>>({});
+
+  const loadApprovePreview = useCallback(async () => {
+    if (!sessions.length) {
+      setApproveSessionPreviews([]);
+      return;
+    }
+    setApprovePreviewLoading(true);
+    try {
+      const detailRows = await Promise.all(
+        sessions.map(async (s) => {
+          try {
+            const detail = await sessionService.getById(s.sessionId);
+            const teamSessions = detail.TeamSessions ?? [];
+            const teams = teamSessions
+              .map((ts) => ({
+                teamId: Number(ts.TeamId ?? 0),
+                teamName: String(ts.TeamName ?? '').trim() || `Đội #${ts.TeamId ?? '—'}`,
+              }))
+              .filter((t) => t.teamId > 0);
+            const selectedTeamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
+            const missingTeamIds = selectedTeamIds.filter((teamId) => !teams.some((t) => t.teamId === teamId));
+            if (missingTeamIds.length) {
+              const fetchedTeams = await Promise.all(
+                missingTeamIds.map(async (teamId) => {
+                  try {
+                    const t = await teamApi.getById(teamId);
+                    return { teamId, teamName: String(t.teamName ?? '').trim() || `Đội phụ trách ${teamId}` };
+                  } catch {
+                    return { teamId, teamName: `Đội phụ trách ${teamId}` };
+                  }
+                })
+              );
+              teams.push(...fetchedTeams);
+            }
+
+            const reservationId = Number(detail.ReservationId ?? s.reservationId ?? 0);
+            let equipments: ApproveSessionPreview['equipments'] = [];
+            if (reservationId > 0) {
+              const reservation = normalizeReservationResponse(await reservationService.getById(reservationId));
+              equipments = (reservation.EquipmentReservations ?? [])
+                .map((er) => ({
+                  equipmentId: Number(er.EquipmentId ?? 0),
+                  equipmentName: String(er.Equipment?.EquipmentName ?? '').trim() || `Thiết bị #${er.EquipmentId ?? '—'}`,
+                  equipmentCode: er.Equipment?.EquipmentCode ?? null,
+                  categoryName: er.Equipment?.CategoryName ?? null,
+                  imgLink: er.Equipment?.ImgLink ?? null,
+                }))
+                .filter((eq) => eq.equipmentId > 0);
+            }
+
+            return {
+              sessionId: s.sessionId,
+              sessionNo: Number(detail.SessionNo ?? s.sessionNo ?? 0),
+              startAt: String(detail.StartAt ?? s.startAt ?? ''),
+              endAt: String(detail.EndAt ?? s.endAt ?? ''),
+              location: detail.Location ?? s.location ?? null,
+              teachersRequired: detail.TeachersRequired ?? s.teachersRequired ?? null,
+              tasRequired: detail.TasRequired ?? s.tasRequired ?? null,
+              teams,
+              equipments,
+            } satisfies ApproveSessionPreview;
+          } catch {
+            return {
+              sessionId: s.sessionId,
+              sessionNo: s.sessionNo,
+              startAt: s.startAt,
+              endAt: s.endAt,
+              location: s.location ?? null,
+              teachersRequired: s.teachersRequired ?? null,
+              tasRequired: s.tasRequired ?? null,
+              teams: [],
+              equipments: [],
+            } satisfies ApproveSessionPreview;
+          }
+        })
+      );
+      setApproveSessionPreviews(detailRows.sort((a, b) => a.sessionNo - b.sessionNo));
+    } finally {
+      setApprovePreviewLoading(false);
+    }
+  }, [sessions, uiAssignedTeamIdsBySessionId]);
+
+  useEffect(() => {
+    if (!approveOpen) return;
+    void loadApprovePreview();
+  }, [approveOpen, loadApprovePreview]);
 
   const openAttachmentPreview = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
     if (!fileUrl) return;
@@ -989,27 +1099,169 @@ export default function RequestDetail() {
         onClose={() => !actionLoading && setApproveOpen(false)}
         title="Xác nhận duyệt yêu cầu"
         description="Yêu cầu sẽ chuyển sang trạng thái đã duyệt."
-        className="max-w-md border-0 shadow-2xl"
+        className="max-w-2xl border-0 shadow-2xl"
       >
         {request && (
-          <div className="rounded-xl bg-gray-50 p-4 space-y-2 text-sm">
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-500">Mã yêu cầu</span>
-              <span className="font-medium text-gray-900">{request.requestCode}</span>
+          <div className="space-y-4 text-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4">
+              <h4 className="text-lg font-bold text-slate-900">
+                {request.requestName ?? request.requestCode}
+              </h4>
+              <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-3">
+                <div className="flex items-center gap-2.5">
+                  <Hash className="h-4 w-4 text-sky-500" />
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
+                    <p className="text-sm font-semibold text-slate-900">{request.requestCode}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Calendar className="h-4 w-4 text-sky-500" />
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Ngày tạo</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {request.createdAt
+                        ? dayjs(request.createdAt).format('DD/MM/YYYY')
+                        : dayjs(request.startDate).format('DD/MM/YYYY')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <List className="h-4 w-4 text-sky-500" />
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Số lượng phiên</p>
+                    <p className="text-sm font-semibold text-slate-900">{sessions.length || 0} phiên</p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-500">Phiên đã gán đội</span>
-              <span className="font-medium text-gray-900">
-                {assignedCount}/{sessions.length || 0}
-              </span>
+
+            <div className="rounded-2xl border border-slate-200 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <span className="text-sm font-semibold text-slate-900">Chi tiết phân công và thiết bị theo phiên</span>
+                {approvePreviewLoading ? (
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                    Đang tải...
+                  </span>
+                ) : null}
+              </div>
+              <div className="max-h-[48vh] space-y-2.5 overflow-y-auto p-3">
+                {approveSessionPreviews.map((preview) => {
+                  const teamIds = uiAssignedTeamIdsBySessionId[preview.sessionId] ?? [];
+                  const qtyMap = uiTeamQuantitiesBySessionId[preview.sessionId] ?? {};
+                  return (
+                    <div
+                      key={preview.sessionId}
+                      className="relative rounded-xl border border-gray-200 bg-white p-3 pl-4"
+                    >
+                      <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-xl bg-[#2197C0]/45" />
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center rounded-full border border-[#2197C0]/20 bg-[#2197C0]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#1C7FA1]">
+                          Phiên {preview.sessionNo}
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-600">
+                          {dayjs(preview.startAt).format('DD/MM HH:mm')} - {dayjs(preview.endAt).format('HH:mm')}
+                        </span>
+                      </div>
+                      <div className="mt-2 space-y-1.5 text-xs text-slate-700">
+                        <p className="flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                          <span className="font-medium text-slate-600">Địa điểm:</span>
+                          <span className="font-semibold text-slate-800">{preview.location || '—'}</span>
+                        </p>
+                        <p className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-slate-400" />
+                          <span className="font-medium text-slate-600">Nhu cầu:</span>
+                          <span className="font-semibold text-slate-800">
+                            {preview.teachersRequired ?? 0} GV / {preview.tasRequired ?? 0} TG
+                          </span>
+                        </p>
+                        <p className="flex items-start gap-1.5">
+                          <List className="mt-0.5 h-3.5 w-3.5 text-slate-400" />
+                          <span className="font-medium text-slate-600">Đội đã gán:</span>
+                          <span className="font-semibold text-slate-800">
+                            {teamIds.length > 0
+                              ? teamIds
+                                  .map((teamId, idx) => {
+                                    const teamName =
+                                      preview.teams.find((t) => t.teamId === teamId)?.teamName ?? `Đội phụ trách ${idx + 1}`;
+                                    const q = qtyMap[teamId];
+                                    const teacherQty = q?.teachersRequired ?? 0;
+                                    const taQty = q?.tasRequired ?? 0;
+                                    return `${teamName} (${teacherQty} GV / ${taQty} TG)`;
+                                  })
+                                  .join(', ')
+                              : 'Chưa có'}
+                          </span>
+                        </p>
+                        <div>
+                          <button
+                            type="button"
+                            className="mb-1 inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                            onClick={() =>
+                              setExpandedEquipmentsBySessionId((prev) => ({
+                                ...prev,
+                                [preview.sessionId]: !prev[preview.sessionId],
+                              }))
+                            }
+                          >
+                            <Wrench className="h-3.5 w-3.5 text-slate-500" />
+                            Thiết bị đặt trước ({preview.equipments.length})
+                            {expandedEquipmentsBySessionId[preview.sessionId] ? (
+                              <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
+                            )}
+                          </button>
+                          {expandedEquipmentsBySessionId[preview.sessionId] && preview.equipments.length > 0 ? (
+                            <ul className="space-y-0 overflow-hidden rounded-lg bg-gray-50/70">
+                              {preview.equipments.map((eq) => (
+                                <li
+                                  key={`${preview.sessionId}-${eq.equipmentId}`}
+                                  className="flex items-center gap-2 px-2.5 py-2 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-gray-200/70"
+                                >
+                                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-white/90 flex items-center justify-center">
+                                    {eq.imgLink ? (
+                                      <img
+                                        src={eq.imgLink}
+                                        alt={eq.equipmentName}
+                                        className="h-full w-full object-cover"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                        }}
+                                      />
+                                    ) : (
+                                      <ImageOff className="h-4 w-4 text-gray-400" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-semibold text-slate-800">{eq.equipmentName}</p>
+                                    <p className="text-[11px] text-slate-500">Mã: {eq.equipmentCode || eq.equipmentId}</p>
+                                    <p className="text-[11px] text-slate-500">Danh mục: {eq.categoryName || '—'}</p>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : expandedEquipmentsBySessionId[preview.sessionId] ? (
+                            <p className="text-xs text-slate-500">Chưa có</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {approvePreviewLoading && approveSessionPreviews.length === 0 ? (
+                  <div className="px-1 py-2 text-xs text-slate-500">Đang tải chi tiết các phiên...</div>
+                ) : null}
+              </div>
             </div>
           </div>
         )}
-        <div className="flex justify-end gap-2 pt-5 mt-2 border-t border-gray-100">
+        <div className="mt-3 flex justify-end gap-2 border-t border-gray-100 pt-5">
           <Button
             type="button"
             variant="outline"
-            className="rounded-lg border-gray-200"
+            className="rounded-xl border-gray-200 px-5"
             disabled={actionLoading}
             onClick={() => setApproveOpen(false)}
           >
@@ -1017,7 +1269,7 @@ export default function RequestDetail() {
           </Button>
           <Button
             type="button"
-            className="rounded-lg gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            className="rounded-xl gap-2 bg-emerald-600 px-5 text-white shadow-sm hover:bg-emerald-700"
             disabled={actionLoading}
             onClick={handleConfirmApprove}
           >

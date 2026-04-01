@@ -11,6 +11,7 @@ import AvailableEquipmentsPage from '@/modules/equipment/pages/AvailableEquipmen
 import CoursesReadonlyPage from '@/modules/course/pages/CoursesReadonlyPage';
 import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout';
 import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
+import TopicsReadonlyPage from '@/modules/topic/pages/TopicsReadonlyPage';
 import TeacherDashboard from '@/modules/dashboard/pages/TeacherDashboard';
 
 const TeacherRoutes = [
@@ -22,6 +23,7 @@ const TeacherRoutes = [
     children: [
       { index: true, element: <CoursesReadonlyPage /> },
       { path: 'subjects', element: <SubjectsReadonlyPage /> },
+      { path: 'topics', element: <TopicsReadonlyPage /> },
     ],
   },
   { path: 'timetable', element: <EventCalendar /> },

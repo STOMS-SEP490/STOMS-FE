@@ -557,15 +557,14 @@ export default function CreateRequestPage() {
                     </div>
 
                     <div className="mt-2 text-[13px] text-gray-700 space-y-1">
-                      <div>
-                        <span className="text-gray-500 inline-flex items-center gap-1">
-                          <MapPin className="w-4 h-4 text-gray-400" />
-                          Địa điểm:
-                        </span>{' '}
-                        {s.location?.trim() ? s.location.trim() : '—'}
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-gray-500 shrink-0">Địa điểm:</span>
+                        <span className="min-w-0 break-words">{s.location?.trim() ? s.location.trim() : '—'}</span>
                       </div>
-                      <div>
-                        <span className="text-gray-500">GV/TG:</span> {s.teachersRequired} / {s.tasRequired}
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-500 shrink-0">GV/TG:</span>
+                        <span>{s.teachersRequired} / {s.tasRequired}</span>
                       </div>
                       {s.notes?.trim() ? (
                         <div className="text-gray-600 italic">Ghi chú: {s.notes.trim()}</div>

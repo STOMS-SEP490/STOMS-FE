@@ -23,6 +23,8 @@ export type SessionDetailProps = {
   requestCode: string;
   showReservedEquipment?: boolean;
   sectionMode?: 'all' | 'info' | 'equipment';
+  /** Cho phép mở UI sửa đặt trước (mặc định: true). */
+  canEditReservation?: boolean;
   /** Gọi sau khi sửa đặt trước thành công (vd. đồng bộ lại session / yêu cầu). */
   onReservationUpdated?: () => void | Promise<void>;
 };
@@ -33,6 +35,7 @@ export default function RequestSessionDetailPanel({
   requestCode,
   showReservedEquipment = true,
   sectionMode = 'all',
+  canEditReservation = true,
   onReservationUpdated,
 }: SessionDetailProps) {
   const renderInfoCard = sectionMode === 'all' || sectionMode === 'info';
@@ -239,17 +242,17 @@ export default function RequestSessionDetailPanel({
             <span className="text-gray-500">Mã yêu cầu:</span>
             <span className="font-semibold text-sky-600">{requestCode}</span>
           </div>
-          <div className="flex items-center gap-3 text-gray-600">
+          <div className="flex items-center gap-3 text-gray-700">
             <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
-            <span className="text-gray-500">Số lượng giảng viên:</span>
-            <span className="font-medium text-black">
+            <span className="font-semibold text-gray-900">Số lượng giảng viên yêu cầu:</span>
+            <span className="text-base font-bold text-sky-700 tracking-tight">
               {sessionLoading ? 'Đang tải...' : (teachersRequired ?? '—')}
             </span>
           </div>
-          <div className="flex items-center gap-3 text-gray-600">
+          <div className="flex items-center gap-3 text-gray-700">
             <Users className="w-4 h-4 text-gray-400 shrink-0" />
-            <span className="text-gray-500">Số lượng trợ giảng:</span>
-            <span className="font-medium text-black">
+            <span className="font-semibold text-gray-900">Số lượng trợ giảng yêu cầu:</span>
+            <span className="text-base font-bold text-violet-700 tracking-tight">
               {sessionLoading ? 'Đang tải...' : (tasRequired ?? '—')}
             </span>
           </div>
@@ -283,7 +286,7 @@ export default function RequestSessionDetailPanel({
           <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
             <div className="px-4 py-2.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold text-gray-900 text-sm">Danh sách thiết bị mượn trước</h3>
-              {resolvedReservationId ? (
+              {resolvedReservationId && canEditReservation ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -356,15 +359,17 @@ export default function RequestSessionDetailPanel({
         </>
       )}
 
-      <EditReservationModal
-        open={editReservationOpen}
-        reservation={editReservationDetail}
-        onClose={() => {
-          setEditReservationOpen(false);
-          setEditReservationDetail(null);
-        }}
-        onSaved={handleEditReservationSaved}
-      />
+      {canEditReservation ? (
+        <EditReservationModal
+          open={editReservationOpen}
+          reservation={editReservationDetail}
+          onClose={() => {
+            setEditReservationOpen(false);
+            setEditReservationDetail(null);
+          }}
+          onSaved={handleEditReservationSaved}
+        />
+      ) : null}
     </div>
   );
 }

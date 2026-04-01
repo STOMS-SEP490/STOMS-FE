@@ -17,6 +17,7 @@ import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { getSessionStatusInfo } from '@/constants/status';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { cn } from '@/shared/lib/utils';
 import {
   useTeamLeaderTimetableAssignments,
   type TeamLeaderTimetableAssignmentRow,
@@ -72,7 +73,9 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
   const navigate = useNavigate();
   const location = useLocation();
   const rolePrefix = location.pathname.startsWith('/teacher/') ? '/teacher' : '/tl';
-  const byMember = rolePrefix === '/teacher';
+  const isTeacherRoute = rolePrefix === '/teacher';
+  const [tlViewMode, setTlViewMode] = useState<'team' | 'me'>('team');
+  const byMember = isTeacherRoute ? true : tlViewMode === 'me';
   const isAttendanceTab = props?.isAttendanceTab ?? false;
   const isEmbedded = props?.embedded ?? false;
   const statuses = useMemo(() => {
@@ -622,12 +625,28 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
       style={isEmbedded ? undefined : { height: 'var(--content-height, 100vh)' }}
     >
       {!isEmbedded && (
-        <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+        <div
+          className={cn(
+            'shrink-0 rounded-2xl border border-slate-200 bg-white shadow-sm',
+            isTeacherRoute ? 'px-5 py-3.5' : 'px-6 py-4',
+          )}
+        >
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Lịch trình và phân công</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Theo dõi phiên dạy, lịch trình của team theo từng buổi.
+              <h2
+                className={cn(
+                  'font-semibold text-slate-900',
+                  isTeacherRoute ? 'text-xl' : 'text-2xl',
+                )}
+              >
+                Lịch trình và phân công
+              </h2>
+              <p className={cn(isTeacherRoute ? 'mt-0.5 text-[13px]' : 'mt-1 text-sm', 'text-slate-500')}>
+                {isTeacherRoute
+                  ? 'Theo dõi các phiên dạy của bạn theo từng buổi.'
+                  : byMember
+                  ? 'Theo dõi các phiên dạy của bạn theo từng buổi.'
+                  : 'Theo dõi phiên dạy, lịch trình của team theo từng buổi.'}
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
@@ -645,11 +664,49 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                   }
                 />
               </div>
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
+              {!isTeacherRoute && (
+                <div className="flex items-center rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTlViewMode('team');
+                      setPageNumber(1);
+                      setSearch('');
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors',
+                      tlViewMode === 'team'
+                        ? 'bg-sky-50 text-sky-700 shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-50',
+                    )}
+                    title="Xem lịch theo team"
+                  >
+                    Team
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTlViewMode('me');
+                      setPageNumber(1);
+                      setSearch('');
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors',
+                      tlViewMode === 'me'
+                        ? 'bg-sky-50 text-sky-700 shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-50',
+                    )}
+                    title="Xem lịch của tôi"
+                  >
+                    Của tôi
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
                 <button
                   type="button"
                   onClick={() => navigate(`${rolePrefix}/timetable`)}
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors text-slate-500 hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors text-slate-500 hover:bg-slate-50"
                   title="Xem dạng thời khóa biểu"
                 >
                   <CalendarDays className="h-4 w-4" />
@@ -657,7 +714,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 shadow-sm"
+                  className="inline-flex items-center gap-2 rounded-md bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 shadow-sm"
                   title="Xem dạng bảng phân công"
                 >
                   <List className="h-4 w-4" />
@@ -745,6 +802,14 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                           onDelegated: () => {
                             void refetch();
                           },
+                        }
+                      : undefined
+                  }
+                  onOpenAttendance={
+                    detailRow
+                      ? () => {
+                          closeDetail();
+                          openPanel(detailRow, 'checkin');
                         }
                       : undefined
                   }

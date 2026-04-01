@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Users, Trash2, Plus } from 'lucide-react';
+import { Search, Users, Trash2, Plus, CircleHelp, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import type { Team } from '@/modules/team/team';
@@ -199,8 +199,16 @@ export default function RequestDetailTeamPanel({
     setTeamDetailPopup(null);
   }, [onQuantitiesChange, session.sessionId]);
 
-  const POPUP_WIDTH = 288;
-  const POPUP_HEIGHT = 260;
+  const POPUP_WIDTH = 300;
+  const POPUP_HEIGHT = 280;
+  const getTeamMetric = useCallback((team: Team, keys: string[]) => {
+    const record = team as Record<string, unknown>;
+    for (const key of keys) {
+      const value = record[key];
+      if (typeof value === 'number') return value;
+    }
+    return undefined;
+  }, []);
   const handleTeamCardMouseEnter = useCallback((team: Team, e: React.MouseEvent<HTMLDivElement>) => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     const target = e.currentTarget;
@@ -404,6 +412,10 @@ export default function RequestDetailTeamPanel({
       {/* Danh sách gợi ý (khi bấm Thêm đội hoặc chưa có đội) */}
       {(showAddTeam || addedTeamIds.length === 0) && (
         <>
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <CircleHelp className="w-3.5 h-3.5" />
+            Di chuột vào từng đội để xem chi tiết năng lực và khả dụng nhân sự.
+          </div>
           <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
@@ -441,7 +453,16 @@ export default function RequestDetailTeamPanel({
                         <p className="text-sm font-medium text-black">{team.teamName}</p>
                         <p className="text-xs text-gray-500">ID đội: {team.teamId}</p>
                       </div>
-                      {isAdded && <span className="text-xs text-green-600 font-medium">Đã chọn</span>}
+                      {isAdded ? (
+                        <span className="text-xs text-green-600 font-medium">Đã chọn</span>
+                      ) : (
+                        <span
+                          className="text-[11px] text-sky-600 font-medium"
+                          title="Di chuột vào thẻ đội để xem thông tin chi tiết"
+                        >
+                          Hover xem chi tiết
+                        </span>
+                      )}
                     </div>
               </div>
             );
@@ -454,12 +475,12 @@ export default function RequestDetailTeamPanel({
       {teamDetailPopup &&
         createPortal(
           <div
-            className="fixed z-[100] w-72 rounded-2xl bg-white shadow-xl overflow-hidden"
+            className="fixed z-[100] w-80 rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden"
             style={{ left: teamDetailPopup.left, top: teamDetailPopup.top }}
             onMouseEnter={handlePopupMouseEnter}
             onMouseLeave={handlePopupMouseLeave}
           >
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-start justify-between gap-2">
+            <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">
                   {teamDetailPopup.team.teamName}
@@ -484,24 +505,62 @@ export default function RequestDetailTeamPanel({
                   </span>
                 </div>
               )}
-              {((teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount != null ||
-                (teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount != null) && (
-                <div className="pt-2 border-t border-gray-100 space-y-1.5">
-                  <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Phù hợp phiên</p>
-                  <div className="flex gap-3">
-                    {(teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount != null && (
-                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                        Giảng viên: {(teamDetailPopup.team as { matchingSkillTeacherCount?: number }).matchingSkillTeacherCount}
-                      </span>
-                    )}
-                    {(teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount != null && (
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                        Trợ giảng: {(teamDetailPopup.team as { matchingSkillTaCount?: number }).matchingSkillTaCount}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className="pt-2 border-t border-gray-100 space-y-2">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Đánh giá theo phiên</p>
+                {(() => {
+                  const matchedTeacher = getTeamMetric(teamDetailPopup.team, ['matchingSkillTeacherCount']);
+                  const matchedTa = getTeamMetric(teamDetailPopup.team, ['matchingSkillTaCount']);
+                  const availableTeacher = getTeamMetric(teamDetailPopup.team, ['availableTeacherCount', 'availableTeachersCount']);
+                  const availableTa = getTeamMetric(teamDetailPopup.team, ['availableTaCount', 'availableTACount']);
+                  const totalTeacher = getTeamMetric(teamDetailPopup.team, ['totalTeacherCount', 'teachersCount']);
+                  const totalTa = getTeamMetric(teamDetailPopup.team, ['totalTaCount', 'totalTACount', 'tasCount']);
+
+                  const teacherEnough = (matchedTeacher ?? 0) >= requestedTeachers;
+                  const taEnough = (matchedTa ?? 0) >= requestedTas;
+
+                  return (
+                    <div className="space-y-2 text-xs text-slate-700">
+                      <div className="rounded-lg border border-slate-200 overflow-hidden">
+                        <div className="grid grid-cols-5 bg-slate-50 text-[10px] font-semibold text-slate-500">
+                          <div className="px-2 py-1.5">Vai trò</div>
+                          <div className="px-2 py-1.5 text-right">Match</div>
+                          <div className="px-2 py-1.5 text-right">Khả dụng</div>
+                          <div className="px-2 py-1.5 text-right">Tổng</div>
+                          <div className="px-2 py-1.5 text-right">Yêu cầu</div>
+                        </div>
+                        <div className="grid grid-cols-5 border-t border-slate-100">
+                          <div className="px-2 py-2 font-medium">Giảng viên</div>
+                          <div className="px-2 py-2 text-right font-semibold">{matchedTeacher ?? '—'}</div>
+                          <div className="px-2 py-2 text-right">{availableTeacher ?? '—'}</div>
+                          <div className="px-2 py-2 text-right">{totalTeacher ?? '—'}</div>
+                          <div className="px-2 py-2 text-right font-semibold text-slate-900">{requestedTeachers}</div>
+                        </div>
+                        <div className="grid grid-cols-5 border-t border-slate-100 bg-white">
+                          <div className="px-2 py-2 font-medium">Trợ giảng</div>
+                          <div className="px-2 py-2 text-right font-semibold">{matchedTa ?? '—'}</div>
+                          <div className="px-2 py-2 text-right">{availableTa ?? '—'}</div>
+                          <div className="px-2 py-2 text-right">{totalTa ?? '—'}</div>
+                          <div className="px-2 py-2 text-right font-semibold text-slate-900">{requestedTas}</div>
+                        </div>
+                      </div>
+                      <div
+                        className={`rounded-lg px-2.5 py-2 text-xs font-medium inline-flex items-center gap-1.5 ${
+                          teacherEnough && taEnough
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}
+                      >
+                        {teacherEnough && taEnough ? (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5" />
+                        )}
+                        {teacherEnough && taEnough ? 'Đội này đáp ứng đủ yêu cầu phiên.' : 'Đội này chưa đáp ứng đủ yêu cầu phiên.'}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>,
           document.body
