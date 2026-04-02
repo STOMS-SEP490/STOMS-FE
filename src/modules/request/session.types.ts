@@ -64,6 +64,15 @@ export type TeamSessionResponse = {
   TasRequired?: number | null;
 };
 
+export type SessionTopicRef = {
+  SubjectSessionId?: number | null;
+  EventSessionId?: number | null;
+  Title?: string | null;
+  Description?: string | null;
+  /** Thời lượng buổi (vd. "02:00:00") — BE có thể trả kèm subjectSession/eventSession */
+  Duration?: string | null;
+};
+
 export type SessionResponse = {
   SessionId: number;
   RequestId: number;
@@ -87,6 +96,8 @@ export type SessionResponse = {
   Contracts?: unknown[] | null;
   TaskReports?: unknown[] | null;
   TeamSessions?: TeamSessionResponse[] | null;
+  SubjectSession?: SessionTopicRef | null;
+  EventSession?: SessionTopicRef | null;
   EventSessionSkill?: EventSessionSkillResponse[] | null;
   SubjectSkill?: SubjectSkillResponse[] | null;
 };

@@ -8,6 +8,7 @@ import requestApi from '@/modules/request/api/requestApi';
 import sessionApi from '@/modules/request/api/sessionApi';
 import assignmentApi from '@/modules/request/api/assignmentApi';
 import memberApi from '@/modules/request/api/memberApi';
+import type { SessionTopicInfo } from '@/modules/request/request';
 import type {
   AssignMemberPayload,
   RoleKey,
@@ -100,18 +101,56 @@ export function computeTeamLeaderAssignableSlotStats(
 const getRoleKey = (staffRole?: string | null): RoleKey =>
   String(staffRole ?? '').toUpperCase().includes('TA') ? 'TA' : 'TE';
 
+/** Chuẩn hóa SubjectSession/EventSession (Pascal hoặc camel) → SessionTopicInfo giống getSessionDisplayTitle. */
+function mapTopicToSessionTopicInfo(raw: unknown): SessionTopicInfo | null {
+  if (raw == null || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const titleRaw = (o.title ?? o.Title) as string | null | undefined;
+  const descRaw = (o.description ?? o.Description) as string | null | undefined;
+  const durRaw = (o.duration ?? o.Duration) as string | null | undefined;
+  const title = titleRaw?.trim() ? titleRaw.trim() : null;
+  const description = descRaw?.trim() ? descRaw.trim() : null;
+  const duration = durRaw != null && String(durRaw).trim() ? String(durRaw).trim() : null;
+  if (!title && !description && !duration) return null;
+  return { title, description, duration };
+}
+
 const mapSessionLite = (
-  session: { sessionId?: number; sessionNo?: number; startAt?: string; endAt?: string; location?: string | null; status?: string },
+  session: {
+    sessionId?: number;
+    sessionNo?: number;
+    startAt?: string;
+    endAt?: string;
+    location?: string | null;
+    status?: string;
+    subjectSession?: unknown;
+    eventSession?: unknown;
+    SubjectSession?: unknown;
+    EventSession?: unknown;
+    notes?: string | null;
+    Notes?: string | null;
+  },
   requestId: number,
-): TeamSessionLite => ({
-  sessionId: Number(session.sessionId ?? 0),
-  requestId,
-  sessionNo: Number(session.sessionNo ?? 0),
-  startAt: String(session.startAt ?? ''),
-  endAt: String(session.endAt ?? ''),
-  location: String(session.location ?? ''),
-  status: String(session.status ?? ''),
-});
+): TeamSessionLite => {
+  const notes =
+    session.notes != null && String(session.notes).trim()
+      ? String(session.notes)
+      : session.Notes != null && String(session.Notes).trim()
+        ? String(session.Notes)
+        : undefined;
+  return {
+    sessionId: Number(session.sessionId ?? 0),
+    requestId,
+    sessionNo: Number(session.sessionNo ?? 0),
+    startAt: String(session.startAt ?? ''),
+    endAt: String(session.endAt ?? ''),
+    location: String(session.location ?? ''),
+    status: String(session.status ?? ''),
+    subjectSession: mapTopicToSessionTopicInfo(session.subjectSession ?? session.SubjectSession),
+    eventSession: mapTopicToSessionTopicInfo(session.eventSession ?? session.EventSession),
+    notes: notes ?? undefined,
+  };
+};
 
 const mapFilteredSessionLite = (session: any, requestId: number): TeamSessionLite =>
   mapSessionLite(
@@ -122,6 +161,9 @@ const mapFilteredSessionLite = (session: any, requestId: number): TeamSessionLit
       endAt: String(session?.EndAt ?? session?.endAt ?? ''),
       location: String(session?.Location ?? session?.location ?? ''),
       status: String(session?.Status ?? session?.status ?? ''),
+      subjectSession: session?.SubjectSession ?? session?.subjectSession,
+      eventSession: session?.EventSession ?? session?.eventSession,
+      notes: session?.Notes ?? session?.notes,
     },
     requestId,
   );
@@ -452,6 +494,14 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
               startAt: detail.StartAt,
               endAt: detail.EndAt,
               location: detail.Location ?? '',
+              subjectSession: mapTopicToSessionTopicInfo(detail.SubjectSession) ?? s.subjectSession,
+              eventSession: mapTopicToSessionTopicInfo(detail.EventSession) ?? s.eventSession,
+              notes: (() => {
+                const fromDetail = String(detail.Notes ?? '').trim();
+                if (fromDetail) return fromDetail;
+                const prev = String(s.notes ?? '').trim();
+                return prev || undefined;
+              })(),
             };
           }),
         };
@@ -491,6 +541,13 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     },
     [sessionDetailsById],
   );
+
+  useEffect(() => {
+    if (!selectedRequest?.sessions?.length) return;
+    const ids = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
+    if (!ids.length) return;
+    void ensureSessionDetails(ids);
+  }, [selectedRequest, ensureSessionDetails]);
 
   const ensureSuggestedStaffForAssignments = useCallback(
     async (

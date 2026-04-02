@@ -16,6 +16,8 @@ type Props = {
   anchorRect: DOMRect | null;
   onClose: () => void;
   session: SessionDetail | null;
+  /** Mở panel điểm danh (check-in) — do trang cha giữ state panel. */
+  onOpenAttendancePanel?: () => void;
 };
 
 function formatTimeRange(start?: string, end?: string) {
@@ -27,7 +29,13 @@ function formatTimeRange(start?: string, end?: string) {
   return `${fmt(s)} - ${fmt(e)}`;
 }
 
-export default function SessionDetailPopover({ open, anchorRect, onClose, session }: Props) {
+export default function SessionDetailPopover({
+  open,
+  anchorRect,
+  onClose,
+  session,
+  onOpenAttendancePanel,
+}: Props) {
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number }>({ left: 12, top: 12 });
 
@@ -299,7 +307,13 @@ export default function SessionDetailPopover({ open, anchorRect, onClose, sessio
               <button
                 type="button"
                 className="text-sm text-blue-600 hover:underline"
-                onClick={() => navigate(`/tl/attendance/${session.SessionId}`)}
+                onClick={() => {
+                  if (onOpenAttendancePanel) {
+                    onOpenAttendancePanel();
+                    return;
+                  }
+                  navigate(`/tl/attendance/${session.SessionId}`);
+                }}
               >
                 Điểm danh
               </button>

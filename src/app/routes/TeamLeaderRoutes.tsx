@@ -8,6 +8,7 @@ import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherC
 import CoursesReadonlyPage from '@/modules/course/pages/CoursesReadonlyPage';
 import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout';
 import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
+import TopicsReadonlyPage from '@/modules/topic/pages/TopicsReadonlyPage';
 import TeacherAttendanceHistoryPage from '@/modules/attendance/pages/TeacherAttendanceHistoryPage';
 import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeachingHistoryPage';
 import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
@@ -35,6 +36,7 @@ const TeamLeaderRoutes = [
     children: [
       { index: true, element: <CoursesReadonlyPage /> },
       { path: 'subjects', element: <SubjectsReadonlyPage /> },
+      { path: 'topics', element: <TopicsReadonlyPage /> },
     ],
   },
   { path: 'timetable', element: <EventCalendar /> },

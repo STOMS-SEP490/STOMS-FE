@@ -2,14 +2,21 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import {
-  BadgeDollarSign,
-  CalendarCheck2,
-  CalendarX2,
   ChevronRight,
   Clock,
   AlertTriangle,
   FileText,
+  BarChart3,
 } from 'lucide-react';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -81,13 +88,18 @@ function getMemberId(): number | null {
   }
 }
 
+function toLocalDateTimeParam(value: dayjs.Dayjs) {
+  // BE Postgres timestamp without time zone: gửi dạng local không kèm "Z"/offset để tránh Kind=UTC.
+  return value.format('YYYY-MM-DDTHH:mm:ss');
+}
+
 function resolveRange(effectiveRange: NonNullable<DashboardRangeParams['range']>) {
   const now = dayjs();
   switch (effectiveRange) {
     case 'today': {
       const from = now.startOf('day');
       const toExclusive = from.add(1, 'day');
-      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+      return { from: toLocalDateTimeParam(from), toExclusive: toLocalDateTimeParam(toExclusive) };
     }
     case 'thisweek': {
       // ISO-like week: Monday start
@@ -95,36 +107,32 @@ function resolveRange(effectiveRange: NonNullable<DashboardRangeParams['range']>
       const monday = dow === 0 ? now.subtract(6, 'day') : now.subtract(dow - 1, 'day');
       const from = monday.startOf('day');
       const toExclusive = from.add(7, 'day');
-      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+      return { from: toLocalDateTimeParam(from), toExclusive: toLocalDateTimeParam(toExclusive) };
     }
     case 'thismonth': {
       const from = now.startOf('month');
       const toExclusive = from.add(1, 'month');
-      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+      return { from: toLocalDateTimeParam(from), toExclusive: toLocalDateTimeParam(toExclusive) };
     }
     case 'last3months': {
       const startThisMonth = now.startOf('month');
       const from = startThisMonth.subtract(2, 'month');
       const toExclusive = startThisMonth.add(1, 'month');
-      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+      return { from: toLocalDateTimeParam(from), toExclusive: toLocalDateTimeParam(toExclusive) };
     }
     case 'last6months': {
       const startThisMonth = now.startOf('month');
       const from = startThisMonth.subtract(5, 'month');
       const toExclusive = startThisMonth.add(1, 'month');
-      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+      return { from: toLocalDateTimeParam(from), toExclusive: toLocalDateTimeParam(toExclusive) };
     }
     case '1year': {
       const startThisMonth = now.startOf('month');
       const from = startThisMonth.subtract(11, 'month');
       const toExclusive = startThisMonth.add(1, 'month');
-      return { from: from.toISOString(), toExclusive: toExclusive.toISOString() };
+      return { from: toLocalDateTimeParam(from), toExclusive: toLocalDateTimeParam(toExclusive) };
     }
   }
-}
-
-function formatVnd(amount: number) {
-  return amount.toLocaleString('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
 }
 
 function toDateOnly(iso: string) {
@@ -133,9 +141,32 @@ function toDateOnly(iso: string) {
 
 function TeachingHistoryRow(props: { item: DashboardTeachingHistoryItem }) {
   const it = props.item;
+
+  // Use staff role as "type" to color the card border.
+  // This keeps the UI consistent and avoids using completion/cancel status for coloring.
+  const normalizedRole = (it.role ?? '').toLowerCase();
+  const isAssistant =
+    normalizedRole.includes('trợ') ||
+    normalizedRole.includes('tro') ||
+    normalizedRole.includes('ta') ||
+    normalizedRole.includes('assistant') ||
+    normalizedRole.includes('tutor');
+  const isTeacher =
+    normalizedRole.includes('giáo viên') ||
+    normalizedRole.includes('giao vien') ||
+    normalizedRole.includes('teacher');
+
+  const containerBorder = isAssistant ? 'border-emerald-200/70' : isTeacher ? 'border-sky-200/70' : 'border-slate-200/70';
+  const containerBg = isAssistant ? 'bg-emerald-50/30' : isTeacher ? 'bg-sky-50/40' : 'bg-slate-50/40';
+  const roleBadgeToneClass = isAssistant
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : isTeacher
+      ? 'border-sky-200 bg-sky-50 text-sky-700'
+      : 'border-slate-200 bg-slate-50 text-slate-700';
+
   return (
-    <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
-      <div className="flex items-start justify-between gap-3">
+    <div className={cn('rounded-xl border p-3', containerBorder, containerBg)}>
+      <div className="flex items-start gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-slate-900 truncate">{it.sessionTitle || `Phiên ${it.sessionNo}`}</div>
           <div className="mt-1 text-xs text-slate-500 truncate">
@@ -150,26 +181,15 @@ function TeachingHistoryRow(props: { item: DashboardTeachingHistoryItem }) {
             <span className="text-slate-300">•</span>
             <span className="truncate">{it.location || '—'}</span>
             <span className="text-slate-300">•</span>
-            <span className="font-medium text-slate-700">{it.role || '—'}</span>
-          </div>
-        </div>
-
-        <div className="shrink-0 text-right">
-          {it.contract?.amount != null ? (
-            <div className="text-xs font-semibold text-emerald-700">{formatVnd(Number(it.contract.amount) || 0)}</div>
-          ) : (
-            <div className="text-xs text-slate-400">—</div>
-          )}
-          {it.contract?.isPaid != null && (
             <span
               className={cn(
-                'mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                it.contract.isPaid ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
+                'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap shrink-0',
+                roleBadgeToneClass,
               )}
             >
-              {it.contract.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+              {it.role || '—'}
             </span>
-          )}
+          </div>
         </div>
       </div>
     </div>
@@ -183,7 +203,12 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
   const badgeLabel = missingCheckin ? 'Thiếu check-in' : missingCheckout ? 'Thiếu check-out' : '—';
   const badgeTone = missingCheckin || missingCheckout ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600';
   return (
-    <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
+    <div
+      className={cn(
+        'rounded-xl border p-3',
+        missingCheckin || missingCheckout ? 'border-amber-200/70 bg-amber-50/30' : 'border-slate-200/70 bg-slate-50/40',
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-slate-900 truncate">{it.session?.sessionTitle ?? '—'}</div>
@@ -215,7 +240,7 @@ export default function TeacherDashboard() {
   const effectiveRange: NonNullable<DashboardRangeParams['range']> = range ?? 'thismonth';
   const { from, toExclusive } = useMemo(() => resolveRange(effectiveRange), [effectiveRange]);
   const toInclusiveIso = useMemo(
-    () => dayjs(toExclusive).subtract(1, 'millisecond').toISOString(),
+    () => toLocalDateTimeParam(dayjs(toExclusive).subtract(1, 'millisecond')),
     [toExclusive]
   );
 
@@ -272,7 +297,6 @@ export default function TeacherDashboard() {
   const teachingItems = teachingHistoryQ.data?.items ?? [];
   const attendanceItems = attendanceIssuesQ.data?.items ?? [];
 
-  const estimatedIncome = Number(workloadQ.data?.estimatedIncome ?? 0) || 0;
   const missingCheckoutTotal = Number(attendanceIssuesQ.data?.totalItems ?? 0) || 0;
 
   const firstError =
@@ -318,7 +342,7 @@ export default function TeacherDashboard() {
             </div>
           ) : null}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
             <KpiCard
               tone="sky"
               title="Giờ dạy (hoàn thành)"
@@ -326,39 +350,44 @@ export default function TeacherDashboard() {
               sub={rangeLabelMap[effectiveRange]}
               icon={<Clock className="h-5 w-5" />}
             />
-            <KpiCard
-              tone="emerald"
-              title="Phiên hoàn thành"
-              value={workloadQ.data?.completedSessions ?? '—'}
-              sub={
-                workloadQ.data
-                  ? `${workloadQ.data.completedSessionsChangePercent >= 0 ? '+' : ''}${workloadQ.data.completedSessionsChangePercent}%`
-                  : undefined
-              }
-              icon={<CalendarCheck2 className="h-5 w-5" />}
-            />
-            <KpiCard
-              tone="rose"
-              title="Phiên bị hủy"
-              value={workloadQ.data?.canceledSessions ?? '—'}
-              sub={
-                workloadQ.data
-                  ? `${workloadQ.data.canceledSessionsChangePercent >= 0 ? '+' : ''}${workloadQ.data.canceledSessionsChangePercent}%`
-                  : undefined
-              }
-              icon={<CalendarX2 className="h-5 w-5" />}
-            />
-            <KpiCard
-              tone="indigo"
-              title="Thu nhập ước tính"
-              value={workloadQ.data ? formatVnd(estimatedIncome) : '—'}
-              sub={
-                workloadQ.data
-                  ? `${workloadQ.data.estimatedIncomeChangePercent >= 0 ? '+' : ''}${workloadQ.data.estimatedIncomeChangePercent}%`
-                  : undefined
-              }
-              icon={<BadgeDollarSign className="h-5 w-5" />}
-            />
+          </div>
+
+          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-sky-600" />
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Workload</p>
+                  <p className="text-xs text-slate-500">Giờ dạy theo {rangeLabelMap[effectiveRange]}</p>
+                </div>
+              </div>
+            </div>
+
+            {workloadQ.data?.teachingHoursSeries?.length ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={workloadQ.data.teachingHoursSeries}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(value: any) => `${Number(value ?? 0).toFixed(1)} giờ`}
+                      wrapperClassName="text-xs"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="completedTeachingHours"
+                      name="Giờ dạy"
+                      stroke="#0ea5e9"
+                      strokeWidth={2}
+                      dot={{ r: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="py-4 text-center text-xs text-slate-500">Chưa có dữ liệu workload.</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -420,20 +449,10 @@ export default function TeacherDashboard() {
             </div>
 
             {contractsQ.data ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
                   <p className="text-[11px] text-slate-500 font-medium uppercase">Tổng hợp đồng</p>
                   <p className="mt-1 text-lg font-semibold text-slate-900">{contractsQ.data.totalContracts}</p>
-                </div>
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
-                  <p className="text-[11px] text-emerald-700 font-medium uppercase">Đã thanh toán</p>
-                  <p className="mt-1 text-lg font-semibold text-emerald-800">{contractsQ.data.paidContracts}</p>
-                  <p className="mt-1 text-[11px] text-emerald-700">{formatVnd(Number(contractsQ.data.paidValue ?? 0) || 0)}</p>
-                </div>
-                <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
-                  <p className="text-[11px] text-amber-700 font-medium uppercase">Chưa thanh toán</p>
-                  <p className="mt-1 text-lg font-semibold text-amber-800">{contractsQ.data.unpaidContracts}</p>
-                  <p className="mt-1 text-[11px] text-amber-700">{formatVnd(Number(contractsQ.data.unpaidValue ?? 0) || 0)}</p>
                 </div>
                 <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
                   <p className="text-[11px] text-slate-500 font-medium uppercase">Hợp đồng gần đây</p>

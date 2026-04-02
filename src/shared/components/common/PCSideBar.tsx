@@ -75,7 +75,7 @@ export default function PCSidebar() {
       { label: 'Nhóm', icon: Users, path: '/pc/teams' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/pc/events' },
       { label: 'Giáo trình', icon: BookOpen, path: '/pc/courses', matchPrefixPath: '/pc/courses' },
-      { label: 'Chủ đề', icon: Bookmark, path: '/pc/courses/subjects', matchPrefixPath: '/pc/courses' },
+      { label: 'Chủ đề', icon: Bookmark, path: '/pc/topics', matchPrefixPath: '/pc/topics' },
       { label: 'Quỹ', icon: Wallet, path: '/pc/fund-contributions' },
       { label: 'Hồ sơ', icon: User, path: '/pc/profile' },
     ],

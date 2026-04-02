@@ -9,7 +9,6 @@ import {
   LogOut,
   List,
   MapPin,
-  UserCheck,
   X,
 } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -17,15 +16,16 @@ import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { getSessionStatusInfo } from '@/constants/status';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { cn } from '@/shared/lib/utils';
 import {
   useTeamLeaderTimetableAssignments,
   type TeamLeaderTimetableAssignmentRow,
 } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
-import attendanceApi from '../../request/api/attendanceApi';
 import { useTeamLeaderAttendancePanel } from '@/modules/contract/hooks/useTeamLeaderAttendancePanel';
 import requestApi from '@/modules/request/api/requestApi';
 import TeamLeaderSessionDetailPanel from '@/modules/request/pages/TeamLeaderSessionDetailPanel';
 import type { RequestListItem, RequestSessionSummary } from '@/modules/request/request';
+import TeamLeaderAttendanceSlideOver from '@/modules/contract/components/TeamLeaderAttendanceSlideOver';
 
 function formatDateTime(value?: string) {
   if (!value) return '—';
@@ -47,13 +47,6 @@ function getSessionDisplayName(row: TeamLeaderTimetableAssignmentRow) {
   return 'Phiên dạy';
 }
 
-function getInitials(name?: string) {
-  if (!name) return 'NA';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
 type TeamLeaderTimetableAssignmentsProps = {
   isAttendanceTab?: boolean;
   embedded?: boolean;
@@ -72,7 +65,9 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
   const navigate = useNavigate();
   const location = useLocation();
   const rolePrefix = location.pathname.startsWith('/teacher/') ? '/teacher' : '/tl';
-  const byMember = rolePrefix === '/teacher';
+  const isTeacherRoute = rolePrefix === '/teacher';
+  const [tlViewMode, setTlViewMode] = useState<'team' | 'me'>('team');
+  const byMember = isTeacherRoute ? true : tlViewMode === 'me';
   const isAttendanceTab = props?.isAttendanceTab ?? false;
   const isEmbedded = props?.embedded ?? false;
   const statuses = useMemo(() => {
@@ -182,18 +177,6 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
       setDetailLoading(false);
     }
   };
-
-  const filteredAttendanceItems = useMemo(() => {
-    const keyword = memberSearch.trim().toLowerCase();
-    if (!keyword) return attendanceItems;
-    return attendanceItems.filter((item) => {
-      const memberId = Number((item as any).memberId ?? item.MemberId ?? 0);
-      const detail = membersById[memberId];
-      const name = detail?.fullName ?? '';
-      const email = detail?.userEmail ?? '';
-      return `${name} ${email}`.toLowerCase().includes(keyword);
-    });
-  }, [attendanceItems, memberSearch, membersById]);
 
   const columns: ColumnDef<TeamLeaderTimetableAssignmentRow>[] = useMemo(
     () => {
@@ -622,12 +605,28 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
       style={isEmbedded ? undefined : { height: 'var(--content-height, 100vh)' }}
     >
       {!isEmbedded && (
-        <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+        <div
+          className={cn(
+            'shrink-0 rounded-2xl border border-slate-200 bg-white shadow-sm',
+            isTeacherRoute ? 'px-5 py-3.5' : 'px-6 py-4',
+          )}
+        >
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Lịch trình và phân công</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Theo dõi phiên dạy, lịch trình của team theo từng buổi.
+              <h2
+                className={cn(
+                  'font-semibold text-slate-900',
+                  isTeacherRoute ? 'text-xl' : 'text-2xl',
+                )}
+              >
+                Lịch trình và phân công
+              </h2>
+              <p className={cn(isTeacherRoute ? 'mt-0.5 text-[13px]' : 'mt-1 text-sm', 'text-slate-500')}>
+                {isTeacherRoute
+                  ? 'Theo dõi các phiên dạy của bạn theo từng buổi.'
+                  : byMember
+                  ? 'Theo dõi các phiên dạy của bạn theo từng buổi.'
+                  : 'Theo dõi phiên dạy, lịch trình của team theo từng buổi.'}
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
@@ -645,11 +644,49 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                   }
                 />
               </div>
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1">
+              {!isTeacherRoute && (
+                <div className="flex items-center rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTlViewMode('team');
+                      setPageNumber(1);
+                      setSearch('');
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors',
+                      tlViewMode === 'team'
+                        ? 'bg-sky-50 text-sky-700 shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-50',
+                    )}
+                    title="Xem lịch theo team"
+                  >
+                    Team
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTlViewMode('me');
+                      setPageNumber(1);
+                      setSearch('');
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors',
+                      tlViewMode === 'me'
+                        ? 'bg-sky-50 text-sky-700 shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-50',
+                    )}
+                    title="Xem lịch của tôi"
+                  >
+                    Của tôi
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
                 <button
                   type="button"
                   onClick={() => navigate(`${rolePrefix}/timetable`)}
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors text-slate-500 hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors text-slate-500 hover:bg-slate-50"
                   title="Xem dạng thời khóa biểu"
                 >
                   <CalendarDays className="h-4 w-4" />
@@ -657,7 +694,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 shadow-sm"
+                  className="inline-flex items-center gap-2 rounded-md bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 shadow-sm"
                   title="Xem dạng bảng phân công"
                 >
                   <List className="h-4 w-4" />
@@ -737,6 +774,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 <TeamLeaderSessionDetailPanel
                   session={detailSession}
                   requestCode={detailRequest.requestCode ?? ''}
+                  memberDelegateColumnVisible={!isTeacherRoute}
                   delegateColumn={
                     detailRow
                       ? {
@@ -748,6 +786,14 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         }
                       : undefined
                   }
+                  onOpenAttendance={
+                    detailRow
+                      ? () => {
+                          closeDetail();
+                          openPanel(detailRow, 'checkin');
+                        }
+                      : undefined
+                  }
                 />
               )}
             </div>
@@ -755,278 +801,27 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
         </aside>
       </div>
 
-      <div
-        className={`fixed inset-0 z-40 transition ${actionMode ? 'pointer-events-auto' : 'pointer-events-none'}`}
-      >
-        <div
-          className={`absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity ${
-            actionMode ? 'opacity-100' : 'opacity-0'
-          }`}
-          onClick={closePanel}
-        />
-        <aside
-          className={`absolute right-0 top-0 h-full w-full max-w-[640px] border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ${
-            actionMode ? 'translate-x-0' : 'translate-x-full'
-          }`}
-        >
-          <div className="flex h-full flex-col">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-sky-600">
-                  {actionMode === 'delegate'
-                    ? 'Ủy quyền điểm danh'
-                    : actionMode === 'checkin'
-                    ? 'Check-in member'
-                    : 'Check-out member'}
-                </div>
-                <h3 className="mt-1 text-lg font-semibold text-slate-900">Phiên #{activeSession?.sessionNo ?? '—'}</h3>
-                <p className="text-xs text-slate-500">
-                  {activeSession
-                    ? `${formatDate(activeSession.startAt)} • ${formatDateTime(activeSession.startAt)}-${formatDateTime(activeSession.endAt)}`
-                    : ''}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
-                onClick={closePanel}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <div>
-                  <div className="font-semibold text-slate-900">Danh sách member được phân công</div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    Chọn member để {actionMode === 'delegate' ? 'ủy quyền điểm danh (bao gồm check-out)' : actionMode === 'checkin' ? 'check-in' : 'check-out'}.
-                  </div>
-                </div>
-                {(actionMode === 'checkin' || actionMode === 'checkout') && (
-                  <button
-                    type="button"
-                    onClick={saveAttendance}
-                    className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
-                    disabled={isSubmitting || selectedMemberIds.length === 0}
-                  >
-                    Lưu điểm danh
-                  </button>
-                )}
-              </div>
-
-              <div className="mt-0 flex flex-wrap items-center gap-3 bg-white px-4 py-3">
-                <HoverSearch
-                  value={memberSearch}
-                  onChange={setMemberSearch}
-                  placeholder="Tìm theo tên/email member..."
-                />
-                <div className="ml-auto flex flex-wrap items-center gap-2">
-                  {(actionMode === 'checkin' || actionMode === 'checkout') && (
-                    <label className="flex items-center gap-2 text-xs text-slate-500">
-                      <input
-                        type="checkbox"
-                        checked={
-                          actionMode === 'checkin'
-                          ? filteredAttendanceItems.length > 0 &&
-                            filteredAttendanceItems.every((item) => selectedMemberIds.includes(item.MemberId))
-                          : filteredAttendanceItems.filter((item) => item.CheckinAt != null).length > 0 &&
-                            filteredAttendanceItems
-                              .filter((item) => item.CheckinAt != null)
-                              .every((item) => selectedMemberIds.includes(item.MemberId))
-                        }
-                        onChange={(event) => {
-                          const checked = event.target.checked;
-                          if (checked) {
-                            const eligible =
-                              actionMode === 'checkin'
-                              ? filteredAttendanceItems
-                              : filteredAttendanceItems.filter((item) => item.CheckinAt != null);
-                            setSelectedMemberIds(eligible.map((item) => item.MemberId));
-                          } else {
-                            setSelectedMemberIds([]);
-                          }
-                        }}
-                        className="h-4 w-4 rounded border-orange-300 text-orange-500 focus:ring-orange-500"
-                        disabled={
-                          isSubmitting ||
-                          (actionMode === 'checkin'
-                          ? filteredAttendanceItems.length === 0
-                          : filteredAttendanceItems.filter((item) => item.CheckinAt != null).length === 0)
-                        }
-                      />
-                      Chọn tất cả
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              <div className=" grid gap-3">
-                {filteredAttendanceItems.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
-                    Chưa có member nào cần điểm danh.
-                  </div>
-                )}
-
-                {filteredAttendanceItems.map((attendance) => {
-                  const memberId = attendance.MemberId;
-                  const assigned = (sessionDetail?.Assignments ?? []).find(
-                    (assignment) => assignment.StaffMemberId === memberId,
-                  );
-                  const staff = assigned?.StaffMember;
-                  const cachedMember = membersById[memberId];
-                  const staffUser = (staff?.User ?? null) as
-                    | { AvatarUrl?: string | null; avatarUrl?: string | null }
-                    | null;
-                  const memberName =
-                    staff?.FullName ?? cachedMember?.fullName ?? `Member #${memberId}`;
-                  const memberEmail =
-                    staff?.Email ??
-                    staff?.User?.Email ??
-                    cachedMember?.userEmail ??
-                    'Không có email';
-                  const memberAvatarUrl =
-                    staff?.AvatarUrl ??
-                    staffUser?.AvatarUrl ??
-                    staffUser?.avatarUrl ??
-                    cachedMember?.avatarUrl ??
-                    null;
-                  const isCheckedIn = attendance.CheckinAt != null;
-                  const isCheckedOut = attendance.CheckoutAt != null;
-                  const isAuthorizedDelegate =
-                    attendanceByMemberIdForSession != null && attendanceByMemberIdForSession === memberId;
-                  return (
-                    <div
-                      key={attendance.AttendanceId}
-                      className="grid grid-cols-1 items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 md:grid-cols-[1fr_1.2fr_auto]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
-                          {memberAvatarUrl ? (
-                            <img
-                              src={memberAvatarUrl}
-                              alt={memberName}
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                              }}
-                            />
-                          ) : (
-                            getInitials(memberName)
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="truncate text-sm font-semibold text-slate-900">{memberName}</div>
-                           
-                          </div>
-                          <div className="truncate text-xs text-slate-500">{memberEmail}</div>
-                        </div>
-                      </div>
-
-                      {actionMode === 'delegate' ? (
-                        isAuthorizedDelegate ? (
-                          <span className="inline-flex w-fit justify-self-end items-center gap-0.5 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 whitespace-nowrap">
-                            <UserCheck className="h-3 w-3" />
-                            Người điểm danh
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!activeSession) return;
-                              setIsSubmitting(true);
-                              try {
-                                await attendanceApi.delegate({
-                                  sessionId: activeSession.sessionId,
-                                  delegateToMemberId: memberId,
-                                });
-                                await refreshAttendanceItems();
-                                // Refresh bảng ngoài để thẻ ủy quyền/khả năng check-out cập nhật ngay.
-                                await refetch?.();
-                                setActionMode(null);
-                              } finally {
-                                setIsSubmitting(false);
-                              }
-                            }}
-                            className="inline-flex w-fit justify-self-end items-center gap-0.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100 whitespace-nowrap"
-                            disabled={isSubmitting}
-                          >
-                            <UserCheck className="h-3 w-3" />
-                            Ủy quyền
-                          </button>
-                        )
-                      ) : (
-                        <div className="grid w-full grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                          {!(actionMode === 'checkout' && !isCheckedIn) && (
-                            <input
-                              className="h-9 w-full rounded-lg border border-slate-200 px-3 text-xs placeholder:text-slate-400"
-                              placeholder="Ghi chú..."
-                              value={memberNotes[memberId] ?? ''}
-                              onChange={(event) =>
-                                setMemberNotes((prev) => ({
-                                  ...prev,
-                                  [memberId]: event.target.value,
-                                }))
-                              }
-                            />
-                          )}
-                          <div className="flex items-center justify-end gap-3">
-                            {actionMode === 'checkin' ? (
-                              isCheckedIn ? (
-                                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
-                                  Đã check-in
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
-                                  Chưa check-in
-                                </span>
-                              )
-                            ) : actionMode === 'checkout' ? (
-                              !isCheckedIn ? (
-                                <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700">
-                                  Chưa check-in
-                                </span>
-                              ) : isCheckedOut ? (
-                                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
-                                  Đã check-out
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
-                                  Chưa check-out
-                                </span>
-                              )
-                            ) : (
-                              <span className="text-xs text-slate-400">&nbsp;</span>
-                            )}
-                            {(actionMode === 'checkin' || (actionMode === 'checkout' && isCheckedIn)) && (
-                              <label className="flex items-center gap-2 text-xs text-slate-500">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedMemberIds.includes(memberId)}
-                                  onChange={(event) => {
-                                    const nextChecked = event.target.checked;
-                                    setSelectedMemberIds((prev) =>
-                                      nextChecked ? [...prev, memberId] : prev.filter((id) => id !== memberId),
-                                    );
-                                  }}
-                                  className="h-4 w-4 rounded border-orange-300 text-orange-500 focus:ring-orange-500"
-                                  disabled={isSubmitting}
-                                />
-                              </label>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </aside>
-      </div>
+      <TeamLeaderAttendanceSlideOver
+        actionMode={actionMode}
+        activeSession={activeSession}
+        sessionDetail={sessionDetail}
+        attendanceItems={attendanceItems}
+        membersById={membersById}
+        attendanceByMemberIdForSession={attendanceByMemberIdForSession}
+        memberSearch={memberSearch}
+        setMemberSearch={setMemberSearch}
+        memberNotes={memberNotes}
+        setMemberNotes={setMemberNotes}
+        selectedMemberIds={selectedMemberIds}
+        setSelectedMemberIds={setSelectedMemberIds}
+        isSubmitting={isSubmitting}
+        setIsSubmitting={setIsSubmitting}
+        setActionMode={setActionMode}
+        closePanel={closePanel}
+        saveAttendance={saveAttendance}
+        refreshAttendanceItems={refreshAttendanceItems}
+        refetch={refetch}
+      />
     </div>
   );
 }
-

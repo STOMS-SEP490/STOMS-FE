@@ -1,5 +1,5 @@
 import { getRequestStatusInfo } from '@/constants/status';
-import { GraduationCap, Star, User } from 'lucide-react';
+import { Hash, GraduationCap, Star, User } from 'lucide-react';
 
 type RequestStatusInfo = ReturnType<typeof getRequestStatusInfo>;
 
@@ -57,11 +57,9 @@ export default function RequestCard({
   statusInfoOverride,
   secondaryStatusPills,
   isActive = false,
-  isHovered = false,
   onClick,
   onMouseEnter,
   onMouseLeave,
-  hintText = 'Bấm để xem chi tiết',
 }: RequestCardProps) {
   const typeInfo = getRequestType({ subjectId, courseId, eventId });
   // Thanh màu bên trái theo type (môn học: xanh, khóa học: tím, sự kiện: cam)
@@ -101,6 +99,12 @@ export default function RequestCard({
           <div className="text-sm font-semibold text-slate-900 truncate">
             {requestName || requestCode || '—'}
           </div>
+          {requestCode && (
+            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+              <Hash className="h-3.5 w-3.5 shrink-0" />
+              <span className="font-semibold text-slate-600 truncate">{requestCode}</span>
+            </div>
+          )}
           <div className="mt-1.5 flex flex-col gap-1">
             <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
               <typeInfo.icon className="w-3.5 h-3.5 shrink-0" />
@@ -127,9 +131,6 @@ export default function RequestCard({
           ))}
         </div>
       </div>
-      {(isActive || isHovered) && hintText && (
-        <div className="mt-2 text-[11px] text-slate-500">{hintText}</div>
-      )}
     </div>
   );
 }
