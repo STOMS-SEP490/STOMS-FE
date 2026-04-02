@@ -1292,7 +1292,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
                     <Briefcase className="h-4 w-4 text-slate-400" />
-                    Workload (30 ngày)
+                    Khối lượng công việc (30 ngày)
                   </div>
                   <span className="text-xs font-bold text-slate-800 tabular-nums">
                     {workload}
