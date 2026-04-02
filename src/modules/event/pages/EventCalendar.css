@@ -1,227 +1,300 @@
 /* EventCalendar: nền trắng toàn bộ */
 
-.rbc-calendar {
-  font-family: inherit;
-  background: #fff;
+.event-calendar-scroll {
+  overflow: hidden;
+  height: 100%;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
 }
 
-.rbc-time-view {
-  border: none;
-  background: #fff;
-}
-
-.rbc-time-content {
-  background: #fff;
-}
-
-.rbc-day-slot {
-  background: #fff;
-}
-
-.rbc-time-header-content {
-  background: #fff;
-}
-
-.rbc-time-gutter {
-  background: #fff;
-}
-
-.rbc-time-header-content {
-  border-left: 1px solid var(--rbc-border, #e5e7eb);
-}
-
-.rbc-time-content {
-  border-top: 1px solid var(--rbc-border, #e5e7eb);
-}
-
-.rbc-time-slot {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.rbc-day-slot .rbc-time-slot {
-  border-top: 1px solid #e5e7eb;
-}
-
-/* Current time indicator - orange line */
-.rbc-current-time-indicator {
-  background-color: #ea580c;
-  height: 2px;
-  z-index: 3;
-}
-
-.rbc-current-time-indicator::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: -4px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background-color: #ea580c;
-}
-
-/* Toolbar: use custom layout */
-.rbc-toolbar {
+.calendar-toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
-/* Day headers: Thứ Hai, Thứ Ba, ... */
-.rbc-header {
-  padding: 10px 8px;
+.calendar-toolbar-left,
+.calendar-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-subtle-btn {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.calendar-subtle-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.calendar-nav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: #ffffff;
+}
+
+.calendar-icon-btn {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-icon-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.calendar-range {
   font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  color: #1e293b;
+  min-width: 180px;
+  text-align: center;
+}
+
+.calendar-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 2px;
   background: #fff;
+}
+
+.calendar-segment-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.calendar-segment-btn:hover {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+.calendar-segment-btn.active {
+  color: #0369a1;
+  background: #e0f2fe;
+  border-color: #bae6fd;
+}
+
+/* FullCalendar styling for timetable */
+
+.fc {
+  font-family: inherit;
+  --fc-border-color: #e5e7eb;
+  --fc-neutral-bg-color: #f8fafc;
+  --fc-page-bg-color: #ffffff;
+}
+
+.fc .fc-toolbar {
+  display: none;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fc .fc-button {
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+  font-size: 11px;
+  padding: 3px 10px;
+}
+
+.fc .fc-button.fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button.fc-button-primary:not(:disabled):active {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0f172a;
+}
+
+.fc .fc-button:hover {
+  background: #f9fafb;
+}
+
+.fc .fc-col-header-cell {
+  padding: 10px 4px;
+  font-size: 12px;
+  color: #334155;
+  font-weight: 600;
+  background: #f8fafc;
+}
+
+.fc .fc-timegrid-slot-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.fc .fc-timegrid-slot {
+  height: 22px;
+  border-color: #eef2f7;
+}
+
+.fc .fc-timegrid-axis,
+.fc .fc-timegrid-axis-frame {
+  background: #fcfdff;
+  width: 128px !important;
+  min-width: 128px !important;
+}
+
+.fc .fc-timegrid-col {
+  background: #ffffff;
+}
+
+.fc .fc-timegrid-divider {
+  display: none;
+}
+
+.fc .fc-timegrid-now-indicator-line {
+  border-color: #fb7185;
+  border-width: 2px;
+  box-shadow: 0 0 0 1px rgba(251, 113, 133, 0.22);
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+  border-color: #fb7185;
+}
+
+.fc .fc-timegrid-now-indicator-line::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #fb7185;
+}
+
+.fc .fc-event {
+  border: none !important;
+}
+
+.fc-event-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+}
+
+.fc-event-main-line {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 42px;
+  justify-content: flex-start;
+  gap: 4px;
 }
 
-.rbc-time-header-content {
-  border-bottom: 1px solid #e5e7eb;
+.fc-event-time {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
 }
 
-.rbc-time-header {
-  align-items: stretch;
-  border-bottom: 1px solid #e5e7eb;
-  height: 44px;
-}
-
-.rbc-time-header-content {
-  align-items: stretch;
-  height: 44px;
-}
-
-.rbc-time-header-content > .rbc-row {
-  border-bottom: none;
-  min-height: 44px;
-  height: 44px;
-  align-items: stretch;
-}
-
-.rbc-time-header-gutter,
-.rbc-time-header .rbc-time-header-gutter {
-  min-height: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rbc-time-header .rbc-header {
-  height: 44px;
-  line-height: 44px;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-.rbc-row-segment {
-  padding: 0 2px;
-}
-
-/* Month view: event block can align full cell width */
-.rbc-month-view .rbc-row-segment {
-  padding: 0;
-}
-
-.rbc-month-view .rbc-event {
-  width: 100%;
-  margin: 0;
-  display: flex;
-  align-items: center;
+.fc-event-title-line {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   overflow: hidden;
 }
 
-.rbc-month-view .rbc-event-content {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-}
-
-.rbc-event {
-  padding: 0;
-  border-radius: 8px;
-}
-
-/* Week/Day: đồng bộ với chiều cao slot (mỗi bước 30 phút) */
-.rbc-time-view .rbc-event {
-  min-height: 40px;
-}
-
-/* Month: giống Google Calendar, event dạng "chip" không cao */
-.rbc-month-view .rbc-event {
-  min-height: 26px;
-}
-
-.rbc-custom-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-}
-
-.event-calendar-scroll {
-  overflow-y: auto;
-  height: 100%;
-}
-
-/* Mọi role (tl/teacher/manager/...): đủ chiều cao lưới 8:00–20:00 khi slot 24px/30 phút */
-.event-calendar-scroll .rbc-calendar {
-  /* 8:00 -> 20:00 = 12 giờ. Mỗi timeslot ~ 30 phút, .rbc-timeslot-group min-height=24px
-     => 12 * 2 * 24px ≈ 576px (+ lề/border). */
-  min-height: 580px;
-}
-
-.rbc-event:focus {
-  outline: none;
-}
-
-/* Ẩn label giờ mặc định để tránh trùng với giờ custom trong event */
-.rbc-event-label {
-  display: none;
-}
-
-/* Time gutter (8-20) */
-.rbc-time-gutter {
-  font-size: 12px;
+.fc-event-resource {
+  font-size: 11px;
   color: #6b7280;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
-.rbc-timeslot-group {
-  /* Mỗi nhóm = 1 step (mặc định 30 phút). 24px => khoảng cách giữa các mốc giờ gọn hơn (≈ một nửa so với 48px) */
-  min-height: 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fff;
-}
-
-.rbc-label {
-  padding: 4px 8px;
+.fc .fc-timegrid-axis-cushion,
+.fc .fc-timegrid-slot-label-cushion {
   font-size: 12px;
+  color: #64748b;
 }
 
-.rbc-allday-cell {
-  display: none;
+.fc .fc-day-today {
+  background: rgba(224, 242, 254, 0.22) !important;
 }
 
-/* Ẩn scrollbar toàn bộ calendar */
-.rbc-time-content,
-.rbc-time-view,
-.rbc-calendar,
-.rbc-month-view {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.fc .fc-timegrid-col.fc-day-today {
+  box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.45);
 }
 
-.rbc-time-content::-webkit-scrollbar,
-.rbc-time-view::-webkit-scrollbar,
-.rbc-calendar::-webkit-scrollbar,
-.rbc-month-view::-webkit-scrollbar {
-  display: none;
+.fc .fc-scrollgrid,
+.fc .fc-scrollgrid-section > * {
+  border-color: #e6ebf2 !important;
+}
+
+.fc .fc-scrollgrid {
+  border-radius: 12px;
+  overflow: visible;
+  width: 100% !important;
+}
+
+/* Let FullCalendar own scrolling to avoid right-side blank gutter */
+.fc,
+.fc .fc-view-harness,
+.fc .fc-view-harness-active,
+.fc .fc-timegrid,
+.fc .fc-timegrid-body,
+.fc .fc-timegrid-body table {
+  width: 100%;
+}
+
+/* Header should never reserve vertical scrollbar gutter */
+.fc .fc-scrollgrid-section-header .fc-scroller {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Only body section scrolls vertically */
+.fc .fc-scrollgrid-section-body .fc-scroller {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-gutter: stable;
+}
+
+/* Keep columns full-width and evenly distributed */
+.fc .fc-scrollgrid-sync-table,
+.fc .fc-col-header table,
+.fc .fc-timegrid-cols table,
+.fc .fc-timegrid-body table {
+  width: 100% !important;
+  table-layout: fixed !important;
 }

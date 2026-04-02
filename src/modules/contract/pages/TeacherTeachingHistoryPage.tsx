@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Funnel, MapPin, Globe, ChevronRight, FileText, PlusCircle } from 'lucide-react';
+import { Funnel, MapPin, Globe, ChevronRight, FileText, PlusCircle, X } from 'lucide-react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -10,11 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { TeachingHistoryItem } from '@/modules/contract/teachingHistory';
 import { sessionDisplayName } from '@/modules/contract/teachingHistory';
 import CreateContractModal from './CreateContractModal';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import contractApi from '../api/contractApi';
 import type { ContractListItem } from '../contract';
 import ContractDetailSidebar from './ContractDetailSidebar';
 import { useTeacherTeachingHistory } from '@/modules/contract/hooks/useTeacherTeachingHistory';
+import sessionApi from '@/modules/request/api/sessionApi';
+import requestApi from '@/modules/request/api/requestApi';
+import type { RequestListItem, RequestSessionSummary } from '@/modules/request/request';
+import TeamLeaderSessionDetailPanel from '@/modules/request/pages/TeamLeaderSessionDetailPanel';
 
 function formatDate(value?: string) {
   if (!value) return '—';
@@ -50,6 +54,79 @@ export default function TeacherTeachingHistoryPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContract, setDetailContract] = useState<ContractListItem | null>(null);
   const [detailRoleLabel, setDetailRoleLabel] = useState<string | null>(null);
+
+  const [sessionDetailOpen, setSessionDetailOpen] = useState(false);
+  const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
+  const [sessionDetailError, setSessionDetailError] = useState<string | null>(null);
+  const [sessionDetailRequest, setSessionDetailRequest] = useState<RequestListItem | null>(null);
+  const [sessionDetailSession, setSessionDetailSession] = useState<
+    (RequestSessionSummary & { location?: string | null; isOnline?: boolean | null }) | null
+  >(null);
+  const [sessionDetailContract, setSessionDetailContract] = useState<TeachingHistoryItem['contract'] | null>(null);
+  const [sessionDetailRoleLabel, setSessionDetailRoleLabel] = useState<string | null>(null);
+  const sessionDetailFetchSeq = useRef(0);
+
+  const closeSessionDetail = () => {
+    sessionDetailFetchSeq.current += 1;
+    setSessionDetailOpen(false);
+    setSessionDetailLoading(false);
+    setSessionDetailError(null);
+    setSessionDetailRequest(null);
+    setSessionDetailSession(null);
+    setSessionDetailContract(null);
+    setSessionDetailRoleLabel(null);
+  };
+
+  const openSessionDetail = async (item: TeachingHistoryItem) => {
+    sessionDetailFetchSeq.current += 1;
+    const seq = sessionDetailFetchSeq.current;
+
+    setSessionDetailOpen(true);
+    setSessionDetailLoading(true);
+    setSessionDetailError(null);
+    setSessionDetailRequest(null);
+    setSessionDetailSession(null);
+    setSessionDetailContract(item.contract ?? null);
+
+    const rawRole = String(item.role || '');
+    const normalized = rawRole.toLowerCase();
+    setSessionDetailRoleLabel(normalized.includes('ta') || normalized.includes('trợ') ? 'Trợ giảng' : 'Giáo viên');
+
+    try {
+      const s = await sessionApi.getById(item.sessionId);
+      if (seq !== sessionDetailFetchSeq.current) return;
+
+      const req = await requestApi.getById(s.RequestId);
+      if (seq !== sessionDetailFetchSeq.current) return;
+
+      setSessionDetailRequest(req);
+      setSessionDetailSession({
+        sessionId: s.SessionId,
+        requestId: s.RequestId,
+        sessionNo: s.SessionNo,
+        startAt: s.StartAt,
+        endAt: s.EndAt,
+        teachersRequired: s.TeachersRequired ?? null,
+        tasRequired: s.TasRequired ?? null,
+        reservationId: s.ReservationId ?? null,
+        teamAssigned: (s.TeamSessions ?? []).length > 0,
+        location: s.Location ?? null,
+        isOnline: s.IsOnline ?? null,
+        notes: (s.Notes ?? '') as any,
+        status: (s.Status ?? '') as any,
+      } as unknown as RequestSessionSummary & { location?: string | null; isOnline?: boolean | null });
+    } catch (err: unknown) {
+      if (seq !== sessionDetailFetchSeq.current) return;
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Không tải được chi tiết phiên.';
+      setSessionDetailError(msg);
+    } finally {
+      if (seq !== sessionDetailFetchSeq.current) return;
+      setSessionDetailLoading(false);
+    }
+  };
 
   const columns: ColumnDef<TeachingHistoryItem>[] = useMemo(() => {
     const base: ColumnDef<TeachingHistoryItem>[] = [
@@ -212,12 +289,13 @@ export default function TeacherTeachingHistoryPage() {
         id: 'actions',
         header: 'THAO TÁC',
         cell: ({ row }) => (
-          <Link
-            to={`${staffBasePath}/attendance/${row.original.sessionId}`}
-            className="inline-flex items-center gap-0.5 text-sm font-medium text-sky-600 underline-offset-2 hover:text-sky-800 hover:underline"
+          <button
+            type="button"
+            onClick={() => void openSessionDetail(row.original)}
+            className="inline-flex items-center gap-0.5 text-sm font-medium text-sky-600 underline-offset-2 hover:text-sky-800 hover:underline whitespace-nowrap"
           >
             Chi tiết <ChevronRight className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-          </Link>
+          </button>
         ),
       },
     ];
@@ -230,6 +308,116 @@ export default function TeacherTeachingHistoryPage() {
       className="relative flex min-h-0 flex-col gap-3 overflow-hidden bg-slate-50 p-6"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
+      {sessionDetailOpen && (
+        <div className="fixed inset-0 z-[70] flex justify-end">
+          <div className="flex-1 bg-black/30" onClick={closeSessionDetail} aria-hidden />
+
+          <div className="w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden max-w-2xl border-l">
+            <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
+              <div className="min-w-0">
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
+                <h2 className="text-lg font-bold text-slate-900 truncate">
+                  Phiên {sessionDetailSession?.sessionNo ?? '—'}
+                </h2>
+                {sessionDetailRequest?.requestCode ? (
+                  <div className="text-xs text-slate-500 mt-1 truncate">
+                    {sessionDetailRequest.requestCode}
+                  </div>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={closeSessionDetail}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                aria-label="Đóng chi tiết phiên"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0 space-y-4">
+              {sessionDetailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết phiên...</p>}
+
+              {sessionDetailError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">
+                  {sessionDetailError}
+                </p>
+              )}
+
+              {sessionDetailRequest && sessionDetailSession && !sessionDetailLoading && !sessionDetailError && (
+                <>
+                  <TeamLeaderSessionDetailPanel
+                    session={sessionDetailSession}
+                    requestCode={sessionDetailRequest.requestCode ?? ''}
+                  />
+
+                  <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
+                    <div className="px-4 py-2.5 border-b border-gray-100">
+                      <h3 className="font-semibold text-gray-900 text-sm">Hợp đồng</h3>
+                    </div>
+                    <div className="px-4 py-3 text-sm space-y-2">
+                      {sessionDetailContract?.contractId ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-900 truncate">
+                              {sessionDetailContract.contractCode || 'Hợp đồng'}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Trạng thái:{' '}
+                              {sessionDetailContract.isPaid === true
+                                ? 'Đã thanh toán'
+                                : sessionDetailContract.isPaid === false
+                                  ? 'Chưa thanh toán'
+                                  : '—'}
+                              {sessionDetailContract.amount != null
+                                ? ` • Số tiền: ${sessionDetailContract.amount}`
+                                : ''}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 whitespace-nowrap"
+                            onClick={async () => {
+                              try {
+                                const full = await contractApi.getById(sessionDetailContract.contractId);
+                                setDetailRoleLabel(sessionDetailRoleLabel);
+                                setDetailContract(full);
+                                setDetailOpen(true);
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Xem hợp đồng
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-slate-500">Chưa có hợp đồng cho phiên này.</span>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100 whitespace-nowrap"
+                            onClick={() => {
+                              setCreateSessionId(sessionDetailSession.sessionId);
+                              setCreateOpen(true);
+                            }}
+                          >
+                            <PlusCircle className="h-3.5 w-3.5" />
+                            Tạo hợp đồng
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-white/60">
           <span className="text-sm text-slate-500">Đang tải danh sách phiên đã dạy...</span>

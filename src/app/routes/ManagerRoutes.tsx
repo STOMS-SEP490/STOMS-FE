@@ -25,6 +25,9 @@ import UserManagement from '@/modules/user/pages/UsersManagement';
 import RolesManagement from '@/modules/role/pages/RolesManagement';
 import RequestLayout from '../layouts/RequestLayout';
 import RequestDetail from '@/modules/request/pages/RequestDetail';
+import RequestsManagementManagerReadonly from '@/modules/request/pages/RequestsManagementManagerReadonly';
+import ManagerRequestReadonlyLayout from '@/app/layouts/ManagerRequestReadonlyLayout';
+import RequestDetailManagerReadonly from '@/modules/request/pages/RequestDetailManagerReadonly';
 import MembersManagement from '@/modules/member/pages/MembersManagement';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import TaskReportsManagement from '@/modules/task-report/pages/TaskReportsManagement';
@@ -59,6 +62,12 @@ const ManagerRoutes = [
   { path: 'skills', element: <SkillsManagement /> },
 
   { path: 'logs', element: <AuditLogs /> },
+  { path: 'requests-all', element: <RequestsManagementManagerReadonly /> },
+  {
+    path: 'requests-view/:id',
+    element: <ManagerRequestReadonlyLayout />,
+    children: [{ index: true, element: <RequestDetailManagerReadonly /> }],
+  },
   {
     path: 'requests',
     element: <RequestLayout />,

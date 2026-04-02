@@ -10,16 +10,23 @@ export default function CoursesReadonlyLayout() {
   const isTeacher = location.pathname.startsWith('/teacher/');
   const isProgramCoordinator = location.pathname.startsWith('/pc/');
   const basePath = isTeacher ? '/teacher/courses' : isProgramCoordinator ? '/pc/courses' : '/tl/courses';
-  const currentTab = location.pathname.includes('/subjects') ? 'subjects' : 'courses';
+  const currentTab = location.pathname.includes('/topics')
+    ? 'topics'
+    : location.pathname.includes('/subjects')
+      ? 'subjects'
+      : 'courses';
 
   const [courseSearch, setCourseSearch] = useState('');
   const [subjectSearch, setSubjectSearch] = useState('');
+  const [topicSearch, setTopicSearch] = useState('');
 
   const outletContext: CoursesReadonlyOutletContext = {
     courseSearch,
     setCourseSearch,
     subjectSearch,
     setSubjectSearch,
+    topicSearch,
+    setTopicSearch,
   };
 
   return (
@@ -42,6 +49,11 @@ export default function CoursesReadonlyLayout() {
               <TabsTrigger value="subjects" onClick={() => navigate(`${basePath}/subjects`)}>
                 MÔN HỌC
               </TabsTrigger>
+              {!isProgramCoordinator && (
+                <TabsTrigger value="topics" onClick={() => navigate(`${basePath}/topics`)}>
+                  CHỦ ĐỀ
+                </TabsTrigger>
+              )}
             </TabsList>
             {currentTab === 'courses' ? (
               <HoverSearch
@@ -49,11 +61,17 @@ export default function CoursesReadonlyLayout() {
                 onChange={(v) => setCourseSearch(v)}
                 placeholder="Tìm theo tên khóa học..."
               />
-            ) : (
+            ) : currentTab === 'subjects' ? (
               <HoverSearch
                 value={subjectSearch}
                 onChange={(v) => setSubjectSearch(v)}
                 placeholder="Tìm theo tên môn học..."
+              />
+            ) : (
+              <HoverSearch
+                value={topicSearch}
+                onChange={(v) => setTopicSearch(v)}
+                placeholder="Tìm theo tên chủ đề..."
               />
             )}
           </div>

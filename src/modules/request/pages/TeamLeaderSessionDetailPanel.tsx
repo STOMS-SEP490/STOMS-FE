@@ -17,12 +17,21 @@ export type TeamLeaderSessionDetailPanelProps = {
     sessionAttendanceByMemberId: number | null;
     onDelegated?: () => void;
   };
+  /**
+   * Hiển thị cột "Ủy quyền" trong bảng thành viên. Giáo viên (teacher) không được ủy quyền — chỉ TL.
+   * Khi false, vẫn dùng delegateColumn cho "Người điểm danh" / nút Điểm danh nếu cần.
+   */
+  memberDelegateColumnVisible?: boolean;
+  /** Mở nhanh panel điểm danh (khi user là người điểm danh của phiên). */
+  onOpenAttendance?: () => void;
 };
 
 export default function TeamLeaderSessionDetailPanel({
   session,
   requestCode,
   delegateColumn,
+  memberDelegateColumnVisible = true,
+  onOpenAttendance,
 }: TeamLeaderSessionDetailPanelProps) {
   const [attLoading, setAttLoading] = useState(false);
   const [attError, setAttError] = useState<string | null>(null);
@@ -115,15 +124,27 @@ export default function TeamLeaderSessionDetailPanel({
   }, [attendances, delegateOwnerOverride, delegateColumn?.sessionAttendanceByMemberId]);
 
   const canDelegateForCurrentUser = useMemo(() => {
-    if (!delegateColumn) return false;
+    if (!delegateColumn || !memberDelegateColumnVisible) return false;
     // Manager được quyền ủy quyền cho bất kỳ ai (kể cả ủy quyền lại cho chính mình),
     // không cần phải trùng với "Người điểm danh" hiện tại.
     const uid = delegateColumn.currentMemberId;
     return uid != null;
-  }, [delegateColumn]);
+  }, [delegateColumn, memberDelegateColumnVisible]);
 
-  const showDelegateCol = !!delegateColumn;
-  const gridClass = showDelegateCol ? 'grid-cols-4' : 'grid-cols-3';
+  const isAttendanceOwner = useMemo(() => {
+    if (!delegateColumn) return false;
+    const uid = delegateColumn.currentMemberId;
+    if (uid == null || uid <= 0) return false;
+    const ownerId = resolvedAttendanceOwnerId;
+    return ownerId != null && ownerId === uid;
+  }, [delegateColumn, resolvedAttendanceOwnerId]);
+
+  const showDelegateCol = Boolean(delegateColumn) && memberDelegateColumnVisible;
+  // Thu hẹp cột Check in/Check out để nhường chỗ cho email/fullName.
+  // 1fr cho "Thông tin thành viên", các cột thời gian cố định.
+  const gridClass = showDelegateCol
+    ? 'grid-cols-[minmax(0,1fr)_64px_64px_112px]'
+    : 'grid-cols-[minmax(0,1fr)_64px_64px]';
 
   return (
     <div className="space-y-4 text-sm">
@@ -171,11 +192,23 @@ export default function TeamLeaderSessionDetailPanel({
       {/* Danh sách member tham dự (check-in / check-out theo từng thành viên) */}
       <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
         <div className="px-4 py-2.5 border-b border-gray-100">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-gray-900 text-sm">Danh sách thành viên</h3>
-            <p className="text-xs text-gray-500 mt-1">
-              {attLoading ? 'Đang tải...' : `${attendances.length} thành viên`}
-            </p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-gray-900 text-sm">Danh sách thành viên</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {attLoading ? 'Đang tải...' : `${attendances.length} thành viên`}
+              </p>
+            </div>
+            {isAttendanceOwner && onOpenAttendance && (
+              <button
+                type="button"
+                onClick={onOpenAttendance}
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                title="Mở nhanh panel điểm danh"
+              >
+                Điểm danh
+              </button>
+            )}
           </div>
         </div>
 
@@ -188,7 +221,9 @@ export default function TeamLeaderSessionDetailPanel({
             <p className="text-xs text-gray-500">Không có dữ liệu điểm danh cho phiên này.</p>
           ) : (
             <div className="overflow-hidden rounded-xl bg-white">
-              <div className={`grid ${gridClass} gap-2 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600`}>
+              <div
+                className={`grid ${gridClass} gap-2 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600`}
+              >
                 <div>Thông tin thành viên</div>
                 <div className="text-center">Check in</div>
                 <div className="text-center">Check out</div>

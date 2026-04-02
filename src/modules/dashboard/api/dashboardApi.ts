@@ -243,6 +243,14 @@ export type DashboardUserWorkload = {
   canceledSessionsChangePercent: number;
   estimatedIncome: number;
   estimatedIncomeChangePercent: number;
+  teachingHoursSeries?: DashboardUserWorkloadTeachingHoursSeriesPoint[];
+};
+
+export type DashboardUserWorkloadTeachingHoursSeriesPoint = {
+  label: string;
+  completedTeachingHours: number;
+  completedSessions: number;
+  canceledSessions: number;
 };
 
 export type DashboardUserWorkloadParams = {

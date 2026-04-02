@@ -1,3 +1,4 @@
+import type { SessionTopicInfo } from '@/modules/request/request';
 import type { SessionDetail } from '@/modules/request/type';
 
 export type TeamLeaderAssignmentsTab = 'assigning' | 'rejected';
@@ -19,6 +20,10 @@ export type TeamSessionLite = {
   endAt: string;
   location: string;
   status: string;
+  /** Đồng bộ hiển thị tiêu đề phiên với màn chi tiết / duyệt manager. */
+  subjectSession?: SessionTopicInfo | null;
+  eventSession?: SessionTopicInfo | null;
+  notes?: string | null;
 };
 
 export type TeamRequestItem = {

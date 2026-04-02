@@ -1,15 +1,8 @@
 import { useState } from 'react';
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import {
-  AlertCircle,
-  Calendar,
-  Hash,
-  List,
-  MapPin,
-  X,
-} from 'lucide-react';
-import { Paperclip } from 'lucide-react';
+import { AlertCircle, Calendar, Hash, List, MapPin, X, Paperclip } from 'lucide-react';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { getRequestType } from '@/shared/components/request/RequestCard';
 import { getRequestStatusInfo } from '@/constants/status';
@@ -21,33 +14,23 @@ import { Dialog } from '@/shared/components/ui/dialog';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 
-export default function RequestDetailPC() {
+export default function RequestDetailManagerReadonly() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
 
-  const {
-    request,
-    sessions,
-    rightPanel,
-    setRightPanel,
-    loading,
-    uiAssignedTeamIdsBySessionId,
-  } = useRequestDetailManager({
-    id,
-    viewMode,
-    refreshRequestSidebar,
-  });
+  const { request, sessions, rightPanel, setRightPanel, loading, uiAssignedTeamIdsBySessionId } =
+    useRequestDetailManager({
+      id,
+      viewMode,
+      refreshRequestSidebar,
+    });
 
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ fileName: string; fileUrl: string } | null>(null);
 
   const openAttachmentPreview = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
     if (!fileUrl) return;
-    setAttachmentPreview({
-      fileName: fileName || 'Tệp đính kèm',
-      fileUrl,
-    });
+    setAttachmentPreview({ fileName: fileName || 'Tệp đính kèm', fileUrl });
     setAttachmentPreviewOpen(true);
   };
 
@@ -57,13 +40,31 @@ export default function RequestDetailPC() {
     const ext = extMatch && extMatch.length > 1 ? String(extMatch[1]).toUpperCase() : undefined;
 
     if (/\.(png|jpg|jpeg|gif|webp)(?:\?|#|$)/.test(urlOrName)) {
-      return { kind: 'image' as const, label: 'Hình ảnh', ext, badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', iconClass: 'text-emerald-600' };
+      return {
+        kind: 'image' as const,
+        label: 'Hình ảnh',
+        ext,
+        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        iconClass: 'text-emerald-600',
+      };
     }
     if (/\.pdf(?:\?|#|$)/.test(urlOrName)) {
-      return { kind: 'pdf' as const, label: 'PDF', ext, badgeClass: 'bg-rose-50 text-rose-700 border-rose-200', iconClass: 'text-rose-600' };
+      return {
+        kind: 'pdf' as const,
+        label: 'PDF',
+        ext,
+        badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+        iconClass: 'text-rose-600',
+      };
     }
 
-    return { kind: 'file' as const, label: ext ? `.${ext}` : 'Tệp', ext, badgeClass: 'bg-sky-50 text-sky-700 border-sky-200', iconClass: 'text-sky-600' };
+    return {
+      kind: 'file' as const,
+      label: ext ? `.${ext}` : 'Tệp',
+      ext,
+      badgeClass: 'bg-sky-50 text-sky-700 border-sky-200',
+      iconClass: 'text-sky-600',
+    };
   };
 
   if (!id) {
@@ -104,7 +105,9 @@ export default function RequestDetailPC() {
               <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
                 {typeInfo.label}
               </span>
-              <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}>
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}
+              >
                 {statusInfo.label}
               </span>
             </div>
@@ -138,23 +141,14 @@ export default function RequestDetailPC() {
             </div>
           </div>
 
-          {isRejected && (
+          {isRejected ? (
             <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
               <p className="text-xs font-semibold text-rose-700">Lý do từ chối</p>
               <p className="mt-1 text-sm text-rose-900 whitespace-pre-line">
                 {request.reason?.trim() || 'Không có lý do cụ thể.'}
               </p>
-              <div className="mt-3">
-                <button
-                  type="button"
-                  className="inline-flex items-center rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 transition"
-                  onClick={() => navigate(`/pc/requests/edit/${request.requestId}`)}
-                >
-                  Chỉnh sửa và gửi duyệt lại
-                </button>
-              </div>
             </div>
-          )}
+          ) : null}
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4 text-black">
@@ -179,8 +173,7 @@ export default function RequestDetailPC() {
                     const sessionTitle = (session as RequestSessionSummary & { notes?: string }).notes
                       ? `Phiên ${session.sessionNo}: ${(session as RequestSessionSummary & { notes?: string }).notes}`
                       : `Phiên ${session.sessionNo}`;
-                    const location =
-                      (session as RequestSessionSummary & { location?: string }).location || '—';
+                    const location = (session as RequestSessionSummary & { location?: string }).location || '—';
 
                     return (
                       <div
@@ -204,13 +197,15 @@ export default function RequestDetailPC() {
                             <span className="text-xs text-slate-500">Dạy học</span>
                             <span
                               className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
-                                session.teamAssigned
+                                (session as SessionWithFlags).teamAssigned
                                   ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                   : 'bg-amber-50 text-amber-800 border border-amber-200'
                               }`}
                             >
-                              {!session.teamAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                              {session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
+                              {!(session as SessionWithFlags).teamAssigned ? (
+                                <AlertCircle className="w-3 h-3 shrink-0" />
+                              ) : null}
+                              {(session as SessionWithFlags).teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
                             </span>
                           </div>
 
@@ -227,12 +222,12 @@ export default function RequestDetailPC() {
                         <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
                           <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <span>{location}</span>
-                          {session.teamAssigned && teamCount > 0 && (
+                          {(session as SessionWithFlags).teamAssigned && teamCount > 0 ? (
                             <>
                               <span className="text-slate-300">•</span>
                               <span className="text-slate-600">{teamCount} đội</span>
                             </>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -275,14 +270,13 @@ export default function RequestDetailPC() {
                                   <span className="text-xs font-semibold text-slate-900 truncate" title={fileLabel}>
                                     {fileLabel}
                                   </span>
-                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${meta.badgeClass}`}>
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${meta.badgeClass}`}
+                                  >
                                     {meta.kind === 'file' ? meta.ext ?? 'Tệp' : meta.label}
                                   </span>
                                 </div>
-
-                               
                               </div>
-
                             </>
                           );
                         })()}
@@ -297,7 +291,6 @@ export default function RequestDetailPC() {
           </TabsContent>
         </Tabs>
 
-        {/* Popup preview file đính kèm */}
         <Dialog
           open={attachmentPreviewOpen}
           onClose={() => setAttachmentPreviewOpen(false)}
@@ -405,15 +398,14 @@ export default function RequestDetailPC() {
               </div>
 
               <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
-                {request && (
+                {request ? (
                   <>
                     <RequestSessionDetailPanel
-                      session={
-                        sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
-                      }
+                      session={sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session}
                       requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
-                      showReservedEquipment={false}
+                      showReservedEquipment
+                      canEditReservation={false}
                     />
 
                     <div className="mt-6">
@@ -423,7 +415,7 @@ export default function RequestDetailPC() {
                       />
                     </div>
                   </>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

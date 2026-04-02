@@ -57,7 +57,9 @@ type EditableEventSession = {
 export default function EventsManagement() {
   const location = useLocation();
   const readOnly =
-    location.pathname.startsWith('/tl/') || location.pathname.startsWith('/teacher/');
+    location.pathname.startsWith('/tl/') ||
+    location.pathname.startsWith('/teacher/') ||
+    location.pathname.startsWith('/pc/');
 
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [pageNumber, setPageNumber] = useState(1);
@@ -187,6 +189,7 @@ export default function EventsManagement() {
   }, [openDetailFromUrl, eventIdFromUrl]);
 
   const openCreate = () => {
+    if (readOnly) return;
     setMode('create');
     setEditingEvent(null);
     setEventCode('');
@@ -214,6 +217,7 @@ export default function EventsManagement() {
   };
 
   const openEdit = async (e: EventListItem) => {
+    if (readOnly) return;
     setMode('edit');
     try {
       const detail = await eventApi.getById(e.eventId);
@@ -346,6 +350,7 @@ export default function EventsManagement() {
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     const base = {
       eventCode: eventCode.trim(),
       eventName: eventName.trim(),
@@ -497,6 +502,7 @@ export default function EventsManagement() {
   };
 
   const handleToggleActive = async (e: EventListItem) => {
+    if (readOnly) return;
     Modal.confirm({
       title: e.isActive ? 'Ngừng hoạt động sự kiện?' : 'Kích hoạt sự kiện?',
       content: e.isActive

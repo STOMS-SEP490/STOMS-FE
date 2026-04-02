@@ -7,7 +7,6 @@ import reservationApi from '@/modules/reservation/api/reservationApi'
 import requestApi from '@/modules/request/api/requestApi'
 import sessionApi from '@/modules/request/api/sessionApi'
 import type { Member } from '@/modules/member/member'
-import type { RequestListItem } from '@/modules/request/request'
 import type { SessionResponse } from '@/modules/request/session.types'
 import type { BorrowingCreatePayload } from '../borrowing'
 import type {
@@ -34,9 +33,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
 import { cn } from '@/shared/lib/utils'
-import { CalendarDays, ImageOff, Zap } from 'lucide-react'
+import { ImageOff } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 
 function equipmentItemToEquipmentResponse(item: EquipmentItemResponse): EquipmentResponse {
@@ -75,6 +73,16 @@ function equipmentReservationToRow(er: EquipmentReservationItemResponse): Equipm
   }
 }
 
+function sessionOptionLabel(s: {
+  SessionNo?: number | null
+  SessionTitle?: string | null
+  Notes?: string | null
+}): string {
+  const base = `Phiên ${s.SessionNo ?? ''}`.trim()
+  const title = (s.SessionTitle ?? s.Notes ?? '').trim()
+  return title ? `${base} - ${title}` : base
+}
+
 type Props = {
   open: boolean
   onClose: () => void
@@ -110,59 +118,46 @@ export default function CreateBorrowingModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const [modeTab, setModeTab] = useState<'immediate' | 'reservation'>('immediate')
-  const [reservationIdInput, setReservationIdInput] = useState('')
-  const [loadingReservation, setLoadingReservation] = useState(false)
   const [loadedReservation, setLoadedReservation] = useState<ReservationDetail | null>(null)
-  /** Tab "Theo đặt trước": khung StartAt khi gọi availability (mặc định từ đặt trước hoặc hiện tại). */
-  const [reservationBorrowStartAt, setReservationBorrowStartAt] = useState<Dayjs | null>(null)
 
-  type ImmediateRequestOption = {
-    requestId: number
-    requestCode: string
-    requestName: string
-    sessions: Array<Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'StartAt' | 'EndAt'>>
-  }
   type ImmediateBorrowerOption = {
     memberId: number
     fullName: string
     email?: string
     avatarUrl?: string | null
   }
-  type ReservationRequestOption = {
+
+  const [sessionBorrowerDropdownOpen, setSessionBorrowerDropdownOpen] = useState(false)
+  const [sessionBorrowerSearch, setSessionBorrowerSearch] = useState('')
+  const sessionBorrowerPickerRef = useRef<HTMLDivElement | null>(null)
+
+  type RequestOption = {
     requestId: number
     requestCode: string
     requestName: string
-    sessions: Array<
-      Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'StartAt' | 'EndAt' | 'ReservationId'>
-    >
   }
 
-  const [immediateRequestOptions, setImmediateRequestOptions] = useState<
-    ImmediateRequestOption[]
-  >([])
-  const [immediateRequestId, setImmediateRequestId] = useState<number | null>(null)
-  const [immediateRequestSearch, setImmediateRequestSearch] = useState('')
-  const [immediateRequestDropdownOpen, setImmediateRequestDropdownOpen] = useState(false)
-  const [immediateSessionId, setImmediateSessionId] = useState<number | null>(null)
-  const [immediateBorrowerOptions, setImmediateBorrowerOptions] = useState<
-    ImmediateBorrowerOption[]
-  >([])
-  const [loadingImmediateRequests, setLoadingImmediateRequests] = useState(false)
-  const [loadingImmediateBorrowers, setLoadingImmediateBorrowers] = useState(false)
+  const [requestOptions, setRequestOptions] = useState<RequestOption[]>([])
+  const [loadingRequests, setLoadingRequests] = useState(false)
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null)
+  const [requestSearch, setRequestSearch] = useState('')
+  const [requestDropdownOpen, setRequestDropdownOpen] = useState(false)
+  const requestPickerRef = useRef<HTMLDivElement | null>(null)
 
-  // Theo đặt trước: chọn Request -> Session (session có ReservationId) để lấy detail đặt trước
-  const [reservationRequestOptions, setReservationRequestOptions] = useState<
-    ReservationRequestOption[]
+  const [sessions, setSessions] = useState<
+    Array<
+      Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'StartAt' | 'EndAt' | 'ReservationId' | 'Notes'> & {
+        SessionTitle?: string | null
+      }
+    >
   >([])
-  const [reservationRequestId, setReservationRequestId] = useState<number | null>(null)
-  const [reservationRequestSearch, setReservationRequestSearch] = useState('')
-  const [reservationRequestDropdownOpen, setReservationRequestDropdownOpen] = useState(false)
-  const [reservationSessionId, setReservationSessionId] = useState<number | null>(null)
-  const [loadingReservationRequests, setLoadingReservationRequests] = useState(false)
-  const [reservationBorrowerOptions, setReservationBorrowerOptions] = useState<
-    ImmediateBorrowerOption[]
-  >([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null)
+  const [sessionSearch, setSessionSearch] = useState('')
+  const [sessionDropdownOpen, setSessionDropdownOpen] = useState(false)
+  const sessionPickerRef = useRef<HTMLDivElement | null>(null)
+  const [loadingSessionBorrowers, setLoadingSessionBorrowers] = useState(false)
+  const [sessionBorrowerOptions, setSessionBorrowerOptions] = useState<ImmediateBorrowerOption[]>([])
 
   const handleSearchMembers = async (
     value: string,
@@ -187,13 +182,6 @@ export default function CreateBorrowingModal({
   }
 
   const applyReservationDetail = (detail: ReservationDetail) => {
-    const memberId =
-      detail.CreatedByUser?.MemberId ?? detail.CreatedByMemberId ?? null
-    if (memberId == null || memberId <= 0) {
-      message.error('Đặt trước không có thông tin người đặt hợp lệ')
-      return false
-    }
-
     if (!detail.EndAt) {
       message.error('Đặt trước không có thời gian kết thúc (EndAt)')
       return false
@@ -204,26 +192,12 @@ export default function CreateBorrowingModal({
       message.warning('Thời gian kết thúc đặt trước đã qua — vui lòng kiểm tra lại trước khi tạo phiếu')
     }
 
-    setBorrowedByMemberId(memberId)
-    // Trong tab "Theo đặt trước" bắt buộc chọn member => hiển thị đúng người đã tạo reservation.
-    setReservationBorrowerOptions([
-      {
-        memberId,
-        fullName: detail.CreatedByUser?.FullName?.trim() || `Member #${memberId}`,
-        email: detail.CreatedByUser?.Email ?? undefined,
-        avatarUrl: detail.CreatedByUser?.AvatarUrl ?? null,
-      },
-    ])
-    setBorrowerSearch(
-      detail.CreatedByUser?.FullName?.trim() || `Member #${memberId}`
-    )
+    // Theo đặt trước: Người mượn phải chọn từ danh sách thành viên tham gia session.
+    setBorrowedByMemberId(null)
+    setSessionBorrowerOptions([])
+    setBorrowerSearch('')
     setBorrowerOptions([])
     setReturnedDueDate(end)
-    if (detail.StartAt) {
-      setReservationBorrowStartAt(dayjs(detail.StartAt))
-    } else {
-      setReservationBorrowStartAt(dayjs())
-    }
 
     const eqIds = (detail.EquipmentReservations ?? [])
       .filter((er) => !er.IsTemporarilyCancelled)
@@ -241,18 +215,11 @@ export default function CreateBorrowingModal({
     return true
   }
 
-  const handleLoadReservation = async (idOverride?: number | null) => {
-    const id =
-      idOverride != null && Number.isFinite(idOverride)
-        ? idOverride
-        : Number(String(reservationIdInput).trim())
-    if (!id || Number.isNaN(id)) {
-      message.error('Nhập mã đặt trước (số) hợp lệ')
-      return
-    }
+  const handleLoadReservation = async (reservationId: number) => {
+    const id = Number(reservationId)
+    if (!id || Number.isNaN(id)) return
     setError('')
     try {
-      setLoadingReservation(true)
       const raw = await reservationApi.getById(id)
       const detail = normalizeReservationResponse(raw)
       setLoadedReservation(detail)
@@ -260,20 +227,19 @@ export default function CreateBorrowingModal({
       if (ok) message.success('Đã tải thông tin theo đặt trước')
     } catch {
       setLoadedReservation(null)
-      setReservationBorrowerOptions([])
+      setSessionBorrowerOptions([])
       setBorrowedByMemberId(null)
       setBorrowerSearch('')
       setBorrowerOptions([])
       message.error('Không tải được đặt trước — kiểm tra mã hoặc quyền truy cập')
     } finally {
-      setLoadingReservation(false)
     }
   }
 
-  const loadBorrowersFromImmediateSession = async (sessionId: number) => {
+  const loadBorrowersFromSession = async (sessionId: number) => {
     try {
-      setLoadingImmediateBorrowers(true)
-      setImmediateBorrowerOptions([])
+      setLoadingSessionBorrowers(true)
+      setSessionBorrowerOptions([])
       setBorrowedByMemberId(null)
       setBorrowerSearch('')
       setBorrowerOptions([])
@@ -301,11 +267,11 @@ export default function CreateBorrowingModal({
       }
 
       const list = Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'))
-      setImmediateBorrowerOptions(list)
+      setSessionBorrowerOptions(list)
     } catch {
       message.error('Không tải được danh sách người mượn từ session')
     } finally {
-      setLoadingImmediateBorrowers(false)
+      setLoadingSessionBorrowers(false)
     }
   }
 
@@ -359,92 +325,44 @@ export default function CreateBorrowingModal({
   useEffect(() => {
     if (!open) return
     if (!isEquipmentManager) return
-    if (modeTab !== 'immediate') return
 
     let cancelled = false
     const run = async () => {
       try {
-        setLoadingImmediateRequests(true)
-        setImmediateRequestOptions([])
-        setImmediateRequestId(null)
-        setImmediateRequestSearch('')
-        setImmediateRequestDropdownOpen(false)
-        setImmediateSessionId(null)
-        setImmediateBorrowerOptions([])
-        setBorrowedByMemberId(null)
-        setBorrowerSearch('')
-        setBorrowerOptions([])
+        setLoadingRequests(true)
+        setRequestOptions([])
+        setSelectedRequestId(null)
+        setRequestSearch('')
+        setRequestDropdownOpen(false)
 
-        const now = dayjs()
-        const res = await sessionApi.getFilter({
-          PageNumber: 1,
-          PageSize: 500,
+        setLoadingSessions(false)
+        setSessions([])
+        setSelectedSessionId(null)
+        setSessionSearch('')
+        setSessionDropdownOpen(false)
+        setSessionBorrowerOptions([])
+
+        const reqRes = await requestApi.getRequests({
+          statuses: ['PUBLISHED'],
+          pageNumber: 1,
+          pageSize: 200,
         })
-
-        const rawSessions = res.Items ?? []
-        const filteredSessions = rawSessions
-          .filter((s) => Number(s.SessionId) > 0)
-          .filter((s) => {
-            if (!s.StartAt || !s.EndAt) return false
-            const st = dayjs(s.StartAt)
-            const en = dayjs(s.EndAt)
-            if (!st.isValid() || !en.isValid()) return false
-            // Chỉ lấy session "đang diễn ra" để mượn ngay khớp BE (và đúng với mô tả của bạn)
-            return (st.isBefore(now) || st.isSame(now)) && (en.isAfter(now) || en.isSame(now))
-          })
-
-        // Nếu không có session đang diễn ra, vẫn cho chọn theo danh sách (không để UI trống)
-        const sessionsForUi = filteredSessions.length ? filteredSessions : rawSessions.filter((s) => Number(s.SessionId) > 0)
-
-        const requestIds = Array.from(
-          new Set(sessionsForUi.map((s) => Number(s.RequestId)).filter((id) => id > 0))
-        ).slice(0, 30)
-
-        const requestDetails = await Promise.all(
-          requestIds.map(async (id) => {
-            try {
-              const r = await requestApi.getById(id)
-              return [id, r] as const
-            } catch {
-              return [id, null] as const
-            }
-          })
-        )
 
         if (cancelled) return
 
-        const reqMap = new Map<number, RequestListItem>()
-        requestDetails.forEach(([id, r]) => {
-          if (r) reqMap.set(id, r as RequestListItem)
-        })
+        const list = (reqRes.items ?? [])
+          .filter((r: any) => Number(r.requestId) > 0)
+          .map((r: any) => ({
+            requestId: Number(r.requestId),
+            requestCode: String(r.requestCode ?? ''),
+            requestName: String(r.requestName ?? ''),
+          }))
 
-        const grouped: ImmediateRequestOption[] = requestIds
-          .map((rid) => {
-            const sessions = sessionsForUi
-              .filter((s) => Number(s.RequestId) === rid)
-              .sort((a, b) => dayjs(a.StartAt).valueOf() - dayjs(b.StartAt).valueOf())
-              .map((s) => ({
-                SessionId: Number(s.SessionId),
-                SessionNo: Number(s.SessionNo),
-                StartAt: String(s.StartAt ?? ''),
-                EndAt: String(s.EndAt ?? ''),
-              }))
-
-            const req = reqMap.get(rid)
-            return {
-              requestId: rid,
-              requestCode: req?.requestCode ?? '',
-              requestName: req?.requestName ?? '',
-              sessions,
-            }
-          })
-          .filter((x) => x.sessions.length > 0)
-
-        setImmediateRequestOptions(grouped)
+        setRequestOptions(list)
       } catch {
-        // ignore (UI sẽ hiển thị dropdown rỗng, submit vẫn validate lỗi "chọn session")
+        // ignore
       } finally {
-        if (!cancelled) setLoadingImmediateRequests(false)
+        if (!cancelled) setLoadingRequests(false)
       }
     }
 
@@ -452,125 +370,84 @@ export default function CreateBorrowingModal({
     return () => {
       cancelled = true
     }
-  }, [open, isEquipmentManager, modeTab])
+  }, [open, isEquipmentManager])
 
-  // Equipment manager (tab "Theo đặt trước"): chọn Request -> Session
-  // (chỉ cho chọn session đang có ReservationId để đảm bảo "request đã có đặt trước").
   useEffect(() => {
     if (!open) return
-    if (modeTab !== 'reservation') return
+    if (!isEquipmentManager) return
+    if (!selectedRequestId) {
+      setSessions([])
+      setSelectedSessionId(null)
+      setSessionSearch('')
+      setSessionDropdownOpen(false)
+      setSessionBorrowerOptions([])
+      setSessionIds([])
+      setLoadedReservation(null)
+      return
+    }
 
     let cancelled = false
-
     const run = async () => {
       try {
-        setLoadingReservationRequests(true)
-        setReservationRequestOptions([])
-        setReservationRequestId(null)
-        setReservationRequestSearch('')
-        setReservationRequestDropdownOpen(false)
-        setReservationSessionId(null)
-        setReservationBorrowerOptions([])
-
-        setLoadedReservation(null)
-        setReservationIdInput('')
-        setReservationBorrowStartAt(dayjs())
-
+        setLoadingSessions(true)
+        setSessions([])
+        setSelectedSessionId(null)
+        setSessionSearch('')
+        setSessionDropdownOpen(false)
+        setSessionBorrowerOptions([])
         setBorrowedByMemberId(null)
         setBorrowerSearch('')
         setBorrowerOptions([])
+        setLoadedReservation(null)
         setReturnedDueDate(null)
-
         setSelectedEquipmentIds([])
         setSessionIds([])
 
         const now = dayjs()
         const res = await sessionApi.getFilter({
+          RequestId: selectedRequestId,
           Statuses: ['ASSIGNED', 'ONGOING'],
           PageNumber: 1,
           PageSize: 500,
         })
 
-        const rawSessions = res.Items ?? []
-        const reservedSessions = rawSessions
-          .filter((s) => Number(s.SessionId) > 0)
-          .filter((s) => s.ReservationId != null && Number(s.ReservationId) > 0)
-          .filter((s) => {
-            if (!s.StartAt || !s.EndAt) return false
-            const st = dayjs(s.StartAt)
-            const en = dayjs(s.EndAt)
-            if (!st.isValid() || !en.isValid()) return false
-            return en.isAfter(now) || en.isSame(now)
-          })
-
-        const requestIds = Array.from(
-          new Set(reservedSessions.map((s) => Number(s.RequestId)).filter((id) => id > 0))
-        ).slice(0, 30)
-
-        if (requestIds.length === 0) {
-          setReservationRequestOptions([])
-          return
-        }
-
-        const requestDetails = await Promise.all(
-          requestIds.map(async (id) => {
-            try {
-              const r = await requestApi.getById(id)
-              return [id, r] as const
-            } catch {
-              return [id, null] as const
-            }
-          })
-        )
-
         if (cancelled) return
 
-        const reqMap = new Map<number, RequestListItem>()
-        requestDetails.forEach(([id, r]) => {
-          if (r) reqMap.set(id, r as RequestListItem)
-        })
-
-        const grouped: ReservationRequestOption[] = requestIds
-          .map((rid) => {
-            const sessions = reservedSessions
-              .filter((s) => Number(s.RequestId) === rid)
-              .sort((a, b) => dayjs(a.StartAt).valueOf() - dayjs(b.StartAt).valueOf())
-              .map((s) => ({
-                SessionId: Number(s.SessionId),
-                SessionNo: Number(s.SessionNo),
-                StartAt: String(s.StartAt ?? ''),
-                EndAt: String(s.EndAt ?? ''),
-                ReservationId: s.ReservationId != null ? Number(s.ReservationId) : null,
-              }))
-
-            const req = reqMap.get(rid)
-            return {
-              requestId: rid,
-              requestCode: req?.requestCode ?? '',
-              requestName: req?.requestName ?? '',
-              sessions,
-            }
+        const list = (res.Items ?? [])
+          .filter((s) => Number(s.SessionId) > 0)
+          .filter((s) => {
+            if (!s.EndAt) return true
+            const en = dayjs(s.EndAt)
+            if (!en.isValid()) return true
+            return en.isAfter(now) || en.isSame(now)
           })
-          .filter((x) => x.sessions.length > 0)
+          .map((s) => ({
+            SessionId: Number(s.SessionId),
+            SessionNo: Number(s.SessionNo),
+            StartAt: String(s.StartAt ?? ''),
+            EndAt: String(s.EndAt ?? ''),
+            ReservationId: s.ReservationId != null ? Number(s.ReservationId) : null,
+            Notes: String(s.Notes ?? ''),
+            SessionTitle: s.SubjectSession?.Title ?? s.EventSession?.Title ?? null,
+          }))
+          .sort((a, b) => (a.SessionNo ?? 0) - (b.SessionNo ?? 0))
 
-        setReservationRequestOptions(grouped)
+        setSessions(list)
       } catch {
-        // ignore: UI sẽ hiển thị dropdown rỗng
+        setSessions([])
       } finally {
-        if (!cancelled) setLoadingReservationRequests(false)
+        if (!cancelled) setLoadingSessions(false)
       }
     }
 
     void run()
-
     return () => {
       cancelled = true
     }
-  }, [open, modeTab])
+  }, [open, isEquipmentManager, selectedRequestId])
 
   // Load thiết bị KHẢ DỤNG theo khung thời gian StartAt/EndAt.
-  // - Mượn ngay: StartAt = hiện tại
-  // - Theo đặt trước: StartAt = reservationBorrowStartAt (ô chọn trong tab)
+  // - Nếu có đặt trước: StartAt = thời gian StartAt của đặt trước (nếu có), ngược lại dùng hiện tại
   // - EndAt: returnedDueDate (hạn trả)
   //
   // Khi tạo phiếu theo đặt trước: API availability có thể không trả thiết bị đã đặt (vd. trạng thái Damaged)
@@ -587,14 +464,11 @@ export default function CreateBorrowingModal({
       try {
         setEquipmentLoading(true)
 
-        const startAtDt =
-          modeTab === 'reservation' && reservationBorrowStartAt
-            ? reservationBorrowStartAt
-            : dayjs()
+        const startAtDt = loadedReservation?.StartAt ? dayjs(loadedReservation.StartAt) : dayjs()
         const endAtDt = returnedDueDate
 
         // BE yêu cầu EndAt > StartAt.
-        // Nếu hạn trả không sau thời điểm bắt đầu (hoặc không sau hiện tại ở tab Mượn ngay), không gọi API.
+        // Nếu hạn trả không sau thời điểm bắt đầu, không gọi API.
         if (!endAtDt.isAfter(startAtDt)) {
           setAllEquipments([])
           setSelectedEquipmentIds([])
@@ -642,7 +516,7 @@ export default function CreateBorrowingModal({
     }
 
     void loadAvailability()
-  }, [open, returnedDueDate, loadedReservation, modeTab, reservationBorrowStartAt])
+  }, [open, returnedDueDate, loadedReservation])
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -660,38 +534,8 @@ export default function CreateBorrowingModal({
       setError('Vui lòng chọn hạn trả')
       return
     }
-    // Tab "Theo đặt trước" bắt buộc chọn Request -> Session (và member sẽ tự lấy theo reservation).
-    if (modeTab === 'reservation' && !reservationRequestId) {
-      setError('Vui lòng chọn request theo đặt trước')
-      return
-    }
-    if (modeTab === 'reservation' && !reservationSessionId) {
-      setError('Vui lòng chọn session theo đặt trước')
-      return
-    }
-    if (modeTab === 'reservation' && !loadedReservation) {
-      setError('Vui lòng tải thông tin đặt trước')
-      return
-    }
-    if (modeTab === 'reservation' && !reservationBorrowStartAt) {
-      setError('Vui lòng chọn ngày giờ bắt đầu mượn')
-      return
-    }
-    if (modeTab === 'reservation' && loadedReservation && reservationBorrowStartAt) {
-      const stRaw = loadedReservation.StartAt ? dayjs(loadedReservation.StartAt) : null
-      const enRaw = loadedReservation.EndAt ? dayjs(loadedReservation.EndAt) : null
-      if (stRaw && enRaw && stRaw.isValid() && enRaw.isValid()) {
-        if (reservationBorrowStartAt.isBefore(stRaw) || reservationBorrowStartAt.isAfter(enRaw)) {
-          setError('Ngày giờ bắt đầu mượn phải nằm trong khoảng thời gian đặt trước')
-          return
-        }
-      }
-    }
 
-    const borrowStartEffective =
-      modeTab === 'reservation' && reservationBorrowStartAt
-        ? reservationBorrowStartAt
-        : dayjs()
+    const borrowStartEffective = loadedReservation?.StartAt ? dayjs(loadedReservation.StartAt) : dayjs()
     if (!returnedDueDate.isAfter(borrowStartEffective)) {
       setError('Hạn trả phải sau thời điểm bắt đầu mượn')
       return
@@ -739,12 +583,6 @@ export default function CreateBorrowingModal({
     setBorrowerSearch('')
     setBorrowerOptions([])
     setBorrowedByMemberId(null)
-    setImmediateRequestOptions([])
-    setImmediateRequestId(null)
-    setImmediateRequestSearch('')
-    setImmediateRequestDropdownOpen(false)
-    setImmediateSessionId(null)
-    setImmediateBorrowerOptions([])
     setLentByMemberId(null)
     setReturnedDueDate(null)
     setDescription('')
@@ -753,165 +591,58 @@ export default function CreateBorrowingModal({
     setSelectedEquipmentIds([])
     setSessionIds([])
     setError('')
-    setModeTab('immediate')
-    setReservationIdInput('')
     setLoadedReservation(null)
-    setReservationBorrowStartAt(null)
-    setReservationRequestOptions([])
-    setReservationRequestId(null)
-    setReservationRequestSearch('')
-    setReservationRequestDropdownOpen(false)
-    setReservationSessionId(null)
-    setReservationBorrowerOptions([])
+    setSessions([])
+    setSelectedSessionId(null)
+    setSessionSearch('')
+    setSessionDropdownOpen(false)
+    setSessionBorrowerOptions([])
     onClose()
   }
 
-  const reservationRequestSearchQ = reservationRequestSearch.trim().toLowerCase()
-  const filteredReservationRequestOptions = reservationRequestOptions.filter((r) => {
-    if (!reservationRequestSearchQ) return true
+  const sessionSearchQ = sessionSearch.trim().toLowerCase()
+  const filteredSessions = sessions.filter((s) => {
+    if (!sessionSearchQ) return true
+    const noStr = String(s.SessionNo ?? '').toLowerCase()
+    const label = sessionOptionLabel(s).toLowerCase()
+    const sidStr = String(s.SessionId ?? '').toLowerCase()
+    return noStr.includes(sessionSearchQ) || label.includes(sessionSearchQ) || sidStr.includes(sessionSearchQ)
+  })
+  const selectedSession =
+    selectedSessionId != null ? sessions.find((s) => s.SessionId === selectedSessionId) ?? null : null
+  const selectedSessionLabel = selectedSession ? sessionOptionLabel(selectedSession) : ''
+
+  const requestSearchQ = requestSearch.trim().toLowerCase()
+  const filteredRequestOptions = requestOptions.filter((r) => {
+    if (!requestSearchQ) return true
     const code = (r.requestCode ?? '').trim().toLowerCase()
     const name = (r.requestName ?? '').trim().toLowerCase()
     const idStr = String(r.requestId ?? '').trim().toLowerCase()
-    return code.includes(reservationRequestSearchQ) || name.includes(reservationRequestSearchQ) || idStr.includes(reservationRequestSearchQ)
+    return code.includes(requestSearchQ) || name.includes(requestSearchQ) || idStr.includes(requestSearchQ)
   })
-
-  const reservationSelectedRequest = reservationRequestId
-    ? reservationRequestOptions.find((r) => r.requestId === reservationRequestId) ?? null
-    : null
-
-  const reservationSelectedRequestLabel = reservationSelectedRequest
-    ? (reservationSelectedRequest.requestCode ?? '').trim()
-      ? `${reservationSelectedRequest.requestCode} - ${reservationSelectedRequest.requestName}`
-      : reservationSelectedRequest.requestName || `Request #${reservationSelectedRequest.requestId}`
+  const selectedRequest =
+    selectedRequestId != null ? requestOptions.find((r) => r.requestId === selectedRequestId) ?? null : null
+  const selectedRequestLabel = selectedRequest
+    ? (selectedRequest.requestCode ?? '').trim()
+      ? `${selectedRequest.requestCode} - ${selectedRequest.requestName}`
+      : selectedRequest.requestName || `Request #${selectedRequest.requestId}`
     : ''
 
-  const reservationRequestPickerRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    if (!reservationRequestDropdownOpen) return
-
-    const onMouseDown = (e: MouseEvent) => {
-      const el = reservationRequestPickerRef.current
-      if (!el) return
-      if (e.target instanceof Node && el.contains(e.target)) return
-      setReservationRequestDropdownOpen(false)
-      setReservationRequestSearch('')
-    }
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setReservationRequestDropdownOpen(false)
-        setReservationRequestSearch('')
-      }
-    }
-
-    window.addEventListener('mousedown', onMouseDown)
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('mousedown', onMouseDown)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [reservationRequestDropdownOpen])
-
-  const pickReservationRequest = (rid: number | null) => {
-    if (rid == null) {
-      setReservationRequestId(null)
-      setReservationRequestSearch('')
-      setReservationRequestDropdownOpen(false)
-      setReservationSessionId(null)
-      setReservationIdInput('')
-      setLoadedReservation(null)
-      setReservationBorrowerOptions([])
-      setBorrowedByMemberId(null)
-      setBorrowerSearch('')
-      setBorrowerOptions([])
-      setReservationBorrowStartAt(dayjs())
-      setReturnedDueDate(null)
-      setSelectedEquipmentIds([])
-      setSessionIds([])
-      return
-    }
-
-    setReservationRequestId(rid)
-    setReservationRequestSearch('')
-    setReservationRequestDropdownOpen(false)
-    setReservationSessionId(null)
-
-    setReservationIdInput('')
-    setLoadedReservation(null)
-    setReservationBorrowerOptions([])
-    setBorrowedByMemberId(null)
-    setBorrowerSearch('')
-    setBorrowerOptions([])
-
-    setReservationBorrowStartAt(dayjs())
-    setReturnedDueDate(null)
-    setSelectedEquipmentIds([])
-    setSessionIds([])
-  }
-
-  const handlePickReservationSession = async (sid: number) => {
-    setReservationSessionId(sid)
-
-    setReservationIdInput('')
-    setLoadedReservation(null)
-    setReservationBorrowerOptions([])
-    setBorrowedByMemberId(null)
-    setBorrowerSearch('')
-    setBorrowerOptions([])
-    setReturnedDueDate(null)
-    setSelectedEquipmentIds([])
-    setSessionIds([])
-
-    const opt =
-      reservationRequestOptions.find((r) => r.requestId === reservationRequestId)?.sessions.find(
-        (s) => s.SessionId === sid
-      ) ?? null
-
-    const reservationId = opt?.ReservationId != null ? Number(opt.ReservationId) : null
-    if (!reservationId) {
-      message.error('Session đã chọn không có thông tin đặt trước')
-      return
-    }
-
-    setReservationIdInput(String(reservationId))
-    await handleLoadReservation(reservationId)
-  }
-
-  const immediateRequestSearchQ = immediateRequestSearch.trim().toLowerCase()
-  const filteredImmediateRequestOptions = immediateRequestOptions.filter((r) => {
-    if (!immediateRequestSearchQ) return true
-    const code = (r.requestCode ?? '').trim().toLowerCase()
-    const name = (r.requestName ?? '').trim().toLowerCase()
-    const idStr = String(r.requestId ?? '').trim().toLowerCase()
-    return code.includes(immediateRequestSearchQ) || name.includes(immediateRequestSearchQ) || idStr.includes(immediateRequestSearchQ)
-  })
-
-  const immediateSelectedRequest = immediateRequestId
-    ? immediateRequestOptions.find((r) => r.requestId === immediateRequestId) ?? null
-    : null
-
-  const immediateSelectedRequestLabel = immediateSelectedRequest
-    ? (immediateSelectedRequest.requestCode ?? '').trim()
-      ? `${immediateSelectedRequest.requestCode} - ${immediateSelectedRequest.requestName}`
-      : immediateSelectedRequest.requestName || `Request #${immediateSelectedRequest.requestId}`
-    : ''
-
-  const requestPickerRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    if (!immediateRequestDropdownOpen) return
+    if (!requestDropdownOpen) return
 
     const onMouseDown = (e: MouseEvent) => {
       const el = requestPickerRef.current
       if (!el) return
       if (e.target instanceof Node && el.contains(e.target)) return
-      setImmediateRequestDropdownOpen(false)
-      setImmediateRequestSearch('')
+      setRequestDropdownOpen(false)
+      setRequestSearch('')
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setImmediateRequestDropdownOpen(false)
-        setImmediateRequestSearch('')
+        setRequestDropdownOpen(false)
+        setRequestSearch('')
       }
     }
 
@@ -921,29 +652,90 @@ export default function CreateBorrowingModal({
       window.removeEventListener('mousedown', onMouseDown)
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [immediateRequestDropdownOpen])
+  }, [requestDropdownOpen])
 
-  const pickImmediateRequest = (rid: number | null) => {
-    if (rid == null) {
-      setImmediateRequestId(null)
-      setImmediateRequestSearch('')
-      setImmediateRequestDropdownOpen(false)
-      setImmediateSessionId(null)
-      setSessionIds([])
-      setImmediateBorrowerOptions([])
-      setBorrowedByMemberId(null)
-      setBorrowerSearch('')
-      return
+  useEffect(() => {
+    if (!sessionDropdownOpen) return
+
+    const onMouseDown = (e: MouseEvent) => {
+      const el = sessionPickerRef.current
+      if (!el) return
+      if (e.target instanceof Node && el.contains(e.target)) return
+      setSessionDropdownOpen(false)
+      setSessionSearch('')
     }
 
-    setImmediateRequestId(rid)
-    setImmediateRequestSearch('')
-    setImmediateRequestDropdownOpen(false)
-    setImmediateSessionId(null)
-    setSessionIds([])
-    setImmediateBorrowerOptions([])
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSessionDropdownOpen(false)
+        setSessionSearch('')
+      }
+    }
+
+    window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [sessionDropdownOpen])
+
+  useEffect(() => {
+    if (!sessionBorrowerDropdownOpen) return
+
+    const onMouseDown = (e: MouseEvent) => {
+      const el = sessionBorrowerPickerRef.current
+      if (!el) return
+      if (e.target instanceof Node && el.contains(e.target)) return
+      setSessionBorrowerDropdownOpen(false)
+      setSessionBorrowerSearch('')
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSessionBorrowerDropdownOpen(false)
+        setSessionBorrowerSearch('')
+      }
+    }
+
+    window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [sessionBorrowerDropdownOpen])
+
+  const pickSession = async (sid: number | null) => {
+    setError('')
+    setLoadedReservation(null)
+    setSelectedSessionId(sid)
+    setSessionDropdownOpen(false)
+    setSessionSearch('')
+    setSessionBorrowerOptions([])
     setBorrowedByMemberId(null)
     setBorrowerSearch('')
+    setBorrowerOptions([])
+    setSelectedEquipmentIds([])
+    setSessionIds(sid != null ? [sid] : [])
+    setReturnedDueDate(null)
+
+    if (sid == null) return
+
+    const opt = sessions.find((s) => s.SessionId === sid) ?? null
+
+    // Luôn load danh sách người mượn theo assignment của session (nếu có).
+    void loadBorrowersFromSession(sid)
+
+    const reservationId = opt?.ReservationId != null ? Number(opt.ReservationId) : null
+    if (reservationId && reservationId > 0) {
+      await handleLoadReservation(reservationId)
+    } else {
+      // Không có đặt trước -> tạo tự do (user tự chọn hạn trả & thiết bị)
+      setLoadedReservation(null)
+      setReturnedDueDate(null)
+      setSelectedEquipmentIds([])
+    }
   }
 
   return (
@@ -951,381 +743,157 @@ export default function CreateBorrowingModal({
       open={open}
       onClose={handleClose}
       title="Tạo phiếu mượn thiết bị"
-      description="Mượn ngay hoặc tạo phiếu theo đặt trước đã có — thông tin khớp với BE (session, thiết bị, hạn trả)."
+      description="Chọn session (nếu có). Nếu session có đặt trước thì tự điền thông tin; nếu không thì tạo tự do."
       className="max-w-4xl w-[min(96vw,56rem)] max-h-[92vh]"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Tabs
-          value={modeTab}
-          onValueChange={(v) => {
-            const next = v as 'immediate' | 'reservation'
-            setModeTab(next)
-            setError('')
-            if (next === 'immediate') {
-              setSessionIds([])
-              setLoadedReservation(null)
-              setReservationIdInput('')
-              setReservationBorrowStartAt(null)
-              setReservationRequestOptions([])
-              setReservationRequestId(null)
-              setReservationRequestSearch('')
-              setReservationRequestDropdownOpen(false)
-              setReservationSessionId(null)
-              setReservationBorrowerOptions([])
-              setImmediateRequestOptions([])
-              setImmediateRequestId(null)
-              setImmediateRequestSearch('')
-              setImmediateRequestDropdownOpen(false)
-              setImmediateSessionId(null)
-              setImmediateBorrowerOptions([])
-              setBorrowerSearch('')
-              setBorrowedByMemberId(null)
-              setBorrowerOptions([])
-            }
-            if (next === 'reservation') {
-              setImmediateRequestOptions([])
-              setImmediateRequestId(null)
-              setImmediateRequestSearch('')
-              setImmediateRequestDropdownOpen(false)
-              setImmediateSessionId(null)
-              setImmediateBorrowerOptions([])
-              setBorrowerSearch('')
-              setBorrowedByMemberId(null)
-              setBorrowerOptions([])
-              setLoadedReservation(null)
-              setReservationIdInput('')
-              setReservationRequestOptions([])
-              setReservationRequestId(null)
-              setReservationRequestSearch('')
-              setReservationRequestDropdownOpen(false)
-              setReservationSessionId(null)
-              setReservationBorrowerOptions([])
-              setReservationBorrowStartAt((prev) => prev ?? dayjs())
-              setReturnedDueDate(null)
-              setSelectedEquipmentIds([])
-              setSessionIds([])
-            }
-          }}
-        >
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-slate-200/80 bg-gradient-to-r from-sky-50/90 via-white to-violet-50/90 p-1 shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)]">
-            <TabsTrigger
-              value="immediate"
-              className={cn(
-                'group relative flex items-center justify-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold sm:text-sm',
-                'text-slate-500 transition-all duration-200',
-                'after:hidden hover:bg-white/70 hover:text-slate-700',
-                'data-[state=active]:bg-white data-[state=active]:text-cyan-800 data-[state=active]:shadow-sm',
-                'data-[state=active]:ring-1 data-[state=active]:ring-cyan-200/80',
-              )}
-            >
-              <Zap
-                className="h-3.5 w-3.5 shrink-0 text-amber-500 transition-colors group-data-[state=active]:text-cyan-600 sm:h-4 sm:w-4"
-                aria-hidden
-              />
-              Mượn ngay
-            </TabsTrigger>
-            <TabsTrigger
-              value="reservation"
-              className={cn(
-                'group relative flex items-center justify-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold sm:text-sm',
-                'text-slate-500 transition-all duration-200',
-                'after:hidden hover:bg-white/70 hover:text-slate-700',
-                'data-[state=active]:bg-white data-[state=active]:text-violet-800 data-[state=active]:shadow-sm',
-                'data-[state=active]:ring-1 data-[state=active]:ring-violet-200/80',
-              )}
-            >
-              <CalendarDays
-                className="h-3.5 w-3.5 shrink-0 text-violet-400 transition-colors group-data-[state=active]:text-violet-600 sm:h-4 sm:w-4"
-                aria-hidden
-              />
-              Theo đặt trước
-            </TabsTrigger>
-          </TabsList>
-
-         
-
-          <TabsContent value="reservation" className="mt-2 space-y-3">
-            <div className="flex flex-wrap items-end gap-2">
-              <div
-                className="relative space-y-1.5 min-w-[220px] flex-1"
-                ref={reservationRequestPickerRef}
-              >
-                <Label className="text-black font-medium">
-                  Request <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  placeholder="Tìm request có đặt trước..."
-                  disabled={loadingReservationRequests || reservationRequestOptions.length === 0}
-                  value={
-                    reservationRequestDropdownOpen
-                      ? reservationRequestSearch
-                      : reservationSelectedRequestLabel
-                  }
-                  autoComplete="off"
-                  onChange={(e) => setReservationRequestSearch(e.target.value)}
-                  onFocus={() => {
-                    if (loadingReservationRequests) return
-                    if (reservationRequestOptions.length === 0) return
-                    setReservationRequestDropdownOpen(true)
-                    setReservationRequestSearch('')
-                  }}
-                  className="h-9 text-xs text-black border-gray-200"
-                />
-
-                {reservationRequestDropdownOpen &&
-                  !loadingReservationRequests &&
-                  reservationRequestOptions.length > 0 && (
-                    <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow">
-                      {filteredReservationRequestOptions.map((r) => {
-                        const label = (r.requestCode ?? '').trim()
-                          ? `${r.requestCode} - ${r.requestName}`
-                          : r.requestName || `Request #${r.requestId}`
-
-                        return (
-                          <button
-                            key={r.requestId}
-                            type="button"
-                            className={cn(
-                              'w-full text-left px-3 py-2 text-sm hover:bg-gray-50',
-                              reservationRequestId === r.requestId && 'bg-[#2197C0]/10',
-                            )}
-                            onMouseDown={(e) => {
-                              e.preventDefault()
-                              pickReservationRequest(r.requestId)
-                            }}
-                          >
-                            {label}
-                          </button>
-                        )
-                      })}
-
-                      {reservationRequestSearchQ &&
-                        filteredReservationRequestOptions.length === 0 && (
-                          <div className="px-3 pb-2 text-xs text-gray-500">
-                            Không tìm thấy request có đặt trước phù hợp.
-                          </div>
-                        )}
-                    </div>
-                  )}
-              </div>
-
-              <div className="space-y-1.5 min-w-[240px] flex-1">
-                <Label className="text-black font-medium">
-                  Session <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={reservationSessionId != null ? String(reservationSessionId) : ''}
-                  onValueChange={(value) => {
-                    const sid = Number(value)
-                    void handlePickReservationSession(sid)
-                  }}
-                  disabled={
-                    loadingReservationRequests ||
-                    reservationRequestId == null ||
-                    (reservationSelectedRequest?.sessions.length ?? 0) === 0
-                  }
-                >
-                  <SelectTrigger className="h-9 text-xs text-black border-gray-200">
-                    <SelectValue placeholder={reservationRequestId == null ? 'Chọn request trước' : 'Chọn session'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(reservationSelectedRequest?.sessions ?? []).map((s) => (
-                      <SelectItem key={s.SessionId} value={String(s.SessionId)}>
-                        {`Phiên ${s.SessionNo ?? ''}`.trim()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-black font-medium">
-                Ngày giờ bắt đầu mượn <span className="text-red-500">*</span>
-              </Label>
-              <DatePicker
-                className="w-full h-9 text-black"
-                placeholder="Chọn ngày giờ bắt đầu (khung mượn / availability)"
-                format="DD/MM/YYYY HH:mm"
-                showTime={{ format: 'HH:mm' }}
-                value={reservationBorrowStartAt}
-                onChange={(v) => setReservationBorrowStartAt(v)}
-                allowClear={false}
-                disabledDate={(current) => {
-                  if (!current) return false
-                  const start = loadedReservation?.StartAt ? dayjs(loadedReservation.StartAt) : null
-                  const end = loadedReservation?.EndAt
-                    ? dayjs(loadedReservation.EndAt)
-                    : returnedDueDate
-                      ? returnedDueDate
-                      : null
-
-                  if (start && start.isValid() && current.isBefore(start, 'day')) return true
-                  if (end && end.isValid() && current.isAfter(end, 'day')) return true
-                  return false
-                }}
-                disabledTime={(current) => {
-                  if (!current) return {}
-                  const start = loadedReservation?.StartAt ? dayjs(loadedReservation.StartAt) : null
-                  const end = loadedReservation?.EndAt
-                    ? dayjs(loadedReservation.EndAt)
-                    : returnedDueDate
-                      ? returnedDueDate
-                      : null
-                  if (!start || !end) return {}
-
-                  const disabledHours = new Set<number>()
-                  const disabledMinutesByHour = new Map<number, Set<number>>()
-                  const markDisabledMinute = (h: number, m: number) => {
-                    if (!disabledMinutesByHour.has(h)) disabledMinutesByHour.set(h, new Set<number>())
-                    disabledMinutesByHour.get(h)!.add(m)
-                  }
-
-                  // If selected day equals start day: disable times before start (hour/minute)
-                  if (start.isValid() && current.isSame(start, 'day')) {
-                    for (let h = 0; h < start.hour(); h++) disabledHours.add(h)
-                    // same hour -> minutes before start.minute disabled
-                    for (let m = 0; m < start.minute(); m++) markDisabledMinute(start.hour(), m)
-                  }
-
-                  // If selected day equals end day: disable times after end (hour/minute)
-                  if (end.isValid() && current.isSame(end, 'day')) {
-                    for (let h = end.hour() + 1; h < 24; h++) disabledHours.add(h)
-                    for (let m = end.minute() + 1; m < 60; m++) markDisabledMinute(end.hour(), m)
-                  }
-
-                  return {
-                    disabledHours: () => Array.from(disabledHours).sort((a, b) => a - b),
-                    disabledMinutes: (selectedHour: number) =>
-                      Array.from(disabledMinutesByHour.get(selectedHour) ?? []).sort((a, b) => a - b),
-                  }
-                }}
-              />
-            </div>
-            {loadedReservation && (
-              <div className="rounded-lg border border-[#2197C0]/30 bg-[#2197C0]/5 px-4 py-3 text-sm text-gray-800">
-                <div className="font-medium text-black">Thông tin đặt trước</div>
-                <div className="mt-1 grid gap-1 text-xs sm:grid-cols-2">
-                  <span>
-                    <span className="text-gray-600">Bắt đầu: </span>
-                    <span className="font-semibold tabular-nums text-[#2197C0]">
-                      {loadedReservation.StartAt
-                        ? dayjs(loadedReservation.StartAt).format('DD/MM/YYYY HH:mm')
-                        : '—'}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="text-gray-600">Kết thúc: </span>
-                    <span className="font-semibold tabular-nums text-[#2197C0]">
-                      {loadedReservation.EndAt
-                        ? dayjs(loadedReservation.EndAt).format('DD/MM/YYYY HH:mm')
-                        : '—'}
-                    </span>
-                  </span>
-                  {sessionIds.length > 0 && (
-                    <span className="sm:col-span-2">
-                      Session gắn kèm: {sessionIds.join(', ')}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-        {isEquipmentManager && modeTab === 'immediate' && (
+        {isEquipmentManager && (
           <div className="flex flex-wrap items-end gap-2">
-            <div className="space-y-1.5 min-w-[220px] flex-1">
-              <Label className="text-black font-medium">
-                Request
-              </Label>
-              <div ref={requestPickerRef} className="relative">
+            <div className="space-y-1.5 min-w-[240px] flex-1" ref={requestPickerRef}>
+              <Label className="text-black font-medium">Request</Label>
+              <div className="relative">
                 <Input
-                  placeholder="Tìm mã request (tuỳ chọn)"
-                  disabled={loadingImmediateRequests || immediateRequestOptions.length === 0}
-                  value={
-                    immediateRequestDropdownOpen
-                      ? immediateRequestSearch
-                      : immediateSelectedRequestLabel
-                  }
+                  placeholder={loadingRequests ? 'Đang tải request...' : 'Chọn request (tuỳ chọn)'}
+                  disabled={loadingRequests || requestOptions.length === 0}
+                  value={requestDropdownOpen ? requestSearch : selectedRequestLabel}
                   autoComplete="off"
-                  onChange={(e) => setImmediateRequestSearch(e.target.value)}
+                  onChange={(e) => setRequestSearch(e.target.value)}
                   onFocus={() => {
-                    if (loadingImmediateRequests) return
-                    if (immediateRequestOptions.length === 0) return
-                    setImmediateRequestDropdownOpen(true)
-                    // Khi mở để tìm thì xoá keyword để người dùng gõ từ đầu.
-                    setImmediateRequestSearch('')
+                    if (loadingRequests) return
+                    if (requestOptions.length === 0) return
+                    setRequestDropdownOpen(true)
+                    setRequestSearch('')
                   }}
                   className="h-9 text-xs text-black border-gray-200"
                 />
 
-                {immediateRequestDropdownOpen &&
-                  !loadingImmediateRequests &&
-                  immediateRequestOptions.length > 0 && (
-                    <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow">
-                      {filteredImmediateRequestOptions.map((r) => {
-                        const label = (r.requestCode ?? '').trim()
-                          ? `${r.requestCode} - ${r.requestName}`
-                          : r.requestName || `Request #${r.requestId}`
-
-                        return (
-                          <button
-                            key={r.requestId}
-                            type="button"
-                            className={cn(
-                              'w-full text-left px-3 py-2 text-sm hover:bg-gray-50',
-                              immediateRequestId === r.requestId && 'bg-[#2197C0]/10',
-                            )}
-                            onMouseDown={(e) => {
-                              e.preventDefault()
-                              pickImmediateRequest(r.requestId)
-                            }}
-                          >
-                            {label}
-                          </button>
-                        )
-                      })}
-
-                      {immediateRequestSearchQ &&
-                        filteredImmediateRequestOptions.length === 0 && (
-                          <div className="px-3 pb-2 text-xs text-gray-500">
-                            Không tìm thấy request phù hợp.
-                          </div>
-                        )}
-                    </div>
-                  )}
+                {requestDropdownOpen && (
+                  <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow">
+                    <button
+                      type="button"
+                      className={cn(
+                        'w-full text-left px-3 py-2 text-sm hover:bg-gray-50',
+                        selectedRequestId == null && 'bg-[#2197C0]/10',
+                      )}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setSelectedRequestId(null)
+                        setRequestDropdownOpen(false)
+                        setRequestSearch('')
+                      }}
+                    >
+                      Không chọn request (tạo tự do)
+                    </button>
+                    {filteredRequestOptions.map((r) => {
+                      const label = (r.requestCode ?? '').trim()
+                        ? `${r.requestCode} - ${r.requestName}`
+                        : r.requestName || `Request #${r.requestId}`
+                      return (
+                        <button
+                          key={r.requestId}
+                          type="button"
+                          className={cn(
+                            'w-full text-left px-3 py-2 text-sm hover:bg-gray-50',
+                            selectedRequestId === r.requestId && 'bg-[#2197C0]/10',
+                          )}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setSelectedRequestId(r.requestId)
+                            setRequestDropdownOpen(false)
+                            setRequestSearch('')
+                          }}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
+                    {requestSearchQ && filteredRequestOptions.length === 0 && (
+                      <div className="px-3 pb-2 text-xs text-gray-500">Không tìm thấy request phù hợp.</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="space-y-1.5 min-w-[240px] flex-1">
-              <Label className="text-black font-medium">
-                Session
-              </Label>
-              <Select
-                value={immediateSessionId != null ? String(immediateSessionId) : ''}
-                onValueChange={(value) => {
-                  const sid = Number(value)
-                  setImmediateSessionId(sid)
-                  setSessionIds([sid])
-                  void loadBorrowersFromImmediateSession(sid)
-                }}
-                disabled={
-                  loadingImmediateRequests ||
-                  immediateRequestId == null ||
-                  (immediateRequestOptions.find((r) => r.requestId === immediateRequestId)?.sessions.length ??
-                    0) === 0
-                }
-              >
-                <SelectTrigger className="h-9 text-xs text-black border-gray-200">
-                  <SelectValue placeholder={immediateRequestId == null ? 'Chọn request trước (tuỳ chọn)' : 'Chọn session (tuỳ chọn)'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(immediateRequestOptions.find((r) => r.requestId === immediateRequestId)?.sessions ?? []).map((s) => (
-                    <SelectItem key={s.SessionId} value={String(s.SessionId)}>
-                      {`Phiên ${s.SessionNo ?? ''}`.trim()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-black font-medium">Session</Label>
+              <div ref={sessionPickerRef} className="relative">
+                <Input
+                  placeholder={
+                    selectedRequestId == null
+                      ? 'Chọn request trước'
+                      : loadingSessions
+                        ? 'Đang tải session...'
+                        : 'Chọn session (tuỳ chọn)'
+                  }
+                  disabled={selectedRequestId == null || loadingSessions || sessions.length === 0}
+                  value={sessionDropdownOpen ? sessionSearch : selectedSessionLabel}
+                  autoComplete="off"
+                  onChange={(e) => setSessionSearch(e.target.value)}
+                  onFocus={() => {
+                    if (selectedRequestId == null) return
+                    if (loadingSessions) return
+                    if (sessions.length === 0) return
+                    setSessionDropdownOpen(true)
+                    setSessionSearch('')
+                  }}
+                  className="h-9 text-xs text-black border-gray-200"
+                />
+
+                {sessionDropdownOpen && (
+                  <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow">
+                    {filteredSessions.map((s) => (
+                      <button
+                        key={s.SessionId}
+                        type="button"
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-sm hover:bg-gray-50',
+                          selectedSessionId === s.SessionId && 'bg-[#2197C0]/10',
+                        )}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          void pickSession(s.SessionId)
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate">{sessionOptionLabel(s)}</span>
+                          {s.ReservationId != null && Number(s.ReservationId) > 0 && (
+                            <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                              Đặt trước
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                    {sessionSearchQ && filteredSessions.length === 0 && (
+                      <div className="px-3 pb-2 text-xs text-gray-500">Không tìm thấy session phù hợp.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {loadedReservation && (
+          <div className="rounded-lg border border-[#2197C0]/30 bg-[#2197C0]/5 px-4 py-3 text-sm text-gray-800">
+            <div className="font-medium text-black">Thông tin đặt trước</div>
+            <div className="mt-1 grid gap-1 text-xs sm:grid-cols-2">
+              <span>
+                <span className="text-gray-600">Bắt đầu: </span>
+                <span className="font-semibold tabular-nums text-[#2197C0]">
+                  {loadedReservation.StartAt ? dayjs(loadedReservation.StartAt).format('DD/MM/YYYY HH:mm') : '—'}
+                </span>
+              </span>
+              <span>
+                <span className="text-gray-600">Kết thúc: </span>
+                <span className="font-semibold tabular-nums text-[#2197C0]">
+                  {loadedReservation.EndAt ? dayjs(loadedReservation.EndAt).format('DD/MM/YYYY HH:mm') : '—'}
+                </span>
+              </span>
+              {sessionIds.length > 0 && (
+                <span className="sm:col-span-2">Session gắn kèm: {sessionIds.join(', ')}</span>
+              )}
             </div>
           </div>
         )}
@@ -1333,75 +901,78 @@ export default function CreateBorrowingModal({
           <Label className="text-black font-medium">
             Người mượn <span className="text-red-500">*</span>
           </Label>
-          {isEquipmentManager && modeTab === 'immediate' && immediateSessionId != null && immediateBorrowerOptions.length > 0 ? (
+          {isEquipmentManager && selectedSessionId != null && sessionBorrowerOptions.length > 0 ? (
             <div className="space-y-2">
-              <Select
-                value={borrowedByMemberId != null ? String(borrowedByMemberId) : 'all'}
-                onValueChange={(value) => {
-                  const id = value === 'all' ? null : Number(value)
-                  setBorrowedByMemberId(id)
-                  if (!id) {
-                    setBorrowerSearch('')
-                  } else {
-                    const picked = immediateBorrowerOptions.find((m) => m.memberId === id)
-                    setBorrowerSearch(picked?.fullName ?? String(id))
-                  }
-                }}
-                disabled={loadingImmediateBorrowers || immediateBorrowerOptions.length === 0}
-              >
-                <SelectTrigger className="h-9 text-xs text-black border-gray-200">
-                  <SelectValue placeholder="Chọn người mượn" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Chọn người mượn</SelectItem>
-                  {immediateBorrowerOptions.map((m) => (
-                    <SelectItem key={m.memberId} value={String(m.memberId)}>
-                      {m.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div ref={sessionBorrowerPickerRef} className="relative">
+                <Input
+                  placeholder="Tìm người mượn trong session..."
+                  disabled={loadingSessionBorrowers}
+                  value={sessionBorrowerDropdownOpen ? sessionBorrowerSearch : borrowerSearch}
+                  autoComplete="off"
+                  onChange={(e) => setSessionBorrowerSearch(e.target.value)}
+                  onFocus={() => {
+                    setSessionBorrowerDropdownOpen(true)
+                    setSessionBorrowerSearch('')
+                  }}
+                  className="h-9 text-xs text-black border-gray-200"
+                />
 
-              {loadingImmediateBorrowers && (
-                <p className="text-xs text-gray-500">Đang tải danh sách người mượn...</p>
-              )}
-            </div>
-          ) : modeTab === 'reservation' ? (
-            reservationSessionId != null ? (
-              reservationBorrowerOptions.length > 0 ? (
-                <div className="space-y-2">
-                  <Select
-                    value={borrowedByMemberId != null ? String(borrowedByMemberId) : ''}
-                    onValueChange={(value) => {
-                      const id = value ? Number(value) : null
-                      setBorrowedByMemberId(id)
-                      if (!id) {
-                        setBorrowerSearch('')
-                      } else {
-                        const picked = reservationBorrowerOptions.find((m) => m.memberId === id)
-                        setBorrowerSearch(picked?.fullName ?? String(id))
+                {sessionBorrowerDropdownOpen && (
+                  <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow">
+                    {(() => {
+                      const list = sessionBorrowerOptions
+                      const q = sessionBorrowerSearch.trim().toLowerCase()
+                      const filtered = !q
+                        ? list
+                        : list.filter((m) => {
+                            const name = (m.fullName ?? '').toLowerCase()
+                            const email = (m.email ?? '').toLowerCase()
+                            const idStr = String(m.memberId ?? '').toLowerCase()
+                            return name.includes(q) || email.includes(q) || idStr.includes(q)
+                          })
+
+                      if (loadingSessionBorrowers) {
+                        return (
+                          <div className="px-3 py-2 text-xs text-gray-500">
+                            Đang tải danh sách người mượn...
+                          </div>
+                        )
                       }
-                    }}
-                    disabled={loadingReservation || reservationBorrowerOptions.length === 0}
-                  >
-                    <SelectTrigger className="h-9 text-xs text-black border-gray-200">
-                      <SelectValue placeholder="Chọn người mượn" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {reservationBorrowerOptions.map((m) => (
-                        <SelectItem key={m.memberId} value={String(m.memberId)}>
-                          {m.fullName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500">Đang tải người mượn từ đặt trước...</p>
-              )
-            ) : (
-              <p className="text-xs text-gray-500">Vui lòng chọn Request & Session trước</p>
-            )
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="px-3 py-2 text-xs text-gray-500">
+                            Không tìm thấy người phù hợp.
+                          </div>
+                        )
+                      }
+
+                      return filtered.map((m) => (
+                        <button
+                          key={m.memberId}
+                          type="button"
+                          className={cn(
+                            'w-full text-left px-3 py-2 text-sm hover:bg-gray-50',
+                            borrowedByMemberId === m.memberId && 'bg-[#2197C0]/10',
+                          )}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setBorrowedByMemberId(m.memberId)
+                            setBorrowerSearch(m.fullName ?? String(m.memberId))
+                            setSessionBorrowerDropdownOpen(false)
+                            setSessionBorrowerSearch('')
+                          }}
+                        >
+                          <div className="font-medium text-black">{m.fullName}</div>
+                          <div className="text-xs text-gray-500">
+                            {(m.email ?? '').trim() || `Member #${m.memberId}`}
+                          </div>
+                        </button>
+                      ))
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <>
               <div className="flex gap-2">
