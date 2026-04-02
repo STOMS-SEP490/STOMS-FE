@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -53,6 +53,7 @@ export default function SubjectsManagement() {
   const [searchParams, setSearchParams] = useSearchParams()
   const openDetailFromUrl = searchParams.get('openDetail')
   const subjectIdFromUrl = searchParams.get('subjectId')
+  const openCreateFromUrl = searchParams.get('openSubjectCreate')
 
   // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
   const skipNextAutoOpenRef = useRef(false)
@@ -209,9 +210,14 @@ export default function SubjectsManagement() {
   const closeEditModal = () => {
     if (submitting) return
     setOpenEdit(false)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('openSubjectCreate')
+      return next
+    })
   }
 
-  const openCreateModal = () => {
+  const openCreateModal = useCallback(() => {
     if (!isManager) {
       message.warning('Bạn không có quyền thêm môn học.')
       return
@@ -228,7 +234,18 @@ export default function SubjectsManagement() {
     setSessions([])
     setSessionsToDelete([])
     setOpenEdit(true)
-  }
+  }, [isManager])
+
+  useEffect(() => {
+    if (context.position !== 'content') return
+    if (openCreateFromUrl !== '1') return
+    openCreateModal()
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('openSubjectCreate')
+      return next
+    })
+  }, [context.position, openCreateFromUrl, openCreateModal, setSearchParams])
 
   const handleRemoveSessionLocal = (sessionId?: number, sessionNo?: number) => {
     if (!sessionId && !sessionNo) return
@@ -548,20 +565,12 @@ export default function SubjectsManagement() {
   }
 
   return (
-    <div className="stoms-scrollbar h-full overflow-y-auto p-6 space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="stoms-scrollbar h-full overflow-y-auto p-6 space-y-4">
+      <div className="flex items-center">
         <div>
           <h2 className="text-lg font-semibold text-black">Quản lý môn học</h2>
           <p className="text-xs text-gray-500">Danh sách môn học trong hệ thống</p>
         </div>
-        {isManager && (
-          <Button
-            className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-            onClick={openCreateModal}
-          >
-            Thêm môn học
-          </Button>
-        )}
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-4">
