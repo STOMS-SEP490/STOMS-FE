@@ -3,9 +3,7 @@ import type { SubjectListItem } from '../subject'
 import subjectApi from '../api/subjectApi'
 
 export type UseSubjectsOptions = {
-  /** Mặc định 10; trang chỉ đọc TL/Teacher truyền 6 vì hàng có 2 dòng (tên + mô tả) */
   pageSize?: number
-  /** Điều khiển từ layout (search cùng hàng tab) — phải truyền cả hai */
   search?: string
   setSearch?: (v: string) => void
 }
@@ -54,11 +52,8 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
   }
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      void fetchSubjects()
-    }, 300)
-    return () => clearTimeout(t)
-  }, [pageNumber, pageSize, search])
+    fetchSubjects()
+  }, [pageNumber, search])
 
   return {
     data,

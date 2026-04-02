@@ -203,6 +203,7 @@
 
 .fc .fc-event {
   border: none !important;
+  cursor: pointer !important;
 }
 
 .fc-event-inner {
@@ -297,4 +298,76 @@
 .fc .fc-timegrid-body table {
   width: 100% !important;
   table-layout: fixed !important;
+}
+
+/* ===== Month view (dayGridMonth): make cells uniform + Google-like events ===== */
+.fc .fc-daygrid-day-frame {
+  min-height: clamp(100px, 15vh, 150px);
+}
+
+.fc-event-inner--month {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px !important;
+  padding: 1px 4px !important;
+  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* Month events: mimic Google Calendar text rows */
+.fc .fc-daygrid-event {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+}
+
+.fc .fc-daygrid-day-events .fc-daygrid-event-harness {
+  overflow: hidden;
+}
+
+.fc .fc-daygrid-day-events .fc-daygrid-event-harness .fc-daygrid-event {
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+.fc-event-month-text {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.25;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.fc-event-month-dot {
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  border-radius: 999px;
+  background: #0ea5e9;
+  flex: 0 0 auto;
+}
+
+/* Prevent day cell from expanding when there are many events */
+.fc .fc-daygrid-day-events,
+.fc .fc-daygrid-day-bottom {
+  overflow: hidden;
+}
+
+/* Style "+N more" like a small chip */
+.fc .fc-more-link {
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
 }

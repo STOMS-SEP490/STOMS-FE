@@ -21,8 +21,25 @@ import { useTeamLeaderAttendancePanel } from '@/modules/contract/hooks/useTeamLe
 import TeamLeaderAttendanceSlideOver from '@/modules/contract/components/TeamLeaderAttendanceSlideOver';
 
 function renderEventContent(arg: EventContentArg) {
-  const start = arg.timeText;
   const extended = arg.event.extendedProps as CalendarEvent;
+  const viewType = arg.view.type;
+
+  // Month view: render thẻ gọn giống Google Calendar
+  if (viewType === 'dayGridMonth') {
+    const title = (arg.event.title ?? '').trim() || 'Không có tiêu đề';
+    const startText = arg.event.start ? dayjs(arg.event.start).format('HH:mm') : '';
+    const endText = arg.event.end ? dayjs(arg.event.end).format('HH:mm') : '';
+    const timePrefix = startText && endText ? `${startText} - ${endText}: ` : '';
+
+    return (
+      <div className="fc-event-inner fc-event-inner--month">
+        <span className="fc-event-month-dot" aria-hidden />
+        <span className="fc-event-month-text">{`${timePrefix}${title}`}</span>
+      </div>
+    );
+  }
+
+  const start = arg.timeText;
 
   return (
     <div className="fc-event-inner">
@@ -134,10 +151,17 @@ export default function EventCalendar() {
     const bg = backgroundToneForEventId(
       typeof id === 'string' || typeof id === 'number' ? id : String(id ?? ''),
     );
-    info.el.style.backgroundColor = bg;
-    info.el.style.borderRadius = '8px';
+    const api = calendarRef.current?.getApi();
+    const isMonth = api?.view?.type === 'dayGridMonth';
+    // Month view uses CSS alternating colors (avoid inline bg override)
+    if (!isMonth) {
+      info.el.style.backgroundColor = bg;
+    } else {
+      info.el.style.removeProperty('background-color');
+    }
+    info.el.style.borderRadius = isMonth ? '6px' : '8px';
     info.el.style.border = '1px solid rgba(33, 151, 192, 0.28)';
-    info.el.style.boxShadow = '0 2px 8px rgba(15, 23, 42, 0.06)';
+    info.el.style.boxShadow = isMonth ? 'none' : '0 2px 8px rgba(15, 23, 42, 0.06)';
     info.el.style.color = '#0f172a';
   };
 
@@ -197,7 +221,6 @@ export default function EventCalendar() {
         }}
         allDaySlot={false}
         height="100%"
-        expandRows
         stickyHeaderDates
         events={fcEvents}
         datesSet={(arg) => {
@@ -210,6 +233,10 @@ export default function EventCalendar() {
         eventClick={handleEventClick}
         eventDidMount={handleEventDidMount}
         dayMaxEvents={3}
+        dayMaxEventRows={3}
+        fixedWeekCount
+        moreLinkContent={(arg) => `+${arg.num} mục`}
+        expandRows={currentView === 'dayGridMonth'}
         nowIndicator
       />
     </div>
