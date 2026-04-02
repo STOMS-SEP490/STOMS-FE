@@ -31,6 +31,13 @@ export type CreateRequestPayload = {
   sessions: CreateRequestSession[];
 };
 
+/** Thông tin buổi môn/sự kiện (từ SubjectSession / EventSession trên API session). */
+export type SessionTopicInfo = {
+  title?: string | null;
+  description?: string | null;
+  duration?: string | null;
+};
+
 export type RequestSessionSummary = {
   sessionId: number;
   sessionNo: number;
@@ -41,6 +48,12 @@ export type RequestSessionSummary = {
   isOnline?: boolean | null;
   teachersRequired?: number | null;
   tasRequired?: number | null;
+  /** Buổi theo môn (khi request gắn subject session). */
+  subjectSession?: SessionTopicInfo | null;
+  /** Buổi theo sự kiện (khi request gắn event session). */
+  eventSession?: SessionTopicInfo | null;
+  /** Kỹ năng: gộp SubjectSkill + EventSessionSkill (đã lọc IsActive). */
+  sessionSkills?: string[];
 };
 
 export type RequestListItem = {

@@ -17,6 +17,11 @@ export type TeamLeaderSessionDetailPanelProps = {
     sessionAttendanceByMemberId: number | null;
     onDelegated?: () => void;
   };
+  /**
+   * Hiển thị cột "Ủy quyền" trong bảng thành viên. Giáo viên (teacher) không được ủy quyền — chỉ TL.
+   * Khi false, vẫn dùng delegateColumn cho "Người điểm danh" / nút Điểm danh nếu cần.
+   */
+  memberDelegateColumnVisible?: boolean;
   /** Mở nhanh panel điểm danh (khi user là người điểm danh của phiên). */
   onOpenAttendance?: () => void;
 };
@@ -25,6 +30,7 @@ export default function TeamLeaderSessionDetailPanel({
   session,
   requestCode,
   delegateColumn,
+  memberDelegateColumnVisible = true,
   onOpenAttendance,
 }: TeamLeaderSessionDetailPanelProps) {
   const [attLoading, setAttLoading] = useState(false);
@@ -118,12 +124,12 @@ export default function TeamLeaderSessionDetailPanel({
   }, [attendances, delegateOwnerOverride, delegateColumn?.sessionAttendanceByMemberId]);
 
   const canDelegateForCurrentUser = useMemo(() => {
-    if (!delegateColumn) return false;
+    if (!delegateColumn || !memberDelegateColumnVisible) return false;
     // Manager được quyền ủy quyền cho bất kỳ ai (kể cả ủy quyền lại cho chính mình),
     // không cần phải trùng với "Người điểm danh" hiện tại.
     const uid = delegateColumn.currentMemberId;
     return uid != null;
-  }, [delegateColumn]);
+  }, [delegateColumn, memberDelegateColumnVisible]);
 
   const isAttendanceOwner = useMemo(() => {
     if (!delegateColumn) return false;
@@ -133,7 +139,7 @@ export default function TeamLeaderSessionDetailPanel({
     return ownerId != null && ownerId === uid;
   }, [delegateColumn, resolvedAttendanceOwnerId]);
 
-  const showDelegateCol = !!delegateColumn;
+  const showDelegateCol = Boolean(delegateColumn) && memberDelegateColumnVisible;
   // Thu hẹp cột Check in/Check out để nhường chỗ cho email/fullName.
   // 1fr cho "Thông tin thành viên", các cột thời gian cố định.
   const gridClass = showDelegateCol

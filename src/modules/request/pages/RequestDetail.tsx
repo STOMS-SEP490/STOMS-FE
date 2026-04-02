@@ -16,6 +16,7 @@ import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext } from '../requestDetail.types';
+import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
 import sessionService from '../api/sessionApi';
 import reservationService from '@/modules/reservation/api/reservationApi';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
@@ -271,6 +272,10 @@ export default function RequestDetail() {
   });
   const statusInfo = getRequestStatusInfo(request.status);
   const sessionCount = sessions.length || request.sessionsRequired || 0;
+  const resolvedDetailSession =
+    rightPanel?.mode === 'detail'
+      ? (sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session)
+      : null;
 
   return (
     <div className="bg-slate-50" style={{ minHeight: 'calc(var(--content-height, 100vh) - 64px)' }}>
@@ -361,66 +366,79 @@ export default function RequestDetail() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <div className="mb-3">
+              <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">{sessions.length} phiên trong yêu cầu này</p>
+            </div>
             {sessions.length === 0 ? (
               <p className="text-xs text-gray-500">
                 Yêu cầu này chưa có phiên để phân công. Vui lòng kiểm tra lại danh sách phiên.
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {sessions.map((session) => {
                   const rows = assignmentsBySessionId[session.sessionId] ?? [];
                   const pendingCount = rows.filter((r) => {
                     const statusText = (r.status || '').toUpperCase();
                     return statusText !== 'APPROVED' && statusText !== '2' && statusText !== 'REJECTED' && statusText !== '3';
                   }).length;
+                  const fullyAssigned = isSessionFullyAssigned(session);
+                  const sessionTitle = getSessionDisplayTitle(session);
+                  const location = (session as RequestSessionSummary & { location?: string }).location || '—';
                   return (
                     <div
                       key={session.sessionId}
-                      className="w-full border border-slate-200 rounded-2xl px-4 py-3 space-y-3 bg-sky-50/40"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setRightPanel({ mode: 'assignment', session })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setRightPanel({ mode: 'assignment', session });
+                        }
+                      }}
+                      className="w-full border border-slate-200 rounded-xl bg-white px-4 py-3 hover:border-slate-300 hover:bg-slate-50/60 transition cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                              Phiên {session.sessionNo}
-                            </span>
-                            <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-semibold">
-                              {session.status || 'Assigning'}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 text-sm font-semibold text-slate-900">
-                            {dayjs(session.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
-                            {dayjs(session.endAt).format('DD/MM/YYYY HH:mm')}
-                          </p>
-                          <p className="text-[11px] text-slate-600 mt-0.5">
-                            <span className="font-medium text-slate-800">Giảng viên yêu cầu:</span>{' '}
-                            {session.teachersRequired ?? 1}
-                            {' · '}
-                            <span className="font-medium text-slate-800">Trợ giảng yêu cầu:</span>{' '}
-                            {session.tasRequired ?? 1}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-[11px] text-slate-500">
-                            Pending:{' '}
-                            <span className="font-semibold text-slate-800">
-                              {pendingCount}
-                            </span>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <span className="text-xs text-sky-700 font-semibold tabular-nums">
+                            {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                           </span>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="rounded-full border-slate-300 text-slate-700 text-[11px] px-3"
-                            onClick={() => setRightPanel({ mode: 'assignment', session })}
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                              fullyAssigned
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                            }`}
                           >
-                            Chi tiết phân công
-                          </Button>
+                            {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
+                            {fullyAssigned ? 'Đã gắn đủ' : 'Chưa đủ'}
+                          </span>
+                          <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-semibold">
+                            {pendingCount > 0 ? `Chờ duyệt ${pendingCount}` : 'Đã duyệt xong'}
+                          </Badge>
                         </div>
+                        <span
+                          className="inline-flex items-center gap-0.5 text-xs font-semibold text-sky-700 select-none"
+                          aria-hidden
+                        >
+                          Chi tiết
+                        </span>
                       </div>
-
-                      {/* Danh sách giảng viên / trợ giảng được hiển thị trong panel Chi tiết phân công, không hiển thị trực tiếp ở đây */}
+                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
+                        {sessionTitle}
+                      </p>
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{location}</span>
+                        <span className="text-slate-300">•</span>
+                        <span>
+                          {session.teachersRequired ?? 1} GV · {session.tasRequired ?? 1} TG
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span>{dayjs(session.startAt).format('DD/MM/YYYY')}</span>
+                      </div>
                     </div>
                   );
                 })}
@@ -530,10 +548,9 @@ export default function RequestDetail() {
                   const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
                   const teamCount = teamIds.length;
                   const fullyAssigned = isSessionFullyAssigned(session);
-                  const sessionTitle =
-                    (session as RequestSessionSummary & { notes?: string }).notes
-                      ? `Phiên ${session.sessionNo}: ${(session as RequestSessionSummary & { notes?: string }).notes}`
-                      : `Phiên ${session.sessionNo}`;
+                  const topic = session.subjectSession ?? session.eventSession;
+                  const sessionTitle = getSessionDisplayTitle(session);
+                  const sessionSkills = session.sessionSkills ?? [];
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
                   return (
                     <div
@@ -549,18 +566,17 @@ export default function RequestDetail() {
                           setRightPanel({ mode: 'detail', session });
                         }
                       }}
-                      className={`w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2 ${
+                      className={`w-full border border-slate-200 rounded-xl bg-white px-4 py-3 hover:border-slate-300 hover:bg-slate-50/60 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2 ${
                         highlightSessionId === session.sessionId ? 'ring-2 ring-amber-300 border-amber-200 bg-amber-50/30' : ''
                       }`}
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs text-sky-600 font-medium">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <span className="text-xs text-sky-700 font-semibold tabular-nums">
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                           </span>
-                          <span className="text-xs text-slate-500">Dạy học</span>
                           <span
-                            className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                               fullyAssigned
                                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 : 'bg-amber-50 text-amber-800 border border-amber-200'
@@ -571,20 +587,40 @@ export default function RequestDetail() {
                           </span>
                         </div>
                         <span
-                          className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 underline-offset-2 select-none"
+                          className="inline-flex items-center gap-0.5 text-xs font-semibold text-sky-700 select-none"
                           aria-hidden
                         >
                           Chi tiết
                         </span>
                       </div>
-                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">{sessionTitle}</p>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
+                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug line-clamp-2">{sessionTitle}</p>
+                      {topic?.description?.trim() ? (
+                        <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{topic.description.trim()}</p>
+                      ) : null}
+                      {sessionSkills.length > 0 ? (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {sessionSkills.slice(0, 3).map((name) => (
+                            <Badge
+                              key={`${session.sessionId}-${name}`}
+                              className="border-0 bg-slate-100 text-[10px] font-medium text-slate-700"
+                            >
+                              {name}
+                            </Badge>
+                          ))}
+                          {sessionSkills.length > 3 ? (
+                            <Badge className="border-0 bg-slate-100 text-[10px] font-medium text-slate-700">
+                              +{sessionSkills.length - 3}
+                            </Badge>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">
                         <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{location}</span>
+                        <span className="truncate">{location}</span>
                         {fullyAssigned && teamCount > 0 && (
                           <>
                             <span className="text-slate-300">•</span>
-                            <span className="text-slate-600">{teamCount} đội</span>
+                            <span className="text-slate-700 font-medium">{teamCount} đội</span>
                           </>
                         )}
                       </div>
@@ -682,14 +718,19 @@ export default function RequestDetail() {
                       Đặt thiết bị cho một hoặc nhiều phiên
                     </p>
                   </>
-                ) : rightPanel.mode === 'detail' ? (
+                ) : rightPanel.mode === 'detail' && resolvedDetailSession ? (
                   <>
-                    <h2 className="text-lg font-bold text-slate-900">
-                      Phiên {rightPanel.session.sessionNo}
-                      {(rightPanel.session as RequestSessionSummary & { notes?: string }).notes
-                        ? `: ${(rightPanel.session as RequestSessionSummary & { notes?: string }).notes}`
-                        : ''}
+                    <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                      {getSessionDisplayTitle(resolvedDetailSession)}
                     </h2>
+                    <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                      Phiên {resolvedDetailSession.sessionNo}
+                      {' · '}
+                      {dayjs(resolvedDetailSession.startAt).format('HH:mm')} –{' '}
+                      {dayjs(resolvedDetailSession.endAt).format('HH:mm')}
+                      {' · '}
+                      {dayjs(resolvedDetailSession.startAt).format('DD/MM/YYYY')}
+                    </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className="text-xs font-medium text-sky-600">Dạy học</span>
                       <span

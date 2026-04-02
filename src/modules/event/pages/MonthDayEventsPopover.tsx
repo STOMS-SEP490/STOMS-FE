@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { CalendarEvent } from '@/modules/event/event';
+import { backgroundToneForEventId } from '@/modules/event/utils/eventCalendarCardTones';
 import dayjs from 'dayjs';
 
 type Props = {
@@ -13,13 +14,8 @@ type Props = {
   onSelect: (id: string | number) => void;
 };
 
-// Palette pastel giống EventCalendar.tsx
-const EVENT_PASTEL_COLORS = ['#fffce3', '#b5d1de', '#cee1e0', '#cad7e6', '#fff7e1', '#d9e7d6', '#c1e2db', '#c8e6cf', '#b6dce4'];
-
 function getBgForEvent(event: CalendarEvent) {
-  const key = typeof event.id === 'number' ? event.id : String(event.id || event.title || '').length;
-  const idx = Math.abs(Number(key)) % EVENT_PASTEL_COLORS.length;
-  return EVENT_PASTEL_COLORS[idx] || '#cad7e6';
+  return backgroundToneForEventId(event.id);
 }
 
 export default function MonthDayEventsPopover({ open, anchorRect, events, selectedId, onClose, onSelect }: Props) {
@@ -108,26 +104,17 @@ export default function MonthDayEventsPopover({ open, anchorRect, events, select
                     }`}
                     style={{
                       backgroundColor: bg,
-                      boxShadow: isActive ? '0 10px 18px rgba(2, 132, 199, 0.15)' : 'none',
+                      boxShadow: isActive ? '0 6px 14px rgba(33, 151, 192, 0.12)' : 'none',
                     }}
                   >
                     <div className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
+                        <span className="w-2 h-2 rounded-full shrink-0 bg-[#2197C0]/70" />
                         <div className="min-w-0 flex-1">
                           <div className="text-[11px] font-semibold text-slate-900 truncate">
                             {dayjs(event.start).format('hA')} ({titleLabel})
                           </div>
                         </div>
-                        {(event.status !== null && event.status !== undefined) && (
-                          <span
-                            className={`shrink-0 inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-medium whitespace-nowrap border ${
-                              event.statusClassName || 'bg-amber-100 text-amber-700 border-amber-200'
-                            }`}
-                          >
-                            {event.statusLabel}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </button>

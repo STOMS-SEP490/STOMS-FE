@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message } from 'antd';
-import type { RequestListItem, RequestSessionSummary } from '../request';
+import type { RequestListItem, RequestSessionSummary, SessionTopicInfo } from '../request';
 import requestService from '../api/requestApi';
 import sessionService from '../api/sessionApi';
 import { teamSessionApi } from '@/modules/team/api/teamSessionApi';
@@ -85,6 +85,27 @@ const mapSessionsWithFlags = (detail: RequestListItem) => {
   return { mappedSessions, nextUiAssigned };
 };
 
+const mapTopicFromRef = (ref: SessionResponse['SubjectSession']): SessionTopicInfo | null => {
+  if (!ref) return null;
+  const duration = ref.Duration != null && String(ref.Duration).trim() ? String(ref.Duration).trim() : null;
+  const title = ref.Title?.trim() ? ref.Title.trim() : null;
+  const description = ref.Description?.trim() ? ref.Description.trim() : null;
+  if (!title && !description && !duration) return null;
+  return { title, description, duration };
+};
+
+const collectSessionSkills = (raw: SessionResponse): string[] => {
+  const fromSubject = (raw.SubjectSkill ?? [])
+    .filter((s) => s.IsActive !== false)
+    .map((s) => String(s.SkillName ?? '').trim())
+    .filter(Boolean);
+  const fromEvent = (raw.EventSessionSkill ?? [])
+    .filter((s) => s.IsActive !== false)
+    .map((s) => String(s.SkillName ?? '').trim())
+    .filter(Boolean);
+  return Array.from(new Set([...fromSubject, ...fromEvent]));
+};
+
 const mapSessionFromFilterItem = (raw: SessionResponse): SessionWithFlags => {
   const fromSessions = raw.TeamSessions ?? [];
   const backendTeamIds = fromSessions
@@ -112,6 +133,9 @@ const mapSessionFromFilterItem = (raw: SessionResponse): SessionWithFlags => {
     notes: String(raw.Notes ?? ''),
     teachersRequired: raw.TeachersRequired ?? null,
     tasRequired: raw.TasRequired ?? null,
+    subjectSession: mapTopicFromRef(raw.SubjectSession ?? null),
+    eventSession: mapTopicFromRef(raw.EventSession ?? null),
+    sessionSkills: collectSessionSkills(raw),
     reservationId,
     teamAssigned,
     assignedTeamIds: backendTeamIds,
@@ -659,29 +683,14 @@ export const useRequestDetailManager = (params: {
     if (!request) return;
     const detail = await requestService.getById(Number(request.requestId));
     setRequest(detail);
-    const mapped: SessionWithFlags[] =
-      detail.sessions?.map((s) => {
-        const anyS = s as RequestSessionSummary & {
-          reservationId?: number | null;
-          ReservationId?: number | null;
-          status?: string;
-        };
-        const rawReservationId =
-          anyS.reservationId ??
-          anyS.ReservationId ??
-          null;
-
-        const parsed = rawReservationId != null ? Number(rawReservationId) : NaN;
-        const reservationId = !Number.isNaN(parsed) && parsed > 0 ? parsed : null;
-        return {
-          ...s,
-          reservationId,
-          teamAssigned: anyS.status?.toLowerCase() === 'approved',
-          equipmentReserved: reservationId != null,
-        };
-      }) ?? [];
-    setSessions(mapped);
-  }, [request]);
+    const byFilter = await loadSessionsByRequestId(Number(detail.requestId));
+    if (byFilter.length) {
+      applySessionState(byFilter);
+    } else {
+      const { mappedSessions } = mapSessionsWithFlags(detail);
+      applySessionState(mappedSessions);
+    }
+  }, [request, loadSessionsByRequestId, applySessionState]);
 
   const assignedCount = useMemo(() => {
     return sessions.filter((s) => {

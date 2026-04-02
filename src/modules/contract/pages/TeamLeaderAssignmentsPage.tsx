@@ -30,11 +30,16 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import RequestCard from '@/shared/components/request/RequestCard';
+import { Badge } from '@/shared/components/ui/badge';
 import {
   getSessionStatusInfo,
   getTeamLeaderRequestStatusInfo,
   isSessionAssignmentRejectedStatus,
 } from '@/constants/status';
+import type { RequestSessionSummary } from '@/modules/request/request';
+import {
+  getSessionDisplayTitleWithDetail,
+} from '@/modules/request/utils/getSessionDisplayTitle';
 import type { AssignmentResponse, SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
 import {
@@ -180,6 +185,42 @@ function getSessionListProgressBadge(
 
   const info = getSessionStatusInfo(session.status);
   return { label: info.label, className: info.className };
+}
+
+function getSessionTopicDescription(
+  session: {
+    subjectSession?: RequestSessionSummary['subjectSession'];
+    eventSession?: RequestSessionSummary['eventSession'];
+  },
+  detail?: SessionDetail,
+): string | null {
+  const fromSession = (session.subjectSession ?? session.eventSession)?.description?.trim();
+  if (fromSession) return fromSession;
+  if (!detail) return null;
+  const ref = detail.SubjectSession ?? detail.EventSession;
+  const d = ref?.Description?.trim();
+  return d || null;
+}
+
+function collectSessionSkillsFromDetail(detail: SessionDetail | undefined): string[] {
+  if (!detail) return [];
+  const fromSubject = (detail.SubjectSkill ?? [])
+    .filter((s) => s.IsActive !== false)
+    .map((s) => String(s.SkillName ?? '').trim())
+    .filter(Boolean);
+  const fromEvent = (detail.EventSessionSkill ?? [])
+    .filter((s) => s.IsActive !== false)
+    .map((s) => String(s.SkillName ?? '').trim())
+    .filter(Boolean);
+  return Array.from(new Set([...fromSubject, ...fromEvent]));
+}
+
+function countTeamsOnSession(detail: SessionDetail | undefined): number {
+  const raw = detail?.TeamSessions ?? [];
+  const ids = raw
+    .map((ts) => ts.TeamId)
+    .filter((id): id is number => typeof id === 'number' && id > 0);
+  return new Set(ids).size;
 }
 
 type TeamLeaderAssignmentsPageProps = {
@@ -657,9 +698,9 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
           </div>
         </div>
 
-        {/* Content */}
+        {/* Content — scroll một vùng giống tab Tổng quan manager (RequestDetail) */}
         <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar pr-1">
           {!selectedRequest ? (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
               <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
@@ -763,7 +804,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 const progress = totalSlots === 0 ? 0 : Math.min(1, filledSlots / totalSlots);
                 if (sessions.length > 0 && loadedSessionCount === 0) {
                   return (
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-sm font-medium text-slate-700">Tiến độ phân công</span>
                       </div>
@@ -774,7 +815,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   );
                 }
                 return (
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-medium text-slate-700">Tiến độ phân công</span>
                       <span className="text-sm font-semibold text-slate-800 tabular-nums">
@@ -796,95 +837,131 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 );
               })()}
 
-              {/* Session list */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0 flex-1">
-                <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      {selectedRequest.sessions.length} phiên trong yêu cầu này
-                    </p>
-                  </div>
-                  <span className="text-xs text-slate-500">Nhấn để xem chi tiết</span>
+              {/* Danh sách phiên học — layout đồng bộ RequestDetail (manager) */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {selectedRequest.sessions.length} phiên trong yêu cầu này
+                  </p>
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
-                  {selectedRequest.sessions.length === 0 ? (
-                    <p className="text-xs text-slate-500 py-10 text-center">
-                      Yêu cầu này chưa có phiên nào gán cho team.
-                    </p>
-                  ) : (
-                    <div className="divide-y divide-slate-100">
-                      {selectedRequest.sessions.map((session) => {
-                        const detailLoaded = Boolean(sessionDetailsById[session.sessionId]);
-                        const stats = getSessionStats(session);
-                        const effSessionStatus =
-                          sessionDetailsById[session.sessionId]?.Status ?? session.status;
-                        const isActive = activeSession?.sessionId === session.sessionId;
-                        const title = `Phiên ${session.sessionNo}`;
-                        const assignmentReviewBadge = getAssignmentReviewBadge(session.status);
-                        const progressBadge = getSessionListProgressBadge(
-                          session,
-                          detailLoaded,
-                          stats,
-                          effSessionStatus,
-                        );
-                        return (
-                          <div
-                            key={session.sessionId}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setActiveSession(session)}
-                            className={`w-full px-5 py-4 transition cursor-pointer ${
-                              isActive ? 'bg-sky-50/60' : 'hover:bg-slate-50/80'
-                            }`}
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-[11px] text-slate-500">Phiên dạy</span>
-                                  <span className="text-[11px] font-medium text-slate-700">{title}</span>
-                                </div>
-                                <div className="mt-2 flex items-center gap-3 text-xs text-slate-600 flex-wrap">
-                                  <span className="inline-flex items-center gap-1">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    {dayjs(session.startAt).format('HH:mm')} -{' '}
-                                    {dayjs(session.endAt).format('HH:mm')}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    {dayjs(session.startAt).format('DD/MM/YYYY')}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1">
-                                    <MapPin className="w-3.5 h-3.5" />
-                                    {session.location || '—'}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {assignmentReviewBadge &&
-                                  !isSessionAssignmentRejectedStatus(effSessionStatus) && (
+                {selectedRequest.sessions.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-6 text-center">
+                    Yêu cầu này chưa có phiên nào gán cho team.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedRequest.sessions.map((session) => {
+                      const detailLoaded = Boolean(sessionDetailsById[session.sessionId]);
+                      const stats = getSessionStats(session);
+                      const effSessionStatus =
+                        sessionDetailsById[session.sessionId]?.Status ?? session.status;
+                      const isActive = activeSession?.sessionId === session.sessionId;
+                      const detail = sessionDetailsById[session.sessionId];
+                      const title = getSessionDisplayTitleWithDetail(
+                        session as RequestSessionSummary & { notes?: string | null },
+                        detail,
+                      );
+                      const topicDescription = getSessionTopicDescription(session, detail);
+                      const sessionSkills = collectSessionSkillsFromDetail(detail);
+                      const location =
+                        (detail?.Location != null && String(detail.Location).trim()
+                          ? String(detail.Location)
+                          : session.location) || '—';
+                      const teamCount = countTeamsOnSession(detail);
+                      const fullyAssigned =
+                        detailLoaded && stats.total > 0 && stats.filled === stats.total;
+                      const assignmentReviewBadge = getAssignmentReviewBadge(session.status);
+                      const progressBadge = getSessionListProgressBadge(
+                        session,
+                        detailLoaded,
+                        stats,
+                        effSessionStatus,
+                      );
+                      return (
+                        <div
+                          key={session.sessionId}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setActiveSession(session)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setActiveSession(session);
+                            }
+                          }}
+                          className={`w-full border border-slate-200 rounded-xl bg-white px-4 py-3 hover:border-slate-300 hover:bg-slate-50/60 transition cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2 ${
+                            isActive ? 'ring-2 ring-sky-300 border-sky-200 bg-sky-50/40' : ''
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap min-w-0">
+                              <span className="text-xs text-sky-700 font-semibold tabular-nums">
+                                {dayjs(session.startAt).format('HH:mm')} -{' '}
+                                {dayjs(session.endAt).format('HH:mm')}
+                              </span>
+                              {assignmentReviewBadge &&
+                                !isSessionAssignmentRejectedStatus(effSessionStatus) && (
                                   <span
-                                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${assignmentReviewBadge.className}`}
+                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${assignmentReviewBadge.className}`}
                                   >
                                     {assignmentReviewBadge.label}
                                   </span>
                                 )}
-                                <span
-                                  className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${progressBadge.className}`}
-                                >
-                                  {progressBadge.showAlert && (
-                                    <AlertCircle className="w-3 h-3 shrink-0" />
-                                  )}
-                                  {progressBadge.label}
-                                </span>
-                              </div>
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${progressBadge.className}`}
+                              >
+                                {progressBadge.showAlert && (
+                                  <AlertCircle className="w-3 h-3 shrink-0" />
+                                )}
+                                {progressBadge.label}
+                              </span>
                             </div>
+                            <span
+                              className="inline-flex items-center gap-0.5 text-xs font-semibold text-sky-700 select-none"
+                              aria-hidden
+                            >
+                              Chi tiết
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                          <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
+                            {title}
+                          </p>
+                          {topicDescription ? (
+                            <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{topicDescription}</p>
+                          ) : null}
+                          {sessionSkills.length > 0 ? (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {sessionSkills.slice(0, 3).map((name) => (
+                                <Badge
+                                  key={`${session.sessionId}-${name}`}
+                                  className="border-0 bg-slate-100 text-[10px] font-medium text-slate-700"
+                                >
+                                  {name}
+                                </Badge>
+                              ))}
+                              {sessionSkills.length > 3 ? (
+                                <Badge className="border-0 bg-slate-100 text-[10px] font-medium text-slate-700">
+                                  +{sessionSkills.length - 3}
+                                </Badge>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{location}</span>
+                            {fullyAssigned && teamCount > 0 ? (
+                              <>
+                                <span className="text-slate-300">•</span>
+                                <span className="text-slate-700 font-medium">{teamCount} đội</span>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -901,8 +978,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             {/* Panel header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  Phiên {activeSession.sessionNo}
+                <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                  {getSessionDisplayTitleWithDetail(
+                    activeSession as RequestSessionSummary & { notes?: string | null },
+                    sessionDetailsById[activeSession.sessionId],
+                  )}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <span className="text-xs font-medium text-sky-600">

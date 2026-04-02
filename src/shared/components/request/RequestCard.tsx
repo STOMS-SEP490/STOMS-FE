@@ -57,11 +57,9 @@ export default function RequestCard({
   statusInfoOverride,
   secondaryStatusPills,
   isActive = false,
-  isHovered = false,
   onClick,
   onMouseEnter,
   onMouseLeave,
-  hintText = '',
 }: RequestCardProps) {
   const typeInfo = getRequestType({ subjectId, courseId, eventId });
   // Thanh màu bên trái theo type (môn học: xanh, khóa học: tím, sự kiện: cam)

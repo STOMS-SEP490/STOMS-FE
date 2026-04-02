@@ -16,6 +16,7 @@ import { getRequestStatusInfo } from '@/constants/status';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext, SessionWithFlags } from '../requestDetail.types';
 import type { RequestSessionSummary } from '../request';
+import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
 import { Dialog } from '@/shared/components/ui/dialog';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
@@ -85,6 +86,10 @@ export default function RequestDetailPC() {
   const statusInfo = getRequestStatusInfo(request.status);
   const isRejected = statusInfo.label === 'Từ chối';
   const sessionCount = sessions.length || request.sessionsRequired || 0;
+  const resolvedDetailSession =
+    rightPanel?.mode === 'detail'
+      ? (sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session)
+      : null;
 
   return (
     <div className="bg-slate-50" style={{ minHeight: 'calc(var(--content-height, 100vh) - 64px)' }}>
@@ -359,9 +364,23 @@ export default function RequestDetailPC() {
               <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
                 <div>
                   <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Phiên {rightPanel.session.sessionNo}
-                  </h2>
+                  {resolvedDetailSession ? (
+                    <>
+                      <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                        {getSessionDisplayTitle(resolvedDetailSession)}
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                        Phiên {resolvedDetailSession.sessionNo}
+                        {' · '}
+                        {dayjs(resolvedDetailSession.startAt).format('HH:mm')} –{' '}
+                        {dayjs(resolvedDetailSession.endAt).format('HH:mm')}
+                        {' · '}
+                        {dayjs(resolvedDetailSession.startAt).format('DD/MM/YYYY')}
+                      </p>
+                    </>
+                  ) : (
+                    <h2 className="text-lg font-bold text-slate-900">Phiên {rightPanel.session.sessionNo}</h2>
+                  )}
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     <span className="text-xs font-medium text-sky-600">Dạy học</span>
                     <span

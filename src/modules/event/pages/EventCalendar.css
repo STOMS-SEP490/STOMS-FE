@@ -215,13 +215,14 @@
 .fc-event-main-line {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 4px;
 }
 
 .fc-event-time {
   font-size: 12px;
   font-weight: 600;
+  color: #334155;
 }
 
 .fc-event-title-line {
@@ -239,14 +240,6 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
-}
-
-.fc-event-status-badge {
-  border-radius: 999px;
-  border-width: 1px;
-  padding: 1px 6px;
-  font-size: 10px;
-  white-space: nowrap;
 }
 
 .fc .fc-timegrid-axis-cushion,

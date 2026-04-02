@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -15,29 +15,19 @@ import type { SessionDetail } from '@/modules/request/type.ts';
 import SessionDetailPopover from './SessionDetailPopover';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, List } from 'lucide-react';
-
-type CalendarEventExtended = CalendarEvent & {
-  statusLabel?: string;
-  statusClassName?: string;
-};
+import { backgroundToneForEventId } from '@/modules/event/utils/eventCalendarCardTones';
+import { sessionDetailToTimetableRow } from '@/modules/event/utils/sessionDetailToTimetableRow';
+import { useTeamLeaderAttendancePanel } from '@/modules/contract/hooks/useTeamLeaderAttendancePanel';
+import TeamLeaderAttendanceSlideOver from '@/modules/contract/components/TeamLeaderAttendanceSlideOver';
 
 function renderEventContent(arg: EventContentArg) {
-  const extended = arg.event.extendedProps as CalendarEventExtended;
   const start = arg.timeText;
+  const extended = arg.event.extendedProps as CalendarEvent;
 
   return (
     <div className="fc-event-inner">
       <div className="fc-event-main-line">
         <span className="fc-event-time">{start}</span>
-        {extended.statusLabel ? (
-          <span
-            className={`fc-event-status-badge ${
-              extended.statusClassName || 'bg-amber-100 text-amber-700 border-amber-200'
-            }`}
-          >
-            {extended.statusLabel}
-          </span>
-        ) : null}
       </div>
       <div className="fc-event-title-line">
         <span className="fc-event-title">{arg.event.title}</span>
@@ -56,6 +46,36 @@ export default function EventCalendar() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailSession, setDetailSession] = useState<SessionDetail | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+
+  const {
+    actionMode,
+    setActionMode,
+    activeSession,
+    sessionDetail: attendanceSessionDetail,
+    attendanceItems,
+    membersById,
+    attendanceByMemberIdForSession,
+    memberSearch,
+    setMemberSearch,
+    memberNotes,
+    setMemberNotes,
+    selectedMemberIds,
+    setSelectedMemberIds,
+    isSubmitting,
+    setIsSubmitting,
+    openPanel,
+    closePanel,
+    saveAttendance,
+    refreshAttendanceItems,
+  } = useTeamLeaderAttendancePanel({});
+
+  const handleOpenAttendanceFromPopover = useCallback(() => {
+    if (!detailSession) return;
+    void openPanel(sessionDetailToTimetableRow(detailSession), 'checkin');
+    setDetailOpen(false);
+    setDetailSession(null);
+    setAnchorRect(null);
+  }, [detailSession, openPanel]);
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [currentView, setCurrentView] = useState<'timeGridDay' | 'timeGridWeek' | 'dayGridMonth'>('timeGridWeek');
 
@@ -87,9 +107,6 @@ export default function EventCalendar() {
         end: e.end,
         extendedProps: {
           resource: e.resource,
-          status: e.status,
-          statusLabel: e.statusLabel,
-          statusClassName: e.statusClassName,
           color: e.color,
         },
       })),
@@ -113,12 +130,14 @@ export default function EventCalendar() {
   };
 
   const handleEventDidMount = (info: { event: EventApi; el: HTMLElement }) => {
-    const extended = info.event.extendedProps as CalendarEventExtended;
-    const bg = extended.color || '#c7d2fe';
+    const id = info.event.id;
+    const bg = backgroundToneForEventId(
+      typeof id === 'string' || typeof id === 'number' ? id : String(id ?? ''),
+    );
     info.el.style.backgroundColor = bg;
     info.el.style.borderRadius = '8px';
-    info.el.style.border = '1px solid rgba(148,163,184,0.7)';
-    info.el.style.boxShadow = '0 4px 10px rgba(15,23,42,0.12)';
+    info.el.style.border = '1px solid rgba(33, 151, 192, 0.28)';
+    info.el.style.boxShadow = '0 2px 8px rgba(15, 23, 42, 0.06)';
     info.el.style.color = '#0f172a';
   };
 
@@ -276,6 +295,29 @@ export default function EventCalendar() {
           setAnchorRect(null);
         }}
         session={detailSession}
+        onOpenAttendancePanel={handleOpenAttendanceFromPopover}
+      />
+
+      <TeamLeaderAttendanceSlideOver
+        actionMode={actionMode}
+        activeSession={activeSession}
+        sessionDetail={attendanceSessionDetail}
+        attendanceItems={attendanceItems}
+        membersById={membersById}
+        attendanceByMemberIdForSession={attendanceByMemberIdForSession}
+        memberSearch={memberSearch}
+        setMemberSearch={setMemberSearch}
+        memberNotes={memberNotes}
+        setMemberNotes={setMemberNotes}
+        selectedMemberIds={selectedMemberIds}
+        setSelectedMemberIds={setSelectedMemberIds}
+        isSubmitting={isSubmitting}
+        setIsSubmitting={setIsSubmitting}
+        setActionMode={setActionMode}
+        closePanel={closePanel}
+        saveAttendance={saveAttendance}
+        refreshAttendanceItems={refreshAttendanceItems}
+        overlayZClass="z-[85]"
       />
     </div>
   );

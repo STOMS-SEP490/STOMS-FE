@@ -11,7 +11,7 @@ import type { TopicListItem } from '@/modules/topic/topic';
 import type { CoursesReadonlyOutletContext } from '@/modules/course/pages/coursesReadonlyOutletContext';
 
 export default function TopicsReadonlyPage() {
-  const { topicSearch, setTopicSearch } = useOutletContext<CoursesReadonlyOutletContext>();
+  const { topicSearch } = useOutletContext<CoursesReadonlyOutletContext>();
   const [data, setData] = useState<TopicListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);

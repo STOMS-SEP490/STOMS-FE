@@ -4,7 +4,6 @@ import type { CalendarEvent, EventListItem } from '@/modules/event/event';
 import eventApi from '@/modules/event/api/eventApi';
 import teachingHistoryApi from '@/modules/contract/api/teachingHistoryApi';
 import { sessionDisplayName } from '@/modules/contract/teachingHistory';
-import { getSessionStatusInfo } from '@/constants/status';
 import sessionApi from '@/modules/request/api/sessionApi';
 import memberApi from '@/modules/request/api/memberApi';
 
@@ -23,8 +22,7 @@ function buildCalendarEvents(items: EventListItem[]): CalendarEvent[] {
           start,
           end,
           resource: slot.location || undefined,
-          // Lịch manager: coi như event → tím
-          color: ev.isActive ? '#a855f7' : '#9ca3af',
+          color: ev.isActive ? '#e8f4f9' : '#f1f5f9',
         });
       });
     });
@@ -68,7 +66,7 @@ export function useCalendarEvents() {
                   start,
                   end,
                   resource: s.location || undefined,
-                  color: '#22c55e',
+                  color: '#e8f4f9',
                 } as CalendarEvent;
               });
               setEvents(mapped);
@@ -107,18 +105,13 @@ export function useCalendarEvents() {
               if (!startRaw || !endRaw) return [];
               const start = new Date(startRaw);
               const end = new Date(endRaw);
-              const statusRaw = s.Status ?? null;
-              const statusInfo = getSessionStatusInfo(statusRaw);
               return {
                 id: s.SessionId,
                 title: `Phiên ${s.SessionNo ?? ''}`.trim(),
                 start,
                 end,
                 resource: s.Location ?? undefined,
-                color: '#0ea5e9',
-                status: statusRaw,
-                statusLabel: statusInfo.label,
-                statusClassName: statusInfo.className,
+                color: '#e8f4f9',
               } as CalendarEvent;
             }) ?? [];
           setEvents(mapped);

@@ -60,6 +60,7 @@ function normalizeSessionTopicRef(raw: unknown): SessionResponse['SubjectSession
       (pick(t, 'EventSessionId', 'eventSessionId') as number | null | undefined) ?? null,
     Title: (pick(t, 'Title', 'title') as string | null | undefined) ?? null,
     Description: (pick(t, 'Description', 'description') as string | null | undefined) ?? null,
+    Duration: (pick(t, 'Duration', 'duration') as string | null | undefined) ?? null,
   };
 }
 
