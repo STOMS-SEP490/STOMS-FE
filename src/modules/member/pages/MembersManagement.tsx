@@ -16,7 +16,7 @@ import { getErrorMessage } from '@/shared/lib/errorMessage';
 import MemberDetailSidebar from './MemberDetailSidebar';
 import CreateMemberModal from './CreateMemberModal';
 import MemberEditModal from './MemberEditModal';
-import { ROLE_MAP } from '@/constants/role';
+import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import { useSearchParams } from 'react-router-dom';
 
 export default function MembersManagement() {
@@ -134,17 +134,9 @@ export default function MembersManagement() {
       header: 'Vai trò',
       cell: ({ row }) => {
         const roleId = Number(row.original.roleId ?? 0);
-        const roleName = ROLE_MAP[roleId] ?? `Vai trò ${roleId || ''}`;
-        const roleColorMap: Record<number, string> = {
-          1: 'bg-purple-100 text-purple-700',
-          2: 'bg-blue-100 text-blue-700',
-          3: 'bg-cyan-100 text-cyan-700',
-          4: 'bg-green-100 text-green-700',
-          5: 'bg-orange-100 text-orange-600',
-          6: 'bg-rose-100 text-rose-600',
-        };
-        const roleColor = roleColorMap[roleId] || 'bg-gray-100 text-gray-700';
-        return <Badge className={roleColor}>{roleName}</Badge>;
+        return (
+          <Badge className={`${getRoleBadgeClass(roleId)} border`}>{getRoleLabel(roleId)}</Badge>
+        );
       },
     },
     { id: 'team', header: 'Nhóm', cell: ({ row }) => row.original.team?.teamName },

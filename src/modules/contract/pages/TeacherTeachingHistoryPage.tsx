@@ -350,6 +350,7 @@ export default function TeacherTeachingHistoryPage() {
                   <TeamLeaderSessionDetailPanel
                     session={sessionDetailSession}
                     requestCode={sessionDetailRequest.requestCode ?? ''}
+                    requestName={sessionDetailRequest.requestName ?? ''}
                   />
 
                   <div className="rounded-2xl bg-white shadow-sm border border-gray-100">

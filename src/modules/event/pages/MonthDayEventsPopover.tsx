@@ -2,29 +2,30 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { CalendarEvent } from '@/modules/event/event';
-import { backgroundToneForEventId } from '@/modules/event/utils/eventCalendarCardTones';
+import { resolveMonthDotColor } from '@/modules/event/utils/monthDotColor';
 import dayjs from 'dayjs';
+import 'dayjs/locale/vi';
 
 type Props = {
   open: boolean;
   anchorRect: DOMRect | null;
+  day: Date;
   events: CalendarEvent[];
-  selectedId: string | number | null;
   onClose: () => void;
-  onSelect: (id: string | number) => void;
+  onPickEvent: (ev: CalendarEvent) => void;
 };
 
-function getBgForEvent(event: CalendarEvent) {
-  return backgroundToneForEventId(event.id);
+function formatDayTitle(d: Date) {
+  return dayjs(d).locale('vi').format('D [tháng] M[,] YYYY');
 }
 
-export default function MonthDayEventsPopover({ open, anchorRect, events, selectedId, onClose, onSelect }: Props) {
+export default function MonthDayEventsPopover({ open, anchorRect, day, events, onClose, onPickEvent }: Props) {
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number }>({ left: 12, top: 12 });
 
-  const width = 360;
-  const gap = 12;
-  const margin = 12;
+  const width = 260;
+  const gap = 8;
+  const margin = 10;
 
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -35,22 +36,25 @@ export default function MonthDayEventsPopover({ open, anchorRect, events, select
 
     const update = () => {
       const el = popoverRef.current;
-      const h = el?.getBoundingClientRect().height ?? 320;
+      const h = el?.getBoundingClientRect().height ?? 240;
       const viewportW = window.innerWidth;
       const viewportH = window.innerHeight;
 
-      const preferRight = anchorRect.right + gap;
-      const preferLeft = anchorRect.left - gap - width;
-      const left =
-        preferRight + width <= viewportW - margin
-          ? preferRight
-          : preferLeft >= margin
-            ? preferLeft
-            : Math.max(margin, Math.min(preferRight, viewportW - width - margin));
+      const preferBelowTop = anchorRect.bottom + gap;
+      const preferAboveTop = anchorRect.top - gap - h;
+      let top =
+        preferBelowTop + h <= viewportH - margin
+          ? preferBelowTop
+          : preferAboveTop >= margin
+            ? preferAboveTop
+            : margin;
 
-      let top = anchorRect.top + anchorRect.height / 2 - h / 2;
-      if (top + h > viewportH - margin) top = viewportH - margin - h;
-      if (top < margin) top = margin;
+      if (top + h > viewportH - margin) top = Math.max(margin, viewportH - margin - h);
+
+      let left = anchorRect.left;
+      const w = Math.min(width, viewportW - margin * 2);
+      if (left + w > viewportW - margin) left = viewportW - w - margin;
+      if (left < margin) left = margin;
 
       setPos({ left, top });
     };
@@ -58,74 +62,78 @@ export default function MonthDayEventsPopover({ open, anchorRect, events, select
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
-  }, [open, anchorRect]);
+  }, [open, anchorRect, sortedEvents.length]);
 
   if (!open || !anchorRect) return null;
 
+  const w = Math.min(width, typeof window !== 'undefined' ? window.innerWidth - margin * 2 : width);
+
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[60]" onClick={onClose} aria-hidden />
+      {/* Lớp trong suốt: đóng khi click ra ngoài, không làm tối/mờ nền */}
+      <div className="fixed inset-0 z-[62]" onClick={onClose} aria-hidden />
       <div
-        className="fixed z-[61] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col p-3"
+        className="fixed z-[63] flex max-h-[min(280px,calc(100vh-24px))] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-md"
         ref={popoverRef}
-        style={{ left: pos.left, top: pos.top, width, maxHeight: 'calc(100vh - 24px)' }}
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{ left: pos.left, top: pos.top, width: w }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="month-day-popover-title"
       >
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="text-sm font-semibold text-gray-900">Danh sách phiên</div>
+        <div className="flex shrink-0 items-center border-b border-slate-100 bg-white py-1 pl-2 pr-0.5">
+          <p id="month-day-popover-title" className="min-w-0 flex-1 truncate pr-1 text-[11px] font-semibold leading-tight text-slate-800">
+            {formatDayTitle(day)}
+          </p>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             aria-label="Đóng"
           >
-            <X size={18} />
+            <X className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
-          <div className="space-y-2">
-            {sortedEvents.length === 0 ? (
-              <div className="text-sm text-gray-500 py-3">Không có phiên</div>
-            ) : (
-              sortedEvents.map((event) => {
-                const bg = getBgForEvent(event);
-                const isActive = selectedId != null && String(event.id) === String(selectedId);
-                const titleLabel = event.title?.trim() ? event.title : 'Không có tiêu đề';
+        <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar px-1.5 py-1">
+          {sortedEvents.length === 0 ? (
+            <div className="py-3 text-center text-[11px] text-slate-500">Không có phiên.</div>
+          ) : (
+            <ul className="flex flex-col gap-0">
+              {sortedEvents.map((ev) => {
+                const dot = resolveMonthDotColor(ev.status, ev.start, ev.end);
+                const timeRange = `${dayjs(ev.start).format('HH:mm')}–${dayjs(ev.end).format('HH:mm')}`;
 
                 return (
-                  <button
-                    key={String(event.id)}
-                    type="button"
-                    onClick={() => onSelect(event.id)}
-                    className={`w-full text-left rounded-xl border transition-colors ${
-                      isActive ? 'border-sky-400' : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    style={{
-                      backgroundColor: bg,
-                      boxShadow: isActive ? '0 6px 14px rgba(33, 151, 192, 0.12)' : 'none',
-                    }}
-                  >
-                    <div className="px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full shrink-0 bg-[#2197C0]/70" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[11px] font-semibold text-slate-900 truncate">
-                            {dayjs(event.start).format('hA')} ({titleLabel})
-                          </div>
-                        </div>
+                  <li key={String(ev.id)}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPickEvent(ev);
+                      }}
+                      className="w-full rounded px-1 py-0.5 text-left hover:bg-slate-50 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: dot }}
+                          aria-hidden
+                        />
+                        <span className="text-[10px] tabular-nums leading-none text-slate-500">{timeRange}</span>
                       </div>
-                    </div>
-                  </button>
+                      <div className="mt-0.5 truncate pl-3 text-[11px] font-medium leading-tight text-slate-800">
+                        {ev.title}
+                      </div>
+                    </button>
+                  </li>
                 );
-              })
-            )}
-          </div>
+              })}
+            </ul>
+          )}
         </div>
       </div>
     </>,
     document.body,
   );
 }
-

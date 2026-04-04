@@ -731,7 +731,7 @@ export default function CreateRequestPage() {
                     Tên yêu cầu <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    placeholder="Ví dụ: Python cho AI - THPT Demo"
+                    placeholder="Ví dụ: Sự kiện Drone"
                     value={requestName}
                     onChange={(e) => setRequestName(e.target.value)}
                   />
@@ -741,7 +741,7 @@ export default function CreateRequestPage() {
                     Khách hàng <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    placeholder="Ví dụ: THPT Demo"
+                    placeholder="Ví dụ: THPT ABC"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                   />

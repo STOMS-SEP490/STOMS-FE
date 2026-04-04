@@ -10,7 +10,7 @@ export const ROLE_MAP: Record<number, string> = {
 export const ROLE_BADGE_CLASS: Record<number, string> = {
   1: 'bg-red-50 text-red-700 border-red-200',
   2: 'bg-sky-100 text-sky-700 border-sky-200',
-  3: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  3: 'bg-orange-50 text-orange-800 border-orange-200',
   4: 'bg-violet-100 text-violet-700 border-violet-200',
   5: 'bg-amber-100 text-amber-700 border-amber-200',
   6: 'bg-slate-100 text-slate-600 border-slate-200',

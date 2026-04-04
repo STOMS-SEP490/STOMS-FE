@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BarChart3, Laptop, Menu, LogOut, ClipboardList } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/modules/auth/pages/Logout'
@@ -8,6 +8,7 @@ import memberApi from '@/modules/member/api/memberApi'
 // Sidebar riêng cho Equipment Manager nhưng UI giống hệt Sidebar manager
 export default function EquipmentSidebar() {
   const [collapsed, setCollapsed] = useState(true)
+  const sidebarRef = useRef<HTMLElement | null>(null)
   const navigate = useNavigate()
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
     const avatarUrl = localStorage.getItem('memberAvatarUrl') || ''
@@ -44,6 +45,25 @@ export default function EquipmentSidebar() {
     }
   }, [])
 
+  useEffect(() => {
+    if (collapsed) return
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (sidebarRef.current?.contains(target)) return
+      setCollapsed(true)
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [collapsed])
+
   /** Chỉ Dashboard cần khớp đúng path; Thiết bị / Phiếu mượn có tab con (categories, reservations) nên không dùng end. */
   const menus = useMemo(
     () => [
@@ -71,8 +91,9 @@ export default function EquipmentSidebar() {
 
   return (
     <aside
+      ref={sidebarRef}
       className={`
-        h-screen bg-[#F6F8FB] border-r border-border
+        h-screen bg-[#F6F8FB]
         transition-all duration-300
         ${collapsed ? 'w-[72px] px-1.5' : 'w-72 px-5'}
         py-5 flex flex-col
@@ -140,7 +161,7 @@ export default function EquipmentSidebar() {
       <div className="overflow-y-auto no-scrollbar relative">
         <div
           className={`
-            grid border border-gray-200 rounded-xl 
+            grid gap-px bg-gray-200
             ${collapsed ? 'grid-cols-1' : 'grid-cols-2'}
           `}
         >
@@ -150,18 +171,19 @@ export default function EquipmentSidebar() {
             return (
               <NavLink key={m.path} to={m.path} end={m.end}>
                 {({ isActive }) => (
-                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
+                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'aspect-square min-h-[64px]'}`}>
                     <div
                       className={`
-                        h-full rounded-xl 
+                        h-full
                         flex flex-col items-center justify-center
                         transition-all
+                        bg-[#F6F8FB]
                         ${isActive ? 'opacity-0' : 'group-hover:opacity-0'}
                       `}
                     >
                       <Icon size={18} className="text-gray-400" />
                       {!collapsed && (
-                        <div className="text-xs mt-2 text-center text-gray-400">
+                        <div className="text-xs mt-1 text-center text-gray-400">
                           {m.label}
                         </div>
                       )}
@@ -169,19 +191,19 @@ export default function EquipmentSidebar() {
 
                     <div
                       className={`
-                        absolute inset-0 rounded-xl
+                        absolute inset-0
                         flex flex-col items-center justify-center
                         transition-all duration-300
                         ${
                           isActive
-                            ? 'bg-[#208aae] text-white scale-100'
-                            : 'bg-[#208aae] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
+                            ? 'bg-white text-[#208aae] scale-100 shadow-md z-10'
+                            : 'bg-white text-[#208aae] opacity-0 scale-100 group-hover:opacity-100'
                         }
                       `}
                     >
                       <Icon size={20} />
                       {!collapsed && (
-                        <div className="text-xs mt-2 font-medium text-center px-1">
+                        <div className="text-xs mt-1 font-medium text-center px-1">
                           {m.label}
                         </div>
                       )}
@@ -219,7 +241,7 @@ export default function EquipmentSidebar() {
                      py-3 rounded-xl text-red-600 
                      hover:bg-red-50 transition"
         >
-          <LogOut size={16} />
+          <LogOut size={18} />
           {!collapsed && <span>Đăng xuất</span>}
         </button>
       </div>

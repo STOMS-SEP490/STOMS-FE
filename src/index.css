@@ -132,6 +132,18 @@ button:focus-visible {
   min-height: var(--content-height);
 }
 
+/*
+ * FullCalendar đo width/scrollgrid sai khi nằm trong ancestor có zoom ≠ 1 (cột trống bên phải).
+ * - :has(.event-calendar-page) — dự phòng nếu lịch mount ở route khác.
+ * - .main-content--calendar-safe — gắn từ MainContent.tsx theo URL …/timetable (ổn định hơn :has).
+ */
+.main-content:has(.event-calendar-page),
+.main-content.main-content--calendar-safe {
+  zoom: 1;
+  min-height: 0;
+  --content-height: 100vh;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

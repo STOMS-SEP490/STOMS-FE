@@ -164,6 +164,11 @@ function normalizeStatusCode(
   return null;
 }
 
+/** Mã trạng thái phiên chuẩn (1–9) hoặc null nếu BE trả giá trị không nhận diện. */
+export function getSessionStatusCode(status: string | number | null | undefined): number | null {
+  return normalizeStatusCode(status, SESSION_STATUS_LABEL);
+}
+
 export function getSessionStatusLabel(status: string | number | null | undefined): string {
   const code = normalizeStatusCode(status, SESSION_STATUS_LABEL);
   if (!code) return String(status || '—');

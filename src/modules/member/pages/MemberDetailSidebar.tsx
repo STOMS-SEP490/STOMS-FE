@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { MemberDetail } from '@/modules/member/member';
-import { ROLE_MAP } from '@/constants/role';
+import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import { Badge } from '@/shared/components/ui/badge';
 import memberSkillApi from '@/modules/member/api/memberSkillApi';
 import skillApi from '@/modules/skill/api/skillApi';
@@ -41,7 +41,8 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
 
   if (!member) return null;
 
-  const roleLabel = member.roleId ? ROLE_MAP[member.roleId] : '—';
+  const hasRole = member.roleId != null;
+  const roleLabel = hasRole ? getRoleLabel(member.roleId) : '—';
 
   return (
     <>
@@ -68,7 +69,15 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
                     {member.team?.teamName && (
                       <Badge className="bg-green-100 text-green-700">{member.team.teamName}</Badge>
                     )}
-                    <Badge className="bg-blue-100 text-blue-700">{roleLabel}</Badge>
+                    <Badge
+                      className={
+                        hasRole
+                          ? `${getRoleBadgeClass(member.roleId)} border`
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }
+                    >
+                      {roleLabel}
+                    </Badge>
                   </div>
                 </div>
               </div>
