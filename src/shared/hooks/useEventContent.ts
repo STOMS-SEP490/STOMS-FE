@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import eventService from '@/modules/event/api/eventApi';
-import type { EventPagedResponse, EventResponse } from '@/modules/event/event.types';
+import type { EventListItem, EventSession } from '@/modules/event/event';
 
 export type EventSessionApi = {
   eventSessionId: number;
@@ -13,30 +13,30 @@ export const useEventContent = () => {
 
   const fetchList = async () => {
     const res = await eventService.getEvents({
-      PageNumber: 1,
-      PageSize: 100,
-      IsActive: true,
+      pageNumber: 1,
+      pageSize: 100,
+      isActive: true,
     });
 
-    return (res.Items ?? []).map((x: EventResponse) => ({
-      id: x.EventId,
-      name: x.EventName,
+    return (res.items ?? []).map((x: EventListItem) => ({
+      id: x.eventId,
+      name: x.eventName,
     }));
   };
 
   const fetchDetail = async (id: number) => {
-    const res: EventPagedResponse<EventResponse> = await eventService.getEvents({
-      PageNumber: 1,
-      PageSize: 1,
-      EventId: id,
+    const res = await eventService.getEvents({
+      pageNumber: 1,
+      pageSize: 1,
+      eventId: id,
     });
 
-    const event = res.Items?.[0];
+    const event = res.items?.[0];
     const mapped: EventSessionApi[] =
-      event?.EventSessions?.map((s) => ({
-        eventSessionId: Number(s.EventSessionId ?? 0),
-        duration: (s.Duration ?? '02:00:00') as string,
-        sessionNo: Number(s.SessionNo ?? 0) || 1,
+      event?.eventSessions?.map((s: EventSession) => ({
+        eventSessionId: Number(s.eventSessionId ?? 0),
+        duration: (s.duration ?? '02:00:00') as string,
+        sessionNo: Number(s.sessionNo ?? 0) || 1,
       })) ?? [];
     setSessions(mapped);
   };
