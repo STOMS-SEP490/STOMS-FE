@@ -98,6 +98,8 @@ export type SessionResponse = {
   TeamSessions?: TeamSessionResponse[] | null;
   SubjectSession?: SessionTopicRef | null;
   EventSession?: SessionTopicRef | null;
+  /** BE session/filter có thể kèm Request rút gọn (RequestName / RequestCode). */
+  Request?: { RequestName?: string | null; RequestCode?: string | null } | null;
   EventSessionSkill?: EventSessionSkillResponse[] | null;
   SubjectSkill?: SubjectSkillResponse[] | null;
 };

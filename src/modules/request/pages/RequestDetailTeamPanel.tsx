@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Users, Trash2, Plus, CircleHelp, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, Users, Trash2, Plus, CircleHelp } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import type { Team } from '@/modules/team/team';
@@ -50,6 +50,7 @@ export default function RequestDetailTeamPanel({
   const [teamDetailPopup, setTeamDetailPopup] = useState<{ team: Team; left: number; top: number } | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closePopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const popupRef = useRef<HTMLDivElement | null>(null);
   const requestedTeachers = Math.max(0, Number(session.teachersRequired ?? 0) || 0);
   const requestedTas = Math.max(0, Number(session.tasRequired ?? 0) || 0);
 
@@ -199,8 +200,12 @@ export default function RequestDetailTeamPanel({
     setTeamDetailPopup(null);
   }, [onQuantitiesChange, session.sessionId]);
 
-  const POPUP_WIDTH = 300;
-  const POPUP_HEIGHT = 280;
+  // Popup sizing/positioning:
+  // - Make it wider & shorter for readability.
+  // - Keep fully inside viewport by clamping + choosing left/right side.
+  const POPUP_WIDTH = 440;
+  const POPUP_HEIGHT = 260;
+  const POPUP_MARGIN = 8;
   const getTeamMetric = useCallback((team: Team, keys: string[]) => {
     const record = team as Record<string, unknown>;
     for (const key of keys) {
@@ -214,19 +219,63 @@ export default function RequestDetailTeamPanel({
     const target = e.currentTarget;
     hoverTimerRef.current = setTimeout(() => {
       const rect = target.getBoundingClientRect();
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-      const rawTop = rect.top;
+
+      const rawTop = rect.top + rect.height / 2 - POPUP_HEIGHT / 2;
       const top = Math.min(
-        Math.max(8, rawTop - 16),
-        Math.max(8, viewportHeight - POPUP_HEIGHT - 8)
+        Math.max(POPUP_MARGIN, rawTop),
+        Math.max(POPUP_MARGIN, viewportHeight - POPUP_HEIGHT - POPUP_MARGIN)
+      );
+
+      // Prefer showing on the left of the hovered card; if not enough room, show on the right.
+      const leftPreferred = rect.left - POPUP_WIDTH - POPUP_MARGIN;
+      const rightCandidate = rect.right + POPUP_MARGIN;
+      let left = leftPreferred;
+      if (leftPreferred < POPUP_MARGIN) left = rightCandidate;
+      // Clamp in viewport to avoid going out of screen on either side.
+      left = Math.min(
+        Math.max(POPUP_MARGIN, left),
+        Math.max(POPUP_MARGIN, viewportWidth - POPUP_WIDTH - POPUP_MARGIN)
       );
       setTeamDetailPopup({
         team,
-        left: Math.max(8, rect.left - POPUP_WIDTH - 8),
+        left,
         top,
       });
     }, 1200);
   }, []);
+
+  const clampPopupIntoViewport = useCallback(() => {
+    const el = popupRef.current;
+    if (!el) return;
+    setTeamDetailPopup((prev) => {
+      if (!prev) return prev;
+      const rect = el.getBoundingClientRect();
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+
+      const maxLeft = Math.max(POPUP_MARGIN, viewportWidth - rect.width - POPUP_MARGIN);
+      const maxTop = Math.max(POPUP_MARGIN, viewportHeight - rect.height - POPUP_MARGIN);
+      const nextLeft = Math.min(Math.max(POPUP_MARGIN, prev.left), maxLeft);
+      const nextTop = Math.min(Math.max(POPUP_MARGIN, prev.top), maxTop);
+
+      if (nextLeft === prev.left && nextTop === prev.top) return prev;
+      return { ...prev, left: nextLeft, top: nextTop };
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!teamDetailPopup) return;
+    clampPopupIntoViewport();
+  }, [teamDetailPopup?.team.teamId, teamDetailPopup?.left, teamDetailPopup?.top, clampPopupIntoViewport]);
+
+  useEffect(() => {
+    if (!teamDetailPopup) return;
+    const onResize = () => clampPopupIntoViewport();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [teamDetailPopup, clampPopupIntoViewport]);
 
   const handleTeamCardMouseLeave = useCallback(() => {
     if (hoverTimerRef.current) {
@@ -475,17 +524,18 @@ export default function RequestDetailTeamPanel({
       {teamDetailPopup &&
         createPortal(
           <div
-            className="fixed z-[100] w-80 rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden"
+            ref={popupRef}
+            className="fixed z-[2147483647] w-[440px] rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden max-h-[calc(100vh-16px)] overflow-y-auto"
             style={{ left: teamDetailPopup.left, top: teamDetailPopup.top }}
             onMouseEnter={handlePopupMouseEnter}
             onMouseLeave={handlePopupMouseLeave}
           >
-            <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white flex items-start justify-between gap-2">
+            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">
+                <p className="text-sm font-semibold text-slate-900 truncate">
                   {teamDetailPopup.team.teamName}
                 </p>
-                <p className="text-[11px] text-gray-500 mt-0.5">ID đội: {teamDetailPopup.team.teamId}</p>
+                <p className="text-[11px] text-slate-600 mt-0.5">ID đội: {teamDetailPopup.team.teamId}</p>
               </div>
             </div>
             <div className="p-4 space-y-3">
@@ -505,8 +555,10 @@ export default function RequestDetailTeamPanel({
                   </span>
                 </div>
               )}
-              <div className="pt-2 border-t border-gray-100 space-y-2">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Đánh giá theo phiên</p>
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                  Đánh giá theo phiên
+                </p>
                 {(() => {
                   const matchedTeacher = getTeamMetric(teamDetailPopup.team, ['matchingSkillTeacherCount']);
                   const matchedTa = getTeamMetric(teamDetailPopup.team, ['matchingSkillTaCount']);
@@ -515,48 +567,64 @@ export default function RequestDetailTeamPanel({
                   const totalTeacher = getTeamMetric(teamDetailPopup.team, ['totalTeacherCount', 'teachersCount']);
                   const totalTa = getTeamMetric(teamDetailPopup.team, ['totalTaCount', 'totalTACount', 'tasCount']);
 
-                  const teacherEnough = (matchedTeacher ?? 0) >= requestedTeachers;
-                  const taEnough = (matchedTa ?? 0) >= requestedTas;
+                  const topics =
+                    (teamDetailPopup.team as Team & { topics?: { topicId: number; topicName?: string | null }[] })
+                      .topics ?? [];
 
                   return (
                     <div className="space-y-2 text-xs text-slate-700">
-                      <div className="rounded-lg border border-slate-200 overflow-hidden">
-                        <div className="grid grid-cols-5 bg-slate-50 text-[10px] font-semibold text-slate-500">
-                          <div className="px-2 py-1.5">Vai trò</div>
-                          <div className="px-2 py-1.5 text-right">Match</div>
-                          <div className="px-2 py-1.5 text-right">Khả dụng</div>
-                          <div className="px-2 py-1.5 text-right">Tổng</div>
-                          <div className="px-2 py-1.5 text-right">Yêu cầu</div>
+                      <div className="grid grid-cols-1 gap-2">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold text-slate-900">Giảng viên</span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-700">
+                            <span className="truncate">
+                              Khả dụng:{' '}
+                              <span className="font-semibold text-slate-900">
+                                {availableTeacher ?? '—'}/{totalTeacher ?? '—'}
+                              </span>
+                            </span>
+                            <span className="truncate">
+                              Phù hợp kĩ năng: <span className="font-semibold text-sky-700">{matchedTeacher ?? '—'}</span>
+                            </span>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-5 border-t border-slate-100">
-                          <div className="px-2 py-2 font-medium">Giảng viên</div>
-                          <div className="px-2 py-2 text-right font-semibold">{matchedTeacher ?? '—'}</div>
-                          <div className="px-2 py-2 text-right">{availableTeacher ?? '—'}</div>
-                          <div className="px-2 py-2 text-right">{totalTeacher ?? '—'}</div>
-                          <div className="px-2 py-2 text-right font-semibold text-slate-900">{requestedTeachers}</div>
-                        </div>
-                        <div className="grid grid-cols-5 border-t border-slate-100 bg-white">
-                          <div className="px-2 py-2 font-medium">Trợ giảng</div>
-                          <div className="px-2 py-2 text-right font-semibold">{matchedTa ?? '—'}</div>
-                          <div className="px-2 py-2 text-right">{availableTa ?? '—'}</div>
-                          <div className="px-2 py-2 text-right">{totalTa ?? '—'}</div>
-                          <div className="px-2 py-2 text-right font-semibold text-slate-900">{requestedTas}</div>
+
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold text-slate-900">Trợ giảng</span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-700">
+                            <span className="truncate">
+                              Khả dụng:{' '}
+                              <span className="font-semibold text-slate-900">
+                                {availableTa ?? '—'}/{totalTa ?? '—'}
+                              </span>
+                            </span>
+                            <span className="truncate">
+                              Phù hợp kĩ năng: <span className="font-semibold text-sky-700">{matchedTa ?? '—'}</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div
-                        className={`rounded-lg px-2.5 py-2 text-xs font-medium inline-flex items-center gap-1.5 ${
-                          teacherEnough && taEnough
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}
-                      >
-                        {teacherEnough && taEnough ? (
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        ) : (
-                          <AlertCircle className="w-3.5 h-3.5" />
-                        )}
-                        {teacherEnough && taEnough ? 'Đội này đáp ứng đủ yêu cầu phiên.' : 'Đội này chưa đáp ứng đủ yêu cầu phiên.'}
-                      </div>
+                      {topics.length > 0 && (
+                        <div className="pt-1 border-t border-slate-100 mt-1">
+                          <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 font-semibold">
+                            Chủ đề đội
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {topics.map((t) => (
+                              <span
+                                key={t.topicId}
+                                className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
+                              >
+                                {t.topicName || `Chủ đề #${t.topicId}`}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}

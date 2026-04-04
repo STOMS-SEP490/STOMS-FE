@@ -50,14 +50,31 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
   useEffect(() => {
     if (!open || !session?.Assignments?.length) return;
 
+    const sessionAssignments = session.Assignments ?? [];
+    // 如果 session.Assignments 本身就带了成员信息（尤其 FullName），
+    // 就没必要再逐个调用 `/api/assignments/{id}` 和 `/api/members/{id}`。
+    const hasEmbeddedStaffFullNameForAssignmentId = (assignmentId: number) => {
+      const a = sessionAssignments.find((x) => x?.AssignmentId === assignmentId);
+      const fullName = a?.StaffMember?.FullName;
+      return typeof fullName === 'string' && fullName.trim().length > 0;
+    };
+
+    const hasEmbeddedMemberFullNameForStaffMemberId = (staffMemberId: number) => {
+      const a = sessionAssignments.find((x) => x?.StaffMemberId === staffMemberId);
+      const fullName = a?.StaffMember?.FullName;
+      return typeof fullName === 'string' && fullName.trim().length > 0;
+    };
+
     const assignmentIds = Array.from(
       new Set(
-        (session.Assignments ?? [])
+        sessionAssignments
           .map((a) => a?.AssignmentId)
           .filter((x): x is number => typeof x === 'number' && x > 0)
       )
     );
-    const missingAssignments = assignmentIds.filter((id) => !assignmentById[id]);
+    const missingAssignments = assignmentIds.filter(
+      (id) => !assignmentById[id] && !hasEmbeddedStaffFullNameForAssignmentId(id)
+    );
 
     let cancelled = false;
 
@@ -86,12 +103,14 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
 
     const memberIds = Array.from(
       new Set(
-        (session.Assignments ?? [])
+        sessionAssignments
           .map((a) => a?.StaffMemberId)
           .filter((x): x is number => typeof x === 'number' && x > 0)
       )
     );
-    const missingMembers = memberIds.filter((id) => !membersById[id]);
+    const missingMembers = memberIds.filter(
+      (id) => !membersById[id] && !hasEmbeddedMemberFullNameForStaffMemberId(id)
+    );
 
     if (missingMembers.length) {
       Promise.all(

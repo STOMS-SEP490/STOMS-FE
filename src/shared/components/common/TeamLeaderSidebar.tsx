@@ -92,8 +92,7 @@ export default function TeamLeaderSidebar() {
       {
         label: 'Thời khóa biểu & phân công',
         icon: Clock,
-        // Default to list view; calendar is accessible via the toggle inside timetable pages.
-        path: '/tl/timetable/assignments',
+        path: '/tl/timetable',
         matchPrefixPath: '/tl/timetable',
       },
       { label: 'Danh sách phiên đã dạy', icon: Timer, path: '/tl/teaching-history' },
@@ -195,46 +194,50 @@ export default function TeamLeaderSidebar() {
         >
           {menus.map((m) => {
             const Icon = m.icon;
-            const isTimetable = m.path === '/tl/timetable';
+            const isTimetable = 'matchPrefixPath' in m && m.matchPrefixPath === '/tl/timetable';
 
             return (
               <NavLink key={m.path} to={m.path} end={!isTimetable}>
-                {({ isActive }) => (
-                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'aspect-square min-h-[64px]'}`}>
-                    <div
-                      className={`
+                {({ isActive }) => {
+                  const active =
+                    isActive ||
+                    (isTimetable && typeof window !== 'undefined' && window.location.pathname.startsWith('/tl/timetable'));
+                  return (
+                    <div className={`relative group ${collapsed ? 'h-[54px]' : 'aspect-square min-h-[64px]'}`}>
+                      <div
+                        className={`
                         h-full
                         flex flex-col items-center justify-center
                         transition-all
                         bg-[#F6F8FB]
-                        ${isActive ? 'opacity-0' : 'group-hover:opacity-0'}
+                        ${active ? 'opacity-0' : 'group-hover:opacity-0'}
                       `}
-                    >
-                      <Icon size={18} className="text-gray-400" />
-                      {!collapsed && (
-                        <div className="text-xs mt-1 text-center text-gray-400">{m.label}</div>
-                      )}
-                    </div>
-                    <div
-                      className={`
+                      >
+                        <Icon size={18} className="text-gray-400" />
+                        {!collapsed && (
+                          <div className="text-xs mt-1 text-center text-gray-400">{m.label}</div>
+                        )}
+                      </div>
+                      <div
+                        className={`
                         absolute inset-0
                         flex flex-col items-center justify-center
                         transition-all duration-300
                         ${
-                          isActive
+                          active
                             ? 'bg-white text-[#208aae] scale-100 shadow-md z-10'
                             : 'bg-white text-[#208aae] opacity-0 scale-100 group-hover:opacity-100'
                         }
                       `}
-                    >
-                      <Icon size={20} />
-                      {!collapsed && (
-                        <div className="text-xs mt-1 font-medium text-center px-1">{m.label}</div>
-                      )}
-                    </div>
-                    {collapsed && (
-                      <div
-                        className="
+                      >
+                        <Icon size={20} />
+                        {!collapsed && (
+                          <div className="text-xs mt-1 font-medium text-center px-1">{m.label}</div>
+                        )}
+                      </div>
+                      {collapsed && (
+                        <div
+                          className="
                           absolute left-full ml-3
                           top-1/2 -translate-y-1/2
                           bg-gray-900 text-white text-xs
@@ -244,12 +247,13 @@ export default function TeamLeaderSidebar() {
                           whitespace-nowrap
                           shadow-lg z-50
                         "
-                      >
-                        {m.label}
-                      </div>
-                    )}
-                  </div>
-                )}
+                        >
+                          {m.label}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }}
               </NavLink>
             );
           })}

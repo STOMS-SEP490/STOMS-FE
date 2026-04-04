@@ -1,5 +1,5 @@
 
-import { ROLE_MAP } from '@/constants/role';
+import { ROLE_MAP, getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import userService from '@/modules/user/api/userApi';
 import type { User } from '@/modules/user/user';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -168,19 +168,9 @@ export default function UserManagement() {
       id: 'role',
       header: 'Vai trò',
       cell: ({ row }) => {
-        const roleId = row.original.roleId;
-        const roleName = ROLE_MAP[roleId] || 'Không xác định';
-
-        const roleColorMap: Record<number, string> = {
-          1: 'bg-purple-100 text-purple-700',
-          2: 'bg-blue-100 text-blue-700',
-          3: 'bg-cyan-100 text-cyan-700',
-          4: 'bg-green-100 text-green-700',
-          5: 'bg-orange-100 text-orange-600',
-        };
-
+        const roleId = Number(row.original.roleId ?? 0);
         return (
-          <Badge className={roleColorMap[roleId] || 'bg-gray-100 text-gray-700'}>{roleName}</Badge>
+          <Badge className={`${getRoleBadgeClass(roleId)} border`}>{getRoleLabel(roleId)}</Badge>
         );
       },
     },

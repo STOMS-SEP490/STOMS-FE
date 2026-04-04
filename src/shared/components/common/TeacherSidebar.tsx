@@ -12,6 +12,7 @@ import {
   Menu,
   Package,
   UserCircle,
+  Users,
   Wallet,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -85,14 +86,14 @@ export default function TeacherSidebar() {
   const menus = useMemo(
     () => [
       { label: 'Thống kê', icon: BarChart3, path: '/teacher/dashboard' },
+      { label: 'Nhóm của tôi', icon: Users, path: '/tl/teams' },
       { label: 'Hồ sơ', icon: UserCircle, path: '/teacher/profile' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/teacher/events' },
       { label: 'Giáo trình', icon: BookOpen, path: '/teacher/courses' },
       {
         label: 'Thời khóa biểu & phân công',
         icon: Clock,
-        // Default to list view; calendar is accessible via the toggle inside timetable pages.
-        path: '/teacher/timetable/assignments',
+        path: '/teacher/timetable',
         matchPrefixPath: '/teacher/timetable',
       },
       { label: 'Danh sách phiên đã dạy', icon: Timer, path: '/teacher/teaching-history' },

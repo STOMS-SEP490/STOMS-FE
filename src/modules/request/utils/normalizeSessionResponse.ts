@@ -64,6 +64,15 @@ function normalizeSessionTopicRef(raw: unknown): SessionResponse['SubjectSession
   };
 }
 
+function normalizeRequestLite(raw: unknown): SessionResponse['Request'] {
+  if (raw == null || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    RequestName: (pick(r, 'RequestName', 'requestName') as string | null | undefined) ?? null,
+    RequestCode: (pick(r, 'RequestCode', 'requestCode') as string | null | undefined) ?? null,
+  };
+}
+
 export function normalizeSessionResponse(raw: SessionResponse | Record<string, unknown>): SessionResponse {
   const r = raw as Record<string, unknown>;
   const assignmentsRaw = (pick(r, 'Assignments', 'assignments') as unknown[] | null | undefined) ?? [];
@@ -94,6 +103,7 @@ export function normalizeSessionResponse(raw: SessionResponse | Record<string, u
     TeamSessions: teamSessionsRaw.map(normalizeTeamSession),
     SubjectSession: normalizeSessionTopicRef(pick(r, 'SubjectSession', 'subjectSession')),
     EventSession: normalizeSessionTopicRef(pick(r, 'EventSession', 'eventSession')),
+    Request: normalizeRequestLite(pick(r, 'Request', 'request')),
     EventSessionSkill: (pick(r, 'EventSessionSkill', 'eventSessionSkill') as SessionResponse['EventSessionSkill']) ?? null,
     SubjectSkill: (pick(r, 'SubjectSkill', 'subjectSkill') as SessionResponse['SubjectSkill']) ?? null,
   };

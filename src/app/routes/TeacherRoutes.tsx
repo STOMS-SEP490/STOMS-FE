@@ -1,4 +1,4 @@
-import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
+import { Navigate } from 'react-router-dom';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import EventCalendar from '@/modules/event/pages/EventCalendar';
 import UserProfile from '@/modules/user/pages/UserProfile';
@@ -16,6 +16,7 @@ import TeacherDashboard from '@/modules/dashboard/pages/TeacherDashboard';
 
 const TeacherRoutes = [
   { path: 'dashboard', element: <TeacherDashboard /> },
+  { path: 'teams', element: <Navigate to="/tl/teams" replace /> },
   { path: 'events', element: <EventsManagement /> },
   {
     path: 'courses',
@@ -27,7 +28,7 @@ const TeacherRoutes = [
     ],
   },
   { path: 'timetable', element: <EventCalendar /> },
-  { path: 'timetable/assignments', element: <TeamLeaderTimetableAssignments /> },
+  { path: 'timetable/assignments', element: <Navigate to="/teacher/timetable" replace /> },
   { path: 'teaching-history', element: <TeacherTeachingHistoryPage /> },
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'contracts/:id', element: <ContractsManagement /> },

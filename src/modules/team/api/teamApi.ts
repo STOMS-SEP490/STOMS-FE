@@ -1,5 +1,8 @@
+import { isAxiosError } from 'axios';
 import axiosClient from '@/shared/lib/axios';
 import type { PaginationResponse } from '@/shared/types/api';
+import memberApi from '@/modules/member/api/memberApi';
+import type { Member } from '@/modules/member/member';
 import type {
   Team,
   TeamDetail,
@@ -8,6 +11,7 @@ import type {
   TeamUpdatePayload,
   TeamMemberItem,
   TeamTopicItem,
+  MemberSkillItem,
 } from '../team';
 
 function num(v: unknown): number {
@@ -25,10 +29,51 @@ function optStr(v: unknown): string | null | undefined {
   return String(v);
 }
 
-/**
- * GET /teams/:id trả TeamDetailResponse: topics + members; có thể không có createdAt/updatedAt/teamTopics.
- * Chuẩn hóa về Team (camelCase) và suy ra teamTopics từ topics khi cần.
- */
+function normalizeSkills(raw: unknown): MemberSkillItem[] | undefined {
+  const arr = Array.isArray(raw) ? raw : [];
+  if (!arr.length) return undefined;
+  return arr.map((s) => {
+    const x = (s ?? {}) as Record<string, unknown>;
+    return {
+      skillId: num(x.skillId ?? x.SkillId),
+      skillName: str(x.skillName ?? x.SkillName),
+      isActive: Boolean(x.isActive ?? x.IsActive ?? true),
+    };
+  });
+}
+
+function mapMemberToTeamItem(m: Member): TeamMemberItem {
+  return {
+    memberId: m.memberId,
+    userId: m.userId,
+    roleId: m.roleId,
+    teamId: m.teamId ?? null,
+    avatarUrl: m.avatarUrl,
+    fullName: m.fullName,
+    phone: m.phone || null,
+    address: m.address || null,
+    cin: m.cin || null,
+    bankCode: m.bankCode || null,
+    bankName: m.bankName || null,
+    taxNumber: m.taxNumber ?? null,
+    email: m.email || '',
+    skills: normalizeSkills(m.skills),
+  };
+}
+
+function teamRecordToDetail(t: Team): TeamDetail {
+  return {
+    teamId: t.teamId,
+    teamName: t.teamName,
+    members: t.members ?? [],
+    topics: t.topics ?? [],
+    leaderMemberId: t.leaderMemberId,
+    leaderMemberName: t.leaderMemberName,
+    createdAt: t.createdAt ?? null,
+    updatedAt: t.updatedAt ?? null,
+  };
+}
+
 function normalizeTeamDetail(raw: Record<string, unknown>): Team {
   const teamId = num(raw.teamId ?? raw.TeamId);
   const topicsRaw = (raw.topics ?? raw.Topics) as unknown[] | undefined;
@@ -41,6 +86,8 @@ function normalizeTeamDetail(raw: Record<string, unknown>): Team {
         return {
           topicId: num(tr.topicId ?? tr.TopicId),
           topicName: str(tr.topicName ?? tr.TopicName),
+          isActive: tr.isActive != null ? Boolean(tr.isActive ?? tr.IsActive) : undefined,
+          createdAt: optStr(tr.createdAt ?? tr.CreatedAt) ?? null,
         };
       })
     : undefined;
@@ -67,6 +114,7 @@ function normalizeTeamDetail(raw: Record<string, unknown>): Team {
           bankName: optStr(mr.bankName ?? mr.BankName) ?? null,
           taxNumber: optStr(mr.taxNumber ?? mr.TaxNumber) ?? null,
           email: str(mr.email ?? mr.Email),
+          skills: normalizeSkills(mr.skills ?? mr.Skills),
         };
       })
     : undefined;
@@ -163,7 +211,74 @@ export const teamApi = {
     await axiosClient.put(`/team-topics/team/${teamId}/topics/deactivate`, { topicIds });
   },
 
+  /** @deprecated BE không còn route này — dùng loadMyTeamDetail */
   getTeamByMember: async (memberId: number): Promise<TeamDetail> => {
     return axiosClient.get(`/teams/member/${memberId}`);
+  },
+
+  /** GET /teams/my-team → TeamDetailResponse (đã chuẩn hóa skills/topics). */
+  getMyTeam: async (): Promise<TeamDetail> => {
+    const raw = (await axiosClient.get('/teams/my-team')) as Record<string, unknown>;
+    return teamRecordToDetail(normalizeTeamDetail(raw));
+  },
+
+  /**
+   * Ưu tiên GET /teams/my-team; nếu 403 (vd: Trưởng nhóm) hoặc 404 thì gom nhóm qua members/filter + teams/filter.
+   */
+  loadMyTeamDetail: async (memberId: number): Promise<TeamDetail | null> => {
+    if (!memberId) return null;
+
+    try {
+      const raw = (await axiosClient.get('/teams/my-team')) as Record<string, unknown>;
+      return teamRecordToDetail(normalizeTeamDetail(raw));
+    } catch (e) {
+      if (!isAxiosError(e)) throw e;
+      const st = e.response?.status;
+      if (st === 401) throw e;
+      if (st != null && st >= 500) throw e;
+    }
+
+    const me = await memberApi.getMemberById(memberId);
+    const tid = me.teamId;
+    if (tid == null || !Number.isFinite(Number(tid))) return null;
+
+    const [membersPage, teamPageRes] = await Promise.all([
+      memberApi.getMembers({ TeamId: tid, pageNumber: 1, pageSize: 500 }),
+      axiosClient.get('/teams/filter', {
+        params: { teamId: tid, pageNumber: 1, pageSize: 1 },
+      }) as Promise<PaginationResponse<Team>>,
+    ]);
+
+    const teamRow = teamPageRes.items?.[0];
+    const teamName =
+      (teamRow?.teamName && String(teamRow.teamName).trim()) ||
+      (me.team?.teamName && String(me.team.teamName).trim()) ||
+      `Nhóm #${tid}`;
+
+    const ttRaw = teamRow?.teamTopics as unknown[] | undefined;
+    const topics: TeamTopicItem[] = Array.isArray(ttRaw)
+      ? ttRaw.map((item) => {
+          const tt = (item ?? {}) as Record<string, unknown>;
+          return {
+            topicId: num(tt.topicId ?? tt.TopicId),
+            topicName: str(tt.topicName ?? tt.TopicName),
+            isActive: tt.isActive != null ? Boolean(tt.isActive ?? tt.IsActive) : true,
+            createdAt: optStr(tt.createdAt ?? tt.CreatedAt) ?? null,
+          };
+        })
+      : [];
+
+    const members: TeamMemberItem[] = (membersPage.items ?? []).map((m) => mapMemberToTeamItem(m));
+
+    return {
+      teamId: Number(tid),
+      teamName,
+      members,
+      topics,
+      leaderMemberId: teamRow?.leaderMemberId ?? me.team?.leaderMemberId ?? null,
+      leaderMemberName: teamRow?.leaderMemberName ?? me.team?.leaderMemberName ?? null,
+      createdAt: teamRow?.createdAt ?? me.team?.createdAt ?? null,
+      updatedAt: teamRow?.updatedAt ?? me.team?.updatedAt ?? null,
+    };
   },
 };

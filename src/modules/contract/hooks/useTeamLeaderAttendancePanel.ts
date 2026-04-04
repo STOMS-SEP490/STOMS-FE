@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/type';
 import sessionApi from '@/modules/request/api/sessionApi';
 import attendanceApi from '@/modules/request/api/attendanceApi';
+import requestApi from '@/modules/request/api/requestApi';
 import type { TeamLeaderTimetableAssignmentRow } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
 import { getAttendanceOwnerId } from '@/shared/utils/attendanceOwner';
 import { normalizeAttendanceFilterResponse } from '@/shared/utils/normalizeAttendanceFilter';
@@ -123,6 +124,25 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
 
       const detail = await sessionApi.getById(row.sessionId);
       setSessionDetail(detail);
+
+      // Bổ sung requestCode / requestName cho activeSession nếu còn thiếu (đảm bảo đồng bộ với panel chi tiết).
+      if (detail.RequestId && (!row.requestCode || !row.requestName)) {
+        try {
+          const req = await requestApi.getById(detail.RequestId);
+          setActiveSession((prev) =>
+            prev && prev.sessionId === row.sessionId
+              ? {
+                  ...prev,
+                  requestId: detail.RequestId,
+                  requestCode: req.requestCode ?? prev.requestCode,
+                  requestName: req.requestName ?? prev.requestName,
+                }
+              : prev,
+          );
+        } catch {
+          // Nếu lỗi khi fetch request thì bỏ qua, không chặn mở panel điểm danh.
+        }
+      }
 
       const attendanceByMemberId = await resolveAttendanceOwner(detail);
       const loaded = await loadAttendanceItems(row.sessionId, attendanceByMemberId);
