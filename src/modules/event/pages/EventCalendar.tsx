@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -7,9 +8,20 @@ import viLocale from '@fullcalendar/core/locales/vi';
 import type { EventContentArg, EventClickArg, EventApi } from '@fullcalendar/core';
 import type { CalendarEvent } from '@/modules/event/event';
 import dayjs from 'dayjs';
-import { ArrowLeft, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarClock,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  MapPin,
+} from 'lucide-react';
 import './EventCalendar.css';
-import { useCalendarEvents } from '@/modules/event/hooks/useCalendarEvents';
+import {
+  useCalendarEvents,
+  type TeamLeaderTimetableScope,
+} from '@/modules/event/hooks/useCalendarEvents';
 import sessionService from '@/modules/request/api/sessionApi';
 import type { SessionDetail } from '@/modules/request/type.ts';
 import SessionDetailPopover from './SessionDetailPopover';
@@ -19,6 +31,16 @@ import { resolveMonthDotColor } from '@/modules/event/utils/monthDotColor';
 import { sessionDetailToTimetableRow } from '@/modules/event/utils/sessionDetailToTimetableRow';
 import { useTeamLeaderAttendancePanel } from '@/modules/contract/hooks/useTeamLeaderAttendancePanel';
 import TeamLeaderAttendanceSlideOver from '@/modules/contract/components/TeamLeaderAttendanceSlideOver';
+import {
+  useTeacherUpcomingAssignedSessions,
+  type TeacherUpcomingScheduleCard,
+} from '@/modules/event/hooks/useTeacherUpcomingAssignedSessions';
+import ReportBusyModal from './ReportBusyModal';
+import {
+  canReportBusyForSessionStart,
+  REPORT_BUSY_TOO_SOON_VI,
+} from '@/modules/event/utils/reportBusyEligibility';
+import { Tooltip } from 'antd';
 
 /** Lấy SessionId số để gọi API — id lịch có thể là number hoặc chuỗi số từ FullCalendar. */
 function parseSessionIdFromCalendar(raw: string | number | undefined | null): number | null {
@@ -91,12 +113,19 @@ function renderEventContent(arg: EventContentArg) {
 }
 
 export default function EventCalendar() {
+  const location = useLocation();
+  const isTlTimetable = location.pathname.startsWith('/tl/timetable');
   const calendarRef = useRef<FullCalendar | null>(null);
   const calendarContainerRef = useRef<HTMLDivElement | null>(null);
   /** Cột trái chứa lịch — width thay đổi khi mở/đóng “Lịch sắp tới”; ResizeObserver phải bắt ở đây, không phải wrapper ngoài. */
   const calendarMainRef = useRef<HTMLDivElement | null>(null);
   const upcomingAsideRef = useRef<HTMLElement | null>(null);
-  const { events, loading } = useCalendarEvents();
+  const [calendarRefreshNonce, setCalendarRefreshNonce] = useState(0);
+  const [tlTimetableScope, setTlTimetableScope] = useState<TeamLeaderTimetableScope>('team');
+  const { events, loading } = useCalendarEvents(
+    calendarRefreshNonce,
+    isTlTimetable ? tlTimetableScope : 'team',
+  );
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailSession, setDetailSession] = useState<SessionDetail | null>(null);
   const [detailEventMeta, setDetailEventMeta] = useState<Partial<CalendarEvent> | null>(null);
@@ -194,6 +223,16 @@ export default function EventCalendar() {
         };
       });
   }, [events]);
+
+  const {
+    cards: teacherUpcomingCards,
+    loading: teacherUpcomingLoading,
+    isTeacherTimetable,
+  } = useTeacherUpcomingAssignedSessions(calendarRefreshNonce, {
+    teamLeaderPersonal: isTlTimetable && tlTimetableScope === 'personal',
+  });
+
+  const [reportBusyCard, setReportBusyCard] = useState<TeacherUpcomingScheduleCard | null>(null);
 
   const closeMonthMore = useCallback(() => {
     setMonthMoreOpen(false);
@@ -429,6 +468,24 @@ export default function EventCalendar() {
               <button type="button" onClick={() => handleMove('today')} className="calendar-subtle-btn">
                 Hôm nay
               </button>
+              {isTlTimetable ? (
+                <div className="calendar-segmented">
+                  <button
+                    type="button"
+                    onClick={() => setTlTimetableScope('team')}
+                    className={`calendar-segment-btn ${tlTimetableScope === 'team' ? 'active' : ''}`}
+                  >
+                     Lịch cả nhóm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTlTimetableScope('personal')}
+                    className={`calendar-segment-btn ${tlTimetableScope === 'personal' ? 'active' : ''}`}
+                  >
+                    Lịch của tôi
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div className="calendar-toolbar-cluster calendar-toolbar-cluster--center">
               <div className="calendar-nav-pill">
@@ -508,7 +565,7 @@ export default function EventCalendar() {
               <h3 className="text-sm font-semibold text-slate-900">Lịch sắp tới</h3>
               </div>
               <span className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
-                {upcomingSessions.length}
+                {isTeacherTimetable ? teacherUpcomingCards.length : upcomingSessions.length}
               </span>
               <button
                 type="button"
@@ -523,7 +580,108 @@ export default function EventCalendar() {
             </div>
 
             <div className="space-y-3 overflow-y-auto pr-1">
-              {upcomingSessions.length === 0 ? (
+              {isTeacherTimetable && teacherUpcomingLoading && teacherUpcomingCards.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">
+                  Đang tải phiên sắp tới…
+                </div>
+              ) : isTeacherTimetable && teacherUpcomingCards.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">
+                  Không có phiên sắp tới.
+                </div>
+              ) : isTeacherTimetable ? (
+                teacherUpcomingCards.map((session) => {
+                  const canReportBusy = canReportBusyForSessionStart(session.start);
+                  return (
+                  <div
+                    key={session.sessionId}
+                    className="relative w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-[box-shadow,border-color] hover:border-slate-300 hover:shadow-[0_4px_14px_rgba(15,23,42,0.08)]"
+                  >
+                    <div
+                      aria-hidden
+                      className="absolute left-0 top-0 bottom-0 w-1"
+                      style={{ backgroundColor: session.isOngoing ? '#22C55E55' : '#2197C055' }}
+                    />
+                    {/* Lớp bấm xem chi tiết — tránh button lồng button; Báo bận dùng pointer-events-auto */}
+                    <button
+                      type="button"
+                      className="absolute inset-0 z-0 rounded-xl"
+                      aria-label={`Xem chi tiết: ${session.requestLine}`}
+                      onClick={(e) => {
+                        setDetailEventMeta(session.popoverMeta);
+                        void openSessionFromId(session.sessionId, e.currentTarget.getBoundingClientRect());
+                      }}
+                    />
+                    <div className="relative z-10 space-y-2 pl-0.5 pointer-events-none">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold tracking-tight text-slate-900">
+                          {session.requestLine}
+                        </div>
+                        <div className="mt-0.5 text-[11px] leading-snug text-slate-500 line-clamp-2">
+                          {session.sessionLine}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                          <span className="flex h-4 w-3.5 shrink-0 items-center justify-center text-slate-400">
+                            <CalendarClock className="h-3.5 w-3.5" aria-hidden strokeWidth={2} />
+                          </span>
+                          <span className="min-w-0 leading-tight">
+                            {dayjs(session.start).format('DD/MM/YYYY')} • {dayjs(session.start).format('HH:mm')} —{' '}
+                            {dayjs(session.end).format('HH:mm')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-4 w-3.5 shrink-0 items-center justify-center text-slate-400">
+                            <MapPin className="h-3.5 w-3.5" aria-hidden strokeWidth={2} />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-[11px] leading-tight text-slate-500">
+                            {session.resource}
+                          </span>
+                          {canReportBusy ? (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setReportBusyCard(session);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setReportBusyCard(session);
+                                }
+                              }}
+                              className="pointer-events-auto inline-flex shrink-0 cursor-pointer select-none items-center gap-0.5 text-[10px] font-semibold text-red-900 hover:text-red-950 hover:underline underline-offset-2"
+                            >
+                              <CircleAlert className="h-3 w-3 shrink-0" aria-hidden strokeWidth={2.5} />
+                              Báo bận
+                            </span>
+                          ) : (
+                            <Tooltip title={REPORT_BUSY_TOO_SOON_VI} placement="topLeft" trigger={['hover', 'click']}>
+                              <span
+                                role="button"
+                                tabIndex={-1}
+                                aria-disabled
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                className="pointer-events-auto inline-flex shrink-0 cursor-not-allowed select-none items-center gap-0.5 text-[10px] font-semibold text-slate-400"
+                              >
+                                <CircleAlert className="h-3 w-3 shrink-0 opacity-70" aria-hidden strokeWidth={2.5} />
+                                Báo bận
+                              </span>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  );
+                })
+              ) : upcomingSessions.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">
                   Không có phiên sắp tới.
                 </div>
@@ -612,6 +770,14 @@ export default function EventCalendar() {
         session={detailSession}
         eventMeta={detailEventMeta}
         onOpenAttendancePanel={handleOpenAttendanceFromPopover}
+      />
+
+      <ReportBusyModal
+        open={reportBusyCard != null}
+        onClose={() => setReportBusyCard(null)}
+        sessionId={reportBusyCard?.sessionId ?? 0}
+        sessionPreview={reportBusyCard}
+        onSuccess={() => setCalendarRefreshNonce((n) => n + 1)}
       />
 
       <TeamLeaderAttendanceSlideOver

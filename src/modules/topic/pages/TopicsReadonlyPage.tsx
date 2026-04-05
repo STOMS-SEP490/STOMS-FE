@@ -3,14 +3,17 @@ import type { ColumnDef } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { Drawer, message } from 'antd';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/app/providers/AuthProvider';
+import { MANAGER_ROLE_ID } from '@/constants/role';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { TableTextAction } from '@/shared/components/common/TableTextAction';
-import { Badge } from '@/shared/components/ui/badge';
 import topicApi from '@/modules/topic/api/topicApi';
 import type { TopicListItem } from '@/modules/topic/topic';
 import type { CoursesReadonlyOutletContext } from '@/modules/course/pages/coursesReadonlyOutletContext';
 
 export default function TopicsReadonlyPage() {
+  const { user } = useAuth();
+  const activeOnly = Number(user?.role ?? 0) !== MANAGER_ROLE_ID;
   const { topicSearch } = useOutletContext<CoursesReadonlyOutletContext>();
   const [data, setData] = useState<TopicListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,6 +42,7 @@ export default function TopicsReadonlyPage() {
         pageNumber,
         pageSize,
         topicName: topicSearch.trim() || undefined,
+        ...(activeOnly ? { IsActive: true } : {}),
       });
       setData(res.items ?? []);
       setTotalItems(res.totalItems ?? 0);
@@ -51,7 +55,7 @@ export default function TopicsReadonlyPage() {
 
   useEffect(() => {
     void fetchTopics();
-  }, [pageNumber, topicSearch]);
+  }, [pageNumber, topicSearch, activeOnly]);
 
   const closeDetailFromUrl = () => {
     if (openDetailFromUrl === '1') {
@@ -114,16 +118,6 @@ export default function TopicsReadonlyPage() {
             <div className="text-xs text-gray-500 truncate">{row.original.description?.trim() || '—'}</div>
           </div>
         ),
-      },
-      {
-        accessorKey: 'isActive',
-        header: 'Trạng thái',
-        cell: ({ row }) =>
-          row.original.isActive ? (
-            <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
-          ) : (
-            <Badge className="bg-orange-100 text-orange-600">Ngừng hoạt động</Badge>
-          ),
       },
       {
         accessorKey: 'createdAt',

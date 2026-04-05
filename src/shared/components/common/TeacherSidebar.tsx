@@ -86,7 +86,7 @@ export default function TeacherSidebar() {
   const menus = useMemo(
     () => [
       { label: 'Thống kê', icon: BarChart3, path: '/teacher/dashboard' },
-      { label: 'Nhóm của tôi', icon: Users, path: '/tl/teams' },
+      { label: 'Nhóm của tôi', icon: Users, path: '/teacher/teams' },
       { label: 'Hồ sơ', icon: UserCircle, path: '/teacher/profile' },
       { label: 'Sự kiện', icon: CalendarDays, path: '/teacher/events' },
       { label: 'Giáo trình', icon: BookOpen, path: '/teacher/courses' },

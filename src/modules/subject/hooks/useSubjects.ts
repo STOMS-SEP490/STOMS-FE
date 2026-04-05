@@ -6,6 +6,8 @@ export type UseSubjectsOptions = {
   pageSize?: number
   search?: string
   setSearch?: (v: string) => void
+  /** true: non-manager — gọi filter với IsActive=true */
+  activeOnly?: boolean
 }
 
 export const useSubjects = (options?: UseSubjectsOptions) => {
@@ -21,6 +23,7 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize] = useState(options?.pageSize ?? 10)
   const [totalItems, setTotalItems] = useState(0)
+  const activeOnly = Boolean(options?.activeOnly)
 
   const setSearch = useCallback(
     (v: string) => {
@@ -34,7 +37,7 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
     [controlled, setSearchParent],
   )
 
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -42,6 +45,7 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
         pageNumber,
         pageSize,
         subjectName: search.trim() || undefined,
+        ...(activeOnly ? { IsActive: true } : {}),
       })
 
       setData(res.items ?? [])
@@ -49,11 +53,11 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [pageNumber, pageSize, search, activeOnly])
 
   useEffect(() => {
-    fetchSubjects()
-  }, [pageNumber, search])
+    void fetchSubjects()
+  }, [fetchSubjects])
 
   return {
     data,
