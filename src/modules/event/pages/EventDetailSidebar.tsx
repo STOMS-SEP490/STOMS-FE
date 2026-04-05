@@ -153,7 +153,7 @@ function HeaderChip({
       title={title}
       className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1 text-xs text-slate-700 shadow-sm ring-1 ring-slate-200/80"
     >
-      <Icon className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+      <Icon className="h-3.5 w-3.5 text-[#2197C0]" aria-hidden />
       <span className="font-medium">{label}</span>
     </span>
   );
@@ -171,7 +171,7 @@ function Section({
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2.5">
-        <Icon className="h-5 w-5 shrink-0 text-sky-600" strokeWidth={2} aria-hidden />
+        <Icon className="h-5 w-5 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
       </div>
       <div>{children}</div>
@@ -190,7 +190,7 @@ function MetaTile({
 }) {
   return (
     <div className="flex gap-3 rounded-xl bg-white px-3.5 py-3 shadow-sm ring-1 ring-slate-200/60">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-sky-600/90" aria-hidden />
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#2197C0]/90" aria-hidden />
       <div className="min-w-0">
         <div className="text-xs font-medium text-slate-500">{label}</div>
         <div className="mt-0.5 text-sm font-medium text-slate-900 break-words">{value}</div>

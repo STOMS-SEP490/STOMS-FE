@@ -125,7 +125,7 @@ export default function TeamLeaderAttendanceSlideOver({
         <div className="flex h-full flex-col">
           <div className="flex items-start justify-between gap-3 p-6 pb-4 border-b border-gray-100">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[#2197C0]">
                 {actionMode === 'delegate'
                   ? 'Ủy quyền điểm danh'
                   : actionMode === 'checkin'
@@ -134,7 +134,7 @@ export default function TeamLeaderAttendanceSlideOver({
               </div>
               <h2 className="mt-1 text-lg font-bold text-slate-900">Phiên {activeSession?.sessionNo ?? '—'}</h2>
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className="text-xs font-medium text-sky-600">Dạy học</span>
+                <span className="text-xs font-medium text-[#2197C0]">Dạy học</span>
                 <span
                   className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
                     teamAssigned
@@ -198,7 +198,7 @@ export default function TeamLeaderAttendanceSlideOver({
                 )}
 
                 <div className="flex items-center gap-3 text-gray-600">
-                  <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+                  <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
                   <span className="text-gray-500">Thời gian:</span>
                   <span className="font-medium text-black">
                     {startAt && endAt
@@ -208,25 +208,25 @@ export default function TeamLeaderAttendanceSlideOver({
                 </div>
 
                 <div className="flex items-center gap-3 text-gray-600">
-                  <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+                  <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
                   <span className="text-gray-500">Ngày:</span>
                   <span className="font-medium text-black">{startAt ? dayjs(startAt).format('DD/MM/YYYY') : '—'}</span>
                 </div>
 
                 <div className="flex items-center gap-3 text-gray-600">
-                  <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                  <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
                   <span className="text-gray-500">Địa điểm:</span>
                   <span className="font-medium text-black">{locationText || '—'}</span>
                 </div>
 
                 <div className="flex items-center gap-3 text-gray-600">
-                  <Hash className="w-4 h-4 text-gray-400 shrink-0" />
+                  <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
                   <span className="text-gray-500">Mã yêu cầu:</span>
-                  <span className="font-semibold text-sky-600">{requestCodeText || '—'}</span>
+                  <span className="font-semibold text-[#2197C0]">{requestCodeText || '—'}</span>
                 </div>
 
                 <div className="flex items-center gap-3 text-gray-600">
-                  <List className="w-4 h-4 text-gray-400 shrink-0" />
+                  <List className="h-4 w-4 shrink-0 text-[#2197C0]" />
                   <span className="text-gray-500">Tên yêu cầu:</span>
                   <span className="font-medium text-black">
                     {requestNameText?.trim() ? requestNameText.trim() : '—'}
@@ -234,13 +234,13 @@ export default function TeamLeaderAttendanceSlideOver({
                 </div>
 
                 <div className="flex items-center gap-3 text-gray-700">
-                  <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
+                  <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
                   <span className="text-gray-500">Số lượng giảng viên:</span>
                   <span className="font-medium text-black">{teachersRequiredText}</span>
                 </div>
 
                 <div className="flex items-center gap-3 text-gray-700">
-                  <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                  <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
                   <span className="text-gray-500">Số lượng trợ giảng:</span>
                   <span className="font-medium text-black">{tasRequiredText}</span>
                 </div>

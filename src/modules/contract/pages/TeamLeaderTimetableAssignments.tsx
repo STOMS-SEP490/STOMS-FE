@@ -730,7 +730,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           <div className="flex h-full flex-col">
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-sky-600">Chi tiết phiên</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#2197C0]">Chi tiết phiên</div>
                 <h3 className="mt-1 text-lg font-semibold text-slate-900">
                   Phiên {detailSession?.sessionNo ?? '—'}
                 </h3>

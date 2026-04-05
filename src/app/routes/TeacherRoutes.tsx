@@ -13,10 +13,11 @@ import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout'
 import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
 import TopicsReadonlyPage from '@/modules/topic/pages/TopicsReadonlyPage';
 import TeacherDashboard from '@/modules/dashboard/pages/TeacherDashboard';
+import MyTeamPage from '@/modules/team/pages/MyTeamPage';
 
 const TeacherRoutes = [
   { path: 'dashboard', element: <TeacherDashboard /> },
-  { path: 'teams', element: <Navigate to="/tl/teams" replace /> },
+  { path: 'teams', element: <MyTeamPage /> },
   { path: 'events', element: <EventsManagement /> },
   {
     path: 'courses',

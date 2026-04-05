@@ -198,39 +198,39 @@ export default function TeamLeaderSessionDetailPanel({
           )}
 
           <div className="flex items-center gap-3 text-gray-600">
-            <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+            <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Thời gian:</span>
             <span className="font-medium text-black">
               {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+            <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Ngày:</span>
             <span className="font-medium text-black">{dayjs(session.startAt).format('DD/MM/YYYY')}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+            <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Địa điểm:</span>
             <span className="font-medium text-black">{(session as RequestSessionSummary & { location?: string }).location || '—'}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <Hash className="w-4 h-4 text-gray-400 shrink-0" />
+            <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Mã yêu cầu:</span>
-            <span className="font-semibold text-sky-600">{requestCode}</span>
+            <span className="font-semibold text-[#2197C0]">{requestCode}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <List className="w-4 h-4 text-gray-400 shrink-0" />
+            <List className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Tên yêu cầu:</span>
             <span className="font-medium text-black">{requestName?.trim() ? requestName.trim() : '—'}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
+            <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Số lượng giảng viên:</span>
             <span className="font-medium text-black">{session.teachersRequired ?? '—'}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <Users className="w-4 h-4 text-gray-400 shrink-0" />
+            <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Số lượng trợ giảng:</span>
             <span className="font-medium text-black">{session.tasRequired ?? '—'}</span>
           </div>
@@ -386,7 +386,7 @@ export default function TeamLeaderSessionDetailPanel({
                                   : 'Ủy quyền điểm danh cho thành viên này'
                               }
                             >
-                              <UserCheck className="h-3 w-3 shrink-0 text-sky-600" />
+                              <UserCheck className="h-3 w-3 shrink-0 text-[#2197C0]" />
                               {delegatingMemberId === a.memberId ? '...' : 'Ủy quyền'}
                             </button>
                           );
