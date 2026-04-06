@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Power, PowerOff, Plus, X } from 'lucide-react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Modal, message } from 'antd';
 import courseApi from '@/modules/course/api/courseApi';
@@ -54,6 +54,9 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   const isManager = roleId === 1;
   const canEdit = isManager && !readOnly;
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openCreateFromUrl = searchParams.get('openCourseCreate');
+
   const {
     data,
     loading,
@@ -88,7 +91,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   const [pendingSubjectIdsToAdd, setPendingSubjectIdsToAdd] = useState<number[]>([]);
   const [showAddSubject, setShowAddSubject] = useState(false);
 
-  const openCreateModal = () => {
+  const openCreateModal = useCallback(() => {
     if (!canEdit) {
       message.warning('Bạn không có quyền thêm khóa học.');
       return;
@@ -103,7 +106,18 @@ export default function CoursesManagement({ readOnly = false }: Props) {
     setPendingSubjectIdsToAdd([]);
     setShowAddSubject(false);
     setOpenEdit(true);
-  };
+  }, [canEdit]);
+
+  useEffect(() => {
+    if (context.position !== 'content') return;
+    if (openCreateFromUrl !== '1') return;
+    openCreateModal();
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openCourseCreate');
+      return next;
+    });
+  }, [context.position, openCreateFromUrl, openCreateModal, setSearchParams]);
 
   const openEditModal = useCallback(
     async (c: CourseListItem) => {
@@ -148,6 +162,11 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   const closeEditModal = () => {
     if (submitting) return;
     setOpenEdit(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openCourseCreate');
+      return next;
+    });
   };
 
   const handleSubmitEdit = async () => {
@@ -355,17 +374,11 @@ export default function CoursesManagement({ readOnly = false }: Props) {
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-4">
-      <div className="flex justify-between items-center mb-2">
+      <div className="flex items-center mb-2">
         <div>
           <h2 className="text-lg font-semibold text-black">Quản lý khóa học</h2>
           <p className="text-xs text-gray-500">Danh sách khóa học trong hệ thống</p>
         </div>
-        {canEdit && (
-          <Button className="bg-[#2197C0] hover:bg-[#208AAE] text-white" onClick={openCreateModal}>
-            <Plus className="w-4 h-4 mr-1" />
-            Thêm khóa học
-          </Button>
-        )}
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-4">

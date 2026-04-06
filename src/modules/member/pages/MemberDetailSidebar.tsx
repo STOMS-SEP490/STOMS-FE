@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { X, BarChart3 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import type { MemberDetail } from '@/modules/member/member';
 import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import { Badge } from '@/shared/components/ui/badge';
@@ -7,6 +8,17 @@ import memberSkillApi from '@/modules/member/api/memberSkillApi';
 import skillApi from '@/modules/skill/api/skillApi';
 import type { SkillListItem } from '@/modules/skill/skill';
 import type { PaginationResponse } from '@/shared/types/api';
+import { dashboardApi, type DashboardRangeParams } from '@/modules/dashboard/api/dashboardApi';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
 
 type Props = {
   open: boolean;
@@ -16,6 +28,8 @@ type Props = {
 
 export default function MemberDetailSidebar({ open, onClose, member }: Props) {
   const [skillNames, setSkillNames] = useState<string[]>([]);
+  const [workloadRange, setWorkloadRange] =
+    useState<NonNullable<DashboardRangeParams['range']>>('thismonth');
 
   useEffect(() => {
     if (!open || !member?.memberId) {
@@ -39,10 +53,106 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
     };
   }, [open, member?.memberId]);
 
+  const { data: workload } = useQuery({
+    queryKey: ['dashboard', 'member-workload', member?.memberId ?? 0, workloadRange],
+    queryFn: () => dashboardApi.getUserWorkload(member?.memberId ?? 0, { range: workloadRange }),
+    enabled: Boolean(open && member?.memberId),
+  });
+
   if (!member) return null;
 
   const hasRole = member.roleId != null;
   const roleLabel = hasRole ? getRoleLabel(member.roleId) : '—';
+
+  const formatPercent = (x?: number) => {
+    const v = Number(x ?? 0);
+    const sign = v > 0 ? '+' : '';
+    return `${sign}${v.toFixed(1)}%`;
+  };
+
+  const workloadChartData = workload
+    ? ([
+        {
+          key: 'hours',
+          label: 'Giờ giảng',
+          value: Number(workload.totalTeachingHours ?? 0),
+          changePercent: Number(workload.totalTeachingHoursChangePercent ?? 0),
+        },
+        {
+          key: 'completed',
+          label: 'Hoàn thành',
+          value: Number(workload.completedSessions ?? 0),
+          changePercent: Number(workload.completedSessionsChangePercent ?? 0),
+        },
+        {
+          key: 'canceled',
+          label: 'Bị hủy',
+          value: Number(workload.canceledSessions ?? 0),
+          changePercent: Number(workload.canceledSessionsChangePercent ?? 0),
+        },
+        {
+          key: 'income',
+          label: 'Thu nhập (VND)',
+          value: Number(workload.estimatedIncome ?? 0),
+          changePercent: Number(workload.estimatedIncomeChangePercent ?? 0),
+        },
+      ] as const)
+    : [];
+
+  const workloadIsEmpty = Boolean(
+    workload &&
+      workloadChartData.every((x) => {
+        const v = Number(x.value ?? 0);
+        return !Number.isFinite(v) || v === 0;
+      }),
+  );
+
+  const formatWorkloadValue = (
+    key: (typeof workloadChartData)[number]['key'],
+    v: unknown,
+  ) => {
+    const n = Number(v ?? 0);
+    if (key === 'income') {
+      return n.toLocaleString('vi-VN', {
+        style: 'currency',
+        currency: 'VND',
+        maximumFractionDigits: 0,
+      });
+    }
+    if (key === 'hours') return `${n.toFixed(1)}h`;
+    return `${n}`;
+  };
+
+  const WorkloadItem = (props: {
+    label: string;
+    value: React.ReactNode;
+    changePercent: number;
+    tone: 'green' | 'blue' | 'amber' | 'rose';
+  }) => {
+    const toneMap = {
+      green: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      blue: 'bg-sky-50 text-sky-700 border-sky-100',
+      amber: 'bg-amber-50 text-amber-700 border-amber-100',
+      rose: 'bg-rose-50 text-rose-700 border-rose-100',
+    } as const;
+    return (
+      <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="min-w-0">
+          <p className="text-[11px] text-slate-500 font-medium">{props.label}</p>
+          <p className="mt-1 text-xl font-semibold text-slate-900 truncate">
+            {props.value}
+          </p>
+          <span
+            className={`mt-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+              toneMap[props.tone]
+            }`}
+          >
+            {formatPercent(props.changePercent)}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -154,6 +264,107 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
                   </div>
                 )}
               </div>
+            </div>
+          </Section>
+
+          <Section title="Khối lượng công việc">
+            <div className="col-span-2 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <BarChart3 className="h-4 w-4 text-teal-600" />
+                  Thống kê theo khoảng thời gian
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">Khoảng:</span>
+                  <select
+                    className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    value={workloadRange}
+                    onChange={(e) =>
+                      setWorkloadRange(
+                        e.target.value as NonNullable<DashboardRangeParams['range']>,
+                      )
+                    }
+                    disabled={!member?.memberId}
+                  >
+                    <option value="today">Hôm nay</option>
+                    <option value="thisweek">Tuần này</option>
+                    <option value="thismonth">Tháng này</option>
+                    <option value="last3months">3 tháng gần đây</option>
+                    <option value="last6months">6 tháng gần đây</option>
+                    <option value="1year">1 năm gần đây</option>
+                  </select>
+                </div>
+              </div>
+
+              {!member?.memberId ? (
+                <div className="text-sm text-gray-500">
+                  Tài khoản này chưa có thông tin thành viên nên không thể thống kê workload.
+                </div>
+              ) : !workload ? (
+                <div className="text-sm text-gray-500">Đang tải workload...</div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative h-52 rounded-xl border border-slate-200 bg-white p-3">
+                    {workloadIsEmpty && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/75 backdrop-blur-[1px]">
+                        <div className="text-sm text-slate-500">
+                          Chưa có dữ liệu trong khoảng này
+                        </div>
+                      </div>
+                    )}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={workloadChartData}
+                        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="label" tick={{ fontSize: 12 }} interval={0} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip
+                          formatter={(value: any, _name: any, props: any) => {
+                            const key = props?.payload?.key as (typeof workloadChartData)[number]['key'];
+                            return formatWorkloadValue(key, value);
+                          }}
+                          labelFormatter={(label) => `Chỉ số: ${label}`}
+                        />
+                        <Legend />
+                        <Bar dataKey="value" name="Giá trị" fill="#14b8a6" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <WorkloadItem
+                      label="Tổng giờ giảng"
+                      value={`${Number(workload.totalTeachingHours ?? 0).toFixed(1)}h`}
+                      changePercent={workload.totalTeachingHoursChangePercent ?? 0}
+                      tone="blue"
+                    />
+                    <WorkloadItem
+                      label="Phiên hoàn thành"
+                      value={Number(workload.completedSessions ?? 0)}
+                      changePercent={workload.completedSessionsChangePercent ?? 0}
+                      tone="green"
+                    />
+                    <WorkloadItem
+                      label="Phiên bị hủy"
+                      value={Number(workload.canceledSessions ?? 0)}
+                      changePercent={workload.canceledSessionsChangePercent ?? 0}
+                      tone="rose"
+                    />
+                    <WorkloadItem
+                      label="Thu nhập ước tính"
+                      value={Number(workload.estimatedIncome ?? 0).toLocaleString('vi-VN', {
+                        style: 'currency',
+                        currency: 'VND',
+                        maximumFractionDigits: 0,
+                      })}
+                      changePercent={workload.estimatedIncomeChangePercent ?? 0}
+                      tone="amber"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </Section>
         </div>

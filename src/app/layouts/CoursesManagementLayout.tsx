@@ -1,20 +1,44 @@
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { GraduationCap, CheckCircle, BookOpen, Clock } from 'lucide-react';
+import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { GraduationCap, CheckCircle, BookOpen, Clock, Plus } from 'lucide-react';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useQuery } from '@tanstack/react-query';
 import courseApi from '@/modules/course/api/courseApi';
 import subjectApi from '@/modules/subject/api/subjectApi';
 import sessionApi from '@/modules/request/api/sessionApi';
+import { Button } from '@/shared/components/ui/button';
+import { useAuth } from '@/app/providers/AuthProvider';
 
 export default function CoursesLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const roleId = Number(user?.role ?? 0);
+  const canEdit = roleId === 1;
   const isManager = location.pathname.startsWith('/manager/');
   const isTeacher = location.pathname.startsWith('/teacher/');
   const basePath = isManager ? '/manager/courses' : isTeacher ? '/teacher/courses' : '/tl/courses';
 
   const currentTab = location.pathname.includes('subjects') ? 'subjects' : 'courses';
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const openCreateCourse = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('openCourseCreate', '1');
+      next.delete('openSubjectCreate');
+      return next;
+    });
+  };
+
+  const openCreateSubject = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('openSubjectCreate', '1');
+      next.delete('openCourseCreate');
+      return next;
+    });
+  };
 
   const { data: coursesPaged, isLoading: coursesLoading } = useQuery({
     queryKey: ['courses-summary'],
@@ -46,9 +70,29 @@ export default function CoursesLayout() {
   return (
     <div className="overflow-y-auto p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
-      <div className="bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>
-        <p className="text-xs text-gray-500">Quản lý khóa học và môn học trong hệ thống</p>
+      <div className="bg-white flex justify-between px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
+        <div>
+          <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>
+          <p className="text-xs text-gray-500">Quản lý khóa học và môn học trong hệ thống</p>
+        </div>
+        {canEdit && currentTab === 'courses' && (
+          <Button
+            onClick={openCreateCourse}
+            className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+          >
+            <Plus size={16} />
+            Thêm khóa học
+          </Button>
+        )}
+        {canEdit && currentTab === 'subjects' && (
+          <Button
+            onClick={openCreateSubject}
+            className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+          >
+            <Plus size={16} />
+            Thêm môn học
+          </Button>
+        )}
       </div>
 
       {/* STATS */}

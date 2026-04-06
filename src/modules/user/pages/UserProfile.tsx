@@ -796,7 +796,7 @@ export default function UserProfile() {
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-teal-600" />
-                  Workload của tôi
+                  Khối lượng công việc
                 </CardTitle>
                 <CardDescription>
                   Thống kê hiệu suất giảng dạy của bạn theo khoảng thời gian.
