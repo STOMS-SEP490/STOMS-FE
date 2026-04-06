@@ -202,8 +202,8 @@ export default function RequestSessionDetailPanel({
   return (
     <div className="space-y-4 text-sm">
       {renderInfoCard && (
-        <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
-        <div className="px-4 py-2.5 border-b border-gray-100">
+        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
+        <div className="px-4 py-2.5 bg-slate-50/70">
           <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
         </div>
         <div className="px-4 py-3 space-y-3 text-sm">
@@ -283,8 +283,8 @@ export default function RequestSessionDetailPanel({
 
       {renderEquipmentCard && (
         <>
-          <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
-            <div className="px-4 py-2.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
+            <div className="px-4 py-2.5 bg-slate-50/70 flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold text-gray-900 text-sm">Danh sách thiết bị mượn trước</h3>
               {resolvedReservationId && canEditReservation ? (
                 <Button
@@ -316,7 +316,7 @@ export default function RequestSessionDetailPanel({
                     return (
                     <li
                       key={er.EquipmentId}
-                      className="rounded-xl border border-gray-100 bg-gray-50/50 px-3 py-2 flex items-center gap-3"
+                      className="rounded-xl bg-slate-50/80 px-3 py-2.5 flex items-center gap-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)]"
                     >
                       <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
                         {eq?.ImgLink ? (

@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import CoursesManagement from '../../modules/course/pages/CoursesManagement';
 import TopicsManagement from '@/modules/topic/pages/TopicsManagement';
 import CoursesLayout from '@/app/layouts/CoursesManagementLayout';
@@ -25,7 +25,6 @@ import UserManagement from '@/modules/user/pages/UsersManagement';
 import RolesManagement from '@/modules/role/pages/RolesManagement';
 import RequestLayout from '../layouts/RequestLayout';
 import RequestDetail from '@/modules/request/pages/RequestDetail';
-import RequestsManagementManagerReadonly from '@/modules/request/pages/RequestsManagementManagerReadonly';
 import ManagerRequestReadonlyLayout from '@/app/layouts/ManagerRequestReadonlyLayout';
 import RequestDetailManagerReadonly from '@/modules/request/pages/RequestDetailManagerReadonly';
 import MembersManagement from '@/modules/member/pages/MembersManagement';
@@ -38,6 +37,12 @@ const RequestPlaceholder = () => (
     Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
   </div>
 );
+
+/** Cũ: /manager/requests/all/:id → /manager/requests/:id */
+const RedirectOldRequestsAllId = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/manager/requests/${id ?? ''}`} replace />;
+};
 
 const ManagerRoutes = [
   { path: 'dashboard', element: <ManagerDashboard /> },
@@ -62,7 +67,7 @@ const ManagerRoutes = [
   { path: 'skills', element: <SkillsManagement /> },
 
   { path: 'logs', element: <AuditLogs /> },
-  { path: 'requests-all', element: <RequestsManagementManagerReadonly /> },
+  { path: 'requests-all', element: <Navigate to="/manager/requests" replace /> },
   {
     path: 'requests-view/:id',
     element: <ManagerRequestReadonlyLayout />,
@@ -73,9 +78,13 @@ const ManagerRoutes = [
     element: <RequestLayout />,
     children: [
       { index: true, element: <RequestPlaceholder /> },
-      { path: ':id', element: <RequestDetail /> },
       { path: 'assignments', element: <RequestPlaceholder /> },
       { path: 'assignments/:id', element: <RequestDetail /> },
+      { path: 'approval', element: <RequestPlaceholder /> },
+      { path: 'approval/:id', element: <RequestDetail /> },
+      { path: 'all', element: <Navigate to="/manager/requests" replace /> },
+      { path: 'all/:id', element: <RedirectOldRequestsAllId /> },
+      { path: ':id', element: <RequestDetail /> },
     ],
   },
   {

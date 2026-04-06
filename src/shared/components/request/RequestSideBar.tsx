@@ -2,30 +2,52 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import RequestCard from './RequestCard';
-import { getRequestStatusInfo } from '@/constants/status';
+import { getRequestStatusCode, getRequestStatusInfo, REQUEST_STATUS } from '@/constants/status';
 
 const REQUEST_APPROVAL_STATUSES = ['PENDING', 'REJECTED', 'APPROVED'] as const;
-const REQUEST_ALL_STATUSES = [
-  'PENDING',
-  'REJECTED',
-  'APPROVED',
-  'ASSIGNING',
-  'PUBLISHED',
-  'COMPLETED',
-  'CANCELLED',
-] as const;
 
 function isPendingStatus(status: string | undefined): boolean {
   const s = (status ?? '').toLowerCase();
   return s === 'pending' || s.includes('chờ') || s.includes('pending');
 }
 
+/** Bộ lọc trạng thái yêu cầu (manager / PC layout). */
+export type ManagerRequestStatusFilter =
+  | 'all'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'assigning'
+  | 'published'
+  | 'completed'
+  | 'cancelled';
+
+const STATUS_FILTER_TO_REQUEST_CODE: Record<Exclude<ManagerRequestStatusFilter, 'all'>, number> = {
+  pending: REQUEST_STATUS.PENDING,
+  approved: REQUEST_STATUS.APPROVED,
+  rejected: REQUEST_STATUS.REJECTED,
+  assigning: REQUEST_STATUS.ASSIGNING,
+  published: REQUEST_STATUS.PUBLISHED,
+  completed: REQUEST_STATUS.COMPLETED,
+  cancelled: REQUEST_STATUS.CANCELLED,
+};
+
+const STATUS_FILTER_TO_API: Record<Exclude<ManagerRequestStatusFilter, 'all'>, string> = {
+  pending: 'PENDING',
+  approved: 'APPROVED',
+  rejected: 'REJECTED',
+  assigning: 'ASSIGNING',
+  published: 'PUBLISHED',
+  completed: 'COMPLETED',
+  cancelled: 'CANCELLED',
+};
+
 export type RequestSidebarProps = {
   basePath?: string;
   search?: string;
   onlyPending?: boolean;
   typeFilter?: 'all' | 'event' | 'subject' | 'course';
-  statusFilter?: 'all' | 'pending' | 'approved' | 'rejected' | 'assigning';
+  statusFilter?: ManagerRequestStatusFilter;
   refreshKey?: number;
   /**
    * manager chỉ cần lọc các trạng thái phê duyệt,
@@ -34,6 +56,10 @@ export type RequestSidebarProps = {
   requestStatusesScope?: 'approval' | 'all';
   /** Tắt redirect tự động khi danh sách theo filter đang rỗng. */
   autoNavigateWhenEmpty?: boolean;
+  /**
+   * Tab Duyệt phân công: gọi API với AssignmentStatuses=1 (Pending), không gửi Statuses.
+   */
+  filterByPendingAssignments?: boolean;
 };
 
 export default function RequestSidebar({
@@ -45,24 +71,29 @@ export default function RequestSidebar({
   refreshKey = 0,
   requestStatusesScope = 'approval',
   autoNavigateWhenEmpty = true,
+  filterByPendingAssignments = false,
 }: RequestSidebarProps) {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const apiStatuses = (() => {
-    if (onlyPending) return ['PENDING'];
-    if (statusFilter === 'pending') return ['PENDING'];
-    if (statusFilter === 'approved') return ['APPROVED'];
-    if (statusFilter === 'rejected') return ['REJECTED'];
-    if (statusFilter === 'assigning') return ['ASSIGNING'];
-    return requestStatusesScope === 'all'
-      ? [...REQUEST_ALL_STATUSES]
-      : [...REQUEST_APPROVAL_STATUSES];
+  /** Tab Tất cả + trạng thái “Tất cả”: không gửi Statuses, BE trả về mọi yêu cầu (đỡ lặp list đủ enum). */
+  const requestQueryOptions = (() => {
+    if (filterByPendingAssignments) {
+      return { assignmentStatuses: ['1'] };
+    }
+    if (onlyPending) {
+      return { statuses: ['PENDING'] };
+    }
+    if (statusFilter !== 'all') {
+      return { statuses: [STATUS_FILTER_TO_API[statusFilter]] };
+    }
+    if (requestStatusesScope === 'all') {
+      return {};
+    }
+    return { statuses: [...REQUEST_APPROVAL_STATUSES] };
   })();
 
-  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey, {
-    statuses: apiStatuses,
-  });
+  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey, requestQueryOptions);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   // Manager assignment view should still display the same request status UI as PC.
@@ -87,16 +118,12 @@ export default function RequestSidebar({
       })();
       if (!matchType) return false;
 
+      if (filterByPendingAssignments) return true;
+
       if (onlyPending) return isPendingStatus(item.status);
       if (statusFilter === 'all') return true;
-      const s = String(item.status ?? '').toLowerCase();
-      if (statusFilter === 'pending') return s.includes('pending') || s.includes('chờ');
-      if (statusFilter === 'approved') return s.includes('approved') || s.includes('đã duyệt');
-      if (statusFilter === 'rejected')
-        return s.includes('rejected') || s.includes('reject') || s.includes('từ chối');
-      if (statusFilter === 'assigning')
-        return s.includes('assigning') || s.includes('đang phân công');
-      return true;
+      const want = STATUS_FILTER_TO_REQUEST_CODE[statusFilter];
+      return getRequestStatusCode(item.status) === want;
     });
 
   // Nếu theo bộ lọc hiện tại không còn yêu cầu nào

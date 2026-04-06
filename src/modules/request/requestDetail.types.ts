@@ -11,6 +11,8 @@ export type SessionAssignmentRow = {
   staffMemberId: number;
   staffRole: string;
   status?: string;
+  /** Lý do hủy nhận / báo bận (khi status cancelled). */
+  reason?: string;
   fullName: string;
   email: string;
   avatarUrl: string;

@@ -10,12 +10,17 @@ const assignmentApi = {
     const raw: any = res ?? {};
     const staff = raw.staffMember ?? raw.StaffMember ?? null;
     const staffUser = staff?.user ?? staff?.User ?? null;
+    const reasonRaw = raw.reason ?? raw.Reason;
+    const reason =
+      reasonRaw != null && String(reasonRaw).trim() ? String(reasonRaw).trim() : undefined;
+
     return {
       assignmentId: Number(raw.assignmentId ?? raw.AssignmentId ?? 0),
       sessionId: Number(raw.sessionId ?? raw.SessionId ?? 0),
       staffMemberId: Number(raw.staffMemberId ?? raw.StaffMemberId ?? 0),
       staffRole: String(raw.staffRole ?? raw.StaffRole ?? ''),
       status: String(raw.status ?? raw.Status ?? ''),
+      reason,
       staffMember: staff
         ? {
             memberId: Number(staff.memberId ?? staff.MemberId ?? 0),
