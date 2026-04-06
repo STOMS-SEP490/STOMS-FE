@@ -2,8 +2,10 @@ import { useLayoutEffect, useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useOutletContext } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { useAuth } from '@/app/providers/AuthProvider';
+import { MANAGER_ROLE_ID } from '@/constants/role';
+import { formatCourseDuration } from '@/modules/course/formatCourseDuration';
 import type { CourseListItem } from '@/modules/course/courseType';
-import { Badge } from '@/shared/components/ui/badge';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import type { CoursesReadonlyOutletContext } from '@/modules/course/pages/coursesReadonlyOutletContext';
@@ -12,6 +14,8 @@ import { useCourseDetailDrawer } from '@/modules/course/hooks/useCourseDetailDra
 import { CourseDetailDrawer } from '@/modules/course/components/CourseDetailDrawer';
 
 export default function CoursesReadonlyPage() {
+  const { user } = useAuth();
+  const activeOnly = Number(user?.role ?? 0) !== MANAGER_ROLE_ID;
   const { courseSearch, setCourseSearch } = useOutletContext<CoursesReadonlyOutletContext>();
   const {
     data,
@@ -23,6 +27,7 @@ export default function CoursesReadonlyPage() {
   } = useCourses({
     search: courseSearch,
     setSearch: setCourseSearch,
+    activeOnly,
   });
 
   const { detailOpen, detailCourse, detailLoading, closeDetailFromUrl, openDetailById } =
@@ -47,14 +52,9 @@ export default function CoursesReadonlyPage() {
         ),
       },
       {
-        accessorKey: 'isActive',
-        header: 'Trạng thái',
-        cell: ({ row }) =>
-          row.original.isActive ? (
-            <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
-          ) : (
-            <Badge className="bg-orange-100 text-orange-600">Ngừng hoạt động</Badge>
-          ),
+        id: 'duration',
+        header: 'Thời lượng',
+        cell: ({ row }) => formatCourseDuration(row.original.duration ?? undefined) ?? '—',
       },
       {
         id: 'subjects',

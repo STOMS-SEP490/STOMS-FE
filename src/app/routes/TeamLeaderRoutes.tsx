@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import UserProfile from '@/modules/user/pages/UserProfile';
-import TeamLeaderTeamPage from '@/modules/team/pages/TeamLeaderTeamPage';
+import MyTeamPage from '@/modules/team/pages/MyTeamPage';
 import EventCalendar from '@/modules/event/pages/EventCalendar';
 import AvailableEquipmentsPage from '@/modules/equipment/pages/AvailableEquipmentsPage';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
@@ -11,7 +11,6 @@ import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
 import TopicsReadonlyPage from '@/modules/topic/pages/TopicsReadonlyPage';
 import TeacherAttendanceHistoryPage from '@/modules/attendance/pages/TeacherAttendanceHistoryPage';
 import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeachingHistoryPage';
-import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherTaskReportPage from '@/modules/task-report/pages/TeacherTaskReportPage';
 import TeamLeaderAssignmentsLayout from '@/app/layouts/TeamLeaderAssignmentsLayout';
@@ -28,7 +27,7 @@ const TeamLeaderRoutes = [
     ],
   },
   { path: 'profile', element: <UserProfile /> },
-  { path: 'teams', element: <TeamLeaderTeamPage /> },
+  { path: 'teams', element: <MyTeamPage /> },
   { path: 'events', element: <EventsManagement /> },
   {
     path: 'courses',
@@ -40,7 +39,7 @@ const TeamLeaderRoutes = [
     ],
   },
   { path: 'timetable', element: <EventCalendar /> },
-  { path: 'timetable/assignments', element: <TeamLeaderTimetableAssignments /> },
+  { path: 'timetable/assignments', element: <Navigate to="/tl/timetable" replace /> },
   { path: 'teaching-history', element: <TeacherTeachingHistoryPage /> },
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'contracts/:id', element: <ContractsManagement /> },

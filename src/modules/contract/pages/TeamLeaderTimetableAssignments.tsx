@@ -7,7 +7,6 @@ import {
   Globe,
   LogIn,
   LogOut,
-  List,
   MapPin,
   X,
 } from 'lucide-react';
@@ -682,25 +681,15 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => navigate(`${rolePrefix}/timetable`)}
-                  className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors text-slate-500 hover:bg-slate-50"
-                  title="Xem dạng thời khóa biểu"
-                >
-                  <CalendarDays className="h-4 w-4" />
-                  Lịch
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-md bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 shadow-sm"
-                  title="Xem dạng bảng phân công"
-                >
-                  <List className="h-4 w-4" />
-                  Danh sách
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => navigate(`${rolePrefix}/timetable`)}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+                title="Mở thời khóa biểu"
+              >
+                <CalendarDays className="h-4 w-4" />
+                Mở lịch
+              </button>
             </div>
           </div>
         </div>
@@ -741,7 +730,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           <div className="flex h-full flex-col">
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-sky-600">Chi tiết phiên</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#2197C0]">Chi tiết phiên</div>
                 <h3 className="mt-1 text-lg font-semibold text-slate-900">
                   Phiên {detailSession?.sessionNo ?? '—'}
                 </h3>
@@ -774,6 +763,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 <TeamLeaderSessionDetailPanel
                   session={detailSession}
                   requestCode={detailRequest.requestCode ?? ''}
+                  requestName={detailRequest.requestName ?? ''}
                   memberDelegateColumnVisible={!isTeacherRoute}
                   delegateColumn={
                     detailRow

@@ -227,8 +227,7 @@ export default function PCDashboard() {
           <div className="min-w-0 space-y-1">
             <h2 className="text-xl font-semibold text-slate-900">Yêu cầu & tiến độ</h2>
             <p className="max-w-xl text-sm text-slate-600">
-              Tạo yêu cầu mới và theo dõi trạng thái xử lý (duyệt → phân công → triển khai → hoàn thành). Số liệu
-              dưới đây theo khoảng thời gian bạn chọn.
+              Tạo yêu cầu mới và theo dõi trạng thái xử lý.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">

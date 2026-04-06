@@ -1,4 +1,5 @@
 import PCSidebar from '@/shared/components/common/PCSideBar';
+import MainContent from '@/app/layouts/MainContent';
 import { Outlet } from 'react-router-dom';
 
 export default function PCLayout() {
@@ -6,9 +7,9 @@ export default function PCLayout() {
     <div className="flex h-screen">
       <PCSidebar />
       <main className="flex-1 bg-[#f3f4f6] overflow-y-auto no-scrollbar">
-        <div className="main-content">
+        <MainContent>
           <Outlet />
-        </div>
+        </MainContent>
       </main>
     </div>
   );

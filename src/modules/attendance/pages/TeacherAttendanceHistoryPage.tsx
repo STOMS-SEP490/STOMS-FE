@@ -769,7 +769,11 @@ export default function TeacherAttendanceHistoryPage() {
 
                     {detailRequest && detailSession && !detailLoading && !detailError && (
                       <>
-                        <TeamLeaderSessionDetailPanel session={detailSession} requestCode={detailRequest.requestCode ?? ''} />
+                        <TeamLeaderSessionDetailPanel
+                          session={detailSession}
+                          requestCode={detailRequest.requestCode ?? ''}
+                          requestName={detailRequest.requestName ?? ''}
+                        />
                       </>
                     )}
                   </div>
@@ -860,6 +864,7 @@ export default function TeacherAttendanceHistoryPage() {
                 <TeamLeaderSessionDetailPanel
                   session={detailSession}
                   requestCode={detailRequest.requestCode ?? ''}
+                  requestName={detailRequest.requestName ?? ''}
                 />
               )}
             </div>

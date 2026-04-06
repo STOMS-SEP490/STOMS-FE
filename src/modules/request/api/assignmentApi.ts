@@ -55,6 +55,14 @@ const assignmentApi = {
     });
   },
 
+  /** PUT /api/assignments/busy — giáo viên báo bận (BE đã có). */
+  reportBusy: async (assignmentId: number, reason: string): Promise<void> => {
+    await axiosClient.put('/assignments/busy', {
+      assignmentId,
+      reason: reason.trim(),
+    });
+  },
+
   suggestStaff: async (assignmentId: number): Promise<SuggestedStaff[]> => {
     const res = await axiosClient.get(`/assignments/${assignmentId}/suggest-staff`);
     const items: any[] = ((res as any)?.data ?? res ?? []) as any[];

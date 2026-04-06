@@ -7,6 +7,8 @@ export type UseCoursesOptions = {
   /** Điều khiển từ layout (search cùng hàng tab) — truyền cả `search` và `setSearch` */
   search?: string;
   setSearch?: (v: string) => void;
+  /** true: non-manager — gọi filter với IsActive=true */
+  activeOnly?: boolean;
 };
 
 export function useCourses(options?: UseCoursesOptions) {
@@ -22,6 +24,7 @@ export function useCourses(options?: UseCoursesOptions) {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(options?.pageSize ?? 10);
   const [totalItems, setTotalItems] = useState(0);
+  const activeOnly = Boolean(options?.activeOnly);
 
   const setSearch = useCallback(
     (v: string) => {
@@ -42,13 +45,14 @@ export function useCourses(options?: UseCoursesOptions) {
         pageNumber,
         pageSize,
         CourseName: search.trim() || undefined,
+        ...(activeOnly ? { IsActive: true } : {}),
       });
       setData(res.items ?? []);
       setTotalItems(res.totalItems ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [pageNumber, pageSize, search]);
+  }, [pageNumber, pageSize, search, activeOnly]);
 
   useEffect(() => {
     const t = setTimeout(() => {

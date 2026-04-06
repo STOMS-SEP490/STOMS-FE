@@ -41,7 +41,6 @@ export type SubjectListItem = {
   isActive: boolean;
   description: string;
   topicId: number | null;
-  /** Tên chủ đề (API GetById trả về khi có include Topic). */
   topicName?: string | null;
   numberOfSession: number;
   createdAt: string | null;
@@ -55,7 +54,6 @@ export type SubjectListItem = {
     createdAt: string | null;
   }[] | null;
 
-  /** GET /subjects/:id — BE có thể trả skillName phẳng; skill nested có thể null */
   subjectSkills?: {
     subjectId: number;
     skillId: number;

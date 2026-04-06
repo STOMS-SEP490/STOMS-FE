@@ -985,7 +985,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   )}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <span className="text-xs font-medium text-sky-600">
+                  <span className="text-xs font-medium text-[#2197C0]">
                     {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
                   </span>
                   {(() => {
@@ -1113,14 +1113,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     </div>
                     <div className="px-4 py-3 space-y-3 text-sm">
                       <div className="flex items-center gap-3 text-gray-600">
-                        <Hash className="w-4 h-4 text-gray-400 shrink-0" />
+                        <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
                         <span className="text-gray-500">Mã yêu cầu:</span>
-                        <span className="font-semibold text-sky-600">
+                        <span className="font-semibold text-[#2197C0]">
                           {selectedRequest?.requestCode}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-gray-600">
-                        <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+                        <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
                         <span className="text-gray-500">Thời gian:</span>
                         <span className="font-medium text-black">
                           {dayjs(activeSession.startAt).format('HH:mm')} -{' '}
@@ -1128,28 +1128,28 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-gray-600">
-                        <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+                        <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
                         <span className="text-gray-500">Ngày:</span>
                         <span className="font-medium text-black">
                           {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-gray-600">
-                        <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                        <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
                         <span className="text-gray-500">Địa điểm:</span>
                         <span className="font-medium text-black">
                           {activeSession.location || '—'}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-gray-600">
-                        <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
+                        <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
                         <span className="text-gray-500">Giáo viên cần:</span>
                         <span className="font-medium text-black">
                           {teachersRequired}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-gray-600">
-                        <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                        <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
                         <span className="text-gray-500">Trợ giảng cần:</span>
                         <span className="font-medium text-black">
                           {tasRequired}

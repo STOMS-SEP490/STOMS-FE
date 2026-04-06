@@ -3,11 +3,11 @@ import type { SubjectListItem } from '../subject'
 import subjectApi from '../api/subjectApi'
 
 export type UseSubjectsOptions = {
-  /** Mặc định 10; trang chỉ đọc TL/Teacher truyền 6 vì hàng có 2 dòng (tên + mô tả) */
   pageSize?: number
-  /** Điều khiển từ layout (search cùng hàng tab) — phải truyền cả hai */
   search?: string
   setSearch?: (v: string) => void
+  /** true: non-manager — gọi filter với IsActive=true */
+  activeOnly?: boolean
 }
 
 export const useSubjects = (options?: UseSubjectsOptions) => {
@@ -23,6 +23,7 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize] = useState(options?.pageSize ?? 10)
   const [totalItems, setTotalItems] = useState(0)
+  const activeOnly = Boolean(options?.activeOnly)
 
   const setSearch = useCallback(
     (v: string) => {
@@ -36,7 +37,7 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
     [controlled, setSearchParent],
   )
 
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -44,6 +45,7 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
         pageNumber,
         pageSize,
         subjectName: search.trim() || undefined,
+        ...(activeOnly ? { IsActive: true } : {}),
       })
 
       setData(res.items ?? [])
@@ -51,14 +53,11 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [pageNumber, pageSize, search, activeOnly])
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      void fetchSubjects()
-    }, 300)
-    return () => clearTimeout(t)
-  }, [pageNumber, pageSize, search])
+    void fetchSubjects()
+  }, [fetchSubjects])
 
   return {
     data,

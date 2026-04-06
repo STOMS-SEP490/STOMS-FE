@@ -65,5 +65,7 @@ export type TopicFilterParams = {
   pageSize?: number
   topicId?: number
   topicName?: string
+  /** Khi true: API chỉ trả chủ đề đang hoạt động (đồng bộ TopicFilterRequest.IsActive). */
+  IsActive?: boolean
 }
 

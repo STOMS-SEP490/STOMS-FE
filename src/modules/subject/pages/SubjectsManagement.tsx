@@ -22,6 +22,7 @@ import { useSubjects } from '../hooks/useSubjects'
 import subjectApi from '../api/subjectApi'
 import subjectSkillApi, { type SubjectSkillItem } from '../api/subjectSkillApi'
 import subjectSessionApi from '../api/subjectSessionApi'
+import { SubjectDetailDrawer } from '../components/SubjectDetailDrawer'
 
 type EditableSession = {
   subjectSessionId?: number
@@ -96,17 +97,6 @@ export default function SubjectsManagement() {
       setDetailLoading(false)
     }
   }
-
-  const activeSubjectSkills = useMemo(() => {
-    if (!detailSubject) return []
-    return (detailSubject.subjectSkills ?? []).filter((ss) =>
-      ss?.isActive === undefined ? true : ss.isActive === true,
-    )
-  }, [detailSubject])
-
-  const skillDisplayName = (
-    ss: NonNullable<SubjectListItem['subjectSkills']>[number],
-  ) => ss.skillName ?? ss.skill?.skillName ?? `Skill #${ss.skillId}`
 
   const [openEdit, setOpenEdit] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
@@ -585,99 +575,12 @@ export default function SubjectsManagement() {
         />
       </div>
 
-      <Drawer
+      <SubjectDetailDrawer
         open={detailOpen}
         onClose={closeDetailFromUrl}
-        placement="right"
-        width={720}
-        title={detailSubject ? `Môn học ${detailSubject.subjectCode}` : 'Chi tiết môn học'}
-      >
-        {detailLoading && !detailSubject ? (
-          <div className="text-sm text-gray-500">Đang tải chi tiết...</div>
-        ) : detailSubject ? (
-          <div className="stoms-scrollbar space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-            <div>
-              <div className="text-xs text-gray-500">Tên môn học</div>
-              <div className="text-sm font-medium">{detailSubject.subjectName || '—'}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Mô tả</div>
-              <div className="text-sm">{detailSubject.description || '—'}</div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Chủ đề</div>
-                <div className="text-sm font-medium">
-                  {detailSubject.topicName ?? detailSubject.topicId ?? '—'}
-                </div>
-              </div>
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Số buổi</div>
-                <div className="text-sm font-medium">{detailSubject.numberOfSession}</div>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <div className="text-xs text-gray-500">Trạng thái</div>
-              <div className="text-sm">{detailSubject.isActive ? 'Đang hoạt động' : 'Vô hiệu hóa'}</div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Số khóa học đang dùng môn này</div>
-                <div className="text-sm font-medium">
-                  {detailSubject.courseSubjects ? detailSubject.courseSubjects.length : 0}
-                </div>
-              </div>
-
-              {activeSubjectSkills.length > 0 && (
-                <div className="rounded-md border p-2">
-                  <div className="text-xs text-gray-500 mb-1">Kỹ năng liên quan</div>
-                  <div className="flex flex-wrap gap-1">
-                    {activeSubjectSkills.map((ss) => (
-                      <span
-                        key={`${ss.subjectId}-${ss.skillId}`}
-                        className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs border border-blue-100"
-                      >
-                        {skillDisplayName(ss)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {detailSubject.subjectSessions && detailSubject.subjectSessions.length > 0 && (
-              <div className="pt-3 space-y-2">
-                <div className="text-xs font-semibold text-gray-600 uppercase">
-                  Danh sách buổi học trong môn
-                </div>
-                <div className="border rounded-md divide-y">
-                  {detailSubject.subjectSessions.map((session) => (
-                    <div
-                      key={session.subjectSessionId}
-                      className="px-3 py-2 flex gap-3 items-start"
-                    >
-                      <div className="w-10 text-xs font-semibold text-gray-700">
-                        Buổi {session.sessionNo}
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="text-sm font-medium">{session.title}</div>
-                        <div className="text-xs text-gray-500">
-                          Thời lượng: {session.duration || '—'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500">Không có dữ liệu.</div>
-        )}
-      </Drawer>
+        detailSubject={detailSubject}
+        detailLoading={detailLoading}
+      />
 
       <Drawer
         open={openEdit}

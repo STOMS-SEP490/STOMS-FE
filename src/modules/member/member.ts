@@ -36,6 +36,8 @@ export type MemberDetail = {
   userUpdatedAt: string | null;
   userLockedAt: string | null;
   roleId: number;
+  /** GET /members/filter & /members/:id — MemberSkillItem từ BE */
+  skills?: { skillId: number; skillName: string; isActive: boolean }[];
 };
 
 /** Bảng danh sách dùng cùng kiểu chi tiết */

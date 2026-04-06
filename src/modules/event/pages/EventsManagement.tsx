@@ -21,7 +21,7 @@ import {
   Power,
   PowerOff,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { message, Modal } from 'antd';
 import eventApi from '@/modules/event/api/eventApi';
 import eventSessionApi from '@/modules/event/api/eventSessionApi';
@@ -56,6 +56,7 @@ type EditableEventSession = {
 
 export default function EventsManagement() {
   const location = useLocation();
+  /** TL / Giảng viên / PC: chỉ đọc, API luôn isActive=true; Manager: đầy đủ CRUD + lọc trạng thái */
   const readOnly =
     location.pathname.startsWith('/tl/') ||
     location.pathname.startsWith('/teacher/') ||
@@ -99,16 +100,17 @@ export default function EventsManagement() {
 
   const fetchEvents = async () => {
     try {
+      const isActive = readOnly
+        ? true
+        : statusFilter === 'all'
+          ? undefined
+          : statusFilter === 'active';
+
       const res = await eventApi.getEvents({
         pageNumber,
         pageSize,
         keyword: search.trim() || undefined,
-        isActive:
-          statusFilter === 'all'
-            ? undefined
-            : statusFilter === 'active'
-              ? true
-              : false,
+        isActive,
       });
 
       setEvents(res.items ?? []);
@@ -120,7 +122,7 @@ export default function EventsManagement() {
 
   useEffect(() => {
     fetchEvents();
-  }, [pageNumber, search, statusFilter]);
+  }, [pageNumber, search, statusFilter, readOnly]);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailEvent, setDetailEvent] = useState<EventListItem | null>(null);
@@ -139,6 +141,7 @@ export default function EventsManagement() {
     }
     setDetailOpen(false);
     setDetailEvent(null);
+    lastOpenedEventIdRef.current = null;
 
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -148,7 +151,7 @@ export default function EventsManagement() {
     });
   };
 
-  const openDetailById = async (id: number) => {
+  const openDetailById = useCallback(async (id: number) => {
     try {
       const full = await eventApi.getById(id);
       setDetailEvent(full);
@@ -157,7 +160,7 @@ export default function EventsManagement() {
     } catch {
       message.error('Không tải được thông tin sự kiện');
     }
-  };
+  }, []);
 
   const handleViewDetail = async (e: EventListItem) => {
     try {
@@ -182,11 +185,11 @@ export default function EventsManagement() {
     const id = Number(eventIdFromUrl);
     if (!id || Number.isNaN(id)) return;
 
-    if (detailOpen && lastOpenedEventIdRef.current === id) return;
+    // Đã có đúng dữ liệu chi tiết cho id trong URL thì không gọi API lại (tránh lệch ref/detailOpen).
+    if (detailOpen && detailEvent?.eventId === id) return;
 
     void openDetailById(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openDetailFromUrl, eventIdFromUrl]);
+  }, [openDetailFromUrl, eventIdFromUrl, detailOpen, detailEvent?.eventId, openDetailById]);
 
   const openCreate = () => {
     if (readOnly) return;
@@ -616,16 +619,14 @@ export default function EventsManagement() {
   return (
     <>
       {readOnly ? (
-        <div
-          className="p-6 bg-slate-50 flex flex-col gap-2 min-h-0 overflow-hidden"
-          style={{ height: 'var(--content-height, 100vh)' }}
-        >
-          <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
-            <div className="min-w-0">
-              <h2 className="text-xl font-semibold text-black">Danh sách sự kiện</h2>
-              <p className="text-xs text-gray-500">Xem thông tin các sự kiện trong hệ thống</p>
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 min-[900px]:gap-3">
+        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 bg-slate-50 p-6 pb-8">
+          <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+            <h2 className="text-xl font-semibold text-black">Danh sách sự kiện</h2>
+            <p className="text-xs text-gray-500">Xem thông tin các sự kiện trong hệ thống</p>
+          </div>
+
+          <div className="shrink-0 px-2 py-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
               <HoverSearch
                 value={search}
                 onChange={(v) => {
@@ -634,29 +635,12 @@ export default function EventsManagement() {
                 }}
                 placeholder="Tìm theo tên hoặc mã sự kiện..."
               />
-              <Select
-                value={statusFilter}
-                onValueChange={(v: 'all' | 'active' | 'inactive') => {
-                  setStatusFilter(v);
-                  setPageNumber(1);
-                }}
-              >
-                <SelectTrigger className="h-9 w-[160px] border-slate-200 bg-white text-sm">
-                  <SelectValue placeholder="Trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="active">Hoạt động</SelectItem>
-                  <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
-                </SelectContent>
-              </Select>
               <Button
                 variant="secondary"
                 className="h-9 border-slate-200 bg-white"
                 type="button"
                 onClick={() => {
                   setSearch('');
-                  setStatusFilter('all');
                   setPageNumber(1);
                 }}
               >
@@ -665,10 +649,11 @@ export default function EventsManagement() {
             </div>
           </div>
 
-          <div className="relative flex w-full min-w-0 flex-1 min-h-0 flex-col bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+          <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <DataTable
               comfortable
               fillHeight
+              tableGap="tight"
               columns={columns}
               data={events}
               pageNumber={pageNumber}

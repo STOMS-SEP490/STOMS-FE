@@ -209,7 +209,7 @@ export default function RequestSessionDetailPanel({
         <div className="px-4 py-3 space-y-3 text-sm">
           {sessionError && <p className="text-xs text-red-600">{sessionError}</p>}
           <div className="flex items-center gap-3 text-gray-600">
-            <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+            <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Thời gian:</span>
             <span className="font-medium text-black">
               {sessionLoading
@@ -222,14 +222,14 @@ export default function RequestSessionDetailPanel({
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+            <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Ngày:</span>
             <span className="font-medium text-black">
               {sessionLoading ? 'Đang tải...' : startAt ? dayjs(startAt).format('DD/MM/YYYY') : '—'}
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+            <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Địa điểm:</span>
             <span className="font-medium text-black">
               {sessionLoading
@@ -238,19 +238,19 @@ export default function RequestSessionDetailPanel({
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <Hash className="w-4 h-4 text-gray-400 shrink-0" />
+            <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Mã yêu cầu:</span>
-            <span className="font-semibold text-sky-600">{requestCode}</span>
+            <span className="font-semibold text-[#2197C0]">{requestCode}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-700">
-            <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
+            <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="font-semibold text-gray-900">Số lượng giảng viên yêu cầu:</span>
-            <span className="text-base font-bold text-sky-700 tracking-tight">
+            <span className="text-base font-bold tracking-tight text-[#2197C0]">
               {sessionLoading ? 'Đang tải...' : (teachersRequired ?? '—')}
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-700">
-            <Users className="w-4 h-4 text-gray-400 shrink-0" />
+            <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="font-semibold text-gray-900">Số lượng trợ giảng yêu cầu:</span>
             <span className="text-base font-bold text-violet-700 tracking-tight">
               {sessionLoading ? 'Đang tải...' : (tasRequired ?? '—')}

@@ -1,4 +1,4 @@
-import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
+import { Navigate } from 'react-router-dom';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import EventCalendar from '@/modules/event/pages/EventCalendar';
 import UserProfile from '@/modules/user/pages/UserProfile';
@@ -13,9 +13,11 @@ import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout'
 import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
 import TopicsReadonlyPage from '@/modules/topic/pages/TopicsReadonlyPage';
 import TeacherDashboard from '@/modules/dashboard/pages/TeacherDashboard';
+import MyTeamPage from '@/modules/team/pages/MyTeamPage';
 
 const TeacherRoutes = [
   { path: 'dashboard', element: <TeacherDashboard /> },
+  { path: 'teams', element: <MyTeamPage /> },
   { path: 'events', element: <EventsManagement /> },
   {
     path: 'courses',
@@ -27,7 +29,7 @@ const TeacherRoutes = [
     ],
   },
   { path: 'timetable', element: <EventCalendar /> },
-  { path: 'timetable/assignments', element: <TeamLeaderTimetableAssignments /> },
+  { path: 'timetable/assignments', element: <Navigate to="/teacher/timetable" replace /> },
   { path: 'teaching-history', element: <TeacherTeachingHistoryPage /> },
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'contracts/:id', element: <ContractsManagement /> },

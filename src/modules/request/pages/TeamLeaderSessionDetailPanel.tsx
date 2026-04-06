@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { Calendar, Clock, GraduationCap, Hash, MapPin, UserCheck, Users } from 'lucide-react';
+import { Calendar, Clock, GraduationCap, Hash, List, MapPin, UserCheck, Users } from 'lucide-react';
 import type { RequestSessionSummary } from '../request';
 import sessionApi from '@/modules/request/api/sessionApi';
 import attendanceApi from '@/modules/attendance/api/attendanceApi';
 import type { Attendance } from '@/modules/attendance/attendance';
 import { getAttendanceOwnerId } from '@/shared/utils/attendanceOwner';
+import { Badge } from '@/shared/components/ui/badge';
 
 export type TeamLeaderSessionDetailPanelProps = {
   session: RequestSessionSummary;
   requestCode: string;
+  requestName?: string;
   /** Cột "Ủy quyền" sau Check out; chỉ truyền khi cần (vd. team leader). */
   delegateColumn?: {
     currentMemberId: number | null;
@@ -29,6 +31,7 @@ export type TeamLeaderSessionDetailPanelProps = {
 export default function TeamLeaderSessionDetailPanel({
   session,
   requestCode,
+  requestName,
   delegateColumn,
   memberDelegateColumnVisible = true,
   onOpenAttendance,
@@ -146,6 +149,11 @@ export default function TeamLeaderSessionDetailPanel({
     ? 'grid-cols-[minmax(0,1fr)_64px_64px_112px]'
     : 'grid-cols-[minmax(0,1fr)_64px_64px]';
 
+  const topic = session.subjectSession ?? session.eventSession;
+  const sessionNotes = (session as any)?.notes as string | undefined;
+  const responseText = topic?.description?.trim() ? topic.description.trim() : sessionNotes?.trim();
+  const sessionSkills = session.sessionSkills ?? [];
+
   return (
     <div className="space-y-4 text-sm">
       {/* Thông tin phiên — giống phần manager nhưng không hiển thị reservation */}
@@ -153,36 +161,76 @@ export default function TeamLeaderSessionDetailPanel({
         <div className="px-4 py-2.5 border-b border-gray-100">
           <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
         </div>
-        <div className="px-4 py-3 space-y-3 text-sm">
+        <div className="px-4 py-3 space-y-2 text-sm">
+          {(topic?.title?.trim() || responseText || topic?.duration?.trim()) && (
+            <div className="space-y-2">
+              {topic?.title?.trim() ? (
+                <div className="flex items-start gap-3">
+                  <span className="text-xs text-gray-500 shrink-0 mt-0.5">Tiêu đề:</span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-black">{topic.title.trim()}</p>
+                  </div>
+                </div>
+              ) : null}
+
+             
+
+              {topic?.duration?.trim() ? (
+                <div className="flex items-center gap-3 text-gray-600">
+                  <span className="text-xs text-gray-500">Thời lượng:</span>
+                  <span className="font-medium text-black">{topic.duration.trim()}</span>
+                </div>
+              ) : null}
+
+              {sessionSkills.length ? (
+                <div className="flex items-start gap-3">
+                  <span className="text-xs text-gray-500 shrink-0 mt-0.5">Kỹ năng:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {sessionSkills.map((name) => (
+                      <Badge key={name} className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px]">
+                        {name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           <div className="flex items-center gap-3 text-gray-600">
-            <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+            <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Thời gian:</span>
             <span className="font-medium text-black">
               {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
             </span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+            <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Ngày:</span>
             <span className="font-medium text-black">{dayjs(session.startAt).format('DD/MM/YYYY')}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+            <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Địa điểm:</span>
             <span className="font-medium text-black">{(session as RequestSessionSummary & { location?: string }).location || '—'}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <Hash className="w-4 h-4 text-gray-400 shrink-0" />
+            <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Mã yêu cầu:</span>
-            <span className="font-semibold text-sky-600">{requestCode}</span>
+            <span className="font-semibold text-[#2197C0]">{requestCode}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <GraduationCap className="w-4 h-4 text-gray-400 shrink-0" />
+            <List className="h-4 w-4 shrink-0 text-[#2197C0]" />
+            <span className="text-gray-500">Tên yêu cầu:</span>
+            <span className="font-medium text-black">{requestName?.trim() ? requestName.trim() : '—'}</span>
+          </div>
+          <div className="flex items-center gap-3 text-gray-600">
+            <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Số lượng giảng viên:</span>
             <span className="font-medium text-black">{session.teachersRequired ?? '—'}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-600">
-            <Users className="w-4 h-4 text-gray-400 shrink-0" />
+            <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
             <span className="text-gray-500">Số lượng trợ giảng:</span>
             <span className="font-medium text-black">{session.tasRequired ?? '—'}</span>
           </div>
@@ -338,7 +386,7 @@ export default function TeamLeaderSessionDetailPanel({
                                   : 'Ủy quyền điểm danh cho thành viên này'
                               }
                             >
-                              <UserCheck className="h-3 w-3 shrink-0 text-sky-600" />
+                              <UserCheck className="h-3 w-3 shrink-0 text-[#2197C0]" />
                               {delegatingMemberId === a.memberId ? '...' : 'Ủy quyền'}
                             </button>
                           );

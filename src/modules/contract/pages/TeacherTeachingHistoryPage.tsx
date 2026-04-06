@@ -64,7 +64,21 @@ export default function TeacherTeachingHistoryPage() {
   >(null);
   const [sessionDetailContract, setSessionDetailContract] = useState<TeachingHistoryItem['contract'] | null>(null);
   const [sessionDetailRoleLabel, setSessionDetailRoleLabel] = useState<string | null>(null);
+  const [sessionDetailItemSnapshot, setSessionDetailItemSnapshot] = useState<TeachingHistoryItem | null>(null);
   const sessionDetailFetchSeq = useRef(0);
+
+  const sessionDetailHeading = useMemo(() => {
+    const req = sessionDetailRequest;
+    const fromReq = (req?.requestName ?? '').trim() || req?.requestCode || '';
+    if (fromReq) return fromReq;
+    const snap = sessionDetailItemSnapshot;
+    if (snap) {
+      const fromRow = (snap.request?.requestName ?? '').trim() || snap.request?.requestCode || '';
+      if (fromRow) return fromRow;
+      return sessionDisplayName(snap) || '—';
+    }
+    return '—';
+  }, [sessionDetailRequest, sessionDetailItemSnapshot]);
 
   const closeSessionDetail = () => {
     sessionDetailFetchSeq.current += 1;
@@ -75,12 +89,14 @@ export default function TeacherTeachingHistoryPage() {
     setSessionDetailSession(null);
     setSessionDetailContract(null);
     setSessionDetailRoleLabel(null);
+    setSessionDetailItemSnapshot(null);
   };
 
   const openSessionDetail = async (item: TeachingHistoryItem) => {
     sessionDetailFetchSeq.current += 1;
     const seq = sessionDetailFetchSeq.current;
 
+    setSessionDetailItemSnapshot(item);
     setSessionDetailOpen(true);
     setSessionDetailLoading(true);
     setSessionDetailError(null);
@@ -316,9 +332,7 @@ export default function TeacherTeachingHistoryPage() {
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div className="min-w-0">
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
-                <h2 className="text-lg font-bold text-slate-900 truncate">
-                  Phiên {sessionDetailSession?.sessionNo ?? '—'}
-                </h2>
+                <h2 className="text-lg font-bold text-slate-900 truncate">{sessionDetailHeading}</h2>
                 {sessionDetailRequest?.requestCode ? (
                   <div className="text-xs text-slate-500 mt-1 truncate">
                     {sessionDetailRequest.requestCode}
@@ -350,6 +364,7 @@ export default function TeacherTeachingHistoryPage() {
                   <TeamLeaderSessionDetailPanel
                     session={sessionDetailSession}
                     requestCode={sessionDetailRequest.requestCode ?? ''}
+                    requestName={sessionDetailRequest.requestName ?? ''}
                   />
 
                   <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
@@ -381,7 +396,9 @@ export default function TeacherTeachingHistoryPage() {
                             onClick={async () => {
                               try {
                                 const full = await contractApi.getById(sessionDetailContract.contractId);
-                                setDetailRoleLabel(sessionDetailRoleLabel);
+                                const role = sessionDetailRoleLabel;
+                                closeSessionDetail();
+                                setDetailRoleLabel(role);
                                 setDetailContract(full);
                                 setDetailOpen(true);
                               } catch (err) {
