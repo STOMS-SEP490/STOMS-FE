@@ -3,6 +3,7 @@ import { message } from 'antd';
 import { getRequestType } from '@/shared/components/request/RequestCard';
 import { getRequestStatusLabel, getTeamLeaderRequestStatusInfo, isSessionAssignmentRejectedStatus } from '@/constants/status';
 import { teamApi } from '@/modules/team/api/teamApi';
+import type { AssignmentResponse } from '@/modules/request/session.types';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import requestApi from '@/modules/request/api/requestApi';
 import sessionApi from '@/modules/request/api/sessionApi';
@@ -23,14 +24,25 @@ const ASSIGNABLE_STATUSES = ['PENDING', 'REJECTED'];
 
 const normalizeStatus = (status?: string | number | null) => String(status ?? '').trim().toUpperCase();
 
-const isAssignableStatus = (status?: string | number | null) => {
+/** Assignment đã hủy nhận (vd. bận) — không tính vào quota “team khác”; BE thường tạo assignment mới thay thế. */
+export function isAssignmentCancelledStatus(status: string | number | null | undefined): boolean {
+  if (status == null || status === '') return false;
+  const n = Number(status);
+  if (!Number.isNaN(n) && n === SESSION_STATUS.CANCELLED) return true;
+  const compact = String(status).toUpperCase().replace(/[\s_-]/g, '');
+  return compact === 'CANCELLED' || compact === 'CANCELED';
+}
+
+/** Chỉ PENDING / REJECTED team leader được đổi nhân sự; APPROVED (2) và Cancelled không. */
+export function isTeamLeaderAssignmentEditableStatus(status?: string | number | null): boolean {
+  if (isAssignmentCancelledStatus(status)) return false;
   const normalized = normalizeStatus(status);
   return (
     normalized === '1' ||
     normalized === '3' ||
     ASSIGNABLE_STATUSES.some((item) => normalized === item || normalized.includes(item))
   );
-};
+}
 
 /** Local selection `0` means “gỡ chọn”, phải ghi đè staffMemberId từ API. */
 export function getEffectiveStaffMemberId(
@@ -44,25 +56,41 @@ export function getEffectiveStaffMemberId(
   return Number(fallbackStaffMemberId ?? 0);
 }
 
+export type TeamLeaderSlotPartition = {
+  editableTeacherSlots: AssignmentResponse[];
+  editableTaSlots: AssignmentResponse[];
+  lockedTeacherCount: number;
+  lockedTaCount: number;
+  cancelledTeacherSlots: AssignmentResponse[];
+  cancelledTaSlots: AssignmentResponse[];
+  teachersRequired: number;
+  tasRequired: number;
+};
+
 /**
- * Chỉ tính slot mà team leader được phân công (quota team), không gồm slot “team khác”.
+ * Chia slot TE/TA: chỉ assignment **chưa Cancelled** mới tham gia slice quota vs “team khác”.
+ * Assignment Cancelled vẫn trả về riêng để UI hiển thị “cần phân lại” / lịch sử hủy nhận.
  */
-export function computeTeamLeaderAssignableSlotStats(
+export function partitionTeamLeaderAssignmentSlots(
   detail: SessionDetail | undefined,
   currentTeamId: number | null,
-  assignSelections: Record<number, number>,
-): { total: number; filled: number } {
+): TeamLeaderSlotPartition {
   const assignments = detail?.Assignments ?? [];
-  const teacherSlots = assignments.filter((a) =>
+  const teacherSlotsAll = assignments.filter((a) =>
     String(a.StaffRole ?? '')
       .toUpperCase()
       .includes('TE'),
   );
-  const taSlots = assignments.filter((a) =>
+  const taSlotsAll = assignments.filter((a) =>
     String(a.StaffRole ?? '')
       .toUpperCase()
       .includes('TA'),
   );
+
+  const teacherActive = teacherSlotsAll.filter((a) => !isAssignmentCancelledStatus(a.Status));
+  const taActive = taSlotsAll.filter((a) => !isAssignmentCancelledStatus(a.Status));
+  const cancelledTeacherSlots = teacherSlotsAll.filter((a) => isAssignmentCancelledStatus(a.Status));
+  const cancelledTaSlots = taSlotsAll.filter((a) => isAssignmentCancelledStatus(a.Status));
 
   const teamSessionsRaw = detail?.TeamSessions ?? [];
 
@@ -79,15 +107,46 @@ export function computeTeamLeaderAssignableSlotStats(
 
   const teachersRequired = Math.max(
     0,
-    Number(currentTeamSession?.teachersRequired ?? detail?.TeachersRequired ?? teacherSlots.length) || 0,
+    Number(
+      currentTeamSession?.teachersRequired ??
+        detail?.TeachersRequired ??
+        teacherSlotsAll.length,
+    ) || 0,
   );
   const tasRequired = Math.max(
     0,
-    Number(currentTeamSession?.tasRequired ?? detail?.TasRequired ?? taSlots.length) || 0,
+    Number(currentTeamSession?.tasRequired ?? detail?.TasRequired ?? taSlotsAll.length) || 0,
   );
 
-  const editableTeacherSlots = teacherSlots.slice(0, teachersRequired);
-  const editableTaSlots = taSlots.slice(0, tasRequired);
+  const editableTeacherSlots = teacherActive.slice(0, teachersRequired);
+  const editableTaSlots = taActive.slice(0, tasRequired);
+  const lockedTeacherCount = Math.max(0, teacherActive.length - teachersRequired);
+  const lockedTaCount = Math.max(0, taActive.length - tasRequired);
+
+  return {
+    editableTeacherSlots,
+    editableTaSlots,
+    lockedTeacherCount,
+    lockedTaCount,
+    cancelledTeacherSlots,
+    cancelledTaSlots,
+    teachersRequired,
+    tasRequired,
+  };
+}
+
+/**
+ * Chỉ tính slot mà team leader được phân công (quota team), không gồm slot “team khác”.
+ */
+export function computeTeamLeaderAssignableSlotStats(
+  detail: SessionDetail | undefined,
+  currentTeamId: number | null,
+  assignSelections: Record<number, number>,
+): { total: number; filled: number } {
+  const { editableTeacherSlots, editableTaSlots } = partitionTeamLeaderAssignmentSlots(
+    detail,
+    currentTeamId,
+  );
   const editable = [...editableTeacherSlots, ...editableTaSlots];
 
   const total = editable.length;
@@ -168,11 +227,6 @@ const mapFilteredSessionLite = (session: any, requestId: number): TeamSessionLit
     requestId,
   );
 
-const isAssigningTabRequest = (status?: string) => {
-  const value = normalizeStatus(status);
-  return value.includes('APPROVED') || value.includes('ASSIGNING') || value === '3' || value === '4';
-};
-
 const isRejectedTabRequest = (status?: string) => {
   const value = normalizeStatus(status);
   return value.includes('ASSIGNMENT_REJECTED') || value === '5' || value.includes('REJECTED') || value === '2';
@@ -196,14 +250,10 @@ const fetchTeamId = async (memberId: number) => {
   return firstTeam?.teamId != null ? Number(firstTeam.teamId) : undefined;
 };
 
-const buildAssigningRequests = async (
-  teamId: number,
-  needsActionOnly: boolean,
-): Promise<TeamRequestItem[]> => {
-  const statuses = needsActionOnly ? ['APPROVED'] : ['ASSIGNING', 'APPROVED'];
+const buildAssigningRequests = async (teamId: number): Promise<TeamRequestItem[]> => {
   const response = await requestApi.getRequests({
     teamId,
-    statuses,
+    assignmentStatuses: ['1'],
     pageNumber: 1,
     pageSize: 200,
   });
@@ -306,7 +356,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
   const [activeSession, setActiveSession] = useState<TeamSessionLite | null>(null);
 
-  const loadInitial = useCallback(async (tab: TeamLeaderAssignmentsTab, needsActionOnly: boolean) => {
+  const loadInitial = useCallback(async (tab: TeamLeaderAssignmentsTab) => {
     try {
       setLoading(true);
       const rawUser = JSON.parse(localStorage.getItem('user') || '{}') as { memberId?: number };
@@ -327,7 +377,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
       const validRequests =
         tab === 'assigning'
-          ? await buildAssigningRequests(teamId, needsActionOnly)
+          ? await buildAssigningRequests(teamId)
           : await buildRejectedRequests(teamId);
 
       setRequests(validRequests);
@@ -341,14 +391,57 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   }, []);
 
   useEffect(() => {
-    void loadInitial(activeTab, onlyNeedsAction);
-  }, [loadInitial, activeTab, onlyNeedsAction]);
+    void loadInitial(activeTab);
+  }, [loadInitial, activeTab]);
 
   useEffect(() => {
     setStatusFilter(activeTab === 'assigning' ? 'assigning' : 'all');
     setOnlyNeedsAction(false);
     setActiveSession(null);
   }, [activeTab]);
+
+  const getSessionStats = useCallback(
+    (s: TeamSessionLite) => {
+      const detail = sessionDetailsById[s.sessionId];
+      const assignments = detail?.Assignments ?? [];
+      const { total, filled } = computeTeamLeaderAssignableSlotStats(
+        detail,
+        currentTeamId,
+        assignSelections,
+      );
+      return { total, filled, detail, assignments };
+    },
+    [sessionDetailsById, assignSelections, currentTeamId],
+  );
+
+  /** Mọi slot thuộc quota team đã có nhân sự (theo chi tiết phiên + lựa chọn local). */
+  const isRequestTeamSlotsFullyAssigned = useCallback(
+    (request: TeamRequestItem) => {
+      const sessions = request.sessions ?? [];
+      if (sessions.length === 0) return false;
+      let hasSlots = false;
+      for (const s of sessions) {
+        const stats = getSessionStats(s);
+        if (stats.total > 0) {
+          hasSlots = true;
+          if (stats.filled < stats.total) return false;
+          continue;
+        }
+
+        const raw = String(s.status ?? '').trim();
+        const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
+        const statusCode = Number(raw);
+        const isAssignedStatus =
+          normalized === 'ASSIGNED' ||
+          (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNED);
+
+        if (!isAssignedStatus) return false;
+        hasSlots = true;
+      }
+      return hasSlots;
+    },
+    [getSessionStats],
+  );
 
   const filteredRequests = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -367,17 +460,25 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       return isRejectedTabRequest(r.status);
     };
 
+    // Tab assigning: dữ liệu đã lọc bởi BE (`assignmentStatuses: ['1']`). Không lọc thêm theo
+    // `request.status` — ví dụ BE có thể trả Published (5) khi vẫn còn slot pending, trùng 12 vs 11.
     const tabFiltered =
       activeTab === 'rejected'
         ? base.filter((r) => hasAssignmentRejectedSession(r))
-        : base.filter((r) => isAssigningTabRequest(r.status));
+        : base;
 
     if (activeTab === 'assigning' && onlyNeedsAction) {
-      return tabFiltered;
+      return tabFiltered.filter((r) => !isRequestTeamSlotsFullyAssigned(r));
     }
 
     return tabFiltered;
-  }, [requests, search, onlyNeedsAction, activeTab]);
+  }, [
+    requests,
+    search,
+    onlyNeedsAction,
+    activeTab,
+    isRequestTeamSlotsFullyAssigned,
+  ]);
 
   const selectedRequest = useMemo(
     () => requests.find((r) => r.requestId === selectedRequestId) ?? null,
@@ -438,7 +539,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         const itemsForSession: AssignMemberPayload[] = [];
 
         for (const a of assignments) {
-          if (!isAssignableStatus(a.Status)) continue;
+          if (!isTeamLeaderAssignmentEditableStatus(a.Status)) continue;
 
           const staffMemberId = getEffectiveStaffMemberId(
             a.AssignmentId,
@@ -462,7 +563,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       }
       message.success('Đã gửi phân công.');
 
-      await loadInitial(activeTab, onlyNeedsAction);
+      await loadInitial(activeTab);
       setActiveSession(null);
     } catch (err) {
       message.error(getErrorMessage(err, 'Gửi phân công thất bại.'));
@@ -476,7 +577,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     sessionApi,
     assignmentApi,
     loadInitial,
-    onlyNeedsAction,
     activeTab,
   ]);
 
@@ -711,7 +811,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
           itemsForSession = [];
           for (const a of assignments) {
             if (!a?.AssignmentId) continue;
-            if (!isAssignableStatus(a.Status)) continue;
+            if (!isTeamLeaderAssignmentEditableStatus(a.Status)) continue;
 
             const chosenStaffId = getEffectiveStaffMemberId(
               a.AssignmentId,
@@ -784,6 +884,10 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
   const handleSelectStaff = useCallback(
     (sessionId: number, assignmentId: number, memberId: number) => {
+      const detail = sessionDetailsByIdRef.current[sessionId];
+      const row = detail?.Assignments?.find((x) => x.AssignmentId === assignmentId);
+      if (row != null && !isTeamLeaderAssignmentEditableStatus(row.Status)) return;
+
       // Store previous override for rollback (optimistic UI)
       const prevOverride = assignSelectionsRef.current[assignmentId];
       rollbackOverrideByAssignmentIdRef.current[assignmentId] = prevOverride === undefined ? null : prevOverride;
@@ -857,7 +961,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
           if (!assignments.length) continue;
 
           const assignmentIds = assignments
-            .filter((a) => a?.AssignmentId && isAssignableStatus(a.Status))
+            .filter((a) => a?.AssignmentId && isTeamLeaderAssignmentEditableStatus(a.Status))
             .map((a) => a?.AssignmentId)
             .filter((x): x is number => typeof x === 'number' && x > 0);
           if (!assignmentIds.length) continue;
@@ -870,7 +974,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
           for (const a of assignments) {
             if (!a?.AssignmentId) continue;
-            if (!isAssignableStatus(a.Status)) continue;
+            if (!isTeamLeaderAssignmentEditableStatus(a.Status)) continue;
 
             const roleKey = getRoleKey(a.StaffRole);
             const candidates = baseSelectedByRole[roleKey] ?? [];
@@ -920,49 +1024,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       sessionApi,
       selectedRequest,
     ],
-  );
-
-  const getSessionStats = useCallback(
-    (s: TeamSessionLite) => {
-      const detail = sessionDetailsById[s.sessionId];
-      const assignments = detail?.Assignments ?? [];
-      const { total, filled } = computeTeamLeaderAssignableSlotStats(
-        detail,
-        currentTeamId,
-        assignSelections,
-      );
-      return { total, filled, detail, assignments };
-    },
-    [sessionDetailsById, assignSelections, currentTeamId],
-  );
-
-  /** Mọi slot thuộc quota team đã có nhân sự (theo chi tiết phiên + lựa chọn local). */
-  const isRequestTeamSlotsFullyAssigned = useCallback(
-    (request: TeamRequestItem) => {
-      const sessions = request.sessions ?? [];
-      if (sessions.length === 0) return false;
-      let hasSlots = false;
-      for (const s of sessions) {
-        const stats = getSessionStats(s);
-        if (stats.total > 0) {
-          hasSlots = true;
-          if (stats.filled < stats.total) return false;
-          continue;
-        }
-
-        const raw = String(s.status ?? '').trim();
-        const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
-        const statusCode = Number(raw);
-        const isAssignedStatus =
-          normalized === 'ASSIGNED' ||
-          (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNED);
-
-        if (!isAssignedStatus) return false;
-        hasSlots = true;
-      }
-      return hasSlots;
-    },
-    [getSessionStats],
   );
 
   const handleResetFilters = () => {

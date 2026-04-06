@@ -18,6 +18,8 @@ const requestApi = {
           RequestId: params?.requestId,
           Statuses: params?.statuses,
           SessionStatuses: params?.sessionStatuses,
+          AssignmentStatuses: params?.assignmentStatuses,
+          RequireAllAssignmentsHaveStaffMember: params?.requireAllAssignmentsHaveStaffMember,
           TeamId: params?.teamId,
           PageNumber: params?.pageNumber,
           PageSize: params?.pageSize,
@@ -57,6 +59,12 @@ const requestApi = {
         ApprovedByMemberId: payload.approvedByMemberId ?? null,
       },
     );
+  },
+
+  cancel: (id: number, payload: { reason: string }): Promise<RequestListItem> => {
+    return axiosClient.put<RequestListItem, RequestListItem>(`/requests/${id}/cancel`, {
+      Reason: payload.reason,
+    });
   },
 
   update: (id: number, data: Partial<CreateRequestPayload>): Promise<void> => {

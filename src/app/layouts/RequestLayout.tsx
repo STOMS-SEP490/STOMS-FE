@@ -1,30 +1,44 @@
-import RequestSidebar from '@/shared/components/request/RequestSideBar';
+import RequestSidebar, { type ManagerRequestStatusFilter } from '@/shared/components/request/RequestSideBar';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Switch } from '@/shared/components/ui/switch';
 import { RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
+/** Tab Duyệt yêu cầu (/approval): chỉ lọc theo các trạng thái phê duyệt. */
+const APPROVAL_TAB_STATUS_FILTERS: ManagerRequestStatusFilter[] = [
+  'all',
+  'pending',
+  'rejected',
+  'approved',
+];
+
 export default function RequestLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [onlyPending, setOnlyPending] = useState(false);
   const [search, setSearch] = useState('');
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
   const [typeFilter, setTypeFilter] = useState<'all' | 'event' | 'subject' | 'course'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'assigning'>('all');
-  const viewMode = useMemo<'request' | 'assignment'>(
-    () => (location.pathname.includes('/requests/assignments') ? 'assignment' : 'request'),
-    [location.pathname]
-  );
-  const requestBasePath = viewMode === 'assignment' ? '/manager/requests/assignments' : '/manager/requests';
+  const [statusFilter, setStatusFilter] = useState<ManagerRequestStatusFilter>('all');
+  const tabValue = useMemo<'all' | 'approval' | 'assignment'>(() => {
+    if (location.pathname.includes('/requests/assignments')) return 'assignment';
+    if (location.pathname.includes('/requests/approval')) return 'approval';
+    return 'all';
+  }, [location.pathname]);
+
+  const outletViewMode = tabValue === 'assignment' ? 'assignment' : 'request';
+
+  const requestBasePath =
+    tabValue === 'assignment'
+      ? '/manager/requests/assignments'
+      : tabValue === 'approval'
+        ? '/manager/requests/approval'
+        : '/manager/requests';
 
   const handleResetFilters = () => {
     setSearch('');
-    setOnlyPending(false);
     setTypeFilter('all');
     setStatusFilter('all');
   };
@@ -41,14 +55,20 @@ export default function RequestLayout() {
   }, []);
 
   useEffect(() => {
-    if (viewMode === 'assignment') {
-      setOnlyPending(false);
+    if (tabValue === 'assignment') {
       setStatusFilter('assigning');
       return;
     }
 
+    if (tabValue === 'approval') {
+      setStatusFilter((prev) =>
+        APPROVAL_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
+      );
+      return;
+    }
+
     setStatusFilter((prev) => (prev === 'assigning' ? 'all' : prev));
-  }, [viewMode]);
+  }, [tabValue]);
 
   return (
     <div
@@ -66,25 +86,34 @@ export default function RequestLayout() {
 
       <div className="px-4 pb-2 mb-1 pt-0">
         <Tabs
-          value={viewMode}
+          value={tabValue}
           onValueChange={(v) => {
-            const mode = v as 'request' | 'assignment';
+            const mode = v as 'all' | 'approval' | 'assignment';
             if (mode === 'assignment') {
-              setOnlyPending(false);
               setStatusFilter('assigning');
               navigate('/manager/requests/assignments');
               return;
             }
-            setStatusFilter('all');
+            if (mode === 'approval') {
+              setStatusFilter((prev) =>
+                APPROVAL_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
+              );
+              navigate('/manager/requests/approval');
+              return;
+            }
+            setStatusFilter((prev) => (prev === 'assigning' ? 'all' : prev));
             navigate('/manager/requests');
           }}
         >
           <TabsList>
-            <TabsTrigger value="request">
-              Duyệt yêu cầu
+            <TabsTrigger value="all">
+              Tất cả yêu cầu
+            </TabsTrigger>
+            <TabsTrigger value="approval">
+            Yêu cầu cần duyệt
             </TabsTrigger>
             <TabsTrigger value="assignment">
-              Duyệt phân công
+              Phân công cần duyệt
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -107,16 +136,27 @@ export default function RequestLayout() {
           </Select>
 
           {/* Status Filter — khác theo tab */}
-          {viewMode === 'request' ? (
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[160px]">
+          {tabValue !== 'assignment' && tabValue !== 'approval' ? (
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as ManagerRequestStatusFilter)}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[180px]">
                 <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="pending">Chờ duyệt</SelectItem>
-                <SelectItem value="approved">Đã duyệt</SelectItem>
                 <SelectItem value="rejected">Từ chối</SelectItem>
+                <SelectItem value="approved">Đã duyệt</SelectItem>
+                {tabValue === 'all' ? (
+                  <>
+                    <SelectItem value="assigning">Đang phân công</SelectItem>
+                    <SelectItem value="published">Đã công bố</SelectItem>
+                    <SelectItem value="completed">Hoàn thành</SelectItem>
+                    <SelectItem value="cancelled">Đã hủy</SelectItem>
+                  </>
+                ) : null}
               </SelectContent>
             </Select>
           ) : (
@@ -133,39 +173,30 @@ export default function RequestLayout() {
             <RotateCcw size={16} />
           </Button>
 
-          {/* Chỉ hiện switch ở tab Duyệt yêu cầu */}
-          {viewMode === 'request' && (
-            <div className="flex items-center space-x-2 ">
-              <Switch
-                className="!rounded-[15px]"
-                checked={onlyPending}
-                onCheckedChange={setOnlyPending}
-              />
-              <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
-            </div>
-          )}
         </div>
       </div>
-      <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
+      <div className="flex gap-4 flex-1 min-h-0 min-w-0 overflow-hidden pb-4">
         {/* Sidebar */}
-        <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
+        <div className="w-[360px] shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <RequestSidebar
             basePath={requestBasePath}
             search={search}
-            onlyPending={onlyPending}
+            onlyPending={tabValue === 'approval'}
             typeFilter={typeFilter}
             statusFilter={statusFilter}
             refreshKey={sidebarRefreshKey}
+            requestStatusesScope={tabValue === 'all' ? 'all' : 'approval'}
+            filterByPendingAssignments={tabValue === 'assignment'}
           />
         </div>
 
-        {/* Content */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto no-scrollbar pr-1">
+        {/* Content — cuộn một vùng trong trang chi tiết (giống TL assignments), tránh lồng 2 lớp overflow-y */}
+        <div className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col">
+          <div className="h-full min-h-0 overflow-hidden pr-1">
             <Outlet
               context={{
                 refreshRequestSidebar: () => setSidebarRefreshKey((k) => k + 1),
-                viewMode,
+                viewMode: outletViewMode,
               }}
             />
           </div>

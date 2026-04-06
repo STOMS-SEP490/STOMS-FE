@@ -1,24 +1,28 @@
 import { useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { AlertCircle, Calendar, Hash, List, MapPin, X, Paperclip } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Calendar, Hash, List, MapPin, X, Paperclip } from 'lucide-react';
+import { message } from 'antd';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { getRequestType } from '@/shared/components/request/RequestCard';
-import { getRequestStatusInfo } from '@/constants/status';
+import { getRequestStatusInfo, getSessionStatusCode, getSessionStatusInfo, SESSION_STATUS } from '@/constants/status';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext, SessionWithFlags } from '../requestDetail.types';
 import type { RequestSessionSummary } from '../request';
 import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
 import { Dialog } from '@/shared/components/ui/dialog';
+import { Label } from '@/shared/components/ui/label';
+import { Button } from '@/shared/components/ui/button';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
+import sessionService from '../api/sessionApi';
 
 export default function RequestDetailManagerReadonly() {
   const { id } = useParams<{ id: string }>();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
 
-  const { request, sessions, rightPanel, setRightPanel, loading, uiAssignedTeamIdsBySessionId } =
+  const { request, sessions, rightPanel, setRightPanel, loading, uiAssignedTeamIdsBySessionId, refreshDetail } =
     useRequestDetailManager({
       id,
       viewMode,
@@ -27,6 +31,9 @@ export default function RequestDetailManagerReadonly() {
 
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ fileName: string; fileUrl: string } | null>(null);
+  const [cancelSessionOpen, setCancelSessionOpen] = useState(false);
+  const [cancelSessionReason, setCancelSessionReason] = useState('');
+  const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
 
   const openAttachmentPreview = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
     if (!fileUrl) return;
@@ -91,10 +98,49 @@ export default function RequestDetailManagerReadonly() {
     rightPanel?.mode === 'detail'
       ? (sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session)
       : null;
+  const canCancelDetailSession = (() => {
+    if (!resolvedDetailSession) return false;
+    const code = getSessionStatusCode((resolvedDetailSession as any).status);
+    if (code == null) return true;
+    const blocked = new Set<number>([SESSION_STATUS.ONGOING, SESSION_STATUS.COMPLETED, SESSION_STATUS.CANCELLED]);
+    return !blocked.has(code);
+  })();
+
+  const openCancelSessionDialog = () => {
+    if (!resolvedDetailSession) return;
+    setCancelSessionReason('');
+    setCancelSessionOpen(true);
+  };
+
+  const handleConfirmCancelSession = async () => {
+    if (!resolvedDetailSession) return;
+    const trimmed = cancelSessionReason.trim();
+    if (!trimmed) {
+      message.warning('Vui lòng nhập lý do hủy phiên.');
+      return;
+    }
+    try {
+      setCancelSessionLoading(true);
+      await sessionService.cancel({ sessionId: resolvedDetailSession.sessionId, reason: trimmed });
+      message.success('Đã hủy phiên.');
+      setCancelSessionOpen(false);
+      setCancelSessionReason('');
+      await refreshDetail();
+      refreshRequestSidebar?.();
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msg = (err as any)?.message || 'Hủy phiên thất bại.';
+      message.error(msg);
+    } finally {
+      setCancelSessionLoading(false);
+    }
+  };
 
   return (
-    <div className="bg-slate-50" style={{ minHeight: 'calc(var(--content-height, 100vh) - 64px)' }}>
-      <div className="mx-auto max-w-6xl px-4 pb-0 mb-0 space-y-4 text-black">
+    <>
+      <div className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden text-black">
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
+          <div className="w-full min-w-0 space-y-4">
         <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
           <div className="flex flex-wrap items-center gap-3">
             <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
@@ -291,6 +337,10 @@ export default function RequestDetailManagerReadonly() {
           </TabsContent>
         </Tabs>
 
+          </div>
+        </div>
+      </div>
+
         <Dialog
           open={attachmentPreviewOpen}
           onClose={() => setAttachmentPreviewOpen(false)}
@@ -376,15 +426,14 @@ export default function RequestDetailManagerReadonly() {
                   )}
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     <span className="text-xs font-medium text-sky-600">Dạy học</span>
-                    <span
-                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                        rightPanel.session.teamAssigned
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          : 'bg-amber-50 text-amber-800 border border-amber-200'
-                      }`}
-                    >
-                      {rightPanel.session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
-                    </span>
+                    {(() => {
+                      const info = getSessionStatusInfo((resolvedDetailSession as any)?.status);
+                      return (
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
+                          {info.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -416,12 +465,86 @@ export default function RequestDetailManagerReadonly() {
                     </div>
                   </>
                 ) : null}
+
+                {resolvedDetailSession ? (
+                  <div className="mt-6 pt-4 border-t border-slate-100">
+                    <div className="relative inline-flex group">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!canCancelDetailSession) {
+                            message.info('Không đủ điều kiện hủy phiên.');
+                            return;
+                          }
+                          openCancelSessionDialog();
+                        }}
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 ${
+                          canCancelDetailSession
+                            ? 'text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2'
+                            : 'text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
+                        Hủy phiên
+                      </button>
+                      {!canCancelDetailSession ? (
+                        <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
+                          Không đủ điều kiện hủy
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
         )}
-      </div>
-    </div>
+
+        {/* Hủy phiên (PUT /sessions/cancel) — cần lý do */}
+        <Dialog
+          open={cancelSessionOpen}
+          onClose={() => !cancelSessionLoading && setCancelSessionOpen(false)}
+          title="Hủy phiên"
+          description="Nhập lý do hủy. Thao tác không thể hoàn tác."
+          className="max-w-md border-0 shadow-2xl"
+        >
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="cancel-session-reason" className="text-black">
+                Lý do <span className="text-red-500">*</span>
+              </Label>
+              <textarea
+                id="cancel-session-reason"
+                rows={4}
+                value={cancelSessionReason}
+                onChange={(e) => setCancelSessionReason(e.target.value)}
+                placeholder="Ví dụ: Khách hàng đổi lịch, không còn nhu cầu..."
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-lg border-gray-200"
+                disabled={cancelSessionLoading}
+                onClick={() => setCancelSessionOpen(false)}
+              >
+                Đóng
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-lg border-red-200 text-red-600 hover:bg-red-50"
+                disabled={cancelSessionLoading}
+                onClick={handleConfirmCancelSession}
+              >
+                {cancelSessionLoading ? 'Đang xử lý...' : 'Xác nhận hủy'}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+    </>
   );
 }
 

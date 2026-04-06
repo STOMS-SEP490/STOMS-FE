@@ -305,25 +305,20 @@ export default function RequestDetailEquipmentPanel({
   return (
     <>
       <div className="flex flex-col gap-4 h-full min-h-[70vh]">
-        <p className="text-xs text-gray-500">
-          Chọn nhiều phiên để đặt dài hạn: Giờ mượn tự lấy từ session sớm nhất và Giờ trả tự lấy từ session muộn nhất. Sau đó chọn 1 hoặc nhiều thiết bị để đặt trước 1 lần.
-        </p>
 
         <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
           {reservationRows.slice(0, 1).map((row, rowIndex) => (
             <div
               key={rowIndex}
-              className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-3"
+              className="rounded-2xl bg-slate-50/70 p-5 space-y-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-gray-700">Đặt trước dài hạn (nhiều phiên)</span>
-              </div>
+             
 
-              <div>
+              <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <label className="block text-[11px] font-medium text-gray-500">Phiên học (chọn nhiều)</label>
                   {row.sessionIds.length > 0 && (
-                    <span className="text-[11px] text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5">
+                    <span className="text-[11px] font-medium text-sky-800 bg-sky-100/80 rounded-full px-2.5 py-0.5">
                       {row.sessionIds.length} phiên
                     </span>
                   )}
@@ -338,7 +333,7 @@ export default function RequestDetailEquipmentPanel({
                           key={id}
                           type="button"
                           onClick={() => setReservationRowSessions(rowIndex, row.sessionIds.filter((x) => x !== id))}
-                          className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] text-sky-800 hover:bg-sky-100"
+                          className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-sky-800 shadow-sm ring-1 ring-sky-200/60 hover:bg-sky-50/90 hover:ring-sky-300/70"
                           title="Bỏ phiên"
                         >
                           <span className="font-semibold">Phiên {s.sessionNo}</span>
@@ -382,7 +377,7 @@ export default function RequestDetailEquipmentPanel({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="rounded-full w-full"
+                    className="rounded-full w-full border-slate-200/90 bg-white shadow-sm hover:bg-slate-50"
                     onClick={() => setSessionPickerOpen(true)}
                   >
                     {row.sessionIds.length > 0 ? 'Chọn thêm' : 'Chọn phiên'}
@@ -391,12 +386,12 @@ export default function RequestDetailEquipmentPanel({
               </div>
 
               {row.sessionIds.length > 0 && (
-                <div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                <div className="space-y-4 pt-1 border-t border-slate-200/60">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Giờ mượn</label>
                       <DatePicker
-                        className="h-9 w-full text-xs text-black border-gray-200 bg-white rounded-lg"
+                        className="h-9 w-full text-xs text-black !rounded-xl border-slate-200/90 bg-white shadow-sm"
                         value={row.startAtLocal ? dayjs(row.startAtLocal) : null}
                         showTime={{ format: 'HH:mm' }}
                         format="DD/MM/YYYY HH:mm"
@@ -411,7 +406,7 @@ export default function RequestDetailEquipmentPanel({
                     <div>
                       <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Giờ trả</label>
                       <DatePicker
-                        className="h-9 w-full text-xs text-black border-gray-200 bg-white rounded-lg"
+                        className="h-9 w-full text-xs text-black !rounded-xl border-slate-200/90 bg-white shadow-sm"
                         value={row.endAtLocal ? dayjs(row.endAtLocal) : null}
                         showTime={{ format: 'HH:mm' }}
                         format="DD/MM/YYYY HH:mm"
@@ -425,12 +420,12 @@ export default function RequestDetailEquipmentPanel({
                     </div>
                   </div>
 
-                  <label className="block text-[11px] font-medium text-gray-500 mb-1.5">
+                  <label className="block text-[11px] font-medium text-slate-600 mb-2">
                     Thiết bị khả dụng (chọn ít nhất 1)
                   </label>
                   {row.equipmentIds.length > 0 && (
-                    <div className="mb-2 rounded-xl border border-blue-100 bg-blue-50/40 px-3 py-2">
-                      <div className="text-[11px] font-semibold text-blue-700 mb-1">
+                    <div className="rounded-xl bg-sky-50/90 px-3 py-2.5">
+                      <div className="text-[11px] font-semibold text-sky-900 mb-1.5">
                         Thiết bị đã chọn ({row.equipmentIds.length})
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -456,7 +451,7 @@ export default function RequestDetailEquipmentPanel({
                                   });
                                 }
                               }}
-                              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white px-2 py-1 text-[11px] text-blue-800 hover:bg-blue-50"
+                              className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] text-sky-900 shadow-sm ring-1 ring-sky-200/50 hover:bg-white"
                               title="Bỏ chọn"
                             >
                               <span className="max-w-[220px] truncate">
@@ -469,21 +464,21 @@ export default function RequestDetailEquipmentPanel({
                       </div>
                     </div>
                   )}
-                  <div className="flex gap-2 mb-2">
+                  <div className="flex gap-2 mb-1">
                     <div className="relative flex-1">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                       <Input
                         placeholder="Tìm theo tên hoặc mã thiết bị..."
                         value={row.search ?? ''}
                         onChange={(e) => setReservationRowSearch(rowIndex, e.target.value)}
-                        className="pl-8 py-1.5 text-xs text-black border-gray-200 bg-white rounded-lg"
+                        className="pl-8 py-1.5 text-xs text-black border-0 shadow-none rounded-xl bg-slate-100/90 focus-visible:ring-0 focus-visible:bg-white focus-visible:shadow-[0_0_0_2px_rgba(14,165,233,0.25)]"
                       />
                     </div>
                     <Select
                       value={row.categoryId != null ? String(row.categoryId) : 'all'}
                       onValueChange={(v) => setReservationRowCategory(rowIndex, v === 'all' ? null : Number(v))}
                     >
-                      <SelectTrigger className="h-9 w-[180px] text-xs bg-white text-gray-700 border-gray-300">
+                      <SelectTrigger className="h-9 w-[180px] text-xs font-medium bg-slate-100/90 text-slate-700 rounded-xl border-0 shadow-none ring-0 focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-white data-[state=open]:shadow-[0_0_0_2px_rgba(14,165,233,0.2)]">
                         <SelectValue placeholder="Danh mục" />
                       </SelectTrigger>
                       <SelectContent>
@@ -509,7 +504,7 @@ export default function RequestDetailEquipmentPanel({
                     const cache = availabilityByKey[key];
                     if (!cache) {
                       return (
-                        <div className="py-4 text-center text-xs text-gray-500 rounded-lg bg-white border border-gray-100">
+                        <div className="py-10 text-center text-xs text-slate-500 rounded-xl bg-white/60">
                           {row.startAtLocal && row.endAtLocal ? 'Đang tải thiết bị...' : 'Vui lòng chọn giờ mượn/giờ trả.'}
                         </div>
                       );
@@ -539,21 +534,17 @@ export default function RequestDetailEquipmentPanel({
                       );
                     }
                     return (
-                      <div className="rounded-xl border border-gray-200 bg-white px-2 py-2 space-y-2">
+                      <div className="flex flex-col gap-1">
                         {items.map((eq) => {
                           const isSelected = row.equipmentIds.includes(eq.EquipmentId);
                           return (
                             <div
                               key={eq.EquipmentId}
-                              className={`rounded-xl border px-3 py-2 flex items-center gap-3 text-sm transition ${
-                                isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-blue-300 hover:bg-gray-50'
+                              className={`flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm transition-colors ${
+                                isSelected ? 'bg-sky-50/95' : 'hover:bg-slate-100/60'
                               }`}
                             >
-                              <div
-                                className={`w-10 h-10 rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center ${
-                                  eq.ImgLink ? 'border bg-gray-50' : 'bg-gray-50'
-                                }`}
-                              >
+                              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-100">
                                 {eq.ImgLink ? (
                                   <Image
                                     src={eq.ImgLink}
@@ -586,13 +577,12 @@ export default function RequestDetailEquipmentPanel({
                                   </div>
                                 </div>
                                 <span
-                                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
-                                    isSelected
-                                      ? 'bg-blue-600 border-blue-600 text-white'
-                                      : 'border-gray-300 bg-white text-gray-400'
+                                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                                    isSelected ? 'bg-sky-600 text-white' : 'bg-slate-200/80'
                                   }`}
+                                  aria-hidden
                                 >
-                                  {isSelected ? <Check size={9} strokeWidth={3} /> : ''}
+                                  {isSelected ? <Check size={9} strokeWidth={3} /> : null}
                                 </span>
                               </button>
                             </div>
@@ -602,7 +592,7 @@ export default function RequestDetailEquipmentPanel({
                     );
                   })()}
                   {row.equipmentIds.length > 0 && (
-                    <p className="text-[11px] text-blue-600 mt-1.5">
+                    <p className="text-[11px] text-sky-700/90 font-medium mt-2">
                       Đã chọn {row.equipmentIds.length} thiết bị
                     </p>
                   )}

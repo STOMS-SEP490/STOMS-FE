@@ -448,17 +448,19 @@ export default function RequestDetailTeamPanel({
         </div>
       )}
 
-      {/* Thêm đội */}
-      <button
-        type="button"
-        onClick={() => setShowAddTeam((v) => !v)}
-        className="w-full rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:border-sky-400 hover:text-sky-600 hover:bg-sky-50/50 py-2.5 flex items-center justify-center gap-2 text-sm font-medium transition"
-      >
-        <Plus className="w-4 h-4" />
-        Thêm đội
-      </button>
+      {/* Chỉ hiện sau khi đã có ít nhất 1 đội — lần đầu dùng danh sách gợi ý bên dưới để chọn */}
+      {addedTeamIds.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAddTeam((v) => !v)}
+          className="w-full rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:border-sky-400 hover:text-sky-600 hover:bg-sky-50/50 py-2.5 flex items-center justify-center gap-2 text-sm font-medium transition"
+        >
+          <Plus className="w-4 h-4" />
+          Thêm đội
+        </button>
+      )}
 
-      {/* Danh sách gợi ý (khi bấm Thêm đội hoặc chưa có đội) */}
+      {/* Danh sách gợi ý: luôn khi chưa có đội; khi đã có đội thì chỉ khi bấm Thêm đội */}
       {(showAddTeam || addedTeamIds.length === 0) && (
         <>
           <div className="flex items-center gap-1.5 text-[11px] text-gray-500">

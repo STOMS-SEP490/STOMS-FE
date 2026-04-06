@@ -13,6 +13,8 @@ import type {
   SessionAssignmentRow,
   SessionWithFlags,
 } from '../requestDetail.types';
+import { getRequestStatusCode, REQUEST_STATUS } from '@/constants/status';
+import { canManagerReviewAssignmentRow } from '../utils/assignmentSlotUtils';
 
 const mapSessionAssignments = (detail: any): SessionAssignmentRow[] => {
   const rawAssignments = detail?.Assignments ?? detail?.assignments ?? [];
@@ -26,6 +28,7 @@ const mapSessionAssignments = (detail: any): SessionAssignmentRow[] => {
         staffMemberId: Number(a.staffMemberId ?? a.StaffMemberId ?? 0),
         staffRole: String(a.staffRole ?? a.StaffRole ?? '').toUpperCase(),
         status: String(a.status ?? a.Status ?? ''),
+        reason: String(a.reason ?? a.Reason ?? '').trim() || undefined,
         fullName: staff?.fullName || staff?.FullName || '—',
         email: staff?.userEmail || staff?.email || staff?.Email || staffUser?.email || staffUser?.Email || '',
         avatarUrl: staff?.avatarUrl || staff?.AvatarUrl || '',
@@ -180,6 +183,8 @@ export const useRequestDetailManager = (params: {
   );
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  /** reject = PUT /reject; cancel = PUT /cancel (Hủy yêu cầu) */
+  const [rejectDialogAction, setRejectDialogAction] = useState<'reject' | 'cancel'>('reject');
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [approvingSessionId, setApprovingSessionId] = useState<number | null>(null);
@@ -324,8 +329,13 @@ export const useRequestDetailManager = (params: {
     };
   }, [request?.requestId, rightPanel, loadSessionsByRequestId, applySessionState]);
 
+  const requestStatusCode = request ? getRequestStatusCode(request.status) : null;
+  const shouldLoadSessionAssignments =
+    viewMode === 'assignment' ||
+    (requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.PUBLISHED);
+
   useEffect(() => {
-    if (viewMode !== 'assignment') return;
+    if (!shouldLoadSessionAssignments) return;
     if (!sessions.length) return;
     const missingIds = sessions
       .map((s) => s.sessionId)
@@ -348,16 +358,23 @@ export const useRequestDetailManager = (params: {
               const rows = await Promise.all(
                 baseAssignments.map(async (a: AssignmentResponse) => {
                   const assignmentId = Number(a.AssignmentId ?? 0);
+                  const reasonFromSession =
+                    a.Reason != null && String(a.Reason).trim() ? String(a.Reason).trim() : undefined;
                   try {
                     if (assignmentId <= 0) throw new Error('Invalid assignment id');
                     const full = await assignmentService.getById(assignmentId);
                     const staff = (full as any).staffMember ?? (full as any).StaffMember;
                     const staffUser = staff?.user ?? staff?.User ?? null;
+                    const reasonFromDetail =
+                      full.reason != null && String(full.reason).trim()
+                        ? String(full.reason).trim()
+                        : undefined;
                     return {
                       assignmentId: Number((full as any).assignmentId ?? (full as any).AssignmentId ?? assignmentId),
                       staffMemberId: Number((full as any).staffMemberId ?? (full as any).StaffMemberId ?? 0),
                       staffRole: String((full as any).staffRole ?? (full as any).StaffRole ?? '').toUpperCase(),
                       status: String((full as any).status ?? (full as any).Status ?? ''),
+                      reason: reasonFromDetail || reasonFromSession,
                       fullName: staff?.fullName || '—',
                       email:
                         staff?.userEmail ||
@@ -376,6 +393,7 @@ export const useRequestDetailManager = (params: {
                       staffMemberId: Number(a.StaffMemberId ?? 0),
                       staffRole: String(a.StaffRole ?? '').toUpperCase(),
                       status: String(a.Status ?? ''),
+                      reason: reasonFromSession,
                       fullName: staff?.FullName || '—',
                       email: staff?.Email ?? staffUser?.Email ?? '',
                       avatarUrl: staff?.AvatarUrl ?? '',
@@ -406,7 +424,7 @@ export const useRequestDetailManager = (params: {
     return () => {
       cancelled = true;
     };
-  }, [viewMode, sessions, assignmentsBySessionId]);
+  }, [shouldLoadSessionAssignments, sessions, assignmentsBySessionId, request?.requestId]);
 
   const handleAssignSession = useCallback(
     (
@@ -498,6 +516,21 @@ export const useRequestDetailManager = (params: {
     });
   }, []);
 
+  const handleToggleSelectAllReviewableAssignments = useCallback((sessionId: number) => {
+    setSelectedAssignmentIdsBySessionId((prev) => {
+      const sessionRows = assignmentsBySessionId[sessionId] ?? [];
+      const reviewableIds = sessionRows
+        .filter((r) => canManagerReviewAssignmentRow(r))
+        .map((r) => r.assignmentId)
+        .filter((aid) => aid > 0);
+      const current = prev[sessionId] ?? [];
+      const allSelected =
+        reviewableIds.length > 0 && reviewableIds.every((aid) => current.includes(aid));
+      const nextForSession = allSelected ? [] : reviewableIds;
+      return { ...prev, [sessionId]: nextForSession };
+    });
+  }, [assignmentsBySessionId]);
+
   const handleApproveSelectedAssignments = useCallback(
     async (sessionId: number) => {
       const rows = assignmentsBySessionId[sessionId] ?? [];
@@ -506,9 +539,21 @@ export const useRequestDetailManager = (params: {
         return;
       }
       const selected = selectedAssignmentIdsBySessionId[sessionId] ?? [];
-      const ids = (selected.length ? selected : rows.map((r) => r.assignmentId)).filter((id) => id > 0);
+      if (!selected.length) {
+        message.warning('Vui lòng chọn ít nhất một phân công để duyệt.');
+        return;
+      }
+      const ids = selected
+        .map((id) => Number(id))
+        .filter((id) => id > 0)
+        .filter((id) => {
+          const row = rows.find((r) => r.assignmentId === id);
+          return row != null && canManagerReviewAssignmentRow(row);
+        });
       if (!ids.length) {
-        message.warning('Vui lòng chọn ít nhất một assignment để duyệt.');
+        message.warning(
+          'Các phân công đã chọn không thể duyệt (chưa có nhân sự hoặc đã được xử lý).'
+        );
         return;
       }
       try {
@@ -516,10 +561,11 @@ export const useRequestDetailManager = (params: {
         await assignmentService.approve(ids);
         message.success('Đã duyệt các assignment đã chọn.');
         const detail = await sessionService.getById(sessionId);
-        const rowsReload = mapSessionAssignments(detail).filter((a) => a.staffMemberId > 0);
+        const rowsReload = mapSessionAssignments(detail);
         setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
         setSelectedAssignmentIdsBySessionId((prev) => ({ ...prev, [sessionId]: [] }));
         await refreshDetail();
+        refreshRequestSidebar?.();
       } catch (err) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const msg = (err as any)?.message || 'Duyệt phân công thất bại.';
@@ -528,7 +574,7 @@ export const useRequestDetailManager = (params: {
         setApprovingSessionId(null);
       }
     },
-    [assignmentsBySessionId, selectedAssignmentIdsBySessionId, refreshDetail]
+    [assignmentsBySessionId, selectedAssignmentIdsBySessionId, refreshDetail, refreshRequestSidebar]
   );
 
   const handleOpenRejectAssignment = useCallback(
@@ -558,7 +604,7 @@ export const useRequestDetailManager = (params: {
       await assignmentService.reject(rejectAssignmentState.assignmentId, trimmed);
       message.success('Đã từ chối assignment.');
       const detail = await sessionService.getById(rejectAssignmentState.sessionId);
-      const rowsReload = mapSessionAssignments(detail).filter((a) => a.staffMemberId > 0);
+      const rowsReload = mapSessionAssignments(detail);
       setAssignmentsBySessionId((prev) => ({ ...prev, [rejectAssignmentState.sessionId!]: rowsReload }));
       setSelectedAssignmentIdsBySessionId((prev) => {
         const current = prev[rejectAssignmentState.sessionId!] ?? [];
@@ -647,6 +693,14 @@ export const useRequestDetailManager = (params: {
 
   const handleRejectClick = useCallback(() => {
     if (!request || !id) return;
+    setRejectDialogAction('reject');
+    setRejectReason('');
+    setRejectOpen(true);
+  }, [id, request]);
+
+  const handleCancelRequestClick = useCallback(() => {
+    if (!request || !id) return;
+    setRejectDialogAction('cancel');
     setRejectReason('');
     setRejectOpen(true);
   }, [id, request]);
@@ -655,29 +709,39 @@ export const useRequestDetailManager = (params: {
     if (!id) return;
     const trimmed = rejectReason.trim();
     if (!trimmed) {
-      message.warning('Vui lòng nhập lý do từ chối');
+      message.warning(
+        rejectDialogAction === 'cancel' ? 'Vui lòng nhập lý do hủy' : 'Vui lòng nhập lý do từ chối',
+      );
       return;
     }
     try {
       setActionLoading(true);
-      await requestService.reject(Number(id), {
-        reason: trimmed,
-        approvedByMemberId: createdByMemberId || undefined,
-      });
-      message.success('Đã từ chối yêu cầu');
+      if (rejectDialogAction === 'cancel') {
+        await requestService.cancel(Number(id), { reason: trimmed });
+        message.success('Đã hủy yêu cầu');
+      } else {
+        await requestService.reject(Number(id), {
+          reason: trimmed,
+          approvedByMemberId: createdByMemberId || undefined,
+        });
+        message.success('Đã từ chối yêu cầu');
+      }
       setRejectOpen(false);
       setRejectReason('');
+      setRejectDialogAction('reject');
       setRightPanel(null);
       await refreshDetail();
       refreshRequestSidebar?.();
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Từ chối yêu cầu thất bại';
+      const msg =
+        (err as any)?.message ||
+        (rejectDialogAction === 'cancel' ? 'Hủy yêu cầu thất bại' : 'Từ chối yêu cầu thất bại');
       message.error(msg);
     } finally {
       setActionLoading(false);
     }
-  }, [createdByMemberId, id, rejectReason, refreshDetail, refreshRequestSidebar]);
+  }, [createdByMemberId, id, rejectDialogAction, rejectReason, refreshDetail, refreshRequestSidebar]);
 
   const handleEquipmentSuccess = useCallback(async () => {
     if (!request) return;
@@ -727,6 +791,7 @@ export const useRequestDetailManager = (params: {
     setApproveOpen,
     rejectOpen,
     setRejectOpen,
+    rejectDialogAction,
     rejectReason,
     setRejectReason,
     actionLoading,
@@ -737,15 +802,18 @@ export const useRequestDetailManager = (params: {
     setRejectAssignmentReason,
     createdByMemberId,
     assignedCount,
+    refreshDetail,
     handleAssignSession,
     handleQuantitiesChange,
     handleApproveClick,
     handleToggleAssignmentSelection,
+    handleToggleSelectAllReviewableAssignments,
     handleApproveSelectedAssignments,
     handleOpenRejectAssignment,
     handleConfirmRejectAssignment,
     handleConfirmApprove,
     handleRejectClick,
+    handleCancelRequestClick,
     handleConfirmReject,
     handleEquipmentSuccess,
   };
