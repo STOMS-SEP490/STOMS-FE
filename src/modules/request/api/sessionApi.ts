@@ -23,6 +23,12 @@ const sessionApi = {
         paramsSerializer: serializeParamsRepeatArray,
       })
       .then((raw) => normalizeSessionPagedResponse(raw as PagedResponse<SessionResponse>)),
+
+  cancel: (payload: { sessionId: number; reason: string }): Promise<void> =>
+    axiosClient.put<void, void>('/sessions/cancel', {
+      SessionId: payload.sessionId,
+      Reason: payload.reason,
+    }),
 };
 
 export default sessionApi;

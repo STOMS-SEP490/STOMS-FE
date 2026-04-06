@@ -8,12 +8,14 @@ export const useRequests = (
   refreshKey: number = 0,
   options?: {
     statuses?: string[];
+    assignmentStatuses?: string[];
   }
 ) => {
   const [data, setData] = useState<RequestListItem[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const statusesKey = options?.statuses?.join('|') ?? '';
+  const assignmentStatusesKey = options?.assignmentStatuses?.join('|') ?? '';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,6 +26,7 @@ export const useRequests = (
           pageNumber,
           pageSize,
           statuses: options?.statuses,
+          assignmentStatuses: options?.assignmentStatuses,
         });
 
         setData(res.items ?? []);
@@ -36,7 +39,7 @@ export const useRequests = (
     };
 
     fetchData();
-  }, [statusesKey, pageNumber, pageSize, refreshKey]);
+  }, [statusesKey, assignmentStatusesKey, pageNumber, pageSize, refreshKey]);
 
   return { data, totalItems, loading };
 };

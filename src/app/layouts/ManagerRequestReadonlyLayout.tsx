@@ -40,7 +40,7 @@ export default function ManagerRequestReadonlyLayout() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => navigate('/manager/requests-all')}
+            onClick={() => navigate('/manager/requests')}
             className="!p-0 w-8 h-8 rounded-lg border border-gray-300 flex items-center justify-center text-black bg-white hover:bg-gray-100 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -93,8 +93,8 @@ export default function ManagerRequestReadonlyLayout() {
         </div>
       </div>
 
-      <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
-        <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
+      <div className="flex gap-4 flex-1 min-h-0 min-w-0 overflow-hidden pb-4">
+        <div className="w-[360px] shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <RequestSidebar
             basePath="/manager/requests-view"
             search={search}
@@ -106,8 +106,8 @@ export default function ManagerRequestReadonlyLayout() {
           />
         </div>
 
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto no-scrollbar pr-1">
+        <div className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col">
+          <div className="h-full min-h-0 overflow-hidden pr-1">
             <Outlet
               context={
                 {

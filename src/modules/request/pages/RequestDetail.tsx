@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, Paperclip, ImageOff, Users, Wrench, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, AlertTriangle, Paperclip, ImageOff, Users, Wrench, ChevronDown, ChevronRight } from 'lucide-react';
+import { message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';
-import { getRequestStatusInfo } from '@/constants/status';
+import { getRequestStatusCode, getRequestStatusInfo, getSessionStatusCode, getSessionStatusInfo, REQUEST_STATUS, SESSION_STATUS } from '@/constants/status';
+import {
+  canManagerReviewAssignmentRow,
+  isAssignmentApproved,
+  isAssignmentCancelled,
+  isAssignmentRejected,
+  isAssignmentSlotFilled,
+} from '../utils/assignmentSlotUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -56,6 +64,7 @@ export default function RequestDetail() {
     setApproveOpen,
     rejectOpen,
     setRejectOpen,
+    rejectDialogAction,
     rejectReason,
     setRejectReason,
     actionLoading,
@@ -66,15 +75,18 @@ export default function RequestDetail() {
     setRejectAssignmentReason,
     createdByMemberId,
     assignedCount,
+    refreshDetail,
     handleAssignSession,
     handleQuantitiesChange,
     handleApproveClick,
     handleToggleAssignmentSelection,
+    handleToggleSelectAllReviewableAssignments,
     handleApproveSelectedAssignments,
     handleOpenRejectAssignment,
     handleConfirmRejectAssignment,
     handleConfirmApprove,
     handleRejectClick,
+    handleCancelRequestClick,
     handleConfirmReject,
     handleEquipmentSuccess,
   } = useRequestDetailManager({
@@ -136,6 +148,9 @@ export default function RequestDetail() {
   const [approvePreviewLoading, setApprovePreviewLoading] = useState(false);
   const [approveSessionPreviews, setApproveSessionPreviews] = useState<ApproveSessionPreview[]>([]);
   const [expandedEquipmentsBySessionId, setExpandedEquipmentsBySessionId] = useState<Record<number, boolean>>({});
+  const [cancelSessionOpen, setCancelSessionOpen] = useState(false);
+  const [cancelSessionReason, setCancelSessionReason] = useState('');
+  const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
 
   const loadApprovePreview = useCallback(async () => {
     if (!sessions.length) {
@@ -271,18 +286,70 @@ export default function RequestDetail() {
     eventId: request.eventId,
   });
   const statusInfo = getRequestStatusInfo(request.status);
+  const requestStatusCode = getRequestStatusCode(request.status);
+  const isRequestCancelled = requestStatusCode === REQUEST_STATUS.CANCELLED;
   const sessionCount = sessions.length || request.sessionsRequired || 0;
   const resolvedDetailSession =
     rightPanel?.mode === 'detail'
       ? (sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session)
       : null;
+  const resolvedPanelSession =
+    rightPanel && 'session' in rightPanel
+      ? (sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session)
+      : null;
+  const canCancelDetailSession = (() => {
+    if (!resolvedDetailSession) return false;
+    const code = getSessionStatusCode((resolvedDetailSession as any).status);
+    if (code == null) return true;
+    const blocked = new Set<number>([SESSION_STATUS.ONGOING, SESSION_STATUS.COMPLETED, SESSION_STATUS.CANCELLED]);
+    return !blocked.has(code);
+  })();
+  const canCancelPanelSession = (() => {
+    if (!resolvedPanelSession) return false;
+    const code = getSessionStatusCode((resolvedPanelSession as any).status);
+    if (code == null) return true;
+    const blocked = new Set<number>([SESSION_STATUS.ONGOING, SESSION_STATUS.COMPLETED, SESSION_STATUS.CANCELLED]);
+    return !blocked.has(code);
+  })();
+
+  const openCancelSessionDialog = () => {
+    const sess = resolvedDetailSession ?? resolvedPanelSession;
+    if (!sess) return;
+    setCancelSessionReason('');
+    setCancelSessionOpen(true);
+  };
+
+  const handleConfirmCancelSession = async () => {
+    const sess = resolvedDetailSession ?? resolvedPanelSession;
+    if (!sess) return;
+    const trimmed = cancelSessionReason.trim();
+    if (!trimmed) {
+      message.warning('Vui lòng nhập lý do hủy phiên.');
+      return;
+    }
+    try {
+      setCancelSessionLoading(true);
+      await sessionService.cancel({ sessionId: sess.sessionId, reason: trimmed });
+      message.success('Đã hủy phiên.');
+      setCancelSessionOpen(false);
+      setCancelSessionReason('');
+      await refreshDetail();
+      refreshRequestSidebar?.();
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msg = (err as any)?.message || 'Hủy phiên thất bại.';
+      message.error(msg);
+    } finally {
+      setCancelSessionLoading(false);
+    }
+  };
 
   return (
-    <div className="bg-slate-50" style={{ minHeight: 'calc(var(--content-height, 100vh) - 64px)' }}>
-      <div className="mx-auto max-w-6xl px-4 pb-0 mb-0 space-y-4 text-black">
-        {/* HEADER CARD — title + 3 icon (sao chép, chia sẻ, lịch) + 2 pill cùng hàng; info 3 cột */}
+    <>
+      <div className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden text-black">
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
+          <div className="w-full min-w-0 space-y-4">
         <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
-          {/* Hàng 1: Tên request, 3 icon, 2 pill */}
           <div className="flex flex-wrap items-center gap-3">
             <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
               {request.requestName ?? request.requestCode}
@@ -310,7 +377,7 @@ export default function RequestDetail() {
                 <Calendar className="w-4 h-4" />
               </button>
             </div> */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
               <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
                 {typeInfo.label}
               </span>
@@ -319,6 +386,16 @@ export default function RequestDetail() {
               >
                 {statusInfo.label}
               </span>
+              {!isRequestCancelled ? (
+                <button
+                  type="button"
+                  onClick={handleCancelRequestClick}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 rounded-sm py-0.5"
+                >
+                  <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
+                  Hủy yêu cầu
+                </button>
+              ) : null}
             </div>
           </div>
           {/* Info: Mã yêu cầu, Ngày gửi, Số lượng phiên */}
@@ -379,10 +456,7 @@ export default function RequestDetail() {
               <div className="space-y-2">
                 {sessions.map((session) => {
                   const rows = assignmentsBySessionId[session.sessionId] ?? [];
-                  const pendingCount = rows.filter((r) => {
-                    const statusText = (r.status || '').toUpperCase();
-                    return statusText !== 'APPROVED' && statusText !== '2' && statusText !== 'REJECTED' && statusText !== '3';
-                  }).length;
+                  const pendingCount = rows.filter((r) => canManagerReviewAssignmentRow(r)).length;
                   const fullyAssigned = isSessionFullyAssigned(session);
                   const sessionTitle = getSessionDisplayTitle(session);
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
@@ -398,11 +472,19 @@ export default function RequestDetail() {
                           setRightPanel({ mode: 'assignment', session });
                         }
                       }}
-                      className="w-full border border-slate-200 rounded-xl bg-white px-4 py-3 hover:border-slate-300 hover:bg-slate-50/60 transition cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
+                      className={`w-full rounded-xl border px-4 py-3 transition cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                        pendingCount > 0
+                          ? 'border-orange-200/90 bg-orange-50/30 hover:border-orange-300 hover:bg-orange-50/50 focus:ring-orange-200/80'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60 focus:ring-sky-200/70'
+                      }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
-                          <span className="text-xs text-sky-700 font-semibold tabular-nums">
+                          <span
+                            className={`text-xs font-semibold tabular-nums ${
+                              pendingCount > 0 ? 'text-orange-900' : 'text-sky-700'
+                            }`}
+                          >
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                           </span>
                           <span
@@ -415,12 +497,20 @@ export default function RequestDetail() {
                             {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
                             {fullyAssigned ? 'Đã gắn đủ' : 'Chưa đủ'}
                           </span>
-                          <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] font-semibold">
+                          <Badge
+                            className={
+                              pendingCount > 0
+                                ? 'bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-semibold'
+                                : 'bg-emerald-50 text-emerald-900 border-emerald-200 text-[10px] font-semibold'
+                            }
+                          >
                             {pendingCount > 0 ? `Chờ duyệt ${pendingCount}` : 'Đã duyệt xong'}
                           </Badge>
                         </div>
                         <span
-                          className="inline-flex items-center gap-0.5 text-xs font-semibold text-sky-700 select-none"
+                          className={`inline-flex items-center gap-0.5 text-xs font-semibold select-none ${
+                            pendingCount > 0 ? 'text-orange-900' : 'text-sky-700'
+                          }`}
                           aria-hidden
                         >
                           Chi tiết
@@ -448,11 +538,12 @@ export default function RequestDetail() {
         </div>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4 text-black">
-          <TabsList className="bg-transparent border-0 shadow-none p-0 mb-0">
-            <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-        
-            <TabsTrigger value="attachments">Tệp đính kèm</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+            <TabsList className="bg-transparent border-0 shadow-none p-0 mb-0 min-w-0">
+              <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+              <TabsTrigger value="attachments">Tệp đính kèm</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-4 mb-0">
           {/* WARNING BOX + PROGRESS — Figma: cam, tiến độ gắn đội, nút Từ chối */}
@@ -688,6 +779,10 @@ export default function RequestDetail() {
         </Tabs>
       )}
 
+          </div>
+        </div>
+      </div>
+
       {/* RIGHT SIDEBAR SLIDE-OVER FOR TEAM / EQUIPMENT */}
       {rightPanel && (
         <div className="fixed inset-0 z-40 flex justify-end">
@@ -733,15 +828,14 @@ export default function RequestDetail() {
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className="text-xs font-medium text-sky-600">Dạy học</span>
-                      <span
-                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                          rightPanel.session.teamAssigned
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                            : 'bg-amber-50 text-amber-800 border border-amber-200'
-                        }`}
-                      >
-                        {rightPanel.session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
-                      </span>
+                      {(() => {
+                        const info = getSessionStatusInfo((resolvedDetailSession as any).status);
+                        return (
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
+                            {info.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </>
                 ) : (
@@ -797,6 +891,197 @@ export default function RequestDetail() {
                       />
                     )}
                   </div>
+                  {(() => {
+                    const code = getRequestStatusCode(request.status);
+                    if (code == null || code < REQUEST_STATUS.PUBLISHED) return null;
+                    const sess =
+                      sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session;
+                    const rows = assignmentsBySessionId[sess.sessionId] ?? [];
+                    const teacherRows = rows.filter((row) => row.staffRole === 'TE' || row.staffRole === 'TEACHER');
+                    const taRows = rows.filter((row) => row.staffRole === 'TA');
+                    const renderReadRow = (
+                      row: (typeof rows)[number],
+                      colorScheme: 'sky' | 'amber'
+                    ) => {
+                      const filled = isAssignmentSlotFilled(row);
+                      const approved = isAssignmentApproved(row);
+                      const rejected = isAssignmentRejected(row);
+                      const cancelled = isAssignmentCancelled(row);
+                      const cancelReason = (row.reason ?? '').trim();
+                      if (cancelled) {
+                        return (
+                          <div
+                            key={row.assignmentId}
+                            className="space-y-2.5 border-l-[3px] border-l-red-500 bg-red-50/90 px-3 py-3"
+                          >
+                            <p className="text-xs font-medium text-red-800">Cần phân công lại</p>
+                            <div className="flex items-center gap-3 opacity-90 pointer-events-none">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-semibold text-red-800">
+                                {row.avatarUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={row.avatarUrl}
+                                    alt={row.fullName}
+                                    className="h-full w-full object-cover"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                    }}
+                                  />
+                                ) : (
+                                  (filled ? row.fullName : '?')[0]
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-slate-900">
+                                  {filled ? row.fullName : 'Chưa có nhân sự'}
+                                </p>
+                                <p className="truncate text-xs text-slate-500">
+                                  {filled ? row.email || '—' : 'Slot trống — cần Team Leader bổ sung'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="rounded-lg border border-red-200/90 bg-white/70 px-3 py-2">
+                              <p className="text-xs font-medium text-red-900 mb-1">Lý do:</p>
+                              {cancelReason ? (
+                                <p className="text-xs text-red-950 leading-relaxed whitespace-pre-wrap">
+                                  {cancelReason}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-red-700/80 italic">Chưa có lý do ghi nhận.</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+                      const accent =
+                        colorScheme === 'sky'
+                          ? {
+                              stripe: 'border-l-[3px] border-l-violet-400 bg-violet-50/55',
+                              avatar: 'bg-violet-100 text-violet-700',
+                            }
+                          : {
+                              stripe: 'border-l-[3px] border-l-yellow-400 bg-yellow-50/60',
+                              avatar: 'bg-yellow-100 text-yellow-800',
+                            };
+                      const pendingManagerReview = canManagerReviewAssignmentRow(row);
+                      const rowAccent = pendingManagerReview
+                        ? {
+                            stripe: 'border-l-[3px] border-l-orange-500 bg-orange-50/40',
+                            avatar: 'bg-orange-100 text-orange-900',
+                          }
+                        : accent;
+                      return (
+                        <div
+                          key={row.assignmentId}
+                          className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 ${
+                            filled
+                              ? rejected
+                                ? 'border-l-[3px] border-l-rose-500 bg-rose-50/30'
+                                : rowAccent.stripe
+                              : 'border-l-[3px] border-l-red-500 bg-rose-50/45'
+                          }`}
+                        >
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
+                            <div
+                              className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${filled ? rowAccent.avatar : 'bg-slate-100 text-slate-600'}`}
+                            >
+                              {row.avatarUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={row.avatarUrl}
+                                  alt={row.fullName}
+                                  className="h-full w-full object-cover"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                  }}
+                                />
+                              ) : (
+                                (filled ? row.fullName : '?')[0]
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-slate-900">
+                                {filled ? row.fullName : 'Chưa có nhân sự'}
+                              </p>
+                              <p className="truncate text-xs text-slate-500">
+                                {filled ? row.email || '—' : 'Slot trống — cần Team Leader bổ sung'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {approved && (
+                              <span className="inline-flex items-center rounded-full bg-emerald-100/90 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+                                Đã duyệt
+                              </span>
+                            )}
+                            {rejected && (
+                              <span className="inline-flex items-center rounded-full bg-rose-100/90 px-2.5 py-1 text-[11px] font-semibold text-rose-800">
+                                Đã từ chối
+                              </span>
+                            )}
+                            {pendingManagerReview && (
+                              <span className="inline-flex items-center rounded-full bg-orange-100/95 px-2.5 py-1 text-[11px] font-semibold text-orange-950">
+                                Chờ duyệt
+                              </span>
+                            )}
+                            {!filled && !approved && !rejected && (
+                              <span className="inline-flex items-center rounded-full bg-amber-100/90 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
+                                Thiếu người
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    };
+                    return (
+                      <div className="mt-6 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
+                        <div className="px-4 py-2.5 bg-slate-50/70">
+                          <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Giảng viên tím nhẹ, trợ giảng vàng nhẹ; ô trống đỏ; chờ duyệt cam.
+                          </p>
+                        </div>
+                        <div className="space-y-4 px-4 py-3 text-sm">
+                          {!rows.length ? (
+                            <p className="text-xs text-gray-500">
+                              Chưa có dữ liệu phân công cho phiên này (đang tải hoặc chưa tạo slot).
+                            </p>
+                          ) : (
+                            <>
+                              <div>
+                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                  Giảng viên
+                                </p>
+                                <div className="rounded-xl bg-violet-100/35 p-[3px]">
+                                  <div className="divide-y divide-slate-200/45 overflow-hidden rounded-[10px] bg-violet-50/40">
+                                    {teacherRows.length ? (
+                                      teacherRows.map((r) => renderReadRow(r, 'sky'))
+                                    ) : (
+                                      <p className="px-3 py-2 text-xs text-gray-500">—</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                  Trợ giảng
+                                </p>
+                                <div className="rounded-xl bg-yellow-100/40 p-[3px]">
+                                  <div className="divide-y divide-slate-200/45 overflow-hidden rounded-[10px] bg-yellow-50/45">
+                                    {taRows.length ? (
+                                      taRows.map((r) => renderReadRow(r, 'amber'))
+                                    ) : (
+                                      <p className="px-3 py-2 text-xs text-gray-500">—</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="mt-6">
                     <RequestSessionDetailPanel
                       session={
@@ -808,6 +1093,35 @@ export default function RequestDetail() {
                       onReservationUpdated={handleEquipmentSuccess}
                     />
                   </div>
+                  {resolvedDetailSession ? (
+                    <div className="mt-6 pt-4 border-t border-slate-100">
+                      <div className="relative inline-flex group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!canCancelDetailSession) {
+                              message.info('Không đủ điều kiện hủy phiên.');
+                              return;
+                            }
+                            openCancelSessionDialog();
+                          }}
+                          className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 ${
+                            canCancelDetailSession
+                              ? 'text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2'
+                              : 'text-slate-400 cursor-not-allowed'
+                          }`}
+                        >
+                          <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
+                          Hủy phiên
+                        </button>
+                        {!canCancelDetailSession ? (
+                          <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
+                            Không đủ điều kiện hủy
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </>
               )}
               {rightPanel.mode === 'team' && (
@@ -842,43 +1156,102 @@ export default function RequestDetail() {
                     </>
                   )}
 
-                  <div className="rounded-2xl bg-white border border-gray-100 shadow-sm">
-                    <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="rounded-full gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={
-                          approvingSessionId === rightPanel.session.sessionId ||
-                          (assignmentsBySessionId[rightPanel.session.sessionId] ?? []).every((r) => {
-                            const statusText = (r.status || '').toUpperCase();
-                            return (
-                              statusText === 'APPROVED' ||
-                              statusText === '2' ||
-                              statusText === 'REJECTED' ||
-                              statusText === '3'
-                            );
-                          })
-                        }
-                        onClick={() => void handleApproveSelectedAssignments(rightPanel.session.sessionId)}
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {approvingSessionId === rightPanel.session.sessionId
-                          ? 'Đang duyệt...'
-                          : 'Duyệt tất cả phân công'}
-                      </Button>
+                  {(() => {
+                    const rows = assignmentsBySessionId[rightPanel.session.sessionId] ?? [];
+                    const hasUnfilledSlot = rows.some((r) => !isAssignmentSlotFilled(r));
+                    const hasReviewableFilled = rows.some((r) => canManagerReviewAssignmentRow(r));
+                    const selectedForSession =
+                      selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
+                    const hasSelectedReviewable = selectedForSession.some((id) => {
+                      const row = rows.find((r) => r.assignmentId === id);
+                      return row != null && canManagerReviewAssignmentRow(row);
+                    });
+                    const approveAllDisabled =
+                      approvingSessionId === rightPanel.session.sessionId ||
+                      !rows.length ||
+                      !hasReviewableFilled ||
+                      !hasSelectedReviewable;
+
+                    return (
+                  <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-slate-50/70 flex items-center justify-between gap-2 flex-wrap">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
+                        {hasUnfilledSlot && rows.length > 0 ? (
+                          <p className="text-[11px] text-red-600 mt-0.5">
+                            Còn slot trống 
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
+                        {hasReviewableFilled ? (
+                          <>
+                            <label className="inline-flex items-center gap-2 cursor-pointer select-none text-[11px] text-slate-600">
+                              <input
+                                type="checkbox"
+                                ref={(el) => {
+                                  if (!el) return;
+                                  const reviewableIds = rows
+                                    .filter((r) => canManagerReviewAssignmentRow(r))
+                                    .map((r) => r.assignmentId)
+                                    .filter((id) => id > 0);
+                                  const selected =
+                                    selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
+                                  const allOn =
+                                    reviewableIds.length > 0 &&
+                                    reviewableIds.every((id) => selected.includes(id));
+                                  const someOn = reviewableIds.some((id) => selected.includes(id));
+                                  el.indeterminate = someOn && !allOn;
+                                }}
+                                checked={(() => {
+                                  const reviewableIds = rows
+                                    .filter((r) => canManagerReviewAssignmentRow(r))
+                                    .map((r) => r.assignmentId)
+                                    .filter((id) => id > 0);
+                                  const selected =
+                                    selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
+                                  return (
+                                    reviewableIds.length > 0 &&
+                                    reviewableIds.every((id) => selected.includes(id))
+                                  );
+                                })()}
+                                disabled={approvingSessionId === rightPanel.session.sessionId}
+                                onChange={() =>
+                                  handleToggleSelectAllReviewableAssignments(rightPanel.session.sessionId)
+                                }
+                                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50"
+                              />
+                              <span>Chọn tất cả chờ duyệt</span>
+                            </label>
+                            <Button
+                              type="button"
+                              size="sm"
+                              title={
+                                !hasSelectedReviewable
+                                  ? 'Vui lòng chọn ít nhất một phân công đang chờ duyệt'
+                                  : hasUnfilledSlot
+                                    ? 'Chỉ gửi duyệt các phân công đã chọn (đã có nhân sự, chờ duyệt)'
+                                    : undefined
+                              }
+                              className="rounded-full gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                              disabled={approveAllDisabled}
+                              onClick={() => void handleApproveSelectedAssignments(rightPanel.session.sessionId)}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {approvingSessionId === rightPanel.session.sessionId
+                                ? 'Đang duyệt...'
+                                : 'Duyệt phân công'}
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="px-4 py-3 space-y-1 text-sm">
-                      {(() => {
-                        const rows = assignmentsBySessionId[rightPanel.session.sessionId] ?? [];
-                        if (!rows.length) {
-                          return (
+                    <div className="px-4 py-3 space-y-4 text-sm">
+                      {!rows.length ? (
                             <p className="text-xs text-gray-500">
-                              Phiên này hiện chưa có assignment nào (hoặc chưa được Team Leader phân công).
+                              Chưa có phân công cho phiên
                             </p>
-                          );
-                        }
+                      ) : (() => {
                         const selectedIds =
                           selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
                         const teacherRows = rows.filter(
@@ -888,56 +1261,141 @@ export default function RequestDetail() {
 
                         const renderAssignmentRow = (row: (typeof rows)[number]) => {
                           const checked = selectedIds.includes(row.assignmentId);
-                          const statusText = (row.status || '').toUpperCase();
-                          const isApproved = statusText === 'APPROVED' || statusText === '2';
-                          const isRejected = statusText === 'REJECTED' || statusText === '3';
-                          const canReview = !isApproved && !isRejected;
+                          const filled = isAssignmentSlotFilled(row);
+                          const isApproved = isAssignmentApproved(row);
+                          const isRejected = isAssignmentRejected(row);
+                          const isCancelled = isAssignmentCancelled(row);
+                          const cancelReason = (row.reason ?? '').trim();
+                          const canReview = canManagerReviewAssignmentRow(row);
+                          const isTeacherRole =
+                            row.staffRole === 'TE' || row.staffRole === 'TEACHER';
+                          if (isCancelled) {
+                            return (
+                              <div
+                                key={row.assignmentId}
+                                className="flex flex-col gap-2.5 border-l-[3px] border-l-red-500 bg-red-50/90 px-3 py-3"
+                              >
+                                <div className="flex items-center gap-3 opacity-90 pointer-events-none">
+                                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-semibold text-red-800">
+                                    {row.avatarUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={row.avatarUrl}
+                                        alt={row.fullName}
+                                        className="h-full w-full object-cover"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                        }}
+                                      />
+                                    ) : (
+                                      (filled ? row.fullName : '?')[0]
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-slate-900">
+                                      {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
+                                    </p>
+                                    <p className="truncate text-xs text-slate-500">
+                                      {filled ? row.email || '—' : 'Slot trống — chờ Team Leader xử lý'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="rounded-lg border border-red-200/90 bg-white/70 px-3 py-2">
+                                  <p className="text-xs font-medium text-red-900 mb-1">Lý do:</p>
+                                  {cancelReason ? (
+                                    <p className="text-xs text-red-950 leading-relaxed whitespace-pre-wrap">
+                                      {cancelReason}
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-red-700/80 italic">Chưa có lý do ghi nhận.</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                          const accent = isTeacherRole
+                            ? {
+                                stripe: 'border-l-[3px] border-l-violet-400 bg-violet-50/55',
+                                avatar: 'bg-violet-100 text-violet-700',
+                                selectHi: 'ring-1 ring-inset ring-violet-400/50 bg-violet-50/65',
+                              }
+                            : {
+                                stripe: 'border-l-[3px] border-l-yellow-400 bg-yellow-50/60',
+                                avatar: 'bg-yellow-100 text-yellow-800',
+                                selectHi: 'ring-1 ring-inset ring-yellow-400/55 bg-yellow-50/70',
+                              };
+                          const pendingOrange = {
+                            stripe: 'border-l-[3px] border-l-orange-500 bg-orange-50/40',
+                            avatar: 'bg-orange-100 text-orange-900',
+                            selectHi: 'ring-1 ring-inset ring-orange-400/60 bg-orange-50/65',
+                          };
+                          const rowAccent = canReview ? pendingOrange : accent;
                           return (
                             <div
                               key={row.assignmentId}
-                              className={`flex items-center justify-between gap-3 py-1.5 px-2 rounded-lg transition-colors ${
-                                checked && canReview ? 'bg-sky-50' : 'bg-transparent'
+                              className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 transition-[box-shadow,background-color] ${
+                                !filled
+                                  ? 'border-l-[3px] border-l-red-500 bg-rose-50/45'
+                                  : isRejected
+                                    ? 'border-l-[3px] border-l-rose-500 bg-rose-50/30'
+                                    : checked && canReview
+                                      ? `${rowAccent.stripe} ${rowAccent.selectHi}`
+                                      : rowAccent.stripe
                               }`}
                             >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600">
+                              <div className="flex min-w-0 flex-1 items-center gap-3">
+                                <div
+                                  className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${filled ? rowAccent.avatar : 'bg-slate-100 text-slate-600'}`}
+                                >
                                   {row.avatarUrl ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
                                       src={row.avatarUrl}
                                       alt={row.fullName}
-                                      className="w-full h-full object-cover"
+                                      className="h-full w-full object-cover"
                                       onError={(e) => {
                                         (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
                                       }}
                                     />
                                   ) : (
-                                    (row.fullName || 'N')[0]
+                                    (filled ? row.fullName : '?')[0]
                                   )}
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-medium text-slate-900 truncate">
-                                    {row.fullName || '—'}
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-slate-900">
+                                    {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
                                   </p>
-                                  <p className="text-[11px] text-slate-500 truncate">{row.email || '—'}</p>
+                                  <p className="truncate text-xs text-slate-500">
+                                    {filled ? row.email || '—' : 'Slot trống — chờ Team Leader xử lý'}
+                                  </p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                                 {isApproved && (
-                                  <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] px-2 py-0.5 font-semibold">
+                                  <span className="inline-flex items-center rounded-full bg-emerald-100/90 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
                                     Đã duyệt
                                   </span>
                                 )}
                                 {isRejected && (
-                                  <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] px-2 py-0.5 font-semibold">
+                                  <span className="inline-flex items-center rounded-full bg-rose-100/90 px-2.5 py-1 text-[11px] font-semibold text-rose-800">
                                     Đã từ chối
+                                  </span>
+                                )}
+                                {!filled && !isApproved && !isRejected && (
+                                  <span className="inline-flex items-center rounded-full bg-amber-100/90 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
+                                    Thiếu người
+                                  </span>
+                                )}
+                                {canReview && (
+                                  <span className="inline-flex items-center rounded-full bg-orange-100/95 px-2.5 py-1 text-[11px] font-semibold text-orange-950">
+                                    Chờ duyệt
                                   </span>
                                 )}
                                 {canReview && (
                                   <>
                                     <button
                                       type="button"
-                                      className="rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] px-2 py-0.5"
+                                      className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"
                                       onClick={() =>
                                         handleOpenRejectAssignment(rightPanel.session.sessionId, row)
                                       }
@@ -952,12 +1410,11 @@ export default function RequestDetail() {
                                           row.assignmentId
                                         )
                                       }
-                                      className={`rounded-lg border text-[11px] px-2 py-0.5 ${
+                                      className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${
                                         checked
-                                          ? 'border-sky-500 bg-sky-50 text-sky-700'
+                                          ? 'border-orange-600 bg-orange-100 text-orange-950'
                                           : 'border-slate-300 text-slate-700 hover:bg-slate-50'
                                       }`}
-                                      disabled={!canReview}
                                     >
                                       {checked ? 'Bỏ chọn' : 'Chọn duyệt'}
                                     </button>
@@ -969,21 +1426,33 @@ export default function RequestDetail() {
                         };
 
                         return (
-                          <div className="space-y-3">
+                          <div className="space-y-4">
                             <div>
-                              <p className="text-xs font-semibold text-sky-700 mb-1">Giảng viên:</p>
-                              <div className="space-y-1">
-                                {teacherRows.length ? (
-                                  teacherRows.map(renderAssignmentRow)
-                                ) : (
-                                  <p className="text-xs text-gray-500 px-2">—</p>
-                                )}
+                              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Giảng viên
+                              </p>
+                              <div className="rounded-xl bg-violet-100/35 p-[3px]">
+                                <div className="divide-y divide-slate-200/45 overflow-hidden rounded-[10px] bg-violet-50/40">
+                                  {teacherRows.length ? (
+                                    teacherRows.map(renderAssignmentRow)
+                                  ) : (
+                                    <p className="px-3 py-2 text-xs text-gray-500">—</p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-amber-700 mb-1">Trợ giảng:</p>
-                              <div className="space-y-1">
-                                {taRows.length ? taRows.map(renderAssignmentRow) : <p className="text-xs text-gray-500 px-2">—</p>}
+                              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Trợ giảng
+                              </p>
+                              <div className="rounded-xl bg-yellow-100/40 p-[3px]">
+                                <div className="divide-y divide-slate-200/45 overflow-hidden rounded-[10px] bg-yellow-50/45">
+                                  {taRows.length ? (
+                                    taRows.map(renderAssignmentRow)
+                                  ) : (
+                                    <p className="px-3 py-2 text-xs text-gray-500">—</p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -991,6 +1460,8 @@ export default function RequestDetail() {
                       })()}
                     </div>
                   </div>
+                    );
+                  })()}
 
                   {request && (
                     <RequestSessionDetailPanel
@@ -1003,6 +1474,36 @@ export default function RequestDetail() {
                       onReservationUpdated={handleEquipmentSuccess}
                     />
                   )}
+
+                  {resolvedPanelSession ? (
+                    <div className="pt-2 border-t border-slate-100">
+                      <div className="relative inline-flex group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!canCancelPanelSession) {
+                              message.info('Không đủ điều kiện hủy phiên.');
+                              return;
+                            }
+                            openCancelSessionDialog();
+                          }}
+                          className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 ${
+                            canCancelPanelSession
+                              ? 'text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2'
+                              : 'text-slate-400 cursor-not-allowed'
+                          }`}
+                        >
+                          <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
+                          Hủy phiên
+                        </button>
+                        {!canCancelPanelSession ? (
+                          <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
+                            Không đủ điều kiện hủy
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               )}
               {rightPanel.mode === 'equipment' && (
@@ -1086,6 +1587,51 @@ export default function RequestDetail() {
         )}
       </Dialog>
 
+      {/* Hủy phiên (PUT /sessions/cancel) — cần lý do */}
+      <Dialog
+        open={cancelSessionOpen}
+        onClose={() => !cancelSessionLoading && setCancelSessionOpen(false)}
+        title="Hủy phiên"
+        description="Nhập lý do hủy. Thao tác không thể hoàn tác."
+        className="max-w-md border-0 shadow-2xl"
+      >
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="cancel-session-reason" className="text-black">
+              Lý do <span className="text-red-500">*</span>
+            </Label>
+            <textarea
+              id="cancel-session-reason"
+              rows={4}
+              value={cancelSessionReason}
+              onChange={(e) => setCancelSessionReason(e.target.value)}
+              placeholder="Ví dụ: Khách hàng đổi lịch, không còn nhu cầu..."
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-lg border-gray-200"
+              disabled={cancelSessionLoading}
+              onClick={() => setCancelSessionOpen(false)}
+            >
+              Đóng
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-lg border-red-200 text-red-600 hover:bg-red-50"
+              disabled={cancelSessionLoading}
+              onClick={handleConfirmCancelSession}
+            >
+              {cancelSessionLoading ? 'Đang xử lý...' : 'Xác nhận hủy'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
       {/* Dialog từ chối assignment */}
       <Dialog
         open={rejectAssignmentState.open}
@@ -1140,85 +1686,89 @@ export default function RequestDetail() {
         onClose={() => !actionLoading && setApproveOpen(false)}
         title="Xác nhận duyệt yêu cầu"
         description="Yêu cầu sẽ chuyển sang trạng thái đã duyệt."
-        className="max-w-2xl border-0 shadow-2xl"
+        titleClassName="text-xl sm:text-2xl"
+        descriptionClassName="text-sm sm:text-base text-slate-600"
+        className="mx-3 w-full max-w-[min(1200px,calc(100vw-1.5rem))] max-h-[92vh] border-0 shadow-2xl sm:mx-6"
       >
         {request && (
-          <div className="space-y-4 text-sm">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4">
-              <h4 className="text-lg font-bold text-slate-900">
+          <div className="space-y-5 text-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+              <h4 className="text-xl font-bold text-slate-900 sm:text-2xl">
                 {request.requestName ?? request.requestCode}
               </h4>
-              <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-3">
-                <div className="flex items-center gap-2.5">
-                  <Hash className="h-4 w-4 text-sky-500" />
+              <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-3">
+                <div className="flex items-center gap-3">
+                  <Hash className="h-5 w-5 shrink-0 text-sky-500" />
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
-                    <p className="text-sm font-semibold text-slate-900">{request.requestCode}</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
+                    <p className="text-base font-semibold text-slate-900">{request.requestCode}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <Calendar className="h-4 w-4 text-sky-500" />
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-5 w-5 shrink-0 text-sky-500" />
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Ngày tạo</p>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Ngày tạo</p>
+                    <p className="text-base font-semibold text-slate-900">
                       {request.createdAt
                         ? dayjs(request.createdAt).format('DD/MM/YYYY')
                         : dayjs(request.startDate).format('DD/MM/YYYY')}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <List className="h-4 w-4 text-sky-500" />
+                <div className="flex items-center gap-3">
+                  <List className="h-5 w-5 shrink-0 text-sky-500" />
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Số lượng phiên</p>
-                    <p className="text-sm font-semibold text-slate-900">{sessions.length || 0} phiên</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Số lượng phiên</p>
+                    <p className="text-base font-semibold text-slate-900">{sessions.length || 0} phiên</p>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-900">Chi tiết phân công và thiết bị theo phiên</span>
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 sm:px-5">
+                <span className="text-base font-semibold text-slate-900 sm:text-lg">
+                  Chi tiết phân công và thiết bị theo phiên
+                </span>
                 {approvePreviewLoading ? (
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
                     Đang tải...
                   </span>
                 ) : null}
               </div>
-              <div className="max-h-[48vh] space-y-2.5 overflow-y-auto p-3">
+              <div className="max-h-[min(65vh,720px)] space-y-3 overflow-y-auto p-3 sm:p-4">
                 {approveSessionPreviews.map((preview) => {
                   const teamIds = uiAssignedTeamIdsBySessionId[preview.sessionId] ?? [];
                   const qtyMap = uiTeamQuantitiesBySessionId[preview.sessionId] ?? {};
                   return (
                     <div
                       key={preview.sessionId}
-                      className="relative rounded-xl border border-gray-200 bg-white p-3 pl-4"
+                      className="relative rounded-xl border border-gray-200 bg-white p-4 pl-5"
                     >
                       <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-xl bg-[#2197C0]/45" />
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center rounded-full border border-[#2197C0]/20 bg-[#2197C0]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#1C7FA1]">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="inline-flex items-center rounded-full border border-[#2197C0]/20 bg-[#2197C0]/10 px-3 py-1 text-xs font-semibold text-[#1C7FA1] sm:text-sm">
                           Phiên {preview.sessionNo}
                         </span>
-                        <span className="text-[11px] font-medium text-slate-600">
+                        <span className="text-xs font-medium text-slate-600 sm:text-sm">
                           {dayjs(preview.startAt).format('DD/MM HH:mm')} - {dayjs(preview.endAt).format('HH:mm')}
                         </span>
                       </div>
-                      <div className="mt-2 space-y-1.5 text-xs text-slate-700">
-                        <p className="flex items-center gap-1.5">
-                          <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                      <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
                           <span className="font-medium text-slate-600">Địa điểm:</span>
                           <span className="font-semibold text-slate-800">{preview.location || '—'}</span>
                         </p>
-                        <p className="flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5 text-slate-400" />
+                        <p className="flex items-center gap-2">
+                          <Users className="h-4 w-4 shrink-0 text-slate-400" />
                           <span className="font-medium text-slate-600">Nhu cầu:</span>
                           <span className="font-semibold text-slate-800">
                             {preview.teachersRequired ?? 0} GV / {preview.tasRequired ?? 0} TG
                           </span>
                         </p>
-                        <p className="flex items-start gap-1.5">
-                          <List className="mt-0.5 h-3.5 w-3.5 text-slate-400" />
+                        <p className="flex items-start gap-2">
+                          <List className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                           <span className="font-medium text-slate-600">Đội đã gán:</span>
                           <span className="font-semibold text-slate-800">
                             {teamIds.length > 0
@@ -1238,7 +1788,7 @@ export default function RequestDetail() {
                         <div>
                           <button
                             type="button"
-                            className="mb-1 inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                            className="mb-1 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm"
                             onClick={() =>
                               setExpandedEquipmentsBySessionId((prev) => ({
                                 ...prev,
@@ -1246,12 +1796,12 @@ export default function RequestDetail() {
                               }))
                             }
                           >
-                            <Wrench className="h-3.5 w-3.5 text-slate-500" />
+                            <Wrench className="h-4 w-4 text-slate-500" />
                             Thiết bị đặt trước ({preview.equipments.length})
                             {expandedEquipmentsBySessionId[preview.sessionId] ? (
-                              <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+                              <ChevronDown className="h-4 w-4 text-slate-500" />
                             ) : (
-                              <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
+                              <ChevronRight className="h-4 w-4 text-slate-500" />
                             )}
                           </button>
                           {expandedEquipmentsBySessionId[preview.sessionId] && preview.equipments.length > 0 ? (
@@ -1259,9 +1809,9 @@ export default function RequestDetail() {
                               {preview.equipments.map((eq) => (
                                 <li
                                   key={`${preview.sessionId}-${eq.equipmentId}`}
-                                  className="flex items-center gap-2 px-2.5 py-2 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-gray-200/70"
+                                  className="flex items-center gap-3 px-3 py-2.5 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-gray-200/70"
                                 >
-                                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-white/90 flex items-center justify-center">
+                                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-md bg-white/90 flex items-center justify-center sm:h-12 sm:w-12">
                                     {eq.imgLink ? (
                                       <img
                                         src={eq.imgLink}
@@ -1276,9 +1826,9 @@ export default function RequestDetail() {
                                     )}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="truncate text-xs font-semibold text-slate-800">{eq.equipmentName}</p>
-                                    <p className="text-[11px] text-slate-500">Mã: {eq.equipmentCode || eq.equipmentId}</p>
-                                    <p className="text-[11px] text-slate-500">Danh mục: {eq.categoryName || '—'}</p>
+                                    <p className="truncate text-sm font-semibold text-slate-800">{eq.equipmentName}</p>
+                                    <p className="text-xs text-slate-500">Mã: {eq.equipmentCode || eq.equipmentId}</p>
+                                    <p className="text-xs text-slate-500">Danh mục: {eq.categoryName || '—'}</p>
                                   </div>
                                 </li>
                               ))}
@@ -1298,11 +1848,11 @@ export default function RequestDetail() {
             </div>
           </div>
         )}
-        <div className="mt-3 flex justify-end gap-2 border-t border-gray-100 pt-5">
+        <div className="mt-4 flex justify-end gap-3 border-t border-gray-100 pt-5">
           <Button
             type="button"
             variant="outline"
-            className="rounded-xl border-gray-200 px-5"
+            className="rounded-xl border-gray-200 px-6 py-2.5 text-base"
             disabled={actionLoading}
             onClick={() => setApproveOpen(false)}
           >
@@ -1310,7 +1860,7 @@ export default function RequestDetail() {
           </Button>
           <Button
             type="button"
-            className="rounded-xl gap-2 bg-emerald-600 px-5 text-white shadow-sm hover:bg-emerald-700"
+            className="rounded-xl gap-2 bg-emerald-600 px-6 py-2.5 text-base text-white shadow-sm hover:bg-emerald-700"
             disabled={actionLoading}
             onClick={handleConfirmApprove}
           >
@@ -1326,12 +1876,16 @@ export default function RequestDetail() {
         </div>
       </Dialog>
 
-      {/* Từ chối yêu cầu — bắt buộc lý do */}
+      {/* Từ chối (PUT /reject) hoặc Hủy yêu cầu (PUT /cancel) — đều cần lý do */}
       <Dialog
         open={rejectOpen}
         onClose={() => !actionLoading && setRejectOpen(false)}
-        title="Từ chối yêu cầu"
-        description="Nhập lý do từ chối. Thao tác không thể hoàn tác."
+        title={rejectDialogAction === 'cancel' ? 'Hủy yêu cầu' : 'Từ chối yêu cầu'}
+        description={
+          rejectDialogAction === 'cancel'
+            ? 'Nhập lý do hủy. Thao tác không thể hoàn tác.'
+            : 'Nhập lý do từ chối. Thao tác không thể hoàn tác.'
+        }
         className="max-w-md border-0 shadow-2xl"
       >
         <div className="space-y-3">
@@ -1344,7 +1898,11 @@ export default function RequestDetail() {
               rows={4}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Ví dụ: Lịch trình trùng với phiên khác..."
+              placeholder={
+                rejectDialogAction === 'cancel'
+                  ? 'Ví dụ: Khách hàng không còn nhu cầu...'
+                  : 'Ví dụ: Lịch trình trùng với phiên khác...'
+              }
               className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
             />
           </div>
@@ -1356,7 +1914,7 @@ export default function RequestDetail() {
               disabled={actionLoading}
               onClick={() => setRejectOpen(false)}
             >
-              Hủy
+              Đóng
             </Button>
             <Button
               type="button"
@@ -1365,13 +1923,16 @@ export default function RequestDetail() {
               disabled={actionLoading}
               onClick={handleConfirmReject}
             >
-              {actionLoading ? 'Đang xử lý...' : 'Từ chối'}
+              {actionLoading
+                ? 'Đang xử lý...'
+                : rejectDialogAction === 'cancel'
+                  ? 'Xác nhận hủy'
+                  : 'Từ chối'}
             </Button>
           </div>
         </div>
       </Dialog>
-      </div>
-    </div>
+    </>
   );
 }
 
