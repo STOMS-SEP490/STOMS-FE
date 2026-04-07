@@ -9,7 +9,6 @@ import {
   FileText,
   GraduationCap,
   Hash,
-  Layers,
   ShieldCheck,
   Sparkles,
   Users,

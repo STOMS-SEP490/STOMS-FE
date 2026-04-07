@@ -3,7 +3,6 @@ import memberApi from '@/modules/member/api/memberApi';
 import {
   BarChart3,
   BookOpen,
-  CalendarDays,
   Star,
   Users,
   Wallet,
