@@ -15,8 +15,11 @@ import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherTaskReportPage from '@/modules/task-report/pages/TeacherTaskReportPage';
 import TeamLeaderAssignmentsLayout from '@/app/layouts/TeamLeaderAssignmentsLayout';
 import TeamLeaderAssignmentsPage from '@/modules/contract/pages/TeamLeaderAssignmentsPage';
+import TeamLeaderDashboard from '@/modules/dashboard/pages/TeamLeaderDashboard';
 
 const TeamLeaderRoutes = [
+  { index: true, element: <Navigate to="dashboard" replace /> },
+  { path: 'dashboard', element: <TeamLeaderDashboard /> },
   {
     path: 'assignments',
     element: <TeamLeaderAssignmentsLayout />,

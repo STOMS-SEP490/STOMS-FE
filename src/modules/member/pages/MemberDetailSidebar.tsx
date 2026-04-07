@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, BarChart3 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import type { MemberDetail } from '@/modules/member/member';

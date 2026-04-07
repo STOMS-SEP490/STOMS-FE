@@ -6,6 +6,7 @@ export type ContributionListItem = {
   memberId: number;
   memberName: string | null;
   transactionId: number;
+  transactionType?: number | null;
   amount: number | null;
   description: string;
   paymentImg: string;
@@ -21,6 +22,10 @@ function normalizeContribution(raw: Record<string, unknown>): ContributionListIt
     memberName:
       (raw.memberName as string | null | undefined) ?? member?.fullName ?? null,
     transactionId: Number(raw.transactionId),
+    transactionType:
+      raw.transactionType === null || raw.transactionType === undefined
+        ? null
+        : Number(raw.transactionType),
     amount:
       raw.amount === null || raw.amount === undefined
         ? null

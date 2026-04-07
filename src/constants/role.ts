@@ -1,5 +1,13 @@
-/** RoleId API / JWT — chỉ quản lý xem toàn bộ khóa/môn/chủ đề (kể cả đã vô hiệu hóa). */
-export const MANAGER_ROLE_ID = 1;
+export const ROLE_ID = {
+  MANAGER: 1,
+  TEAM_LEADER: 2,
+  PROGRAM_COORDINATOR: 3,
+  TEACHER: 4,
+  ASSISTANT: 5,
+  EQUIPMENT_MANAGER: 6,
+} as const;
+
+export const MANAGER_ROLE_ID = ROLE_ID.MANAGER;
 
 export const ROLE_MAP: Record<number, string> = {
   1: 'Quản lý',

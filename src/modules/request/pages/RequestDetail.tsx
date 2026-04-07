@@ -6,7 +6,7 @@ import { message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';
-import { getRequestStatusCode, getRequestStatusInfo, getSessionStatusCode, getSessionStatusInfo, REQUEST_STATUS, SESSION_STATUS } from '@/constants/status';
+import { getAssignmentStaffRoleAccent, getRequestStatusCode, getRequestStatusInfo, getSessionStatusCode, getSessionStatusInfo, REQUEST_STATUS, SESSION_STATUS } from '@/constants/status';
 import {
   canManagerReviewAssignmentRow,
   isAssignmentApproved,
@@ -953,16 +953,7 @@ export default function RequestDetail() {
                           </div>
                         );
                       }
-                      const accent =
-                        colorScheme === 'sky'
-                          ? {
-                              stripe: 'border-l-[3px] border-l-violet-400 bg-violet-50/55',
-                              avatar: 'bg-violet-100 text-violet-700',
-                            }
-                          : {
-                              stripe: 'border-l-[3px] border-l-yellow-400 bg-yellow-50/60',
-                              avatar: 'bg-yellow-100 text-yellow-800',
-                            };
+                      const accent = getAssignmentStaffRoleAccent(colorScheme === 'sky');
                       const pendingManagerReview = canManagerReviewAssignmentRow(row);
                       const rowAccent = pendingManagerReview
                         ? {
@@ -1052,8 +1043,8 @@ export default function RequestDetail() {
                                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                   Giảng viên
                                 </p>
-                                <div className="rounded-xl bg-violet-100/35 p-[3px]">
-                                  <div className="divide-y divide-slate-200/45 overflow-hidden rounded-[10px] bg-violet-50/40">
+                                <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(true).avatar}`}>
+                                  <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(true).selectHi}`}>
                                     {teacherRows.length ? (
                                       teacherRows.map((r) => renderReadRow(r, 'sky'))
                                     ) : (
@@ -1066,8 +1057,8 @@ export default function RequestDetail() {
                                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                   Trợ giảng
                                 </p>
-                                <div className="rounded-xl bg-yellow-100/40 p-[3px]">
-                                  <div className="divide-y divide-slate-200/45 overflow-hidden rounded-[10px] bg-yellow-50/45">
+                                <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(false).avatar}`}>
+                                  <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(false).selectHi}`}>
                                     {taRows.length ? (
                                       taRows.map((r) => renderReadRow(r, 'amber'))
                                     ) : (
@@ -1313,17 +1304,7 @@ export default function RequestDetail() {
                               </div>
                             );
                           }
-                          const accent = isTeacherRole
-                            ? {
-                                stripe: 'border-l-[3px] border-l-violet-400 bg-violet-50/55',
-                                avatar: 'bg-violet-100 text-violet-700',
-                                selectHi: 'ring-1 ring-inset ring-violet-400/50 bg-violet-50/65',
-                              }
-                            : {
-                                stripe: 'border-l-[3px] border-l-yellow-400 bg-yellow-50/60',
-                                avatar: 'bg-yellow-100 text-yellow-800',
-                                selectHi: 'ring-1 ring-inset ring-yellow-400/55 bg-yellow-50/70',
-                              };
+                          const accent = getAssignmentStaffRoleAccent(isTeacherRole);
                           const pendingOrange = {
                             stripe: 'border-l-[3px] border-l-orange-500 bg-orange-50/40',
                             avatar: 'bg-orange-100 text-orange-900',
@@ -1431,8 +1412,8 @@ export default function RequestDetail() {
                               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Giảng viên
                               </p>
-                              <div className="rounded-xl bg-violet-100/35 p-[3px]">
-                                <div className="divide-y divide-slate-200/45 overflow-hidden rounded-[10px] bg-violet-50/40">
+                              <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(true).avatar}`}>
+                                <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(true).selectHi}`}>
                                   {teacherRows.length ? (
                                     teacherRows.map(renderAssignmentRow)
                                   ) : (
@@ -1445,8 +1426,8 @@ export default function RequestDetail() {
                               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Trợ giảng
                               </p>
-                              <div className="rounded-xl bg-yellow-100/40 p-[3px]">
-                                <div className="divide-y divide-slate-200/45 overflow-hidden rounded-[10px] bg-yellow-50/45">
+                              <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(false).avatar}`}>
+                                <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(false).selectHi}`}>
                                   {taRows.length ? (
                                     taRows.map(renderAssignmentRow)
                                   ) : (

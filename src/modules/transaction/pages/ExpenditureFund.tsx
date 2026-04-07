@@ -20,6 +20,7 @@ import type { ExpenseListItem } from '../api/expenseApi';
 import { expenseApi } from '../api/expenseApi';
 import type { WalletListItem } from '../api/walletApi';
 import { walletApi } from '../api/walletApi';
+import { getExpenseStatusInfo } from '@/constants/status';
 
 const EXP_PAGE = 'expPage';
 const EXP_STATUS = 'expStatus';
@@ -46,29 +47,8 @@ const baseColumns: ColumnDef<ExpenseListItem>[] = [
     accessorKey: 'status',
     header: 'Trạng thái',
     cell: ({ row }) => {
-      const status = row.original.status;
-      if (status === 1) {
-        return (
-          <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200">
-            Đang chờ
-          </Badge>
-        );
-      }
-      if (status === 2) {
-        return (
-          <Badge className="bg-green-100 text-green-700 border border-green-200">
-            Đã duyệt
-          </Badge>
-        );
-      }
-      if (status === 3) {
-        return (
-          <Badge className="bg-red-100 text-red-600 border border-red-200">
-            Đã từ chối
-          </Badge>
-        );
-      }
-      return <span>{status ?? '—'}</span>;
+      const info = getExpenseStatusInfo(row.original.status);
+      return <Badge className={info.className}>{info.label}</Badge>;
     },
   },
   {
@@ -336,13 +316,7 @@ export default function ExpenditureFund() {
             <div>
               <div className="text-xs text-gray-500">Trạng thái</div>
               <div>
-                {detailItem.status === 1
-                  ? 'Đang chờ'
-                  : detailItem.status === 2
-                    ? 'Đã duyệt'
-                    : detailItem.status === 3
-                      ? 'Đã từ chối'
-                      : detailItem.status ?? '—'}
+                {getExpenseStatusInfo(detailItem.status).label}
               </div>
             </div>
             {detailItem.status === 1 && (

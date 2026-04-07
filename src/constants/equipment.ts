@@ -17,7 +17,6 @@ export const EQUIPMENT_STATUS = {
 export type EquipmentStatusValue =
   (typeof EQUIPMENT_STATUS)[keyof typeof EQUIPMENT_STATUS]
 
-/** Mapping status (string hoặc number từ API) → label + style */
 export const EQUIPMENT_STATUS_MAP: Record<
   string,
   { label: string; className: string }

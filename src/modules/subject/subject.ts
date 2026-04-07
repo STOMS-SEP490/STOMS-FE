@@ -21,6 +21,21 @@ export type SubjectUpsertPayload = {
   }[];
 };
 
+export type SubjectRequestSummary = {
+  requestId: number;
+  requestCode: string;
+  requestName: string;
+  customerName?: string | null;
+  startDate?: string | null;
+  sessionsRequired?: number | null;
+  status?: string | null;
+  note?: string | null;
+  reason?: string | null;
+  approvedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 type SessionTemplateForm = {
   sessionNo: number;
   title: string;
@@ -67,4 +82,6 @@ export type SubjectListItem = {
       isActive: boolean;
     } | null;
   }[] | null;
+
+  requests?: SubjectRequestSummary[] | null;
 };
