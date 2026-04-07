@@ -4,18 +4,11 @@ import { Eye, EyeOff } from 'lucide-react';
 import authService from '@/modules/auth/api/authApi';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { saveAuthToStorage } from '@/modules/auth/authStorage';
+import { getHomePathByRole, getRoleIdFromStorage } from '@/modules/auth/roleAccess';
 
 type AuthContextType = {
   setImage: (src: string) => void;
 };
-
-function getHomePathByRole(roleId: number) {
-  if (roleId === 2) return '/tl';
-  if (roleId === 3) return '/pc';
-  if (roleId === 4 || roleId === 5) return '/teacher';
-  if (roleId === 6) return '/em';
-  return '/manager/dashboard';
-}
 
 export default function Login() {
   const { setImage } = useOutletContext<AuthContextType>();
@@ -33,13 +26,7 @@ export default function Login() {
     // nếu đã login thì redirect
     const token = localStorage.getItem('accessToken');
     if (token) {
-      try {
-        const raw = localStorage.getItem('user');
-        const roleId = raw ? Number(JSON.parse(raw)?.roleId) : NaN;
-        navigate(getHomePathByRole(roleId));
-      } catch {
-        navigate('/manager/dashboard');
-      }
+      navigate(getHomePathByRole(getRoleIdFromStorage()));
     }
   }, []);
 

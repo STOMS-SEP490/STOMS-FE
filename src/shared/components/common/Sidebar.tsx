@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
+  Star,
   FileText,
   GraduationCap,
   CalendarDays,
@@ -9,7 +10,6 @@ import {
   Wallet,
   Users,
   UserCircle,
-  Clock,
   Bookmark,
   Tag,
   PieChart,
@@ -89,7 +89,7 @@ export default function Sidebar() {
       { label: 'Quản lý thành viên', icon: Users, path: '/manager/members' },
       { label: 'Vai trò', icon: Key, path: '/manager/roles' },
       { label: 'Nhóm', icon: ListChecks, path: '/manager/teams' },
-      { label: 'Sự kiện', icon: CalendarDays, path: '/manager/events' },
+      { label: 'Sự kiện', icon: Star, path: '/manager/events' },
       { label: 'Giáo trình', icon: GraduationCap, path: '/manager/courses' },
       { label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
       { label: 'Thiết bị', icon: Package, path: '/manager/equipments' },
@@ -97,7 +97,7 @@ export default function Sidebar() {
       { label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
       { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
       { label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },
-      { label: 'Thời khóa biểu', icon: Clock, path: '/manager/timetable' },
+      { label: 'Thời khóa biểu', icon: CalendarDays, path: '/manager/timetable' },
       { label: 'Trung tâm duyệt', icon: CheckCircle2, path: '/manager/requests' },
       { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
       { label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },

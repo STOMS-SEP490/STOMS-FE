@@ -11,7 +11,7 @@ import { useOutletContext, useSearchParams } from 'react-router-dom';
 import transactionApi from '../api/transactionApi';
 import { walletApi } from '../api/walletApi';
 import type { WalletListItem } from '../api/walletApi';
-import { TRANSACTION_TYPE, TRANSACTION_TYPE_LABEL } from '@/constants/status';
+import { TRANSACTION_TYPE, TRANSACTION_TYPE_LABEL, getTransactionTypeInfo } from '@/constants/status';
 import type { TransactionListItem } from '../transaction';
 import { useTransactions } from '../hooks/useTransactions';
 
@@ -280,9 +280,10 @@ export default function Transactions() {
         header: 'Loại',
         cell: ({ row }) => {
           const t = row.original.transactionType;
+          const typeInfo = getTransactionTypeInfo(t);
           return (
-            <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200">
-              {TRANSACTION_TYPE_LABEL[t] ?? String(t)}
+            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${typeInfo.className}`}>
+              {typeInfo.label}
             </span>
           );
         },

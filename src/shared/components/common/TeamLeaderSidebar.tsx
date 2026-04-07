@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BarChart3,
   BookOpen,
   CalendarDays,
+  Star,
   CheckCircle2,
   ClipboardCheck,
   ClipboardList,
-  Clock,
   Timer,
   FileText,
   LogOut,
@@ -85,13 +86,14 @@ export default function TeamLeaderSidebar() {
 
   const menus = useMemo(
     () => [
+      { label: 'Thống kê', icon: BarChart3, path: '/tl/dashboard' },
       { label: 'Hồ sơ', icon: UserCircle, path: '/tl/profile' },
       { label: 'Nhóm', icon: Users, path: '/tl/teams' },
-      { label: 'Sự kiện', icon: CalendarDays, path: '/tl/events' },
+      { label: 'Sự kiện', icon: Star, path: '/tl/events' },
       { label: 'Giáo trình', icon: BookOpen, path: '/tl/courses' },
       {
-        label: 'Thời khóa biểu & phân công',
-        icon: Clock,
+        label: 'Thời khóa biểu',
+        icon: CalendarDays,
         path: '/tl/timetable',
         matchPrefixPath: '/tl/timetable',
       },

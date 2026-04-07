@@ -1,10 +1,13 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import dayjs from 'dayjs';
 import { Skeleton } from 'antd';
 import {
   BookOpen,
+  Calendar,
   CalendarClock,
+  ChevronDown,
+  ClipboardList,
   Clock,
   FileText,
   GraduationCap,
@@ -16,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
 import { cn } from '@/shared/lib/utils';
-import type { SubjectListItem } from '../subject';
+import type { SubjectListItem, SubjectRequestSummary } from '../subject';
 
 type Props = {
   open: boolean;
@@ -59,6 +62,8 @@ function skillDisplayName(ss: NonNullable<SubjectListItem['subjectSkills']>[numb
 }
 
 export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoading }: Props) {
+  const [requestsExpanded, setRequestsExpanded] = useState(false);
+
   if (!open) return null;
 
   const showBody = detailSubject != null;
@@ -82,6 +87,7 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
 
   const courseLinks = detailSubject?.courseSubjects ?? [];
   const courseCount = courseLinks.length;
+  const relatedRequests = detailSubject?.requests ?? [];
 
   return (
     <>
@@ -263,12 +269,58 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
                     </p>
                   )}
                 </Section>
+
+                <Section icon={ClipboardList} title="Yêu cầu liên quan">
+                  <button
+                    type="button"
+                    onClick={() => setRequestsExpanded((v) => !v)}
+                    className="flex w-full items-center justify-between rounded-xl bg-white px-3.5 py-2.5 text-left shadow-sm ring-1 ring-slate-200/70 transition-colors hover:bg-slate-50"
+                  >
+                    <span className="text-sm font-medium text-slate-800">
+                      {relatedRequests.length > 0
+                        ? `Có ${relatedRequests.length} yêu cầu liên quan`
+                        : 'Không có yêu cầu liên quan'}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200',
+                        requestsExpanded && 'rotate-180',
+                      )}
+                      aria-hidden
+                    />
+                  </button>
+                  {requestsExpanded && relatedRequests.length > 0 ? (
+                    <div className="mt-3 flex flex-col gap-4">
+                      {relatedRequests.map((req) => (
+                        <RelatedRequestBlock key={req.requestId} req={req} />
+                      ))}
+                    </div>
+                  ) : null}
+                </Section>
               </div>
             ) : null}
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function RelatedRequestBlock({ req }: { req: SubjectRequestSummary }) {
+  return (
+    <div className="space-y-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-200/50">
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-slate-900">
+          {req.requestCode} — {req.requestName}
+        </div>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+          <span className="inline-flex items-center gap-1">
+            <Calendar className="h-3 w-3" aria-hidden />
+            {req.startDate ? dayjs(req.startDate).format('DD/MM/YYYY') : '—'}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 

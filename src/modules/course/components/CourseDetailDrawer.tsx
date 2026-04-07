@@ -14,7 +14,6 @@ import {
   Hash,
   Layers,
   Sparkles,
-  User,
   X,
 } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
@@ -35,20 +34,6 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN');
 }
 
-function requestStatusStyle(status: string | undefined): string {
-  const s = (status ?? '').toLowerCase();
-  if (s.includes('approved') || s.includes('duyệt') || s.includes('hoàn')) {
-    return 'border-0 bg-emerald-100 text-emerald-800';
-  }
-  if (s.includes('reject') || s.includes('từ chối') || s.includes('hủy')) {
-    return 'border-0 bg-red-100 text-red-800';
-  }
-  if (s.includes('pending') || s.includes('chờ')) {
-    return 'border-0 bg-amber-100 text-amber-900';
-  }
-  return 'border-0 bg-slate-200 text-slate-700';
-}
-
 export function CourseDetailDrawer({
   open,
   onClose,
@@ -56,6 +41,8 @@ export function CourseDetailDrawer({
   detailLoading,
   onSubjectClick,
 }: Props) {
+  const [requestsExpanded, setRequestsExpanded] = useState(false);
+
   if (!open) return null;
 
   const showBody = detailCourse != null;
@@ -65,6 +52,7 @@ export function CourseDetailDrawer({
   const sessionCount = detailCourse ? String(detailCourse.numberOfSession ?? '—') : '—';
   const durationLabel =
     detailCourse != null ? formatCourseDuration(detailCourse.duration ?? undefined) ?? '—' : '—';
+  const relatedRequests = detailCourse?.requests ?? [];
 
   return (
     <>
@@ -187,17 +175,31 @@ export function CourseDetailDrawer({
                 </Section>
 
                 <Section icon={ClipboardList} title="Yêu cầu liên quan">
-                  {detailCourse.requests && detailCourse.requests.length > 0 ? (
-                    <div className="flex flex-col gap-4">
-                      {detailCourse.requests.map((req: CourseRequestSummary) => (
+                  <button
+                    type="button"
+                    onClick={() => setRequestsExpanded((v) => !v)}
+                    className="flex w-full items-center justify-between rounded-xl bg-white px-3.5 py-2.5 text-left shadow-sm ring-1 ring-slate-200/70 transition-colors hover:bg-slate-50"
+                  >
+                    <span className="text-sm font-medium text-slate-800">
+                      {relatedRequests.length > 0
+                        ? `Có ${relatedRequests.length} yêu cầu liên quan`
+                        : 'Không có yêu cầu liên quan'}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200',
+                        requestsExpanded && 'rotate-180',
+                      )}
+                      aria-hidden
+                    />
+                  </button>
+                  {requestsExpanded && relatedRequests.length > 0 ? (
+                    <div className="mt-3 flex flex-col gap-4">
+                      {relatedRequests.map((req: CourseRequestSummary) => (
                         <RequestBlock key={req.requestId} req={req} />
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">
-                      Không có yêu cầu nào 
-                    </p>
-                  )}
+                  ) : null}
                 </Section>
               </div>
             ) : null}
@@ -467,48 +469,17 @@ function SessionRow({
 function RequestBlock({ req }: { req: CourseRequestSummary }) {
   return (
     <div className="space-y-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-200/50">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-slate-900">
-            {req.requestCode} — {req.requestName}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1">
-              <User className="h-3 w-3" aria-hidden />
-              {req.customerName || '—'}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="h-3 w-3" aria-hidden />
-              {req.startDate ? dayjs(req.startDate).format('DD/MM/YYYY') : '—'}
-            </span>
-            {req.sessionsRequired != null ? (
-              <span>
-                {req.sessionsRequired} buổi yêu cầu
-              </span>
-            ) : null}
-          </div>
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-slate-900">
+          {req.requestCode} — {req.requestName}
         </div>
-        <Badge className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium', requestStatusStyle(req.status))}>
-          {req.status || '—'}
-        </Badge>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+          <span className="inline-flex items-center gap-1">
+            <Calendar className="h-3 w-3" aria-hidden />
+            {req.startDate ? dayjs(req.startDate).format('DD/MM/YYYY') : '—'}
+          </span>
+        </div>
       </div>
-
-      {(req.note?.trim() || req.reason?.trim()) && (
-        <div className="space-y-2 text-sm text-slate-600">
-          {req.note?.trim() ? (
-            <p>
-              <span className="font-medium text-slate-700">Ghi chú · </span>
-              {req.note.trim()}
-            </p>
-          ) : null}
-          {req.reason?.trim() ? (
-            <p>
-              <span className="font-medium text-slate-700">Lý do · </span>
-              {req.reason.trim()}
-            </p>
-          ) : null}
-        </div>
-      )}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
         {req.approvedAt ? <span>Duyệt {formatDateTime(req.approvedAt)}</span> : null}

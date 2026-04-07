@@ -395,12 +395,12 @@ export default function SessionDetailPopover({
             {staff.length > 0 && !staff.every((s) => !s.name || s.name === '—') && (
               <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
                 <div className="flex items-start gap-3">
-                  <span className="shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">
-                    TA:
+                  <span className="shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-violet-100 text-violet-700">
+                    GV:
                   </span>
                   <div className="min-w-0 flex-1 space-y-1">
-                    {tas.length > 0 ? (
-                      tas.map((s) => (
+                    {teachers.length > 0 ? (
+                      teachers.map((s) => (
                         <div key={s.assignmentId} className="flex items-start gap-2">
                           <img
                             src={s.avatarUrl || '/img/ava.png'}
@@ -423,12 +423,12 @@ export default function SessionDetailPopover({
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <span className="shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-sky-100 text-sky-700">
-                    TE:
+                  <span className="shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-800">
+                    TG:
                   </span>
                   <div className="min-w-0 flex-1 space-y-1">
-                    {teachers.length > 0 ? (
-                      teachers.map((s) => (
+                    {tas.length > 0 ? (
+                      tas.map((s) => (
                         <div key={s.assignmentId} className="flex items-start gap-2">
                           <img
                             src={s.avatarUrl || '/img/ava.png'}

@@ -1,12 +1,26 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { Drawer, message } from 'antd';
+import { Drawer, message, Skeleton } from 'antd';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
+import {
+  CalendarClock,
+  FileText,
+  GraduationCap,
+  Hash,
+  Layers,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  X,
+} from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { MANAGER_ROLE_ID } from '@/constants/role';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { TableTextAction } from '@/shared/components/common/TableTextAction';
+import { Badge } from '@/shared/components/ui/badge';
+import { cn } from '@/shared/lib/utils';
 import topicApi from '@/modules/topic/api/topicApi';
 import type { TopicListItem } from '@/modules/topic/topic';
 import type { CoursesReadonlyOutletContext } from '@/modules/course/pages/coursesReadonlyOutletContext';
@@ -105,11 +119,6 @@ export default function TopicsReadonlyPage() {
   const columns = useMemo<ColumnDef<TopicListItem>[]>(
     () => [
       {
-        accessorKey: 'topicId',
-        header: 'Mã chủ đề',
-        cell: ({ row }) => <span className="font-semibold text-gray-900">TP-{row.original.topicId}</span>,
-      },
-      {
         accessorKey: 'topicName',
         header: 'Tên chủ đề',
         cell: ({ row }) => (
@@ -159,44 +168,206 @@ export default function TopicsReadonlyPage() {
         open={detailOpen}
         onClose={closeDetailFromUrl}
         placement="right"
-        width={720}
-        title={detailTopic ? `Chu de TP-${detailTopic.topicId}` : 'Chi tiet chu de'}
+        width="min(720px, 96vw)"
+        closable={false}
+        title={null}
+        styles={{ body: { padding: 0 } }}
       >
         {detailLoading && !detailTopic ? (
-          <div className="text-sm text-gray-500">Dang tai chi tiet...</div>
+          <div className="p-5">
+            <Skeleton active title={{ width: '60%' }} paragraph={{ rows: 8 }} />
+          </div>
         ) : detailTopic ? (
-          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-            <div>
-              <div className="text-xs text-gray-500">Ten chu de</div>
-              <div className="text-sm font-medium">{detailTopic.topicName || '—'}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Mo ta</div>
-              <div className="text-sm">{detailTopic.description || '—'}</div>
-            </div>
-            <div className="grid grid-cols-3 gap-3 pt-2">
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Mon hoc</div>
-                <div className="text-sm font-medium">{subjectsCount}</div>
+          <div className="bg-slate-50/70">
+            <header className="border-b border-slate-100 bg-white px-5 pb-4 pt-5">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h2 className="truncate text-lg font-semibold tracking-tight text-slate-900">
+                      {detailTopic.topicName || '—'}
+                    </h2>
+                    <Badge
+                      className={cn(
+                        'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                        detailTopic.isActive
+                          ? 'border-0 bg-emerald-100 text-emerald-800'
+                          : 'border-0 bg-slate-200 text-slate-700',
+                      )}
+                    >
+                      {detailTopic.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                    </Badge>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeDetailFromUrl}
+                    className="shrink-0 rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Đóng"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <HeaderChip icon={Hash} label={`TP-${detailTopic.topicId}`} title="Mã chủ đề" />
+                  <HeaderChip icon={GraduationCap} label={`${subjectsCount} môn`} title="Số môn học" />
+                  <HeaderChip icon={Sparkles} label={`${eventsCount} sự kiện`} title="Số sự kiện" />
+                  <HeaderChip icon={Users} label={`${teamsCount} nhóm`} title="Số nhóm" />
+                </div>
               </div>
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Su kien</div>
-                <div className="text-sm font-medium">{eventsCount}</div>
-              </div>
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Nhom</div>
-                <div className="text-sm font-medium">{teamsCount}</div>
-              </div>
-            </div>
-            <div className="pt-2">
-              <div className="text-xs text-gray-500">Trang thai</div>
-              <div className="text-sm">{detailTopic.isActive ? 'Dang hoat dong' : 'Vo hieu hoa'}</div>
+            </header>
+
+            <div className="space-y-8 px-5 py-5">
+              <Section icon={CalendarClock} title="Thông tin chung">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <MetaTile icon={Hash} label="Topic ID" value={String(detailTopic.topicId)} />
+                  <MetaTile
+                    icon={CalendarClock}
+                    label="Ngày tạo"
+                    value={detailTopic.createdAt ? dayjs(detailTopic.createdAt).format('DD/MM/YYYY HH:mm') : '—'}
+                  />
+                  <MetaTile
+                    icon={ShieldCheck}
+                    label="Trạng thái"
+                    value={detailTopic.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                  />
+                </div>
+              </Section>
+
+              <Section icon={FileText} title="Mô tả">
+                <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
+                  {detailTopic.description?.trim() ? detailTopic.description : 'Chưa có mô tả.'}
+                </p>
+              </Section>
+
+              <Section icon={GraduationCap} title="Môn học liên quan">
+                {detailTopic.subjects && detailTopic.subjects.length > 0 ? (
+                  <div className="space-y-2">
+                    {detailTopic.subjects.map((s) => (
+                      <div
+                        key={s.subjectId}
+                        className="rounded-xl bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-slate-200/60"
+                      >
+                        <div className="text-sm font-medium text-slate-900">
+                          {s.subjectCode || `SUB-${s.subjectId}`} — {s.subjectName || '—'}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {s.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">Chưa có môn học liên quan.</p>
+                )}
+              </Section>
+
+              <Section icon={Sparkles} title="Sự kiện liên quan">
+                {detailTopic.events && detailTopic.events.length > 0 ? (
+                  <div className="space-y-2">
+                    {detailTopic.events.map((ev) => (
+                      <div
+                        key={ev.eventId}
+                        className="rounded-xl bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-slate-200/60"
+                      >
+                        <div className="text-sm font-medium text-slate-900">
+                          {ev.eventCode || `EV-${ev.eventId}`} — {ev.eventName || '—'}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {ev.eventSessions?.length ?? 0} phiên · {ev.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">Chưa có sự kiện liên quan.</p>
+                )}
+              </Section>
+
+              <Section icon={Users} title="Nhóm liên quan">
+                {detailTopic.teams && detailTopic.teams.length > 0 ? (
+                  <div className="space-y-2">
+                    {detailTopic.teams.map((t) => (
+                      <div
+                        key={t.teamId}
+                        className="rounded-xl bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-slate-200/60"
+                      >
+                        <div className="text-sm font-medium text-slate-900">{t.teamName || `Team #${t.teamId}`}</div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          Trưởng nhóm: {t.leaderMember?.fullName || t.leaderMember?.email || '—'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">Chưa có nhóm liên quan.</p>
+                )}
+              </Section>
+
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-500">Khong co du lieu.</div>
+          <div className="p-5 text-sm text-gray-500">Không có dữ liệu.</div>
         )}
       </Drawer>
+    </div>
+  );
+}
+
+function HeaderChip({
+  icon: Icon,
+  label,
+  title,
+}: {
+  icon: LucideIcon;
+  label: string;
+  title: string;
+}) {
+  return (
+    <span
+      title={title}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1 text-xs text-slate-700 shadow-sm ring-1 ring-slate-200/80"
+    >
+      <Icon className="h-3.5 w-3.5 text-[#2197C0]" aria-hidden />
+      <span className="font-medium">{label}</span>
+    </span>
+  );
+}
+
+function Section({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2.5">
+        <Icon className="h-5 w-5 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      </div>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function MetaTile({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="flex gap-3 rounded-xl bg-white px-3.5 py-3 shadow-sm ring-1 ring-slate-200/60">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#2197C0]/90" aria-hidden />
+      <div className="min-w-0">
+        <div className="text-xs font-medium text-slate-500">{label}</div>
+        <div className="mt-0.5 break-words text-sm font-medium text-slate-900">{value}</div>
+      </div>
     </div>
   );
 }

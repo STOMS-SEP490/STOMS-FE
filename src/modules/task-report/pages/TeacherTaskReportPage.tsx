@@ -29,7 +29,7 @@ import {
 import HoverSearch from '@/shared/components/ui/search';
 import RequestCard from '@/shared/components/request/RequestCard';
 import { expenseApi } from '@/modules/transaction/api/expenseApi';
-import { REQUEST_STATUS, getRequestStatusCode } from '@/constants/status';
+import { REQUEST_STATUS, getRequestStatusCode, getExpenseStatusInfo, EXPENSE_STATUS } from '@/constants/status';
 
 const COMPLETED_STATUSES = ['completed', 'hoàn thành', 'done', 'finished'];
 
@@ -1010,30 +1010,22 @@ export default function TeacherTaskReportPage() {
                               {hasExpenses && expandedExpensesReportId === r.taskReportId && (
                                 <div className="mt-2 pt-2 border-t border-slate-200 space-y-1">
                                   {r.expenses!.map((exp, idx) => {
-                                    const badgeClass =
-                                      exp.status === 1
-                                        ? 'bg-sky-100 text-sky-900 border border-sky-200'
-                                        : exp.status === 2
-                                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                                          : exp.status === 3
-                                            ? 'bg-rose-100 text-rose-900 border border-rose-200'
-                                            : 'bg-gray-100 text-gray-600 border border-gray-200';
-
+                                    const info = getExpenseStatusInfo(exp.status);
                                     const accentBorderClass =
-                                      exp.status === 1
-                                        ? 'border-sky-200'
-                                        : exp.status === 2
+                                      info.code === EXPENSE_STATUS.PENDING
+                                        ? 'border-amber-200'
+                                        : info.code === EXPENSE_STATUS.APPROVED
                                           ? 'border-emerald-200'
-                                          : exp.status === 3
+                                          : info.code === EXPENSE_STATUS.REJECTED
                                             ? 'border-rose-200'
                                             : 'border-slate-200';
 
                                     const amountClass =
-                                      exp.status === 1
+                                      info.code === EXPENSE_STATUS.PENDING
                                         ? 'text-amber-800'
-                                        : exp.status === 2
+                                        : info.code === EXPENSE_STATUS.APPROVED
                                           ? 'text-emerald-800'
-                                          : exp.status === 3
+                                          : info.code === EXPENSE_STATUS.REJECTED
                                             ? 'text-rose-800'
                                             : 'text-slate-700';
 
@@ -1048,8 +1040,8 @@ export default function TeacherTaskReportPage() {
                                               <span className="text-gray-700 text-xs">
                                                 {exp.description || `Khoản ${idx + 1}`}
                                               </span>
-                                              <Badge className={`${badgeClass} text-[10px] px-2 py-0.5`}>
-                                                {exp.status === 1 ? 'Đang chờ' : exp.status === 2 ? 'Đã duyệt' : exp.status === 3 ? 'Đã từ chối' : '—'}
+                                              <Badge className={`${info.className} text-[10px] px-2 py-0.5`}>
+                                                {info.label}
                                               </Badge>
                                             </div>
                                             {exp.status === 3 && exp.rejectReason && (
@@ -1177,23 +1169,7 @@ export default function TeacherTaskReportPage() {
                       const canEdit = status === 1; // Đang chờ
                       const isEditing = editingExpenseId != null && editingExpenseId === row.expenseId;
 
-                      const statusBadgeClass =
-                        status === 1
-                              ? 'bg-sky-100 text-sky-900 border border-sky-200'
-                          : status === 2
-                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                            : status === 3
-                                  ? 'bg-rose-100 text-rose-900 border border-rose-200'
-                              : 'bg-gray-100 text-gray-600 border border-gray-200';
-
-                      const statusLabel =
-                        status === 1
-                          ? 'Đang chờ'
-                          : status === 2
-                            ? 'Chấp nhận duyệt'
-                            : status === 3
-                              ? 'Đã từ chối'
-                              : '—';
+                      const info = getExpenseStatusInfo(status);
 
                       const amountNum = row.amount ? Number(row.amount.replace(/\D/g, '')) : NaN;
                       const formattedAmount =
@@ -1202,7 +1178,13 @@ export default function TeacherTaskReportPage() {
                           : '—';
 
                       const amountColorClass =
-                        status === 1 ? 'text-amber-800' : status === 2 ? 'text-emerald-800' : status === 3 ? 'text-rose-800' : 'text-slate-700';
+                        info.code === EXPENSE_STATUS.PENDING
+                          ? 'text-amber-800'
+                          : info.code === EXPENSE_STATUS.APPROVED
+                            ? 'text-emerald-800'
+                            : info.code === EXPENSE_STATUS.REJECTED
+                              ? 'text-rose-800'
+                              : 'text-slate-700';
 
                       return (
                         <li key={row.key} className="rounded-xl bg-slate-50 p-3">
@@ -1212,8 +1194,8 @@ export default function TeacherTaskReportPage() {
                                 <div className="text-xs text-gray-500">
                                   Khoản chi #{row.expenseId ?? idx + 1}
                                 </div>
-                                <Badge className={`${statusBadgeClass} text-[10px] px-2 py-0.5`}>
-                                  {statusLabel}
+                                <Badge className={`${info.className} text-[10px] px-2 py-0.5`}>
+                                  {info.label}
                                 </Badge>
                               </div>
 

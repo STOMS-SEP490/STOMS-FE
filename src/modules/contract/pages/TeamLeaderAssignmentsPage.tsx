@@ -33,6 +33,8 @@ import {
 import RequestCard from '@/shared/components/request/RequestCard';
 import { Badge } from '@/shared/components/ui/badge';
 import {
+  ASSIGNMENT_STATUS,
+  getAssignmentStatusInfo,
   getSessionStatusInfo,
   getTeamLeaderRequestStatusInfo,
   isSessionAssignmentRejectedStatus,
@@ -90,23 +92,12 @@ function getStaffDisplayForSlot(
 
 /** Assignment status Rejected = 3 (manager từ chối phân công). Không dùng .includes để tránh nhầm với session AssignmentRejected. */
 function isAssignmentRejectedStatus(status: string | number | null | undefined): boolean {
-  const raw = String(status ?? '').trim();
-  if (!raw) return false;
-  const n = Number(raw);
-  if (!Number.isNaN(n) && n === 3) return true;
-  const u = raw.toUpperCase().replace(/[\s-]/g, '_');
-  return u === 'REJECTED';
+  return getAssignmentStatusInfo(status).code === ASSIGNMENT_STATUS.REJECTED;
 }
 
 /** Đã gán người, chờ quản lý duyệt (cùng ý “Chờ duyệt” như màn manager). */
 function isAssignmentPendingManagerReview(status: string | number | null | undefined): boolean {
-  if (isAssignmentRejectedStatus(status)) return false;
-  const raw = String(status ?? '').trim();
-  if (!raw) return false;
-  const n = Number(raw);
-  if (!Number.isNaN(n) && n === 1) return true;
-  const u = raw.toUpperCase().replace(/[\s_-]/g, '');
-  return u === 'PENDING';
+  return getAssignmentStatusInfo(status).code === ASSIGNMENT_STATUS.PENDING;
 }
 
 function getAssignmentReviewBadge(status: string | number | null | undefined): {

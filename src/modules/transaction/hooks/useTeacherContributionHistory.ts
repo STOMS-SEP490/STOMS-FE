@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { contributionApi, type ContributionListItem } from '../api/contributionApi';
 import { walletApi, type WalletListItem } from '../api/walletApi';
+import transactionApi from '../api/transactionApi';
+import { MANAGER_ROLE_ID } from '@/constants/role';
 
 const WALLET_VISIBLE_ROLE_IDS = new Set([2, 3, 4, 5]);
 
@@ -27,6 +29,7 @@ function getLocalUser(): LocalUser {
 export function useTeacherContributionHistory() {
   const [items, setItems] = useState<ContributionListItem[]>([]);
   const [wallets, setWallets] = useState<WalletListItem[]>([]);
+  const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
@@ -37,25 +40,47 @@ export function useTeacherContributionHistory() {
 
   const user = useMemo(() => getLocalUser(), []);
   const canViewWalletList = WALLET_VISIBLE_ROLE_IDS.has(user.roleId);
+  const isManager = user.roleId === MANAGER_ROLE_ID;
 
   const fetchContributions = useCallback(async () => {
     if (!user.memberId) return;
     try {
       setLoading(true);
-      const res = await contributionApi.getContributions({
-        memberId: user.memberId,
-        pageNumber,
-        pageSize,
-      });
-      setItems(res.items ?? []);
-      setTotalItems(res.totalItems ?? 0);
+      if (selectedWalletId && canViewWalletList) {
+        const res = await transactionApi.getTransactions({
+          walletId: selectedWalletId,
+          pageNumber,
+          pageSize,
+        });
+        const mapped: ContributionListItem[] = (res.items ?? []).map((tx) => ({
+          contributionId: tx.transactionId,
+          memberId: Number(tx.createdBy ?? 0),
+          memberName: tx.createdByName ?? null,
+          transactionId: tx.transactionId,
+          transactionType: tx.transactionType,
+          amount: tx.amount ?? 0,
+          description: tx.description ?? '',
+          paymentImg: '',
+          createdAt: tx.transactionDate ?? tx.createdAt ?? null,
+        }));
+        setItems(mapped);
+        setTotalItems(res.totalItems ?? 0);
+      } else {
+        const res = await contributionApi.getContributions({
+          memberId: user.memberId,
+          pageNumber,
+          pageSize,
+        });
+        setItems(res.items ?? []);
+        setTotalItems(res.totalItems ?? 0);
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('fetch teacher contributions error:', err);
     } finally {
       setLoading(false);
     }
-  }, [pageNumber, pageSize, user.memberId]);
+  }, [canViewWalletList, pageNumber, pageSize, selectedWalletId, user.memberId]);
 
   const fetchWallets = useCallback(async () => {
     if (!canViewWalletList) return;
@@ -103,6 +128,11 @@ export function useTeacherContributionHistory() {
     setSearch(value);
   }, []);
 
+  const onSelectWallet = useCallback((walletId: number | null) => {
+    setPageNumber(1);
+    setSelectedWalletId(walletId);
+  }, []);
+
   const onContributionSubmitted = useCallback(() => {
     setPageNumber(1);
     void fetchContributions();
@@ -117,12 +147,15 @@ export function useTeacherContributionHistory() {
     search,
     contributeOpen,
     wallets,
+    selectedWalletId,
     filteredItems,
     totalAmount,
     canViewWalletList,
+    isManager,
     setPageNumber,
     setContributeOpen,
     onSearchChange,
+    onSelectWallet,
     onContributionSubmitted,
   };
 }
