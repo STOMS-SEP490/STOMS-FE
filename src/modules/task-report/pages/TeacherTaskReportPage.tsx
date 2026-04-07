@@ -38,6 +38,34 @@ function isSessionCompleted(item: TeachingHistoryItem): boolean {
   return COMPLETED_STATUSES.some((k) => s.includes(k));
 }
 
+function getApiErrorMessage(err: unknown): string | null {
+  if (!err) return null;
+  if (typeof err === 'string') return err.trim() || null;
+  const anyErr = err as any;
+
+  // Axios-style: err.response.data can be string | object
+  const data = anyErr?.response?.data;
+  if (typeof data === 'string' && data.trim()) return data;
+  if (data && typeof data === 'object') {
+    if (typeof data.message === 'string' && data.message.trim()) return data.message;
+    if (typeof data.title === 'string' && data.title.trim()) return data.title; // ASP.NET ProblemDetails
+    if (typeof data.error === 'string' && data.error.trim()) return data.error;
+    if (typeof data.detail === 'string' && data.detail.trim()) return data.detail;
+  }
+
+  // Some interceptors reject with response.data directly (string/object)
+  if (anyErr && typeof anyErr === 'object') {
+    if (typeof anyErr.message === 'string' && anyErr.message.trim()) return anyErr.message;
+    if (typeof anyErr.title === 'string' && anyErr.title.trim()) return anyErr.title;
+    if (typeof anyErr.error === 'string' && anyErr.error.trim()) return anyErr.error;
+    if (typeof anyErr.detail === 'string' && anyErr.detail.trim()) return anyErr.detail;
+  }
+
+  const msg = anyErr?.message;
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  return null;
+}
+
 type RequestGroup = {
   requestId: number;
   requestName: string;
@@ -126,7 +154,6 @@ export default function TeacherTaskReportPage() {
   }, [selectedRequestId, requestMap]);
 
   const isRequestCompleted = selectedRequestStatusCode === REQUEST_STATUS.COMPLETED;
-  const canEditTask = !isRequestCompleted;
 
   const [formState, setFormState] = useState<ReportRow>({
     title: '',
@@ -249,7 +276,7 @@ export default function TeacherTaskReportPage() {
         setTaskReports(reportRes.items ?? []);
       } catch (err) {
         console.error(err);
-        message.error('Không tải được danh sách phiên hoặc báo cáo công việc');
+      message.error(getApiErrorMessage(err) || 'Không tải được danh sách phiên hoặc báo cáo công việc');
       } finally {
         setLoading(false);
       }
@@ -441,13 +468,9 @@ export default function TeacherTaskReportPage() {
 
   const handleSaveForm = useCallback(async () => {
     if (!selectedRequestId) return;
-    if (canEditTask && (!formState.title.trim() || !formState.description.trim())) { message.warning('Vui lòng nhập tiêu đề và mô tả'); return; }
-    if (!canEditTask && editingId == null) {
-      message.warning('Yêu cầu đã hoàn thành, không thể thêm báo cáo mới.');
-      return;
-    }
+    if (!formState.title.trim() || !formState.description.trim()) { message.warning('Vui lòng nhập tiêu đề và mô tả'); return; }
 
-    if (editingId == null && canEditTask && formState.hasExpense) {
+    if (editingId == null && formState.hasExpense) {
       if (createExpenses.length === 0) {
         message.warning('Vui lòng thêm ít nhất 1 khoản chi phí.');
         return;
@@ -484,23 +507,23 @@ export default function TeacherTaskReportPage() {
           didSaveExpense = true;
         }
 
-        if (canEditTask) {
-          const updated = await taskReportApi.update(editingId, {
-            requestId: isRequestLevelReport ? selectedRequestId : undefined,
-            sessionId: isRequestLevelReport ? null : selectedSessionId ?? undefined,
-            title: formState.title.trim(),
-            description: formState.description.trim(),
-            startAt: startAtVal ?? null,
-            endAt: endAtVal ?? null,
-          });
-          setTaskReports((prev) => prev.map((r) => (r.taskReportId === editingId ? updated : r)));
-          message.success('Đã cập nhật báo cáo');
-        } else if (!didSaveExpense) {
-          message.info('Không có chi phí để lưu.');
-          return;
+        const updated = await taskReportApi.update(editingId, {
+          requestId: isRequestLevelReport ? selectedRequestId : undefined,
+          sessionId: isRequestLevelReport ? null : selectedSessionId ?? undefined,
+          title: formState.title.trim(),
+          description: formState.description.trim(),
+          startAt: startAtVal ?? null,
+          endAt: endAtVal ?? null,
+        });
+        setTaskReports((prev) => prev.map((r) => (r.taskReportId === editingId ? updated : r)));
+        message.success('Đã cập nhật báo cáo');
+
+        // Nếu user đang chỉ thao tác chi phí mà BE chặn update báo cáo (request completed),
+        // chi phí vẫn đã được lưu qua handleSaveNewExpense/handleSaveExpenseEdit.
+        if (didSaveExpense) {
+          // No-op: giữ UX hiện tại, đã có toast thành công ở từng action chi phí.
         }
       } else {
-        if (!canEditTask) return;
         const expensesInput =
           formState.hasExpense && createExpenses.length
             ? createExpenses.map((exp, idx) => {
@@ -534,7 +557,7 @@ export default function TeacherTaskReportPage() {
       setOpenReportModal(false);
     } catch (err) {
       console.error(err);
-      message.error('Lưu báo cáo thất bại');
+      message.error(getApiErrorMessage(err) || 'Lưu báo cáo thất bại');
     } finally {
       setSaving(false);
     }
@@ -546,7 +569,6 @@ export default function TeacherTaskReportPage() {
     editingId,
     createExpenses,
     resetCreateExpenses,
-    canEditTask,
     cancelEdit,
     showNewExpenseForm,
     editingExpenseId,
@@ -566,7 +588,7 @@ export default function TeacherTaskReportPage() {
       message.success('Đã xóa báo cáo');
     } catch (err) {
       console.error(err);
-      message.error('Xóa báo cáo thất bại');
+      message.error(getApiErrorMessage(err) || 'Xóa báo cáo thất bại');
     }
   }, [editingId, cancelEdit]);
 
@@ -581,13 +603,9 @@ export default function TeacherTaskReportPage() {
 
   const clearFilter = useCallback(() => { setFilterFrom(null); setFilterTo(null); setSearch(''); }, []);
   const openAddReportModal = useCallback(() => {
-    if (isRequestCompleted) {
-      message.warning('Yêu cầu đã hoàn thành, không thể tạo báo cáo mới.');
-      return;
-    }
     cancelEdit();
     setOpenReportModal(true);
-  }, [cancelEdit, isRequestCompleted]);
+  }, [cancelEdit]);
 
   const handleNewExpenseImgChange = useCallback((file: File | null) => {
     if (!file) { setNewExpenseFile(null); setNewExpensePreview(''); return; }
@@ -630,7 +648,7 @@ export default function TeacherTaskReportPage() {
       return true;
     } catch (err) {
       console.error(err);
-      message.error('Thêm chi phí thất bại');
+      message.error(getApiErrorMessage(err) || 'Thêm chi phí thất bại');
       return false;
     } finally {
       setSavingExpense(false);
@@ -686,7 +704,7 @@ export default function TeacherTaskReportPage() {
       return true;
     } catch (err) {
       console.error(err);
-      message.error('Cập nhật khoản chi thất bại');
+      message.error(getApiErrorMessage(err) || 'Cập nhật khoản chi thất bại');
       return false;
     } finally {
       setSavingExpenseEdit(false);
@@ -942,7 +960,6 @@ export default function TeacherTaskReportPage() {
                       size="sm"
                       className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white text-xs"
                       onClick={openAddReportModal}
-                      disabled={isRequestCompleted}
                     >
                       <Plus size={14} />
                       Tạo báo cáo
@@ -1096,16 +1113,12 @@ export default function TeacherTaskReportPage() {
           onClose={closeReportModal}
           title={
             editingId != null
-              ? isRequestCompleted
-                ? 'Thêm chi phí phát sinh'
-                : 'Chỉnh sửa báo cáo'
+              ? 'Chỉnh sửa báo cáo'
               : 'Thêm báo cáo'
           }
           description={
             editingId != null
-              ? isRequestCompleted
-                ? 'Yêu cầu đã hoàn thành, không thể chỉnh sửa task. Bạn có thể thêm/cập nhật chi phí.'
-                : 'Cập nhật nội dung báo cáo.'
+              ? 'Cập nhật nội dung báo cáo.'
               : 'Điền thông tin báo cáo công việc.'
           }
           className="max-w-xl"
@@ -1120,7 +1133,6 @@ export default function TeacherTaskReportPage() {
                   className="w-full [&_.ant-picker-input>input]:text-black"
                   value={formState.startAt ? dayjs(formState.startAt) : null}
                   onChange={(d) => setFormField('startAt', d ? d.toISOString() : '')}
-                  disabled={isRequestCompleted}
                 />
               </div>
               <div>
@@ -1131,7 +1143,6 @@ export default function TeacherTaskReportPage() {
                   className="w-full [&_.ant-picker-input>input]:text-black"
                   value={formState.endAt ? dayjs(formState.endAt) : null}
                   onChange={(d) => setFormField('endAt', d ? d.toISOString() : '')}
-                  disabled={isRequestCompleted}
                 />
               </div>
             </div>
@@ -1142,7 +1153,6 @@ export default function TeacherTaskReportPage() {
                 placeholder="Ví dụ: Chuẩn bị bài, Giảng phần 1"
                 value={formState.title}
                 onChange={(e) => setFormField('title', e.target.value)}
-                disabled={isRequestCompleted}
               />
             </div>
             <div>
@@ -1152,7 +1162,6 @@ export default function TeacherTaskReportPage() {
                 placeholder="Nội dung công việc đã làm..."
                 value={formState.description}
                 onChange={(e) => setFormField('description', e.target.value)}
-                disabled={isRequestCompleted}
               />
             </div>
 

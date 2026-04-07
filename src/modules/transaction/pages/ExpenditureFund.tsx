@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { Drawer, Modal, message } from 'antd';
 import { Eye, RotateCcw } from 'lucide-react';
 
@@ -21,6 +21,10 @@ import { expenseApi } from '../api/expenseApi';
 import type { WalletListItem } from '../api/walletApi';
 import { walletApi } from '../api/walletApi';
 import { getExpenseStatusInfo } from '@/constants/status';
+
+const EXP_PAGE = 'expPage';
+const EXP_STATUS = 'expStatus';
+const EXP_Q = 'expQ';
 
 const baseColumns: ColumnDef<ExpenseListItem>[] = [
   {
@@ -63,8 +67,19 @@ const baseColumns: ColumnDef<ExpenseListItem>[] = [
 
 export default function ExpenditureFund() {
   const context = useOutletContext<{ position: string }>();
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<number | undefined>(undefined);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const pageNumber = Math.max(1, Number(searchParams.get(EXP_PAGE) || '1') || 1);
+  const pageSize = 10;
+
+  const statusRaw = searchParams.get(EXP_STATUS);
+  const filterStatus =
+    statusRaw && statusRaw !== 'all' ? Number(statusRaw) : undefined;
+  const normalizedFilterStatus =
+    filterStatus != null && !Number.isNaN(filterStatus) ? filterStatus : undefined;
+
+  const search = searchParams.get(EXP_Q) ?? '';
+
   const [openDetail, setOpenDetail] = useState(false);
   const [detailItem, setDetailItem] = useState<ExpenseListItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -77,10 +92,47 @@ export default function ExpenditureFund() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const [data, setData] = useState<ExpenseListItem[]>([]);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  const setExpensePageNumber = (n: number) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set(EXP_PAGE, String(Math.max(1, n)));
+      return next;
+    });
+  };
+
+  const setSearch = (q: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      const trimmed = q.trim();
+      if (trimmed) next.set(EXP_Q, trimmed);
+      else next.delete(EXP_Q);
+      next.set(EXP_PAGE, '1');
+      return next;
+    });
+  };
+
+  const setFilterStatus = (v: number | undefined) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (v == null) next.delete(EXP_STATUS);
+      else next.set(EXP_STATUS, String(v));
+      next.set(EXP_PAGE, '1');
+      return next;
+    });
+  };
+
+  const resetListFilters = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete(EXP_PAGE);
+      next.delete(EXP_STATUS);
+      next.delete(EXP_Q);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (context.position === 'toolbar') return;
@@ -91,7 +143,7 @@ export default function ExpenditureFund() {
         const res = await expenseApi.getExpenses({
           pageNumber,
           pageSize,
-          status: filterStatus,
+          status: normalizedFilterStatus,
         });
         setData(res.items ?? []);
         setTotalItems(res.totalItems ?? 0);
@@ -102,7 +154,7 @@ export default function ExpenditureFund() {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageNumber, pageSize, filterStatus, context.position]);
+  }, [pageNumber, pageSize, normalizedFilterStatus, context.position]);
 
   useEffect(() => {
     if (!approveModalOpen) return;
@@ -135,8 +187,43 @@ export default function ExpenditureFund() {
   );
 
   if (context.position === 'toolbar') {
-    // Không render filter ở toolbar cho trang này, chỉ dùng filter ở phần content chính
-    return null;
+    return (
+      <div className="flex items-center gap-3">
+        <HoverSearch
+          placeholder="Tìm theo mô tả..."
+          value={search}
+          onChange={setSearch}
+        />
+
+        <Select
+          value={normalizedFilterStatus != null ? String(normalizedFilterStatus) : 'all'}
+          onValueChange={(v) => {
+            if (v === 'all') setFilterStatus(undefined);
+            else setFilterStatus(Number(v));
+          }}
+        >
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px]">
+            <SelectValue placeholder="Trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả trạng thái</SelectItem>
+            <SelectItem value="1">Đang chờ</SelectItem>
+            <SelectItem value="2">Đã duyệt</SelectItem>
+            <SelectItem value="3">Đã từ chối</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant="secondary"
+          className="bg-white"
+          onClick={resetListFilters}
+          title="Đặt lại bộ lọc"
+        >
+          <RotateCcw className="mr-2" />
+          Đặt lại
+        </Button>
+      </div>
+    );
   }
 
   const columns = useMemo<ColumnDef<ExpenseListItem>[]>(
@@ -172,52 +259,9 @@ export default function ExpenditureFund() {
 
   return (
     <div className="px-6 pt-2 pb-4 space-y-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-black">Quản lý khoản chi</h2>
-        {loading && (
-          <span className="text-xs text-gray-500">Đang tải dữ liệu...</span>
-        )}
-      </div>
-
-      <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch
-          placeholder="Tìm theo mô tả..."
-          value={search}
-          onChange={setSearch}
-        />
-        <div className="flex items-center gap-3">
-          <Select
-            value={filterStatus != null ? String(filterStatus) : 'all'}
-            onValueChange={(v) => {
-              if (v === 'all') setFilterStatus(undefined);
-              else setFilterStatus(Number(v));
-              setPageNumber(1);
-            }}
-          >
-            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px]">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              <SelectItem value="1">Đang chờ</SelectItem>
-              <SelectItem value="2">Đã duyệt</SelectItem>
-              <SelectItem value="3">Đã từ chối</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="secondary"
-            className="bg-white"
-            onClick={() => {
-              setSearch('');
-              setFilterStatus(undefined);
-              setPageNumber(1);
-            }}
-            title="Đặt lại bộ lọc"
-          >
-            <RotateCcw />
-          </Button>
-        </div>
+        {loading && <span className="text-xs text-gray-500">Đang tải dữ liệu...</span>}
       </div>
 
       <DataTable
@@ -226,7 +270,7 @@ export default function ExpenditureFund() {
         pageNumber={pageNumber}
         pageSize={pageSize}
         totalItems={totalItems}
-        onPageChange={setPageNumber}
+        onPageChange={setExpensePageNumber}
       />
 
       <Drawer
