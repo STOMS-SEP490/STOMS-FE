@@ -20,7 +20,7 @@ export default function CoursesLayout() {
   const basePath = isManager ? '/manager/courses' : isTeacher ? '/teacher/courses' : '/tl/courses';
 
   const currentTab = location.pathname.includes('subjects') ? 'subjects' : 'courses';
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
 
   const openCreateCourse = () => {
     setSearchParams((prev) => {
