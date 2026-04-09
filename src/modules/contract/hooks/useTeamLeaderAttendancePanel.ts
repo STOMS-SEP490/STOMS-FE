@@ -50,8 +50,9 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
     const raw = localStorage.getItem('user');
     if (!raw) return null;
     try {
-      const parsed = JSON.parse(raw) as { memberId?: number };
-      return parsed.memberId ?? null;
+      const parsed = JSON.parse(raw) as { memberId?: number | string };
+      const id = Number(parsed.memberId ?? 0);
+      return Number.isFinite(id) && id > 0 ? id : null;
     } catch {
       return null;
     }

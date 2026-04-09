@@ -109,6 +109,10 @@ export type ReservationCreateRequest = {
   Equipment: { EquipmentId: number }[];
 };
 
+export type ReservationBulkCreateRequest = {
+  Reservations: ReservationCreateRequest[];
+};
+
 /** BE: ReservationUpdateRequest */
 export type ReservationUpdateRequest = {
   StartAt: string;

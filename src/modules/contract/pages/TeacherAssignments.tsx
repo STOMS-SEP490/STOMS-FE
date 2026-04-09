@@ -99,7 +99,7 @@ export default function TeacherAssignments() {
     if (!memberId) return;
     try {
       setLoading(true);
-      const res = await teachingHistoryApi.getTeachingSchedule(memberId, {
+      const res = await teachingHistoryApi.getTeachingSchedule({
         pageNumber,
         pageSize,
       });

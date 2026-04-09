@@ -52,7 +52,7 @@ function formatTime(value?: string | null) {
 type TeamLeaderAttendanceHistoryTab = 'attendance' | 'history';
 
 function TeamLeaderAttendanceTab(props: { search: string; onSearchChange: (value: string) => void }) {
-  const statuses = useMemo(() => ['ASSIGNED', 'ONGOING'], []);
+  const statuses = useMemo(() => ['6', '8', '9'], []);
 
   const {
     items,
