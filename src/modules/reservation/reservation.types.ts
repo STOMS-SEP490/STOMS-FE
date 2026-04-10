@@ -80,6 +80,7 @@ export type CheckAvailabilityRequest = {
   CategoryIds?: number[];
   EquipmentName?: string;
   EquipmentCode?: string;
+  IsAvailable?: boolean;
   PageNumber?: number;
   PageSize?: number;
 };

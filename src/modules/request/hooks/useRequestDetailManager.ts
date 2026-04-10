@@ -4,7 +4,7 @@ import type { RequestListItem, RequestSessionSummary, SessionTopicInfo } from '.
 import requestService from '../api/requestApi';
 import sessionService from '../api/sessionApi';
 import { teamSessionApi } from '@/modules/team/api/teamSessionApi';
-import assignmentService from '../api/assignmentApi';
+import assignmentService from '../../assignment/api/assignmentApi';
 import { useProgramCoordinatorId } from './useProgramCoordinatorId';
 import type { AssignmentResponse, SessionResponse } from '../session.types';
 import type {

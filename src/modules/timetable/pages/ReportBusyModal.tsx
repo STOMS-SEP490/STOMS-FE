@@ -4,7 +4,7 @@ import { message } from 'antd';
 import { CalendarClock, MapPin } from 'lucide-react';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import sessionApi from '@/modules/request/api/sessionApi';
-import assignmentApi from '@/modules/request/api/assignmentApi';
+import assignmentApi from '@/modules/assignment/api/assignmentApi';
 import type { TeacherUpcomingScheduleCard } from '@/modules/event/hooks/useTeacherUpcomingAssignedSessions';
 import {
   canReportBusyForSessionStart,

@@ -7,7 +7,7 @@ import type { AssignmentResponse } from '@/modules/request/session.types';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import requestApi from '@/modules/request/api/requestApi';
 import sessionApi from '@/modules/request/api/sessionApi';
-import assignmentApi from '@/modules/request/api/assignmentApi';
+import assignmentApi from '@/modules/assignment/api/assignmentApi';
 import memberApi from '@/modules/request/api/memberApi';
 import type { SessionTopicInfo } from '@/modules/request/request';
 import type {

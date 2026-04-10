@@ -4,7 +4,7 @@ import type { SessionDetail } from '@/modules/request/type';
 import requestService from '@/modules/request/api/requestApi';
 import memberApi from '@/modules/member/api/memberApi';
 import type { MemberDetail } from '@/modules/member/member';
-import assignmentApi from '@/modules/request/api/assignmentApi';
+import assignmentApi from '@/modules/assignment/api/assignmentApi';
 import type { AssignmentDetail } from '@/modules/request/type';
 
 export type PopoverStaffItem = {
@@ -15,6 +15,10 @@ export type PopoverStaffItem = {
   email: string;
   avatarUrl: string;
 };
+
+function isApprovedAssignmentStatus(status?: string | null) {
+  return String(status ?? '').trim().toLowerCase() === 'approved';
+}
 
 export function useSessionDetailPopover(open: boolean, session: SessionDetail | null) {
   const [requestCode, setRequestCode] = useState('');
@@ -50,7 +54,9 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
   useEffect(() => {
     if (!open || !session?.Assignments?.length) return;
 
-    const sessionAssignments = session.Assignments ?? [];
+    const sessionAssignments = (session.Assignments ?? []).filter((a) =>
+      isApprovedAssignmentStatus(a?.Status),
+    );
     // 如果 session.Assignments 本身就带了成员信息（尤其 FullName），
     // 就没必要再逐个调用 `/api/assignments/{id}` 和 `/api/members/{id}`。
     const hasEmbeddedStaffFullNameForAssignmentId = (assignmentId: number) => {
@@ -141,7 +147,7 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
   }, [open, session?.Assignments, assignmentById, membersById]);
 
   const staff: PopoverStaffItem[] = useMemo(() => {
-    const items = session?.Assignments ?? [];
+    const items = (session?.Assignments ?? []).filter((a) => isApprovedAssignmentStatus(a?.Status));
     return items
       .filter(Boolean)
       .map((a) => ({

@@ -3,9 +3,9 @@ import { CalendarDays } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
-import teachingHistoryApi from '../api/teachingHistoryApi';
-import type { TeachingScheduleItem } from '../teachingHistory';
-import { sessionDisplayName } from '../teachingHistory';
+import teachingHistoryApi from '../../contract/api/teachingHistoryApi';
+import type { TeachingScheduleItem } from '../../contract/teachingHistory';
+import { sessionDisplayName } from '../../contract/teachingHistory';
 import { useNavigate } from 'react-router-dom';
 
 function formatDateTime(value?: string) {

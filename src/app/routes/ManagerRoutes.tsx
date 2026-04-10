@@ -12,7 +12,7 @@ import ReservationsManagement from '@/modules/reservation/pages/ReservationsMana
 import TeamsManagement from '@/modules/team/pages/TeamsManagement';
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
-import EventCalendar from '@/modules/event/pages/EventCalendar';
+import EventCalendar from '@/modules/timetable/pages/EventCalendar';
 import TransactionLayout from '@/app/layouts/TransactionsLayout';
 import Transactions from '@/modules/transaction/pages/Transaction';
 import ExpenditureFund from '@/modules/transaction/pages/ExpenditureFund';

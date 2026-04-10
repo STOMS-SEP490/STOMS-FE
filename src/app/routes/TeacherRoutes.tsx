@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
-import EventCalendar from '@/modules/event/pages/EventCalendar';
+import EventCalendar from '@/modules/timetable/pages/EventCalendar';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import TeacherTaskReportPage from '@/modules/task-report/pages/TeacherTaskReportPage';
 import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeachingHistoryPage';

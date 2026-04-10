@@ -743,7 +743,7 @@ export default function EventCalendar() {
         day={monthMoreDay}
         events={monthMoreEvents}
         onClose={closeMonthMore}
-        onPickEvent={async (ev) => {
+        onPickEvent={async (ev: CalendarEvent) => {
           const idNum = parseSessionIdFromCalendar(ev.id);
           if (idNum == null) return;
           closeMonthMore();
