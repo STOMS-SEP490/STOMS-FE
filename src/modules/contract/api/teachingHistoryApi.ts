@@ -1,4 +1,5 @@
 import axiosClient from '@/shared/lib/axios';
+import { serializeParamsRepeatArray } from '@/shared/lib/paramsSerializer';
 import type { PaginationResponse } from '@/shared/types/api';
 import type {
   TeachingHistoryItem,
@@ -27,10 +28,12 @@ const teachingHistoryApi = {
 
   /** GET /api/members/{memberId}/teaching-schedule */
   getTeachingSchedule: async (
-    memberId: number,
     params?: TeachingScheduleFilterParams,
   ): Promise<PaginationResponse<TeachingScheduleItem>> => {
-    return axiosClient.get(`/members/${memberId}/teaching-schedule`, { params });
+    return axiosClient.get(`/members/teaching-schedule`, {
+      params,
+      paramsSerializer: serializeParamsRepeatArray,
+    });
   },
 };
 

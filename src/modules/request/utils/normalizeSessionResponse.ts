@@ -6,7 +6,6 @@ import type {
   TeamSessionResponse,
 } from '../session.types';
 
-/** BE có thể trả PascalCase hoặc camelCase (System.Text.Json mặc định). Chuẩn hóa về PascalCase cho UI. */
 const pick = <T>(obj: Record<string, unknown>, pascal: string, camel: string): T | undefined =>
   (obj[pascal] as T | undefined) ?? (obj[camel] as T | undefined);
 

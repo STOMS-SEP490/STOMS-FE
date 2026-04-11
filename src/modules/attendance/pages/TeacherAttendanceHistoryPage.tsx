@@ -12,7 +12,7 @@ import sessionApi from '@/modules/request/api/sessionApi';
 import type { PagedResponse, SessionResponse } from '@/modules/request/session.types';
 import memberApi from '@/modules/request/api/memberApi';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
-import TeamLeaderTimetableAssignments from '@/modules/contract/pages/TeamLeaderTimetableAssignments';
+import TeamLeaderTimetableAssignments from '@/modules/timetable/pages/TeamLeaderTimetableAssignments';
 import { useTeamLeaderTimetableAssignments } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
 import requestApi from '@/modules/request/api/requestApi';
 import type { RequestListItem, RequestSessionSummary } from '@/modules/request/request';
@@ -52,7 +52,7 @@ function formatTime(value?: string | null) {
 type TeamLeaderAttendanceHistoryTab = 'attendance' | 'history';
 
 function TeamLeaderAttendanceTab(props: { search: string; onSearchChange: (value: string) => void }) {
-  const statuses = useMemo(() => ['ASSIGNED', 'ONGOING'], []);
+  const statuses = useMemo(() => ['6', '8', '9'], []);
 
   const {
     items,

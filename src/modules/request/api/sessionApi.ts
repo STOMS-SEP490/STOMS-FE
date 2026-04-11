@@ -26,7 +26,7 @@ const sessionApi = {
 
   cancel: (payload: { sessionId: number; reason: string }): Promise<void> =>
     axiosClient.put<void, void>('/sessions/cancel', {
-      SessionId: payload.sessionId,
+      SessionIds: [payload.sessionId],
       Reason: payload.reason,
     }),
 };

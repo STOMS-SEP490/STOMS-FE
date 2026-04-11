@@ -4,6 +4,7 @@ import type {
   CheckAvailabilityRequest,
   PagedEquipmentResponse,
   PagedReservationResponse,
+  ReservationBulkCreateRequest,
   ReservationCreateRequest,
   ReservationDetail,
   ReservationFilterRequest,
@@ -24,8 +25,12 @@ const reservationApi = {
       params,
     }),
 
-  create: (body: ReservationCreateRequest): Promise<ReservationDetail> =>
-    axiosClient.post<ReservationDetail, ReservationDetail>('/reservations', body),
+  create: (body: ReservationCreateRequest): Promise<ReservationDetail[]> => {
+    const payload: ReservationBulkCreateRequest = {
+      Reservations: [body],
+    };
+    return axiosClient.post<ReservationDetail[], ReservationDetail[]>('/reservations', payload);
+  },
 
   getById: (id: number): Promise<ReservationDetail> =>
     axiosClient.get<ReservationDetail, ReservationDetail>(`/reservations/${id}`),

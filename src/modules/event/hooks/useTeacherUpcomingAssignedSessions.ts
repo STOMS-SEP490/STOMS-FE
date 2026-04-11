@@ -6,8 +6,6 @@ import {
   type TeachingScheduleItem,
 } from '@/modules/contract/teachingHistory';
 
-/** BE SessionStatus.Assigned — phiên đã được phân công, sắp/đang diễn ra. */
-const ASSIGNED_SESSION_STATUS = 6;
 
 export type TeacherUpcomingScheduleCard = {
   sessionId: number;
@@ -81,10 +79,10 @@ export function useTeacherUpcomingAssignedSessions(
     void (async () => {
       try {
         setLoading(true);
-        const res = await teachingHistoryApi.getTeachingSchedule(memberId, {
+        const res = await teachingHistoryApi.getTeachingSchedule( {
           pageNumber: 1,
           pageSize: 50,
-          Status: ASSIGNED_SESSION_STATUS,
+          Status: [6, 8],
         });
         if (cancelled) return;
         const now = Date.now();
