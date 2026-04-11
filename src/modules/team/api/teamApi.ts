@@ -137,8 +137,9 @@ function normalizeTeamDetail(raw: Record<string, unknown>): Team {
       teamId,
       topicId: t.topicId,
       topicName: t.topicName,
-      isActive: true,
-      createdAt: '',
+      // Giữ đúng trạng thái từ BE (trước đây luôn true → Switch trong EditTeamModal sai)
+      isActive: t.isActive !== false,
+      createdAt: t.createdAt ?? '',
     }));
   }
 
