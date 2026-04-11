@@ -90,15 +90,16 @@ export const expenseApi = {
   async getExpenses(
     params?: ExpenseFilterParams
   ): Promise<PaginationResponse<ExpenseListItem>> {
+    // axiosClient interceptor đã trả về response.data — không bọc thêm .data
     const res = await axiosClient.get<Record<string, unknown>>('/expenses/filter', {
       params,
     });
-    return mapPagedFromApi((res?.data ?? {}) as Record<string, unknown>);
+    return mapPagedFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   async getById(id: number): Promise<ExpenseListItem> {
     const res = await axiosClient.get<Record<string, unknown>>(`/expenses/${id}`);
-    return mapExpenseFromApi((res?.data ?? {}) as Record<string, unknown>);
+    return mapExpenseFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 
   async approve(payload: { walletId: number; expenseIds: number[] }): Promise<ExpenseListItem[]> {
@@ -115,7 +116,25 @@ export const expenseApi = {
       expenseId: payload.expenseId,
       reason: payload.reason.trim(),
     });
-    return mapExpenseFromApi((res?.data ?? {}) as Record<string, unknown>);
+    return mapExpenseFromApi((res ?? {}) as unknown as Record<string, unknown>);
+  },
+
+  async update(payload: {
+    expenseId: number;
+    amount?: number | null;
+    description?: string | null;
+    paymentImg?: File | null;
+  }): Promise<ExpenseListItem> {
+    const fd = new FormData();
+    if (payload.amount != null) fd.append('Amount', String(payload.amount));
+    if (payload.description != null) fd.append('Description', payload.description);
+    if (payload.paymentImg) fd.append('PaymentImg', payload.paymentImg);
+
+    const res = await axiosClient.put<Record<string, unknown>>(`/expenses/${payload.expenseId}`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return mapExpenseFromApi((res ?? {}) as unknown as Record<string, unknown>);
   },
 };
 

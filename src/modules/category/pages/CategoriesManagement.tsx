@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus } from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
+import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
@@ -16,6 +16,8 @@ import CategoryDetailSidebar from './CategoryDetailSidebar';
 
 export default function CategoriesManagement() {
   const context = useOutletContext<{ position?: string }>();
+  const location = useLocation();
+  const isEquipmentManager = location.pathname.startsWith('/em/');
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editCategory, setEditCategory] = useState<CategoryListItem | null>(null);
@@ -23,6 +25,25 @@ export default function CategoriesManagement() {
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryListItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCategory, setDetailCategory] = useState<CategoryListItem | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const categoryIdFromUrl = searchParams.get('categoryId');
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setDetailOpen(false);
+    setDetailCategory(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('categoryId');
+      return next;
+    });
+  };
 
   const {
     data,
@@ -37,6 +58,7 @@ export default function CategoriesManagement() {
   } = useCategories();
 
   const handleEdit = (category: CategoryListItem) => {
+    if (!isEquipmentManager) return;
     setEditCategory(category);
     setEditOpen(true);
   };
@@ -51,7 +73,33 @@ export default function CategoriesManagement() {
     }
   };
 
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!categoryIdFromUrl) return;
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const id = Number(categoryIdFromUrl);
+    if (!id || Number.isNaN(id)) return;
+
+    if (detailOpen && detailCategory?.categoryId === id) return;
+
+    (async () => {
+      try {
+        const full = await categoryApi.getById(id);
+        setDetailCategory(full);
+        setDetailOpen(true);
+      } catch {
+        message.error('Không tải được thông tin danh mục');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDetailFromUrl, categoryIdFromUrl, detailOpen, detailCategory?.categoryId]);
+
   const handleDeleteConfirm = async () => {
+    if (!isEquipmentManager) return;
     if (!categoryToDelete) return;
     try {
       await categoryApi.remove(categoryToDelete.categoryId);
@@ -108,11 +156,13 @@ export default function CategoriesManagement() {
         const category = row.original;
         return (
           <div className="flex items-center gap-3">
-            <Pencil
-              size={16}
-              className="text-blue-600 cursor-pointer"
-              onClick={() => handleEdit(category)}
-            />
+            {isEquipmentManager ? (
+              <Pencil
+                size={16}
+                className="text-blue-600 cursor-pointer"
+                onClick={() => handleEdit(category)}
+              />
+            ) : null}
             <Eye
               size={16}
               className="text-gray-800 cursor-pointer"
@@ -125,6 +175,7 @@ export default function CategoriesManagement() {
   ];
 
   if (context?.position === 'header') {
+    if (!isEquipmentManager) return null;
     return (
       <>
         <Button
@@ -167,10 +218,7 @@ export default function CategoriesManagement() {
       )}
       <CategoryDetailSidebar
         open={detailOpen}
-        onClose={() => {
-          setDetailOpen(false);
-          setDetailCategory(null);
-        }}
+        onClose={closeDetailFromUrl}
         category={detailCategory}
       />
       <EditCategoryModal

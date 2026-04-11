@@ -1,4 +1,5 @@
 import axiosClient from '@/shared/lib/axios';
+import { serializeParamsRepeatArray } from '@/shared/lib/paramsSerializer';
 import type { PaginationResponse } from '@/shared/types/api';
 import type {
   RequestFilterParams,
@@ -6,48 +7,33 @@ import type {
   CreateRequestPayload,
 } from '../request';
 
-function toRequestFilterQuery(params: RequestFilterParams = {}): Record<string, unknown> {
-  return {
-    RequestId: params.requestId,
-    Statuses: params.statuses,
-    TeamId: params.teamId,
-    PageNumber: params.pageNumber,
-    PageSize: params.pageSize,
-  };
-}
-
 const requestApi = {
-  async getRequests(
+  getRequests: (
     params?: RequestFilterParams,
-  ): Promise<PaginationResponse<RequestListItem>> {
-    const res = await axiosClient.get<
-      PaginationResponse<RequestListItem>,
-      PaginationResponse<RequestListItem>
-    >('/requests/filter', {
-      params: toRequestFilterQuery(params ?? {}),
-      // Tuỳ biến serialize để BE nhận dạng List<string> đúng dạng
-      paramsSerializer: (rawParams) => {
-        const usp = new URLSearchParams();
-        Object.entries(rawParams).forEach(([key, value]) => {
-          if (value == null) return;
-          if (Array.isArray(value)) {
-            value.forEach((v) => usp.append(key, String(v)));
-          } else {
-            usp.append(key, String(value));
-          }
-        });
-        return usp.toString();
+  ): Promise<PaginationResponse<RequestListItem>> =>
+    axiosClient.get<PaginationResponse<RequestListItem>, PaginationResponse<RequestListItem>>(
+      '/requests/filter',
+      {
+        params: {
+          RequestId: params?.requestId,
+          Statuses: params?.statuses,
+          SessionStatuses: params?.sessionStatuses,
+          AssignmentStatuses: params?.assignmentStatuses,
+          RequireAllAssignmentsHaveStaffMember: params?.requireAllAssignmentsHaveStaffMember,
+          TeamId: params?.teamId,
+          PageNumber: params?.pageNumber,
+          PageSize: params?.pageSize,
+        },
+        paramsSerializer: serializeParamsRepeatArray,
       },
-    });
-    return res;
-  },
+    ),
 
   getById: (id: number): Promise<RequestListItem> => {
     return axiosClient.get<RequestListItem, RequestListItem>(`/requests/${id}`);
   },
 
-  create: (data: CreateRequestPayload): Promise<void> => {
-    return axiosClient.post<void, void>('/requests', data);
+  create: (data: CreateRequestPayload): Promise<RequestListItem> => {
+    return axiosClient.post<RequestListItem, RequestListItem>('/requests', data);
   },
 
   approve: (
@@ -73,6 +59,12 @@ const requestApi = {
         ApprovedByMemberId: payload.approvedByMemberId ?? null,
       },
     );
+  },
+
+  cancel: (id: number, payload: { reason: string }): Promise<RequestListItem> => {
+    return axiosClient.put<RequestListItem, RequestListItem>(`/requests/${id}/cancel`, {
+      Reason: payload.reason,
+    });
   },
 
   update: (id: number, data: Partial<CreateRequestPayload>): Promise<void> => {

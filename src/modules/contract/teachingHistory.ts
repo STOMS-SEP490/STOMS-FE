@@ -95,6 +95,8 @@ export type TeachingScheduleFilterParams = {
   toDate?: string;
   keyword?: string;
   status?: string;
+  /** Session.status — ví dụ 6 = ASSIGNED (MemberTeachingScheduleRequest.Status). */
+  Status?: number | number[];
   pageNumber?: number;
   pageSize?: number;
 };

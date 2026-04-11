@@ -1,30 +1,34 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
+  Star,
   FileText,
-  BookOpen,
+  GraduationCap,
   CalendarDays,
   ClipboardList,
-  Laptop,
+  Package,
   Wallet,
   Users,
   UserCircle,
-  Clock,
-  CheckCircle,
   Bookmark,
   Tag,
   PieChart,
   Menu,
   LogOut,
   Key,
+  ClipboardCheck,
+  CheckCircle2,
+  ListChecks,
 } from 'lucide-react';
 import { logout } from '@/modules/auth/pages/Logout';
 
 import { NavLink, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
+import NotificationBell from '@/shared/components/common/NotificationBell';
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(true);
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const navigate = useNavigate();
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
     const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
@@ -59,22 +63,42 @@ export default function Sidebar() {
     }
   }, []);
 
+  useEffect(() => {
+    if (collapsed) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (sidebarRef.current?.contains(target)) return;
+      setCollapsed(true);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [collapsed]);
+
   const menus = useMemo(
     () => [
       { label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
       { label: 'Quản lý tài khoản', icon: UserCircle, path: '/manager/users' },
       { label: 'Quản lý thành viên', icon: Users, path: '/manager/members' },
       { label: 'Vai trò', icon: Key, path: '/manager/roles' },
-      { label: 'Nhóm', icon: Users, path: '/manager/teams' },
-      { label: 'Sự kiện', icon: CalendarDays, path: '/manager/events' },
-      { label: 'Giáo trình', icon: BookOpen, path: '/manager/courses' },
+      { label: 'Nhóm', icon: ListChecks, path: '/manager/teams' },
+      { label: 'Sự kiện', icon: Star, path: '/manager/events' },
+      { label: 'Giáo trình', icon: GraduationCap, path: '/manager/courses' },
       { label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
-      { label: 'Thiết bị', icon: Laptop, path: '/manager/equipments' },
+      { label: 'Thiết bị', icon: Package, path: '/manager/equipments' },
+      { label: 'Phiếu mượn', icon: ClipboardCheck, path: '/manager/borrowings' },
       { label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
       { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
-      { label: 'Quỹ / Thu chi', icon: Wallet, path: '/manager/transactions' },
-      { label: 'Thời khóa biểu', icon: Clock, path: '/manager/timetable' },
-      { label: 'Trung tâm duyệt', icon: CheckCircle, path: '/manager/requests' },
+      { label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },
+      { label: 'Thời khóa biểu', icon: CalendarDays, path: '/manager/timetable' },
+      { label: 'Trung tâm duyệt', icon: CheckCircle2, path: '/manager/requests' },
       { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
       { label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
     ],
@@ -88,25 +112,31 @@ export default function Sidebar() {
 
   return (
     <aside
+      ref={sidebarRef}
       className={`
-        h-screen bg-[#F6F8FB] border-r border-border
+        h-screen bg-[#F6F8FB]
         transition-all duration-300
         ${collapsed ? 'w-[72px] px-1.5' : 'w-72 px-5'}
         py-5 flex flex-col
       `}
     >
       {!collapsed && (
-        <div className="w-full flex items-center justify-between mb-4">
-          <div className="flex items-center gap-1">
-            <img src="/img/logo.png" alt="logo" className="w-13 h-10" />
-            <span className="text-sm font-bold text-slate-700">STOMS</span>
+        <div className="w-full flex items-center justify-between mb-4 gap-2 min-w-0">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <img src="/img/logo.png" alt="logo" className="w-13 h-10 shrink-0" />
+            <span className="text-sm font-bold text-slate-700 truncate">STOMS</span>
           </div>
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="rounded-md hover:bg-gray-200 transition"
-          >
-            <Menu size={20} color="black" />
-          </button>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <NotificationBell />
+            <button
+              type="button"
+              onClick={() => setCollapsed(!collapsed)}
+              className="rounded-md hover:bg-gray-200 transition p-1"
+              aria-label="Thu gọn menu"
+            >
+              <Menu size={20} color="black" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -141,18 +171,23 @@ export default function Sidebar() {
       )}
 
       {collapsed && (
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="rounded-md hover:bg-gray-200 transition mb-4"
-        >
-          <Menu size={20} color="black" />
-        </button>
+        <div className="flex flex-col items-center gap-1.5 mb-4 w-full">
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="rounded-md hover:bg-gray-200 transition p-1"
+            aria-label="Mở rộng menu"
+          >
+            <Menu size={20} color="black" />
+          </button>
+          <NotificationBell variant="sidebarCollapsed" />
+        </div>
       )}
 
       <div className="overflow-y-auto no-scrollbar relative">
         <div
           className={`
-            grid border border-gray-200 rounded-xl 
+            grid gap-px bg-gray-200
             ${collapsed ? 'grid-cols-1' : 'grid-cols-2'}
           `}
         >
@@ -162,18 +197,19 @@ export default function Sidebar() {
             return (
               <NavLink key={m.path} to={m.path}>
                 {({ isActive }) => (
-                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
+                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'aspect-square min-h-[64px]'}`}>
                     <div
                       className={` 
-                        h-full rounded-xl 
+                        h-full
                         flex flex-col items-center justify-center
                         transition-all
+                        bg-[#F6F8FB]
                         ${isActive ? 'opacity-0' : 'group-hover:opacity-0'}
                       `}
                     >
                       <Icon size={18} className="text-gray-400" />
                       {!collapsed && (
-                        <div className="text-xs mt-2 text-center text-gray-400">
+                        <div className="text-xs mt-1 text-center text-gray-400">
                           {m.label}
                         </div>
                       )}
@@ -181,19 +217,19 @@ export default function Sidebar() {
 
                     <div
                       className={`
-                        absolute inset-0 rounded-xl
+                        absolute inset-0
                         flex flex-col items-center justify-center
                         transition-all duration-300
                         ${
                           isActive
-                            ? 'bg-[#208aae] text-white scale-100'
-                            : 'bg-[#208aae] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
+                            ? 'bg-white text-[#208aae] scale-100 shadow-md z-10'
+                            : 'bg-white text-[#208aae] opacity-0 scale-100 group-hover:opacity-100'
                         }
                       `}
                     >
                       <Icon size={20} />
                       {!collapsed && (
-                        <div className="text-xs mt-2 font-medium text-center px-1">
+                        <div className="text-xs mt-1 font-medium text-center px-1">
                           {m.label}
                         </div>
                       )}
@@ -231,7 +267,7 @@ export default function Sidebar() {
                      py-3 rounded-xl text-red-600 
                      hover:bg-red-50 transition"
         >
-          <LogOut size={16} />
+          <LogOut size={18} />
           {!collapsed && <span>Đăng xuất</span>}
         </button>
       </div>

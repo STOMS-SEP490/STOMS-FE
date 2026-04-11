@@ -1,33 +1,107 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import RequestCard from './RequestCard';
+import { getRequestStatusCode, getRequestStatusInfo, REQUEST_STATUS } from '@/constants/status';
+
+const REQUEST_APPROVAL_STATUSES = ['PENDING', 'REJECTED', 'APPROVED'] as const;
 
 function isPendingStatus(status: string | undefined): boolean {
   const s = (status ?? '').toLowerCase();
   return s === 'pending' || s.includes('chờ') || s.includes('pending');
 }
 
+/** Bộ lọc trạng thái yêu cầu (manager / PC layout). */
+export type ManagerRequestStatusFilter =
+  | 'all'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'assigning'
+  | 'published'
+  | 'completed'
+  | 'cancelled';
+
+const STATUS_FILTER_TO_REQUEST_CODE: Record<Exclude<ManagerRequestStatusFilter, 'all'>, number> = {
+  pending: REQUEST_STATUS.PENDING,
+  approved: REQUEST_STATUS.APPROVED,
+  rejected: REQUEST_STATUS.REJECTED,
+  assigning: REQUEST_STATUS.ASSIGNING,
+  published: REQUEST_STATUS.PUBLISHED,
+  completed: REQUEST_STATUS.COMPLETED,
+  cancelled: REQUEST_STATUS.CANCELLED,
+};
+
+const STATUS_FILTER_TO_API: Record<Exclude<ManagerRequestStatusFilter, 'all'>, string> = {
+  pending: 'PENDING',
+  approved: 'APPROVED',
+  rejected: 'REJECTED',
+  assigning: 'ASSIGNING',
+  published: 'PUBLISHED',
+  completed: 'COMPLETED',
+  cancelled: 'CANCELLED',
+};
+
 export type RequestSidebarProps = {
+  basePath?: string;
   search?: string;
   onlyPending?: boolean;
   typeFilter?: 'all' | 'event' | 'subject' | 'course';
-  statusFilter?: 'all' | 'pending' | 'approved' | 'rejected' | 'assigning';
+  statusFilter?: ManagerRequestStatusFilter;
   refreshKey?: number;
+  /**
+   * manager chỉ cần lọc các trạng thái phê duyệt,
+   * pc cần show đủ để tránh redirect về danh sách khi mở chi tiết.
+   */
+  requestStatusesScope?: 'approval' | 'all';
+  /** Tắt redirect tự động khi danh sách theo filter đang rỗng. */
+  autoNavigateWhenEmpty?: boolean;
+  /**
+   * Tab Duyệt phân công: gọi API với AssignmentStatuses=1 (Pending), không gửi Statuses.
+   */
+  filterByPendingAssignments?: boolean;
 };
 
 export default function RequestSidebar({
+  basePath = '/manager/requests',
   search = '',
   onlyPending = false,
   typeFilter = 'all',
   statusFilter = 'all',
   refreshKey = 0,
+  requestStatusesScope = 'approval',
+  autoNavigateWhenEmpty = true,
+  filterByPendingAssignments = false,
 }: RequestSidebarProps) {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey);
+  /** Tab Tất cả + trạng thái “Tất cả”: không gửi Statuses, BE trả về mọi yêu cầu (đỡ lặp list đủ enum). */
+  const requestQueryOptions = (() => {
+    if (filterByPendingAssignments) {
+      return { assignmentStatuses: ['1'] };
+    }
+    if (onlyPending) {
+      return { statuses: ['PENDING'] };
+    }
+    if (statusFilter !== 'all') {
+      return { statuses: [STATUS_FILTER_TO_API[statusFilter]] };
+    }
+    if (requestStatusesScope === 'all') {
+      return {};
+    }
+    return { statuses: [...REQUEST_APPROVAL_STATUSES] };
+  })();
+
+  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey, requestQueryOptions);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+
+  // Manager assignment view should still display the same request status UI as PC.
+  // Always use the canonical mapping: getRequestStatusInfo.
+  const getManagerAssignmentStatusInfo = useMemo(
+    () => (status: string | number | null | undefined) => getRequestStatusInfo(status),
+    [],
+  );
 
   const filtered = requestList
     .filter((item) => {
@@ -44,25 +118,21 @@ export default function RequestSidebar({
       })();
       if (!matchType) return false;
 
+      if (filterByPendingAssignments) return true;
+
       if (onlyPending) return isPendingStatus(item.status);
       if (statusFilter === 'all') return true;
-      const s = String(item.status ?? '').toLowerCase();
-      if (statusFilter === 'pending') return s.includes('pending') || s.includes('chờ');
-      if (statusFilter === 'approved') return s.includes('approved') || s.includes('đã duyệt');
-      if (statusFilter === 'rejected')
-        return s.includes('rejected') || s.includes('reject') || s.includes('từ chối');
-      if (statusFilter === 'assigning')
-        return s.includes('assigning') || s.includes('đang phân công');
-      return true;
+      const want = STATUS_FILTER_TO_REQUEST_CODE[statusFilter];
+      return getRequestStatusCode(item.status) === want;
     });
 
   // Nếu theo bộ lọc hiện tại không còn yêu cầu nào
   // mà URL vẫn đang ở /requests/:id thì điều hướng về trang placeholder
   useEffect(() => {
-    if (!loading && filtered.length === 0 && id) {
-      navigate('/manager/requests');
+    if (!loading && autoNavigateWhenEmpty && filtered.length === 0 && id) {
+      navigate(basePath);
     }
-  }, [filtered.length, id, loading, navigate]);
+  }, [autoNavigateWhenEmpty, basePath, filtered.length, id, loading, navigate]);
 
   return (
     <div className="text-black h-full">
@@ -99,10 +169,11 @@ export default function RequestSidebar({
                 courseId={item.courseId}
                 eventId={item.eventId}
                 status={item.status}
+                statusInfoOverride={getManagerAssignmentStatusInfo(item.status)}
                 showNeedsAction={isPendingStatus(item.status)}
                 isActive={id === String(item.requestId)}
                 isHovered={hoveredId === item.requestId}
-                onClick={() => navigate(`/manager/requests/${item.requestId}`)}
+                onClick={() => navigate(`${basePath}/${item.requestId}`)}
                 onMouseEnter={() => setHoveredId(item.requestId)}
                 onMouseLeave={() => setHoveredId(null)}
               />

@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import type { User } from '@/modules/user/user';
-import { ROLE_MAP } from '@/constants/role';
+import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import { Badge } from '@/shared/components/ui/badge';
 
 type Props = {
@@ -12,7 +12,8 @@ type Props = {
 export default function UserDetailDrawer({ open, onClose, user }: Props) {
   if (!user) return null;
 
-  const roleName = ROLE_MAP[user.roleId] ?? '—';
+  const roleId = user.roleId;
+  const roleName = getRoleLabel(roleId);
 
   return (
     <>
@@ -40,7 +41,7 @@ export default function UserDetailDrawer({ open, onClose, user }: Props) {
             </div>
             <div>
               <p className="text-xs text-gray-400 font-medium">Vai trò</p>
-              <Badge className="bg-blue-100 text-blue-700">{roleName}</Badge>
+              <Badge className={`${getRoleBadgeClass(roleId)} border`}>{roleName}</Badge>
             </div>
             <div>
               <p className="text-xs text-gray-400 font-medium">Trạng thái</p>

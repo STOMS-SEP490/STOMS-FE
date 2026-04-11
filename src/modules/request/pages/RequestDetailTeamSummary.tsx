@@ -53,9 +53,9 @@ export default function RequestDetailTeamSummary({ session, assignedTeamIds }: P
     (session.teachersRequired ?? 1) + (session.tasRequired ?? 1);
 
   return (
-    <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
-      <div className="px-4 py-2.5 border-b border-gray-100">
-        <h3 className="font-semibold text-gray-900 text-sm">Gán đội phụ trách</h3>
+    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
+      <div className="px-4 py-2.5 bg-slate-50/70">
+        <h3 className="font-semibold text-gray-900 text-sm">Đội phụ trách</h3>
       </div>
       <div className="px-4 py-3 space-y-3">
         {loading ? (
@@ -69,18 +69,20 @@ export default function RequestDetailTeamSummary({ session, assignedTeamIds }: P
             {teams.map((team) => (
               <div
                 key={team.teamId}
-                className="flex items-center justify-between gap-3 text-sm text-gray-800"
+                className="flex items-center justify-between gap-3 text-sm text-gray-800 rounded-xl bg-gradient-to-r from-slate-50/90 to-sky-50/30 px-3 py-3"
               >
-                <div className="flex items-center gap-3">
-                  <Users className="w-4 h-4 text-gray-400 shrink-0" />
-                  <div>
-                    <p className="font-semibold text-black">{team.teamName}</p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80 text-sky-600 shadow-sm">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-black truncate">{team.teamName}</p>
                     <p className="text-xs text-gray-500">
                       Đội đã gắn
                     </p>
                   </div>
                 </div>
-                <div className="text-right text-xs text-gray-600">
+                <div className="text-right text-xs text-gray-600 shrink-0">
                   <p>
                     Giảng viên:{' '}
                     <span className="font-semibold text-black">

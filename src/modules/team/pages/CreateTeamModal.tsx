@@ -149,7 +149,7 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
                 </Avatar>
                 <div>
                   <div className="font-medium text-black">{m.fullName}</div>
-                  <div className="text-xs text-black/60">{m.user?.email}</div>
+                  <div className="text-xs text-black/60">{m.email ?? '—'}</div>
                 </div>
               </button>
             ))}

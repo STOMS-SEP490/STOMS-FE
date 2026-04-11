@@ -1,15 +1,21 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { X, ImageOff } from 'lucide-react'
 import type { BorrowingListItem } from '../borrowing'
 import { Badge } from '@/shared/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar'
 import { getBorrowingStatusColor, getBorrowingStatusDisplay } from '@/constants/borrowing'
+import { getEquipmentBorrowingStatusInfo } from '@/constants/status'
 import { cn } from '@/shared/lib/utils'
+import { Checkbox, Image, message } from 'antd'
+import { Button } from '@/shared/components/ui/button'
+import borrowingApi from '../api/borrowingApi'
 
 type Props = {
   open: boolean
   onClose: () => void
   borrowing: BorrowingListItem | null
+  onReturned?: () => Promise<void> | void
+  canManageReturn?: boolean
 }
 
 function formatDateTime(date?: string | null) {
@@ -21,6 +27,8 @@ export default function BorrowingDetailSidebar({
   open,
   onClose,
   borrowing,
+  onReturned,
+  canManageReturn = true,
 }: Props) {
   if (!borrowing) return null
 
@@ -28,9 +36,136 @@ export default function BorrowingDetailSidebar({
   const lender = borrowing.lentByMember
   const isOverdue =
     borrowing.status === 'Overdue' || borrowing.status === '4'
-  const [imageOpen, setImageOpen] = useState(false)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageAlt, setImageAlt] = useState<string>('Hình ảnh thiết bị')
+  const isBorrowingReturned = borrowing.status === 'Returned' || borrowing.status === '3'
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [returnStatusById, setReturnStatusById] = useState<Record<number, 'RETURNED' | 'DAMAGED' | 'LOST'>>({})
+  const [returning, setReturning] = useState(false)
+  const [localReturnedAtById, setLocalReturnedAtById] = useState<Record<number, string>>({})
+  const [localStatusById, setLocalStatusById] = useState<Record<number, string>>({})
+
+  const details = borrowing.borrowingEquipmentDetail ?? []
+  const actionableItems = useMemo(
+    () =>
+      details.filter((item) => {
+        const raw = String(localStatusById[item.equipmentBorrowingId] ?? item.status ?? '').toLowerCase()
+        return (
+          !raw.includes('returned') &&
+          raw !== '2' &&
+          !raw.includes('damaged') &&
+          raw !== '3' &&
+          !raw.includes('lost') &&
+          raw !== '4' &&
+          !raw.includes('mất')
+        )
+      }),
+    [details, localStatusById]
+  )
+
+  const allActionableIds = actionableItems.map((item) => item.equipmentBorrowingId)
+  const allSelected = allActionableIds.length > 0 && allActionableIds.every((id) => selectedIds.includes(id))
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (!checked) {
+      setSelectedIds([])
+      return
+    }
+    setSelectedIds(allActionableIds)
+    setReturnStatusById((prev) => {
+      const next = { ...prev }
+      allActionableIds.forEach((id) => {
+        if (!next[id]) next[id] = 'RETURNED'
+      })
+      return next
+    })
+  }
+
+  const toggleOne = (equipmentBorrowingId: number, checked: boolean) => {
+    setSelectedIds((prev) =>
+      checked
+        ? prev.includes(equipmentBorrowingId)
+          ? prev
+          : [...prev, equipmentBorrowingId]
+        : prev.filter((id) => id !== equipmentBorrowingId)
+    )
+    if (checked) {
+      setReturnStatusById((prev) => ({ ...prev, [equipmentBorrowingId]: prev[equipmentBorrowingId] ?? 'RETURNED' }))
+    }
+  }
+
+  const handleConfirmReturn = async (returnAllAsReturned: boolean) => {
+    const targetIds = returnAllAsReturned ? allActionableIds : selectedIds
+    if (!targetIds.length) {
+      message.warning('Vui lòng chọn ít nhất 1 thiết bị để xác nhận trả')
+      return
+    }
+
+    const itemsToProcess = details.filter((item) => targetIds.includes(item.equipmentBorrowingId))
+    if (!itemsToProcess.length) return
+
+    try {
+      setReturning(true)
+      const nowIso = new Date().toISOString()
+
+      const payload = {
+        items: itemsToProcess.map((item) => {
+          const returnStatus = returnAllAsReturned
+            ? 'RETURNED'
+            : (returnStatusById[item.equipmentBorrowingId] ?? 'RETURNED')
+
+          // Backend expects EquipmentBorrowingStatus: Returned / Damaged / Lost
+          const status =
+            returnStatus === 'DAMAGED'
+              ? ('Damaged' as const)
+              : returnStatus === 'LOST'
+                ? ('Lost' as const)
+                : ('Returned' as const)
+
+          return {
+            equipmentBorrowingId: item.equipmentBorrowingId,
+            status,
+          }
+        }),
+      }
+
+      await borrowingApi.updateHandover(borrowing.borrowingId, payload)
+
+      const nextStatusById: Record<number, string> = {}
+      const nextReturnedAtById: Record<number, string> = {}
+      itemsToProcess.forEach((item) => {
+        const returnStatus = returnAllAsReturned
+          ? 'RETURNED'
+          : (returnStatusById[item.equipmentBorrowingId] ?? 'RETURNED')
+        nextStatusById[item.equipmentBorrowingId] =
+          returnStatus === 'DAMAGED'
+            ? 'Damaged'
+            : returnStatus === 'LOST'
+              ? 'Lost'
+              : 'Returned'
+        nextReturnedAtById[item.equipmentBorrowingId] = nowIso
+      })
+      setLocalStatusById((prev) => ({ ...prev, ...nextStatusById }))
+      setLocalReturnedAtById((prev) => ({ ...prev, ...nextReturnedAtById }))
+
+      setSelectedIds([])
+      setReturnStatusById((prev) => {
+        const next = { ...prev }
+        targetIds.forEach((id) => delete next[id])
+        return next
+      })
+
+      message.success(
+        returnAllAsReturned
+          ? `Đã xác nhận trả đủ ${itemsToProcess.length} thiết bị`
+          : `Đã xác nhận trả ${itemsToProcess.length} thiết bị`
+      )
+      await onReturned?.()
+    } catch (err) {
+      console.error('confirm return equipment error', err)
+      message.error('Xác nhận trả thiết bị thất bại')
+    } finally {
+      setReturning(false)
+    }
+  }
 
   return (
     <>
@@ -65,9 +200,6 @@ export default function BorrowingDetailSidebar({
                   {getBorrowingStatusDisplay(borrowing.status)}
                 </span>
               </div>
-              <p className="text-xs text-gray-500">
-                Ngày mượn: {formatDateTime(borrowing.createdAt)}
-              </p>
             </div>
             <button
               onClick={onClose}
@@ -84,21 +216,37 @@ export default function BorrowingDetailSidebar({
                 <PersonCard
                   label="Người mượn"
                   memberName={borrower?.fullName}
-                  subLine={borrower?.phone ?? (borrower && `ID #${borrower.memberId}`)}
+                  primaryLine={
+                    borrower?.email?.trim() ||
+                    (borrower ? `ID #${borrower.memberId}` : null)
+                  }
+                  subLine={null}
                   avatarUrl={borrower?.avatarUrl ?? undefined}
                 />
                 <PersonCard
                   label="Người lập phiếu"
                   memberName={lender?.fullName}
+                  primaryLine={lender?.email ?? null}
                   subLine={lender?.phone ?? (lender && `ID #${lender.memberId}`)}
                   avatarUrl={lender?.avatarUrl ?? undefined}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <InfoRow
+                  label="Ngày mượn"
+                  value={<span className="text-gray-900">{formatDateTime(borrowing.createdAt)}</span>}
+                />
+                <InfoRow
                   label="Hạn trả"
                   value={
-                    <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>
+                    <span
+                      className={cn(
+                        'inline-flex items-center px-2 py-0.5 rounded-full font-semibold border',
+                        isOverdue
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      )}
+                    >
                       {formatDateTime(borrowing.returnedDueDate)}
                     </span>
                   }
@@ -111,41 +259,42 @@ export default function BorrowingDetailSidebar({
             </Card>
 
             <Card title="Thiết bị trong phiếu">
-              {borrowing.borrowingEquipmentDetail &&
-              borrowing.borrowingEquipmentDetail.length > 0 ? (
+              {details.length > 0 ? (
                 <ul className="space-y-2">
-                  {borrowing.borrowingEquipmentDetail.map((item) => (
-                    <li
-                      key={item.equipmentBorrowingId}
-                      className="rounded-xl border bg-white px-3 py-2 flex items-center gap-3"
-                    >
-                      <div className="w-10 h-10 rounded-md overflow-hidden border bg-gray-50 flex-shrink-0 flex items-center justify-center">
-                        {item.equipment?.imgLink ? (
-                          <button
-                            type="button"
-                            className="w-full h-full"
-                            onClick={() => {
-                              setImageUrl(item.equipment?.imgLink ?? null)
-                              setImageAlt(item.equipment?.equipmentName ?? 'Hình ảnh thiết bị')
-                              setImageOpen(true)
-                            }}
-                            title="Xem ảnh thiết bị"
-                          >
-                            <img
+                  {details.map((item) => {
+                    const statusMeta = getEquipmentBorrowingStatusInfo(
+                      localStatusById[item.equipmentBorrowingId] ?? item.status
+                    )
+                    return (
+                      <li
+                        key={item.equipmentBorrowingId}
+                        className="rounded-xl bg-white px-3 py-2.5"
+                      >
+                        <div className="flex items-center gap-3">
+                          {canManageReturn && !isBorrowingReturned && !statusMeta.isReturned ? (
+                          <Checkbox
+                            checked={selectedIds.includes(item.equipmentBorrowingId)}
+                            disabled={!allActionableIds.includes(item.equipmentBorrowingId) || returning}
+                            onChange={(e) => toggleOne(item.equipmentBorrowingId, e.target.checked)}
+                            className="mt-1"
+                          />
+                        ) : null}
+                        <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
+                          {item.equipment?.imgLink ? (
+                            <Image
                               src={item.equipment.imgLink}
                               alt={item.equipment.equipmentName}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                              }}
+                              width={40}
+                              height={40}
+                              className="object-contain"
+                              preview={{ mask: 'Xem ảnh' }}
                             />
-                          </button>
-                        ) : (
-                          <ImageOff className="w-5 h-5 text-gray-400" />
-                        )}
-                      </div>
+                          ) : (
+                            <ImageOff className="w-5 h-5 text-gray-400" />
+                          )}
+                        </div>
 
-                      <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <div>
                             <div className="font-medium text-sm text-gray-900 truncate">
@@ -155,8 +304,8 @@ export default function BorrowingDetailSidebar({
                               Mã: {item.equipment?.equipmentCode ?? item.equipmentId}
                             </div>
                           </div>
-                          <Badge className="bg-gray-100 text-gray-700 text-[11px] flex-shrink-0">
-                            {item.status}
+                          <Badge className={cn('text-[11px] flex-shrink-0', statusMeta.className)}>
+                            {statusMeta.label}
                           </Badge>
                         </div>
 
@@ -168,47 +317,138 @@ export default function BorrowingDetailSidebar({
                                 ? `#${item.equipment.categoryId}`
                                 : '—')}
                           </span>
-                          <span className="whitespace-nowrap">
-                            Ngày trả: {formatDateTime(item.checkinAt)}
-                          </span>
+                          {(localReturnedAtById[item.equipmentBorrowingId] ?? item.checkinAt) ? (
+                            <span className="whitespace-nowrap">
+                              Ngày trả: {formatDateTime(localReturnedAtById[item.equipmentBorrowingId] ?? item.checkinAt)}
+                            </span>
+                          ) : null}
+                        </div>
                         </div>
                       </div>
-                    </li>
-                  ))}
+                        {canManageReturn && !isBorrowingReturned && selectedIds.includes(item.equipmentBorrowingId) && (
+                        <div className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg bg-sky-50/40 px-3 py-1.5">
+                          <span className="text-[11px] text-sky-700 font-medium">Trạng thái trả:</span>
+                          <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
+                            <button
+                              type="button"
+                              disabled={returning}
+                              onClick={() =>
+                                setReturnStatusById((prev) => ({
+                                  ...prev,
+                                  [item.equipmentBorrowingId]: 'RETURNED',
+                                }))
+                              }
+                              className={cn(
+                                'px-2 py-0.5 text-[10px] rounded-sm font-medium transition-colors',
+                                (returnStatusById[item.equipmentBorrowingId] ?? 'RETURNED') === 'RETURNED'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'text-slate-600 hover:bg-slate-100'
+                              )}
+                            >
+                              Tốt
+                            </button>
+                            <button
+                              type="button"
+                              disabled={returning}
+                              onClick={() =>
+                                setReturnStatusById((prev) => ({
+                                  ...prev,
+                                  [item.equipmentBorrowingId]: 'DAMAGED',
+                                }))
+                              }
+                              className={cn(
+                                'px-2 py-0.5 text-[10px] rounded-sm font-medium transition-colors',
+                                (returnStatusById[item.equipmentBorrowingId] ?? 'RETURNED') === 'DAMAGED'
+                                  ? 'bg-amber-600 text-white'
+                                  : 'text-slate-600 hover:bg-slate-100'
+                              )}
+                            >
+                              Hỏng
+                            </button>
+                            <button
+                              type="button"
+                              disabled={returning}
+                              onClick={() =>
+                                setReturnStatusById((prev) => ({
+                                  ...prev,
+                                  [item.equipmentBorrowingId]: 'LOST',
+                                }))
+                              }
+                              className={cn(
+                                'px-2 py-0.5 text-[10px] rounded-sm font-medium transition-colors',
+                                (returnStatusById[item.equipmentBorrowingId] ?? 'RETURNED') === 'LOST'
+                                  ? 'bg-red-600 text-white'
+                                  : 'text-slate-600 hover:bg-slate-100'
+                              )}
+                            >
+                              Mất
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      </li>
+                    )
+                  })}
                 </ul>
               ) : (
                 <EmptyState text="Không có thiết bị trong phiếu." />
               )}
             </Card>
+            {canManageReturn && (borrowing.status === 'Borrowed' ||
+              borrowing.status === 'Overdue' ||
+              borrowing.status === 'PartialReturned' ||
+              borrowing.status === '1' ||
+              borrowing.status === '2' ||
+              borrowing.status === '4') && (
+              <Card title="Xác nhận trả thiết bị">
+                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Checkbox
+                      checked={allSelected}
+                      disabled={!allActionableIds.length || returning}
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                    >
+                      Chọn tất cả thiết bị chưa trả
+                    </Checkbox>
+                    <div className="text-xs text-gray-500">
+                      Còn {allActionableIds.length} thiết bị chưa trả
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      className="bg-[#2197C0] hover:bg-[#208AAE] text-white min-w-[170px]"
+                      disabled={returning || !selectedIds.length}
+                      onClick={() => void handleConfirmReturn(false)}
+                    >
+                      {returning ? 'Đang xử lý...' : 'Xác nhận trả đã chọn'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-w-[130px]"
+                      disabled={returning || !allActionableIds.length}
+                      onClick={() => void handleConfirmReturn(true)}
+                    >
+                      Trả đủ tất cả
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Có thể chọn từng thiết bị để đánh dấu "Bị hỏng" hoặc "Mất" trước khi xác nhận trả.
+                  </p>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
       </div>
-      {imageOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
-          onClick={() => setImageOpen(false)}
-        >
-          <div
-            className="max-w-3xl max-h-[80vh] bg-white rounded-2xl overflow-hidden shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={imageAlt}
-                className="w-full h-full object-contain bg-black"
-              />
-            ) : null}
-          </div>
-        </div>
-      )}
     </>
   )
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border bg-white shadow-sm">
+    <div className="rounded-2xl bg-white shadow-sm">
       <div className="px-4 py-2.5 border-b">
         <h3 className="font-semibold text-gray-900 text-sm">{title}</h3>
       </div>
@@ -229,15 +469,17 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 function PersonCard({
   label,
   memberName,
+  primaryLine,
   subLine,
   avatarUrl,
 }: {
   label: string
   memberName?: string | null
+  primaryLine?: string | null
   subLine?: string | null
   avatarUrl?: string
 }) {
-  if (!memberName && !subLine) {
+  if (!memberName && !primaryLine && !subLine) {
     return (
       <div>
         <div className="text-xs text-gray-500 font-medium mb-1">{label}</div>
@@ -247,7 +489,7 @@ function PersonCard({
   }
 
   return (
-    <div className="rounded-xl border bg-white px-3 py-2.5 flex flex-col gap-1.5">
+    <div className="rounded-xl bg-white px-3 py-2.5 flex flex-col gap-1.5">
       <div className="text-xs text-gray-500 font-medium">{label}</div>
       <div className="flex items-center gap-2">
         <Avatar className="h-8 w-8 flex-shrink-0">
@@ -260,18 +502,17 @@ function PersonCard({
           <div className="text-sm font-medium text-gray-900 truncate">
             {memberName}
           </div>
-          {subLine && (
-            <div className="text-xs text-gray-500 truncate">{subLine}</div>
-          )}
+          <div className="text-xs text-gray-500 truncate">{primaryLine || '—'}</div>
         </div>
       </div>
+      {subLine && <div className="text-xs text-gray-500 truncate">Số điện thoại: {subLine}</div>}
     </div>
   )
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border bg-gray-50 px-3 py-3 text-sm text-gray-600">
+    <div className="rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-600">
       {text}
     </div>
   )

@@ -25,6 +25,10 @@ export type Team = {
   leaderMemberName?: string | null;
   teamSessions?: TeamSession[];
   teamTopics?: TeamTopic[];
+  /** GET /teams/:id (TeamDetailResponse) — danh sách topic phẳng */
+  topics?: TeamTopicItem[];
+  /** GET /teams/:id — thành viên kèm response (không cần gọi /members/filter) */
+  members?: TeamMemberItem[];
 };
 
 /* ─── Filter / Payload types ─── */
@@ -47,7 +51,11 @@ export type TeamUpdatePayload = {
   leaderMemberId?: number;
 };
 
-/* ─── GET /api/teams/member/{memberId} → TeamDetailResponse ─── */
+export type MemberSkillItem = {
+  skillId: number;
+  skillName: string;
+  isActive: boolean;
+};
 
 export type TeamMemberItem = {
   memberId: number;
@@ -63,11 +71,14 @@ export type TeamMemberItem = {
   bankName: string | null;
   taxNumber: string | null;
   email: string;
+  skills?: MemberSkillItem[];
 };
 
 export type TeamTopicItem = {
   topicId: number;
   topicName: string;
+  isActive?: boolean;
+  createdAt?: string | null;
 };
 
 export type TeamDetail = {
@@ -75,6 +86,10 @@ export type TeamDetail = {
   teamName: string;
   members: TeamMemberItem[];
   topics: TeamTopicItem[];
+  leaderMemberId?: number | null;
+  leaderMemberName?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 /* ─── TeamSession API payload ─── */

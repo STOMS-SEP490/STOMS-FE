@@ -1,4 +1,5 @@
-import { DataTable } from '@/shared/components/common/DataTable';
+import { DataTable } from '@/shared/components/common/DataTable'; 
+import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -20,7 +21,7 @@ import {
   Power,
   PowerOff,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { message, Modal } from 'antd';
 import eventApi from '@/modules/event/api/eventApi';
 import eventSessionApi from '@/modules/event/api/eventSessionApi';
@@ -33,6 +34,7 @@ import topicApi from '@/modules/topic/api/topicApi';
 import eventSessionSkillApi from '@/modules/event/api/eventSessionSkillApi';
 import eventSessionTopicApi from '@/modules/event/api/eventSessionTopicApi';
 import { Switch } from '@/shared/components/ui/switch';
+import { useLocation, useSearchParams } from 'react-router-dom';
 
 type EditableEventSession = {
   eventSessionId?: number;
@@ -53,6 +55,13 @@ type EditableEventSession = {
 };
 
 export default function EventsManagement() {
+  const location = useLocation();
+  /** TL / Giảng viên / PC: chỉ đọc, API luôn isActive=true; Manager: đầy đủ CRUD + lọc trạng thái */
+  const readOnly =
+    location.pathname.startsWith('/tl/') ||
+    location.pathname.startsWith('/teacher/') ||
+    location.pathname.startsWith('/pc/');
+
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(10);
@@ -74,31 +83,34 @@ export default function EventsManagement() {
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
 
   useEffect(() => {
+    if (readOnly) return;
     skillApi
       .getSkills({ pageSize: 500 })
       .then((res) => setAllSkills(res.items ?? []))
       .catch(() => setAllSkills([]));
-  }, []);
+  }, [readOnly]);
 
   useEffect(() => {
+    if (readOnly) return;
     topicApi
       .getTopics({ pageNumber: 1, pageSize: 500 })
       .then((res) => setAllTopics(res.items ?? []))
       .catch(() => setAllTopics([]));
-  }, []);
+  }, [readOnly]);
 
   const fetchEvents = async () => {
     try {
+      const isActive = readOnly
+        ? true
+        : statusFilter === 'all'
+          ? undefined
+          : statusFilter === 'active';
+
       const res = await eventApi.getEvents({
         pageNumber,
         pageSize,
         keyword: search.trim() || undefined,
-        isActive:
-          statusFilter === 'all'
-            ? undefined
-            : statusFilter === 'active'
-              ? true
-              : false,
+        isActive,
       });
 
       setEvents(res.items ?? []);
@@ -110,22 +122,77 @@ export default function EventsManagement() {
 
   useEffect(() => {
     fetchEvents();
-  }, [pageNumber, search, statusFilter]);
+  }, [pageNumber, search, statusFilter, readOnly]);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailEvent, setDetailEvent] = useState<EventListItem | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const eventIdFromUrl = searchParams.get('eventId');
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false);
+  const lastOpenedEventIdRef = useRef<number | null>(null);
+
+  const closeDetailFromUrl = () => {
+    if (openDetailFromUrl === '1') {
+      skipNextAutoOpenRef.current = true;
+    }
+    setDetailOpen(false);
+    setDetailEvent(null);
+    lastOpenedEventIdRef.current = null;
+
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('eventId');
+      return next;
+    });
+  };
+
+  const openDetailById = useCallback(async (id: number) => {
+    try {
+      const full = await eventApi.getById(id);
+      setDetailEvent(full);
+      lastOpenedEventIdRef.current = id;
+      setDetailOpen(true);
+    } catch {
+      message.error('Không tải được thông tin sự kiện');
+    }
+  }, []);
 
   const handleViewDetail = async (e: EventListItem) => {
     try {
       const full = await eventApi.getById(e.eventId);
       setDetailEvent(full);
       setDetailOpen(true);
+      lastOpenedEventIdRef.current = e.eventId;
     } catch {
       message.error('Không tải được thông tin sự kiện');
     }
   };
 
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!eventIdFromUrl) return;
+
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const id = Number(eventIdFromUrl);
+    if (!id || Number.isNaN(id)) return;
+
+    // Đã có đúng dữ liệu chi tiết cho id trong URL thì không gọi API lại (tránh lệch ref/detailOpen).
+    if (detailOpen && detailEvent?.eventId === id) return;
+
+    void openDetailById(id);
+  }, [openDetailFromUrl, eventIdFromUrl, detailOpen, detailEvent?.eventId, openDetailById]);
+
   const openCreate = () => {
+    if (readOnly) return;
     setMode('create');
     setEditingEvent(null);
     setEventCode('');
@@ -153,6 +220,7 @@ export default function EventsManagement() {
   };
 
   const openEdit = async (e: EventListItem) => {
+    if (readOnly) return;
     setMode('edit');
     try {
       const detail = await eventApi.getById(e.eventId);
@@ -285,6 +353,7 @@ export default function EventsManagement() {
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     const base = {
       eventCode: eventCode.trim(),
       eventName: eventName.trim(),
@@ -436,6 +505,7 @@ export default function EventsManagement() {
   };
 
   const handleToggleActive = async (e: EventListItem) => {
+    if (readOnly) return;
     Modal.confirm({
       title: e.isActive ? 'Ngừng hoạt động sự kiện?' : 'Kích hoạt sự kiện?',
       content: e.isActive
@@ -470,6 +540,14 @@ export default function EventsManagement() {
     {
       accessorKey: 'eventName',
       header: 'Tên sự kiện',
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <div className="font-medium text-gray-900 truncate">{row.original.eventName}</div>
+          <div className="text-xs text-gray-500 truncate">
+            {row.original.description?.trim() || '—'}
+          </div>
+        </div>
+      ),
     },
     {
       id: 'status',
@@ -500,6 +578,9 @@ export default function EventsManagement() {
       enableSorting: false,
       cell: ({ row }) => {
         const ev = row.original;
+        if (readOnly) {
+          return <TableTextAction onClick={() => void handleViewDetail(ev)} />;
+        }
         return (
           <div className="flex items-center gap-2">
             <Eye
@@ -536,16 +617,59 @@ export default function EventsManagement() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <>
+      {readOnly ? (
+        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 bg-slate-50 p-6 pb-8">
+          <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+            <h2 className="text-xl font-semibold text-black">Danh sách sự kiện</h2>
+            <p className="text-xs text-gray-500">Xem thông tin các sự kiện trong hệ thống</p>
+          </div>
+
+          <div className="shrink-0 px-2 py-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+              <HoverSearch
+                value={search}
+                onChange={(v) => {
+                  setSearch(v);
+                  setPageNumber(1);
+                }}
+                placeholder="Tìm theo tên hoặc mã sự kiện..."
+              />
+              <Button
+                variant="secondary"
+                className="h-9 border-slate-200 bg-white"
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setPageNumber(1);
+                }}
+              >
+                <RotateCcw size={16} />
+              </Button>
+            </div>
+          </div>
+
+          <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <DataTable
+              comfortable
+              fillHeight
+              tableGap="tight"
+              columns={columns}
+              data={events}
+              pageNumber={pageNumber}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={(page) => setPageNumber(page)}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="p-6 space-y-6">
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">
-            Quản lý sự kiện
-          </h2>
-          <p className="text-xs text-gray-500">
-            Quản lý các sự kiện trong hệ thống
-          </p>
+          <h2 className="text-xl font-semibold text-black">Quản lý sự kiện</h2>
+          <p className="text-xs text-gray-500">Quản lý các sự kiện trong hệ thống</p>
         </div>
 
         <Button
@@ -557,7 +681,7 @@ export default function EventsManagement() {
         </Button>
       </div>
 
-      {/* STATS */}
+      {/* STATS — chỉ manager */}
       <div className="grid grid-cols-4 gap-4 mb-2">
         <StatCard
           icon={<BookOpen />}
@@ -575,10 +699,7 @@ export default function EventsManagement() {
         <StatCard
           icon={<Clock />}
           label="Tổng buổi"
-          value={events.reduce(
-            (sum, e) => sum + e.numberOfSession,
-            0
-          )}
+          value={events.reduce((sum, e) => sum + e.numberOfSession, 0)}
           sub="tổng số buổi"
         />
         <StatCard
@@ -636,17 +757,16 @@ export default function EventsManagement() {
           onPageChange={(page) => setPageNumber(page)}
         />
       </div>
+        </div>
+      )}
 
       <EventDetailSidebar
         open={detailOpen}
-        onClose={() => {
-          setDetailOpen(false);
-          setDetailEvent(null);
-        }}
+        onClose={closeDetailFromUrl}
         event={detailEvent}
       />
 
-      {openUpsert && (
+      {!readOnly && openUpsert && (
         <div
           className="fixed inset-0 bg-black/30 z-40 h-full"
           onClick={closeUpsert}
@@ -654,6 +774,7 @@ export default function EventsManagement() {
         />
       )}
 
+      {!readOnly && (
       <div
         className={`fixed top-0 right-0 h-full w-[820px] max-w-[95vw] bg-[#f3f4f6] z-50
         transition-transform duration-300
@@ -1012,6 +1133,7 @@ export default function EventsManagement() {
           </div>
         </div>
       </div>
-    </div>
+      )}
+    </>
   );
 }

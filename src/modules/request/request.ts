@@ -16,12 +16,6 @@ export type CreateRequestSession = {
   reservationId: number | null;
 };
 
-export type CreateRequestAttachment = {
-  fileName: string;
-  fileUrl: string;
-  uploadedByMemberId: number;
-};
-
 export type CreateRequestPayload = {
   programCoordinatorId: number;
 
@@ -35,7 +29,12 @@ export type CreateRequestPayload = {
   note: string;
 
   sessions: CreateRequestSession[];
-  attachments: CreateRequestAttachment[];
+};
+
+export type SessionTopicInfo = {
+  title?: string | null;
+  description?: string | null;
+  duration?: string | null;
 };
 
 export type RequestSessionSummary = {
@@ -48,6 +47,9 @@ export type RequestSessionSummary = {
   isOnline?: boolean | null;
   teachersRequired?: number | null;
   tasRequired?: number | null;
+  subjectSession?: SessionTopicInfo | null;
+  eventSession?: SessionTopicInfo | null;
+  sessionSkills?: string[];
 };
 
 export type RequestListItem = {
@@ -64,9 +66,19 @@ export type RequestListItem = {
   sessionsRequired: number;
 
   status: string;
+  reason?: string | null;
   createdAt: string;
 
   sessions?: RequestSessionSummary[];
+
+  attachments?: Array<{
+    attachmentId?: number | null;
+    requestId?: number | null;
+    uploadedByMemberId?: number | null;
+    fileName?: string | null;
+    fileUrl?: string | null;
+    uploadedAt?: string | null;
+  }>;
 };
 
 export type RequestFilterParams = {
@@ -74,5 +86,8 @@ export type RequestFilterParams = {
   pageSize?: number;
   requestId?: number;
   statuses?: string[];
+  sessionStatuses?: string[];
+  assignmentStatuses?: string[];
+  requireAllAssignmentsHaveStaffMember?: boolean;
   teamId?: number;
 };

@@ -1,4 +1,5 @@
 import { DataTable } from '@/shared/components/common/DataTable';
+import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import {
@@ -10,8 +11,8 @@ import {
 } from '@/shared/components/ui/select';
 import type { BorrowingListItem } from '@/modules/equipment/borrowing';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, RotateCcw } from 'lucide-react';
-import { useLocation, useOutletContext } from 'react-router-dom';
+import { RotateCcw } from 'lucide-react';
+import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useBorrowings } from '../hooks/useBorrowings';
 import {
   BORROWING_STATUS_OPTIONS,
@@ -19,15 +20,39 @@ import {
   getBorrowingStatusColor,
 } from '@/constants/borrowing';
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import borrowingApi from '../api/borrowingApi';
 import CreateBorrowingModal from './CreateBorrowingModal';
 import BorrowingDetailSidebar from './BorrowingDetailSidebar';
 
+const DEFAULT_AVATAR_SRC = '/img/ava.png';
+const QP_SEARCH = 'q';
+const QP_STATUS = 'st';
+const QP_PAGE = 'p';
+
+function getAvatarSrc(src?: string | null) {
+  return src && String(src).trim() ? String(src) : DEFAULT_AVATAR_SRC;
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('vi-VN');
+}
+
+function formatTime(dateStr: string | null): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function parsePositiveInt(v: string | null, fallback: number): number {
+  const n = v ? Number(v) : NaN;
+  if (!Number.isFinite(n)) return fallback;
+  const i = Math.floor(n);
+  return i > 0 ? i : fallback;
 }
 
 const columns = (
@@ -45,13 +70,27 @@ const columns = (
     header: 'Người mượn',
     cell: ({ row }) => {
       const m = row.original.borrowedByMember;
+      const email = m?.email?.trim() || '';
+      const sub =
+        email ||
+        (row.original.borrowedByMemberId ? `ID #${row.original.borrowedByMemberId}` : '—');
       return (
-        <div>
-          <div className="font-medium text-black">
-            {m?.fullName ?? '—'}
+        <div className="flex min-w-0 max-w-[280px] items-center gap-3">
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+            <img
+              src={getAvatarSrc(m?.avatarUrl)}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+              }}
+            />
           </div>
-          <div className="text-xs text-muted-foreground">
-            {m?.phone ?? row.original.borrowedByMemberId}
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-medium text-slate-900">{m?.fullName ?? '—'}</div>
+            <div className="truncate text-xs text-muted-foreground" title={sub}>
+              {sub}
+            </div>
           </div>
         </div>
       );
@@ -90,7 +129,7 @@ const columns = (
               isOverdue ? 'text-red-500' : isReturned ? 'text-green-600' : 'text-muted-foreground'
             }`}
           >
-            {isReturned ? 'Đã trả' : isOverdue ? 'Quá hạn' : 'Chưa trả'}
+            {formatTime(due)}
           </div>
         </div>
       );
@@ -115,13 +154,7 @@ const columns = (
     header: 'Thao tác',
     enableSorting: false,
     cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <Eye
-          size={16}
-          className="text-blue-600 cursor-pointer"
-          onClick={() => onView(row.original)}
-        />
-      </div>
+      <TableTextAction onClick={() => void onView(row.original)} />
     ),
   },
 ];
@@ -132,28 +165,102 @@ type OutletContext = {
   setCreateBorrowingOpen?: (open: boolean) => void;
 };
 
-export default function EquipmentsHistory() {
+type Props = {
+  borrowedByMemberId?: number;
+  standalone?: boolean;
+};
+
+export default function EquipmentsHistory({ borrowedByMemberId, standalone = false }: Props = {}) {
   const context = useOutletContext<OutletContext>();
   const location = useLocation();
-  const {
-    data,
-    loading,
-    search,
-    setSearch,
-    status,
-    setStatus,
-    resetFilters,
-    pageNumber,
-    pageSize,
-    totalItems,
-    setPageNumber,
-    refetch,
-  } = useBorrowings();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchValue = searchParams.get(QP_SEARCH) ?? '';
+  const statusValue = searchParams.get(QP_STATUS) ?? undefined;
+  const pageFromUrl = useMemo(() => parsePositiveInt(searchParams.get(QP_PAGE), 1), [searchParams]);
+
+  const setQuery = useCallback(
+    (updater: (next: URLSearchParams) => URLSearchParams) => {
+      setSearchParams((prev) => updater(new URLSearchParams(prev)));
+    },
+    [setSearchParams],
+  );
+
+  const setSearchQuery = useCallback(
+    (v: string) => {
+      setQuery((next) => {
+        const value = (v ?? '').trim();
+        if (value) next.set(QP_SEARCH, value);
+        else next.delete(QP_SEARCH);
+        next.delete(QP_PAGE);
+        return next;
+      });
+    },
+    [setQuery],
+  );
+
+  const setStatusQuery = useCallback(
+    (v: string | undefined) => {
+      setQuery((next) => {
+        if (v) next.set(QP_STATUS, v);
+        else next.delete(QP_STATUS);
+        next.delete(QP_PAGE);
+        return next;
+      });
+    },
+    [setQuery],
+  );
+
+  const resetFiltersQuery = useCallback(() => {
+    setQuery((next) => {
+      next.delete(QP_SEARCH);
+      next.delete(QP_STATUS);
+      next.delete(QP_PAGE);
+      return next;
+    });
+  }, [setQuery]);
+
+  const setPageQuery = useCallback(
+    (p: number) => {
+      setQuery((next) => {
+        if (p && p > 1) next.set(QP_PAGE, String(p));
+        else next.delete(QP_PAGE);
+        return next;
+      });
+    },
+    [setQuery],
+  );
+
+  const enabledFetch = context?.position !== 'header' && context?.position !== 'toolbar';
+  const { data, loading, pageSize, totalItems, refetch } = useBorrowings({
+    borrowedByMemberId,
+    search: searchValue,
+    status: statusValue,
+    pageNumber: pageFromUrl,
+    enabled: enabledFetch,
+  });
   const [createOpenLocal, setCreateOpenLocal] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailBorrowing, setDetailBorrowing] = useState<BorrowingListItem | null>(
     null
   );
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const borrowingIdFromUrl = searchParams.get('borrowingId');
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setDetailOpen(false);
+    setDetailBorrowing(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('borrowingId');
+      return next;
+    });
+  };
 
   const openCreate = context?.createBorrowingOpen ?? createOpenLocal;
   const setOpenCreate =
@@ -170,7 +277,51 @@ export default function EquipmentsHistory() {
     }
   };
 
+  const handleReturned = async () => {
+    await refetch();
+    if (!detailBorrowing?.borrowingId) return;
+    try {
+      const refreshed = await borrowingApi.getById(detailBorrowing.borrowingId);
+      setDetailBorrowing(refreshed);
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('refresh borrowing detail after return error');
+    }
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!borrowingIdFromUrl) return;
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const id = Number(borrowingIdFromUrl);
+    if (!id || Number.isNaN(id)) return;
+
+    if (detailOpen && detailBorrowing?.borrowingId === id) return;
+
+    (async () => {
+      try {
+        const full = await borrowingApi.getById(id);
+        setDetailBorrowing(full);
+        setDetailOpen(true);
+      } catch {
+        // eslint-disable-next-line no-console
+        console.error('get borrowing detail from url error');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    openDetailFromUrl,
+    borrowingIdFromUrl,
+    detailOpen,
+    detailBorrowing?.borrowingId,
+  ]);
+
   const isEquipmentManager = location.pathname.startsWith('/em/');
+  const renderStandalone = standalone || (!context?.position && isEquipmentManager);
 
   if (context?.position === 'header') {
     if (!isEquipmentManager) return null;
@@ -190,12 +341,12 @@ export default function EquipmentsHistory() {
       <div className="flex gap-3 items-center">
         <HoverSearch
           placeholder="Tìm theo mô tả, ghi chú..."
-          value={search}
-          onChange={(v) => setSearch(v)}
+          value={searchValue}
+          onChange={(v) => setSearchQuery(v)}
         />
         <Select
-          value={status ?? 'all'}
-          onValueChange={(v: string) => setStatus(v === 'all' ? undefined : v)}
+          value={statusValue ?? 'all'}
+          onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}
         >
           <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
             <SelectValue placeholder="Trạng thái" />
@@ -209,18 +360,26 @@ export default function EquipmentsHistory() {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="secondary" className="bg-white" onClick={resetFilters} type="button">
+        <Button
+          variant="secondary"
+          className="bg-white"
+          onClick={resetFiltersQuery}
+          type="button"
+        >
           <RotateCcw className="w-4 h-4" />
         </Button>
       </div>
     );
   }
-  return (
+
+  const contentNode = (
     <>
       <BorrowingDetailSidebar
         open={detailOpen}
-        onClose={() => setDetailOpen(false)}
+        onClose={closeDetailFromUrl}
         borrowing={detailBorrowing}
+        onReturned={handleReturned}
+        canManageReturn={isEquipmentManager}
       />
       <CreateBorrowingModal
         open={openCreate}
@@ -230,7 +389,7 @@ export default function EquipmentsHistory() {
           refetch();
         }}
       />
-      <div className="relative">
+      <div className="relative h-full flex flex-col">
         {loading && (
           <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
             <span className="text-sm text-muted-foreground">Đang tải...</span>
@@ -239,12 +398,77 @@ export default function EquipmentsHistory() {
         <DataTable
           columns={columns(handleView)}
           data={data}
-          pageNumber={pageNumber}
+          pageNumber={pageFromUrl}
           pageSize={pageSize}
           totalItems={totalItems}
-          onPageChange={(page) => setPageNumber(page)}
+          onPageChange={(page) => setPageQuery(page)}
+          fillHeight
         />
       </div>
     </>
   );
+
+  if (renderStandalone) {
+    return (
+      <div
+        className="p-6 bg-[#f3f4f6] flex flex-col min-h-0 gap-3"
+        style={{ height: 'var(--content-height, 100vh)' }}
+      >
+        <div className="shrink-0 bg-white flex justify-between items-center px-6 py-4 rounded-xl border shadow-sm">
+          <div>
+            <h2 className="text-xl font-semibold text-black">Phiếu mượn thiết bị</h2>
+            <p className="text-xs text-gray-500">Quản lý phiếu mượn, theo dõi trạng thái trả thiết bị</p>
+          </div>
+          <Button
+            className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+            type="button"
+            onClick={() => setOpenCreate(true)}
+          >
+            <Plus size={16} />
+            Tạo phiếu mượn
+          </Button>
+        </div>
+
+        <div className="shrink-0 px-6 py-2">
+          <div className="flex gap-3 items-center justify-end">
+            <HoverSearch
+              placeholder="Tìm theo mô tả, ghi chú..."
+              value={searchValue}
+              onChange={(v) => setSearchQuery(v)}
+            />
+            <Select
+              value={statusValue ?? 'all'}
+              onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                {BORROWING_STATUS_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="secondary"
+              className="bg-white"
+              onClick={resetFiltersQuery}
+              type="button"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border shadow-sm px-6 py-4 flex-1 min-h-0">
+          {contentNode}
+        </div>
+      </div>
+    );
+  }
+
+  return contentNode;
 }

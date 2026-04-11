@@ -12,8 +12,8 @@ import {
 import type { EquipmentListItem } from '@/modules/equipment/equipment';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
-import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useEquipments } from '../hooks/useEquipments';
 import CreateEquipmentModal from './CreateEquipmentModal';
 import { useCategories } from '@/modules/category/hooks/useCategories';
@@ -24,24 +24,26 @@ import {
   getEquipmentStatusColor,
 } from '@/constants/equipment';
 import equipmentApi from '../api/equipmentApi';
-import { message } from 'antd';
+import { Image, message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import EquipmentDetailSidebar from './EquipmentDetailSidebar';
 import EditEquipmentModal from './EditEquipmentModal';
 
 export default function EquipmentsManagement() {
   const context = useOutletContext<{ position?: string }>()
+  const location = useLocation();
+  const isEquipmentManager = location.pathname.startsWith('/em/');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [openCreateModal, setOpenCreateModal] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailEquipment, setDetailEquipment] = useState<EquipmentListItem | null>(null)
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false);
   const [editOpen, setEditOpen] = useState(false)
   const [editEquipment, setEditEquipment] = useState<EquipmentListItem | null>(null)
   const [disableOpen, setDisableOpen] = useState(false)
   const [equipmentToDisable, setEquipmentToDisable] = useState<EquipmentListItem | null>(null)
-  const [imageOpen, setImageOpen] = useState(false)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageAlt, setImageAlt] = useState<string>('Hình ảnh thiết bị')
-  const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null)
   const {
     data,
     loading,
@@ -60,6 +62,46 @@ export default function EquipmentsManagement() {
   const { data: categories } = useCategories()
   const categoryNameById = new Map(categories.map((c) => [c.categoryId, c.categoryName]))
 
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const equipmentIdFromUrl = searchParams.get('equipmentId');
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setDetailOpen(false);
+    setDetailEquipment(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('equipmentId');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!equipmentIdFromUrl) return;
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const equipmentId = Number(equipmentIdFromUrl);
+    if (!equipmentId || Number.isNaN(equipmentId)) return;
+
+    // Nếu đang mở đúng thiết bị thì không gọi API lại
+    if (detailOpen && detailEquipment?.equipmentId === equipmentId) return;
+
+    (async () => {
+      try {
+        const full = await equipmentApi.getById(equipmentId);
+        setDetailEquipment(full);
+        setDetailOpen(true);
+      } catch {
+        message.error('Không tải được thông tin thiết bị');
+      }
+    })();
+  }, [openDetailFromUrl, equipmentIdFromUrl, detailOpen, detailEquipment?.equipmentId]);
+
   const handleView = async (item: EquipmentListItem) => {
     try {
       const full = await equipmentApi.getById(item.equipmentId)
@@ -71,12 +113,14 @@ export default function EquipmentsManagement() {
   }
 
   const handleEdit = (item: EquipmentListItem) => {
+    if (!isEquipmentManager) return;
     // Dùng luôn dữ liệu của hàng hiện tại để fill form (đã có đủ categoryId, status, ...).
     setEditEquipment(item)
     setEditOpen(true)
   }
 
   const handleDisableClick = (item: EquipmentListItem) => {
+    if (!isEquipmentManager) return;
     setEquipmentToDisable(item)
     setDisableOpen(true)
   }
@@ -98,12 +142,6 @@ export default function EquipmentsManagement() {
     }
   }
 
-  const handlePreviewImage = (url: string, alt: string) => {
-    setImageUrl(url)
-    setImageAlt(alt || 'Hình ảnh thiết bị')
-    setImageOpen(true)
-  }
-
   const normalizeStatusValue = (status: string | number) => {
     const s = String(status ?? '').trim()
     if (s === '1') return EQUIPMENT_STATUS.AVAILABLE
@@ -122,37 +160,6 @@ export default function EquipmentsManagement() {
       return upper
     }
     return EQUIPMENT_STATUS.AVAILABLE
-  }
-
-  const handleInlineStatusChange = async (
-    item: EquipmentListItem,
-    nextStatus: string
-  ) => {
-    const current = normalizeStatusValue(item.status)
-    // Không cho đổi nếu đang Đang mượn (phải đổi qua phiếu mượn)
-    if (
-      !nextStatus ||
-      nextStatus === current ||
-      current === EQUIPMENT_STATUS.BORROWED
-    ) {
-      return
-    }
-
-    try {
-      setUpdatingStatusId(item.equipmentId)
-      await equipmentApi.updateStatus(item.equipmentId, { status: nextStatus })
-      message.success('Đã cập nhật trạng thái')
-      refetch()
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
-          : null
-      message.error(msg || 'Cập nhật trạng thái thất bại')
-    } finally {
-      setUpdatingStatusId(null)
-    }
   }
 
   const columns: ColumnDef<EquipmentListItem>[] = [
@@ -189,55 +196,17 @@ export default function EquipmentsManagement() {
         const status = row.original.status
         const statusValue = normalizeStatusValue(status)
         const isBorrowed = statusValue === EQUIPMENT_STATUS.BORROWED
-        const isUnavailable = statusValue === EQUIPMENT_STATUS.UNAVAILABLE
-        const isUpdating = updatingStatusId === row.original.equipmentId
-        if (isBorrowed) {
-          return (
-            <span
-              className={`inline-flex items-center justify-center h-6 w-[120px] px-2 rounded-full text-[11px] font-medium ${getEquipmentStatusColor(status)}`}
-              title={
-                'Thiết bị đang được mượn (chỉ thay đổi qua phiếu mượn)'
-              }
-            >
-              {getEquipmentStatusDisplay(status)}
-            </span>
-          )
-        }
         return (
-          <Select
-            value={statusValue || undefined}
-            onValueChange={(v) => handleInlineStatusChange(row.original, v)}
-            disabled={isUpdating}
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-medium ${getEquipmentStatusColor(status)}`}
+            title={
+              isBorrowed
+                ? 'Thiết bị đang được mượn (chỉ thay đổi qua phiếu mượn)'
+                : undefined
+            }
           >
-            <SelectTrigger
-              className={`relative h-6 w-[120px] text-[11px] font-medium rounded-full border-0 shadow-none px-2 pr-6 ${
-                isUnavailable
-                  ? 'justify-start text-left [&>span]:text-left [&>span]:justify-start'
-                  : 'justify-center text-center [&>span]:text-center'
-              } [&>span]:w-full [&>svg]:absolute [&>svg]:right-2 [&>svg]:top-1/2 [&>svg]:-translate-y-1/2 ${getEquipmentStatusColor(status)}`}
-              title={
-                isUpdating ? 'Đang cập nhật...' : 'Đổi trạng thái'
-              }
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {EQUIPMENT_STATUS_OPTIONS.filter((opt) => {
-                if (opt.value === EQUIPMENT_STATUS.BORROWED) return false;
-                // Khi đang Không khả dụng: vẫn giữ option Không khả dụng để hiển thị label hiện tại
-                if (opt.value === EQUIPMENT_STATUS.UNAVAILABLE && !isUnavailable) return false;
-                return true;
-              }).map((opt) => (
-                <SelectItem
-                  key={opt.value}
-                  value={opt.value}
-                  disabled={opt.value === EQUIPMENT_STATUS.UNAVAILABLE}
-                >
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {getEquipmentStatusDisplay(status)}
+          </span>
         )
       },
     },
@@ -247,26 +216,14 @@ export default function EquipmentsManagement() {
       cell: ({ row }) => (
         row.original.imgLink ? (
           <div className="w-10 h-10 rounded-md overflow-hidden border bg-gray-50">
-            <button
-              type="button"
-              className="w-full h-full"
-              onClick={() =>
-                handlePreviewImage(
-                  row.original.imgLink as string,
-                  row.original.equipmentName
-                )
-              }
-              title="Xem ảnh"
-            >
-              <img
-                src={row.original.imgLink}
-                alt={row.original.equipmentName}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                }}
-              />
-            </button>
+            <Image
+              src={row.original.imgLink}
+              alt={row.original.equipmentName}
+              width={40}
+              height={40}
+              className="object-cover"
+              preview={{ mask: 'Xem ảnh' }}
+            />
           </div>
         ) : (
           <span className="text-xs text-gray-500">Không có ảnh</span>
@@ -284,22 +241,27 @@ export default function EquipmentsManagement() {
             className="text-blue-600 cursor-pointer"
             onClick={() => handleView(row.original)}
           />
-          <Pencil
-            size={16}
-            className="text-blue-600 cursor-pointer"
-            onClick={() => handleEdit(row.original)}
-          />
-          <Trash2
-            size={16}
-            className="text-red-500 cursor-pointer"
-            onClick={() => handleDisableClick(row.original)}
-          />
+          {isEquipmentManager ? (
+            <>
+              <Pencil
+                size={16}
+                className="text-blue-600 cursor-pointer"
+                onClick={() => handleEdit(row.original)}
+              />
+              <Trash2
+                size={16}
+                className="text-red-500 cursor-pointer"
+                onClick={() => handleDisableClick(row.original)}
+              />
+            </>
+          ) : null}
         </div>
       ),
     },
   ]
 
   if (context?.position === 'header') {
+    if (!isEquipmentManager) return null;
     return (
       <>
         <Button
@@ -307,7 +269,7 @@ export default function EquipmentsManagement() {
           className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
         >
           <Plus size={16} />
-          Tạo thiết bị
+          Thêm thiết bị
         </Button>
         <CreateEquipmentModal
           open={openCreateModal}
@@ -385,7 +347,7 @@ export default function EquipmentsManagement() {
     <div className="relative">
       <EquipmentDetailSidebar
         open={detailOpen}
-        onClose={() => setDetailOpen(false)}
+        onClose={closeDetailFromUrl}
         equipment={detailEquipment}
         categoryName={
           detailEquipment
@@ -428,31 +390,6 @@ export default function EquipmentsManagement() {
             Xác nhận
           </Button>
         </div>
-      </Dialog>
-      <Dialog
-        open={imageOpen}
-        onClose={() => {
-          setImageOpen(false)
-          setImageUrl(null)
-        }}
-        title="Hình ảnh thiết bị"
-        description={imageAlt}
-        className="max-w-3xl"
-      >
-        {imageUrl ? (
-          <div className="w-full">
-            <div className="w-full max-h-[70vh] overflow-auto rounded-lg border bg-gray-50">
-              <img
-                src={imageUrl}
-                alt={imageAlt}
-                className="w-full h-auto object-contain"
-              />
-            </div>
-            <p className="text-xs text-gray-500 break-all mt-2">{imageUrl}</p>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">Không có hình ảnh</p>
-        )}
       </Dialog>
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">

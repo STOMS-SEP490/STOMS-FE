@@ -9,6 +9,10 @@ type DialogProps = {
   description?: string;
   children: React.ReactNode;
   className?: string;
+  /** Tuỳ chỉnh cỡ/style tiêu đề (vd. dialog lớn cần chữ to hơn). */
+  titleClassName?: string;
+  /** Tuỳ chỉnh style dòng mô tả dưới tiêu đề. */
+  descriptionClassName?: string;
 };
 
 export function Dialog({
@@ -18,6 +22,8 @@ export function Dialog({
   description,
   children,
   className,
+  titleClassName,
+  descriptionClassName,
 }: DialogProps) {
   if (!open) return null;
 
@@ -46,11 +52,14 @@ export function Dialog({
       >
         <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl flex items-start justify-between gap-4">
           <div>
-            <h2 id="dialog-title" className="text-lg font-semibold text-black">
+            <h2
+              id="dialog-title"
+              className={cn('text-lg font-semibold text-black', titleClassName)}
+            >
               {title}
             </h2>
             {description && (
-              <p className="mt-0.5 text-sm text-black/80">{description}</p>
+              <p className={cn('mt-0.5 text-sm text-black/80', descriptionClassName)}>{description}</p>
             )}
           </div>
           <button

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Drawer, message } from 'antd';
-import { BookOpen, CheckCircle, Clock, Eye, GraduationCap, RotateCcw } from 'lucide-react';
+import { Eye, PlusCircle, Pencil, Trash2, ClipboardList, RotateCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import { DataTable } from '@/shared/components/common/DataTable';
 import { StatCard } from '@/shared/components/common/StatCard';
@@ -29,26 +30,21 @@ const entityTypeLabelMap: Record<string, string> = {
   '6': 'Khóa học',
   '7': 'Thiết bị',
   '8': 'Mượn thiết bị',
-  '9': 'Đặt lịch',
-  '10': 'Sự kiện',
-  '11': 'Tài khoản',
-  '12': 'Thành viên',
-  '13': 'Yêu cầu',
-  '14': 'Vai trò',
-  '15': 'Buổi học',
-  '16': 'Kỹ năng',
-  '17': 'Buổi môn học',
-  '18': 'Môn học',
-  '19': 'Báo cáo công việc',
-  '20': 'Đội nhóm',
-  '21': 'Chủ đề',
-  '22': 'Giao dịch',
+  '9': 'Sự kiện',
+  '10': 'Tài khoản',
+  '11': 'Thành viên',
+  '12': 'Yêu cầu',
+  '13': 'Buổi học',
+  '14': 'Kỹ năng',
+  '15': 'Buổi môn học',
+  '16': 'Môn học',
+  '17': 'Báo cáo công việc',
+  '18': 'Đội nhóm',
+  '19': 'Chủ đề',
+  '20': 'Giao dịch',
 };
 
-const columns: (
-  setOpenDetail: (v: boolean) => void,
-  setDetailItem: (item: AuditLogItem | null) => void
-) => ColumnDef<AuditLogItem>[] = (setOpenDetail, setDetailItem) => [
+const columns: (onViewDetail: (item: AuditLogItem) => void) => ColumnDef<AuditLogItem>[] = (onViewDetail) => [
     {
       accessorKey: 'logId',
       header: 'Mã nhật ký',
@@ -135,10 +131,7 @@ const columns: (
       cell: ({ row }) => (
         <button
           type="button"
-          onClick={() => {
-            setOpenDetail(true);
-            setDetailItem(row.original);
-          }}
+          onClick={() => onViewDetail(row.original)}
           title="Xem chi tiết"
         >
           <Eye className="w-4 h-4 text-blue-600 cursor-pointer" />
@@ -157,6 +150,124 @@ export default function AuditLogs() {
 
   const [openDetail, setOpenDetail] = useState(false);
   const [detailItem, setDetailItem] = useState<AuditLogItem | null>(null);
+  const navigate = useNavigate();
+
+  const handleViewDetail = (item: AuditLogItem) => {
+    const entityType = String(item.entityType ?? '');
+    const entityId = item.entityId;
+    const normalizedEntityType = entityType.trim().toLowerCase();
+
+    // Nếu hệ thống đã có route detail theo :id thì điều hướng sang trang đó
+    // BE: AuditEntityType.Request = 12 (có thể trả về "12" hoặc "Request" tùy serializer)
+    if (
+      (normalizedEntityType === '12' || normalizedEntityType === 'request') &&
+      entityId != null
+    ) {
+      navigate(`/manager/requests/${entityId}`);
+      return;
+    }
+
+    // Auto-open sidebars/drawers ở các trang list theo query param
+    if (entityId != null) {
+      // Course
+      if (
+        normalizedEntityType === '6' ||
+        normalizedEntityType === 'course' 
+     
+      ) {
+        navigate(`/manager/courses?openDetail=1&courseId=${entityId}`);
+        return;
+      }
+
+      // Attendance / Điểm danh
+      if (
+        normalizedEntityType === '2' ||
+        normalizedEntityType === 'attendance' 
+     
+      ) {
+        navigate(`/tl/attendance/${entityId}`);
+        return;
+      }
+
+      if (
+        normalizedEntityType === '9' ||
+        normalizedEntityType === 'event' ||
+        normalizedEntityType === 'sự kiện' ||
+        normalizedEntityType === 'su kien'
+      ) {
+        navigate(`/manager/events?openDetail=1&eventId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '7' || normalizedEntityType === 'equipment') {
+        navigate(`/manager/equipments?openDetail=1&equipmentId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '10' || normalizedEntityType === 'user') {
+        navigate(`/manager/users?openDetail=1&userId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '11' || normalizedEntityType === 'member') {
+        navigate(`/manager/members?openDetail=1&memberId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '19' || normalizedEntityType === 'topic') {
+        navigate(`/manager/topics?openDetail=1&topicId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '18' || normalizedEntityType === 'team') {
+        navigate(`/manager/teams?openDetail=1&teamId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '17' || normalizedEntityType === 'taskreport') {
+        navigate(`/manager/tasks?openDetail=1&taskReportId=${entityId}`);
+        return;
+      }
+
+      // Borrowing / Category / Subject (FE currently supports these via query param)
+      if (normalizedEntityType === '4' || normalizedEntityType === 'borrowing') {
+        navigate(`/manager/borrowings?openDetail=1&borrowingId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '5' || normalizedEntityType === 'category') {
+        navigate(`/manager/equipments/categories?openDetail=1&categoryId=${entityId}`);
+        return;
+      }
+
+      if (
+        normalizedEntityType === '15' ||
+        normalizedEntityType === 'subjectsession'
+      ) {
+        navigate(`/manager/courses/subjects?openDetail=1&subjectId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '16' || normalizedEntityType === 'subject') {
+        navigate(`/manager/courses/subjects?openDetail=1&subjectId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '20' || normalizedEntityType === 'transaction') {
+        navigate(`/manager/transactions?openDetail=1&transactionId=${entityId}`);
+        return;
+      }
+
+      if (normalizedEntityType === '14' || normalizedEntityType === 'skill') {
+        navigate(`/manager/skills?openDetail=1&skillId=${entityId}`);
+        return;
+      }
+    }
+
+    // Fallback: vẫn hiển thị drawer của audit log cho các entityType chưa map route
+    setOpenDetail(true);
+    setDetailItem(item);
+  };
 
   const {
     data: paged,
@@ -172,6 +283,30 @@ export default function AuditLogs() {
         entityType: filterEntityType !== 'all' ? filterEntityType : undefined,
       }),
   });
+
+  // Stats (use same audit log API, minimal payload)
+  const { data: totalPaged, isLoading: totalLoading } = useQuery({
+    queryKey: ['audit-logs-summary', 'all'],
+    queryFn: () => auditLogApi.getAuditLogs({ pageNumber: 1, pageSize: 1 }),
+  });
+
+  const { data: createPaged, isLoading: createLoading } = useQuery({
+    queryKey: ['audit-logs-summary', 'Create'],
+    queryFn: () => auditLogApi.getAuditLogs({ pageNumber: 1, pageSize: 1, action: 'Create' }),
+  });
+
+  const { data: updatePaged, isLoading: updateLoading } = useQuery({
+    queryKey: ['audit-logs-summary', 'Update'],
+    queryFn: () => auditLogApi.getAuditLogs({ pageNumber: 1, pageSize: 1, action: 'Update' }),
+  });
+
+  const { data: deletePaged, isLoading: deleteLoading } = useQuery({
+    queryKey: ['audit-logs-summary', 'Delete'],
+    queryFn: () => auditLogApi.getAuditLogs({ pageNumber: 1, pageSize: 1, action: 'Delete' }),
+  });
+
+  const statValue = (loading: boolean, value: number) =>
+    loading ? '—' : value.toLocaleString('vi-VN');
 
   const logs = useMemo(() => paged?.items ?? [], [paged]);
   const totalItems = paged?.totalItems ?? 0;
@@ -211,27 +346,32 @@ export default function AuditLogs() {
         )}
       </div>
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-2">
+      <div className="grid grid-cols-4 gap-4 mb-4">
         <StatCard
-          icon={<GraduationCap />}
-          label="Tổng người dùng"
-          value="186"
-          sub="tài khoản đang hoạt động"
+          icon={<ClipboardList />}
+          label="Tổng nhật ký"
+          value={statValue(totalLoading, totalPaged?.totalItems ?? 0)}
+          sub="Bản ghi"
         />
         <StatCard
-          icon={<CheckCircle />}
-          label="Tổng giảng viên"
-          value="42"
-          sub="giảng viên và trợ giảng"
+          icon={<PlusCircle />}
+          label="Tạo mới"
+          value={statValue(createLoading, createPaged?.totalItems ?? 0)}
+          sub="Bản ghi"
           variant="green"
         />
         <StatCard
-          icon={<BookOpen />}
-          label="Vô hiệu hóa"
-          value="156"
-          sub="người dùng đã bị vô hiệu hóa"
+          icon={<Pencil />}
+          label="Cập nhật"
+          value={statValue(updateLoading, updatePaged?.totalItems ?? 0)}
+          sub="Bản ghi"
         />
-        <StatCard icon={<Clock />} label="Tổng buổi học" value="1,248" sub="Buổi học" />
+        <StatCard
+          icon={<Trash2 />}
+          label="Xóa"
+          value={statValue(deleteLoading, deletePaged?.totalItems ?? 0)}
+          sub="Bản ghi"
+        />
       </div>
       {/* <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center ">
   <HoverSearch />
@@ -287,20 +427,18 @@ export default function AuditLogs() {
               <SelectItem value="6">Khóa học</SelectItem>
               <SelectItem value="7">Thiết bị</SelectItem>
               <SelectItem value="8">Mượn thiết bị</SelectItem>
-              <SelectItem value="9">Đặt lịch</SelectItem>
-              <SelectItem value="10">Sự kiện</SelectItem>
-              <SelectItem value="11">Tài khoản</SelectItem>
-              <SelectItem value="12">Thành viên</SelectItem>
-              <SelectItem value="13">Yêu cầu</SelectItem>
-              <SelectItem value="14">Vai trò</SelectItem>
-              <SelectItem value="15">Buổi học</SelectItem>
-              <SelectItem value="16">Kỹ năng</SelectItem>
-              <SelectItem value="17">Buổi môn học</SelectItem>
-              <SelectItem value="18">Môn học</SelectItem>
-              <SelectItem value="19">Báo cáo công việc</SelectItem>
-              <SelectItem value="20">Đội nhóm</SelectItem>
-              <SelectItem value="21">Chủ đề</SelectItem>
-              <SelectItem value="22">Giao dịch</SelectItem>
+              <SelectItem value="9">Sự kiện</SelectItem>
+              <SelectItem value="10">Tài khoản</SelectItem>
+              <SelectItem value="11">Thành viên</SelectItem>
+              <SelectItem value="12">Yêu cầu</SelectItem>
+              <SelectItem value="13">Buổi học</SelectItem>
+              <SelectItem value="14">Kỹ năng</SelectItem>
+              <SelectItem value="15">Buổi môn học</SelectItem>
+              <SelectItem value="16">Môn học</SelectItem>
+              <SelectItem value="17">Báo cáo công việc</SelectItem>
+              <SelectItem value="18">Đội nhóm</SelectItem>
+              <SelectItem value="19">Chủ đề</SelectItem>
+              <SelectItem value="20">Giao dịch</SelectItem>
             </SelectContent>
           </Select>
 
@@ -322,7 +460,7 @@ export default function AuditLogs() {
       {/* TABLE CARD */}
       <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
         <DataTable
-          columns={columns(setOpenDetail, setDetailItem)}
+          columns={columns(handleViewDetail)}
           data={filteredLogs}
           pageNumber={pageNumber}
           pageSize={pageSize}

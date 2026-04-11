@@ -1,5 +1,5 @@
 
-import { ROLE_MAP } from '@/constants/role';
+import { ROLE_MAP, getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import userService from '@/modules/user/api/userApi';
 import type { User } from '@/modules/user/user';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -22,7 +22,8 @@ import {
   PowerOff,
   RotateCcw,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { message, Modal } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import UserCreateForm from './UserCreateForm';
@@ -36,6 +37,10 @@ export default function UserManagement() {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
+  const [totalAllUsers, setTotalAllUsers] = useState(0);
+  const [totalActiveUsers, setTotalActiveUsers] = useState(0);
+  const [totalInactiveUsers, setTotalInactiveUsers] = useState(0);
+  const [totalTeachersAndTAs, setTotalTeachersAndTAs] = useState(0);
   const [openCreate, setOpenCreate] = useState(false);
   const [openDetail, setOpenDetail] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
@@ -44,6 +49,48 @@ export default function UserManagement() {
   const [filterRoleId, setFilterRoleId] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const userIdFromUrl = searchParams.get('userId');
+
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setOpenDetail(false);
+    setSelectedUser(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('userId');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!userIdFromUrl) return;
+
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const userId = Number(userIdFromUrl);
+    if (!userId || Number.isNaN(userId)) return;
+    if (openDetail && selectedUser?.userId === userId) return;
+
+    (async () => {
+      try {
+        const user = await userService.getUserById(userId);
+        setSelectedUser(user);
+        setOpenDetail(true);
+      } catch {
+        message.error('Không tải được thông tin tài khoản');
+      }
+    })();
+  }, [openDetailFromUrl, userIdFromUrl, openDetail, selectedUser?.userId]);
+
   const fetchUsers = async () => {
     try {
       const params: Record<string, unknown> = { pageNumber, pageSize };
@@ -51,10 +98,21 @@ export default function UserManagement() {
       if (filterRoleId !== 'all') params.RoleId = Number(filterRoleId);
       if (filterStatus === 'active') params.IsActive = true;
       if (filterStatus === 'inactive') params.IsActive = false;
-      const res = await userService.getUsers(params);
+      const [res, allRes, activeRes, inactiveRes, teacherRes, taRes] = await Promise.all([
+        userService.getUsers(params),
+        userService.getUsers({ pageNumber: 1, pageSize: 1 }),
+        userService.getUsers({ pageNumber: 1, pageSize: 1, IsActive: true }),
+        userService.getUsers({ pageNumber: 1, pageSize: 1, IsActive: false }),
+        userService.getUsers({ pageNumber: 1, pageSize: 1, RoleId: 4 }),
+        userService.getUsers({ pageNumber: 1, pageSize: 1, RoleId: 5 }),
+      ]);
 
       setUsers(res.items ?? []);
       setTotalItems(res.totalItems ?? 0);
+      setTotalAllUsers(allRes.totalItems ?? 0);
+      setTotalActiveUsers(activeRes.totalItems ?? 0);
+      setTotalInactiveUsers(inactiveRes.totalItems ?? 0);
+      setTotalTeachersAndTAs((teacherRes.totalItems ?? 0) + (taRes.totalItems ?? 0));
     } catch (err) {
       message.error(getErrorMessage(err));
     }
@@ -110,19 +168,9 @@ export default function UserManagement() {
       id: 'role',
       header: 'Vai trò',
       cell: ({ row }) => {
-        const roleId = row.original.roleId;
-        const roleName = ROLE_MAP[roleId] || 'Không xác định';
-
-        const roleColorMap: Record<number, string> = {
-          1: 'bg-purple-100 text-purple-700',
-          2: 'bg-blue-100 text-blue-700',
-          3: 'bg-cyan-100 text-cyan-700',
-          4: 'bg-green-100 text-green-700',
-          5: 'bg-orange-100 text-orange-600',
-        };
-
+        const roleId = Number(row.original.roleId ?? 0);
         return (
-          <Badge className={roleColorMap[roleId] || 'bg-gray-100 text-gray-700'}>{roleName}</Badge>
+          <Badge className={`${getRoleBadgeClass(roleId)} border`}>{getRoleLabel(roleId)}</Badge>
         );
       },
     },
@@ -188,7 +236,7 @@ export default function UserManagement() {
                 />
               </span>
             )}
-            <span title="Đặt lại mật khẩu">
+            <span title="Reset mật khẩu về stoms123">
               <Key
                 size={16}
                 className="text-yellow-600 cursor-pointer"
@@ -229,23 +277,28 @@ export default function UserManagement() {
         <StatCard
           icon={<GraduationCap />}
           label="Tổng người dùng"
-          value="186"
-          sub="tài khoản đang hoạt động"
+          value={totalAllUsers.toLocaleString('vi-VN')}
+          sub="tổng số tài khoản"
         />
         <StatCard
           icon={<CheckCircle />}
-          label="Tổng giảng viên"
-          value="42"
-          sub="giảng viên và trợ giảng"
+          label="Đang hoạt động"
+          value={totalActiveUsers.toLocaleString('vi-VN')}
+          sub="tài khoản đang hoạt động"
           variant="green"
         />
         <StatCard
           icon={<BookOpen />}
+          label="Tổng giảng viên"
+          value={totalTeachersAndTAs.toLocaleString('vi-VN')}
+          sub="giảng viên và trợ giảng"
+        />
+        <StatCard
+          icon={<Clock />}
           label="Vô hiệu hóa"
-          value="156"
+          value={totalInactiveUsers.toLocaleString('vi-VN')}
           sub="người dùng đã bị vô hiệu hóa"
         />
-        <StatCard icon={<Clock />} label="Tổng buổi học" value="1,248" sub="Buổi học" />
       </div>
 
       {/* Filter Bar */}
@@ -307,7 +360,7 @@ export default function UserManagement() {
 
       <UserDetailDrawer
         open={openDetail}
-        onClose={() => setOpenDetail(false)}
+        onClose={closeDetailFromUrl}
         user={selectedUser}
       />
 

@@ -4,6 +4,7 @@ import type {
   BorrowingFilterParams,
   BorrowingListItem,
   BorrowingCreatePayload,
+  EquipmentBorrowingHandoverUpdatePayload,
 } from '../borrowing'
 
 const borrowingApi = {
@@ -43,6 +44,26 @@ const borrowingApi = {
       '/borrowings',
       body
     )
+    return res
+  },
+
+  // PUT: /api/equipment-borrowings/{borrowingId}/handover
+  async updateHandover(
+    borrowingId: number,
+    payload: EquipmentBorrowingHandoverUpdatePayload
+  ): Promise<BorrowingListItem> {
+    const body = {
+      items: payload.items.map((i) => ({
+        equipmentBorrowingId: i.equipmentBorrowingId,
+        status: i.status,
+      })),
+    }
+
+    const res = await axiosClient.put<BorrowingListItem, BorrowingListItem>(
+      `/equipment-borrowings/${borrowingId}/handover`,
+      body
+    )
+
     return res
   },
 }

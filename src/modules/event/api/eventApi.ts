@@ -3,148 +3,71 @@ import type { PaginationResponse } from '@/shared/types/api';
 import type {
   EventFilterParams,
   EventListItem,
-  EventSession,
-  EventSessionSlot,
   EventCreatePayload,
   EventUpdatePayload,
 } from '@/modules/event/event';
 
-// ===== Helpers: BE PascalCase ↔ FE camelCase =====
-
-function mapSessionSlotFromApi(raw: Record<string, unknown>): EventSessionSlot {
-  return {
-    sessionId: raw['sessionId'] != null ? Number(raw['sessionId']) : raw['SessionId'] != null ? Number(raw['SessionId']) : undefined,
-    startAt: (raw['startAt'] ?? raw['StartAt'] ?? null) as string | null,
-    endAt: (raw['endAt'] ?? raw['EndAt'] ?? null) as string | null,
-    location: (raw['location'] ?? raw['Location'] ?? null) as string | null,
-  };
+function isEventShape(o: unknown): o is Record<string, unknown> {
+  return (
+    o != null &&
+    typeof o === 'object' &&
+    !Array.isArray(o) &&
+    ('eventId' in o || 'eventCode' in o || 'eventName' in o)
+  );
 }
 
-function mapEventSessionFromApi(raw: Record<string, unknown>): EventSession {
-  const sessionsRaw = (raw['sessions'] ?? raw['Sessions']) as unknown[] | undefined;
-  const sessions: EventSessionSlot[] | null = sessionsRaw?.length
-    ? sessionsRaw.map((s) => mapSessionSlotFromApi((s ?? {}) as Record<string, unknown>))
-    : null;
-  const skillsRaw = (raw['eventSessionSkills'] ?? raw['EventSessionSkills']) as unknown[] | undefined;
-  const topicsRaw = (raw['eventSessionTopics'] ?? raw['EventSessionTopics']) as unknown[] | undefined;
-  return {
-    eventSessionId: raw['eventSessionId'] != null ? Number(raw['eventSessionId']) : raw['EventSessionId'] != null ? Number(raw['EventSessionId']) : undefined,
-    title: (raw['title'] ?? raw['Title'] ?? '') as string,
-    description: (raw['description'] ?? raw['Description'] ?? null) as string | null,
-    eventId: raw['eventId'] != null ? Number(raw['eventId']) : raw['EventId'] != null ? Number(raw['EventId']) : undefined,
-    duration: (raw['duration'] ?? raw['Duration'] ?? null) as string | null,
-    sessionNo: raw['sessionNo'] != null ? Number(raw['sessionNo']) : raw['SessionNo'] != null ? Number(raw['SessionNo']) : undefined,
-    sessions: sessions ?? undefined,
-    eventSessionSkills: skillsRaw?.length
-      ? skillsRaw.map((x) => {
-          const o = (x ?? {}) as Record<string, unknown>;
-          return {
-            eventSessionId: Number(o['eventSessionId'] ?? o['EventSessionId']),
-            skillId: Number(o['skillId'] ?? o['SkillId']),
-            isActive: Boolean(o['isActive'] ?? o['IsActive'] ?? true),
-            skillName: (o['skillName'] ?? o['SkillName'] ?? null) as string | null,
-          };
-        })
-      : null,
-    eventSessionTopics: topicsRaw?.length
-      ? topicsRaw.map((x) => {
-          const o = (x ?? {}) as Record<string, unknown>;
-          return {
-            eventSessionId: Number(o['eventSessionId'] ?? o['EventSessionId']),
-            topicId: Number(o['topicId'] ?? o['TopicId']),
-            isActive: Boolean(o['isActive'] ?? o['IsActive'] ?? true),
-            topicName: (o['topicName'] ?? o['TopicName'] ?? null) as string | null,
-          };
-        })
-      : null,
-  };
+/** Một số gateway / wrapper bọc body trong `data` hoặc `result` (vẫn camelCase). */
+function unwrapEventPayload(payload: unknown): EventListItem {
+  if (payload == null) {
+    throw new Error('Event API: empty response');
+  }
+  if (isEventShape(payload)) return payload as EventListItem;
+  if (typeof payload !== 'object') return payload as EventListItem;
+  const root = payload as Record<string, unknown>;
+  const inner = root.data ?? root.result ?? root.item;
+  if (isEventShape(inner)) return inner as EventListItem;
+  return payload as EventListItem;
 }
 
-function mapEventFromApi(raw: Record<string, unknown>): EventListItem {
-  const sessions =
-    ((raw['eventSessions'] ?? raw['EventSessions']) as unknown[] | undefined) ?? null;
-
-  return {
-    eventId: Number(raw['eventId'] ?? raw['EventId']),
-    eventCode: String(raw['eventCode'] ?? raw['EventCode'] ?? ''),
-    eventName: String(raw['eventName'] ?? raw['EventName'] ?? ''),
-    isActive: Boolean(raw['isActive'] ?? raw['IsActive'] ?? false),
-    description: String(raw['description'] ?? raw['Description'] ?? ''),
-    duration: String(raw['duration'] ?? raw['Duration'] ?? ''),
-    numberOfSession: Number(raw['numberOfSession'] ?? raw['NumberOfSession'] ?? 0),
-    createdAt: String(raw['createdAt'] ?? raw['CreatedAt'] ?? ''),
-    updatedAt: String(raw['updatedAt'] ?? raw['UpdatedAt'] ?? ''),
-    eventSessions: sessions
-      ? sessions.map((s) => mapEventSessionFromApi((s ?? {}) as Record<string, unknown>))
-      : null,
-  };
-}
-
-function mapPagedFromApi(
-  raw: Record<string, unknown>
-): PaginationResponse<EventListItem> {
-  const items = ((raw['items'] ?? raw['Items']) as unknown[] | undefined) ?? [];
-  return {
-    pageNumber: Number(raw['pageNumber'] ?? raw['PageNumber'] ?? 1),
-    pageSize: Number(raw['pageSize'] ?? raw['PageSize'] ?? 10),
-    totalItems: Number(raw['totalItems'] ?? raw['TotalItems'] ?? 0),
-    totalPages: Number(raw['totalPages'] ?? raw['TotalPages'] ?? 0),
-    items: items.map((x) => mapEventFromApi((x ?? {}) as Record<string, unknown>)),
-  };
+/** Map FE params → BE [FromQuery] EventFilterRequest (PascalCase), kể cả IsActive */
+function toEventFilterQuery(
+  params: EventFilterParams
+): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  if (params.pageNumber != null) out.PageNumber = params.pageNumber;
+  if (params.pageSize != null) out.PageSize = params.pageSize;
+  const kw = params.keyword?.trim();
+  if (kw) out.EventName = kw;
+  if (params.isActive !== undefined) out.IsActive = params.isActive;
+  if (params.eventId != null) out.EventId = params.eventId;
+  return out;
 }
 
 const eventApi = {
   // GET PAGED + FILTER
-  getEvents: async (
-    params: EventFilterParams
-  ): Promise<PaginationResponse<EventListItem>> => {
-    const res = await axiosClient.get<Record<string, unknown>, Record<string, unknown>>(
-      '/events/filter',
-      { params }
-    );
-    return mapPagedFromApi(res ?? {});
-  },
+  getEvents: (params: EventFilterParams): Promise<PaginationResponse<EventListItem>> =>
+    axiosClient.get('/events/filter', { params: toEventFilterQuery(params) }),
 
   // GET BY ID
   getById: async (id: number): Promise<EventListItem> => {
-    const res = await axiosClient.get<Record<string, unknown>, Record<string, unknown>>(
-      `/events/${id}`
-    );
-    return mapEventFromApi((res ?? {}) as Record<string, unknown>);
+    const raw = await axiosClient.get<unknown>(`/events/${id}`);
+    return unwrapEventPayload(raw);
   },
 
   // CREATE
-  create: async (data: EventCreatePayload): Promise<EventListItem> => {
-    const res = await axiosClient.post<Record<string, unknown>, Record<string, unknown>>(
-      '/events',
-      data
-    );
-    return mapEventFromApi((res ?? {}) as Record<string, unknown>);
-  },
+  create: (data: EventCreatePayload): Promise<EventListItem> =>
+    axiosClient.post('/events', data),
 
   // UPDATE
-  update: async (id: number, data: EventUpdatePayload): Promise<EventListItem> => {
-    const res = await axiosClient.put<Record<string, unknown>, Record<string, unknown>>(
-      `/events/${id}`,
-      data
-    );
-    return mapEventFromApi((res ?? {}) as Record<string, unknown>);
-  },
+  update: (id: number, data: EventUpdatePayload): Promise<EventListItem> =>
+    axiosClient.put(`/events/${id}`, data),
 
   // ACTIVATE / DEACTIVATE
-  activate: async (id: number): Promise<EventListItem> => {
-    const res = await axiosClient.put<Record<string, unknown>>(
-      `/events/${id}/activate`
-    );
-    return mapEventFromApi((res?.data ?? {}) as Record<string, unknown>);
-  },
+  activate: (id: number): Promise<EventListItem> =>
+    axiosClient.put(`/events/${id}/activate`),
 
-  deactivate: async (id: number): Promise<EventListItem> => {
-    const res = await axiosClient.put<Record<string, unknown>>(
-      `/events/${id}/deactivate`
-    );
-    return mapEventFromApi((res?.data ?? {}) as Record<string, unknown>);
-  },
+  deactivate: (id: number): Promise<EventListItem> =>
+    axiosClient.put(`/events/${id}/deactivate`),
 
   // DELETE
   remove: (id: number): Promise<void> =>

@@ -5,7 +5,7 @@ export type SubjectFilterParams = {
   subjectCode?: string;
   subjectName?: string;
   topicId?: number;
-  isActive?: boolean;
+  IsActive?: boolean;
 };
 
 export type SubjectUpsertPayload = {
@@ -19,6 +19,21 @@ export type SubjectUpsertPayload = {
     sessionNo: number;
     duration: string;
   }[];
+};
+
+export type SubjectRequestSummary = {
+  requestId: number;
+  requestCode: string;
+  requestName: string;
+  customerName?: string | null;
+  startDate?: string | null;
+  sessionsRequired?: number | null;
+  status?: string | null;
+  note?: string | null;
+  reason?: string | null;
+  approvedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 type SessionTemplateForm = {
@@ -41,7 +56,6 @@ export type SubjectListItem = {
   isActive: boolean;
   description: string;
   topicId: number | null;
-  /** Tên chủ đề (API GetById trả về khi có include Topic). */
   topicName?: string | null;
   numberOfSession: number;
   createdAt: string | null;
@@ -58,6 +72,8 @@ export type SubjectListItem = {
   subjectSkills?: {
     subjectId: number;
     skillId: number;
+    skillName?: string | null;
+    isActive?: boolean;
     createdAt: string | null;
     skill?: {
       skillId: number;
@@ -66,4 +82,6 @@ export type SubjectListItem = {
       isActive: boolean;
     } | null;
   }[] | null;
+
+  requests?: SubjectRequestSummary[] | null;
 };

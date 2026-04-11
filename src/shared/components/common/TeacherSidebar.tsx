@@ -1,24 +1,48 @@
-import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Clock, ClipboardList, FileText, LogOut, Menu, UserCircle, Wallet, CheckCircle2 } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import memberApi from '@/modules/member/api/memberApi';
+import {
+  BookOpen,
+  BarChart3,
+  CalendarDays,
+  Star,
+  ClipboardList,
+  Timer,
+  FileText,
+  LogOut,
+  Menu,
+  Package,
+  UserCircle,
+  Users,
+  Wallet,
+} from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { logout } from '@/modules/auth/pages/Logout';
+import NotificationBell from '@/shared/components/common/NotificationBell';
 
 export default function TeacherSidebar() {
-  const [collapsed, setCollapsed] = useState(true);
   const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(true);
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
     const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
     return avatarUrl.trim() ? avatarUrl : '/img/avatar.png';
   });
   const [memberName, setMemberName] = useState(() => localStorage.getItem('memberFullName') || '');
 
+  const userEmail = useMemo(() => {
+    try {
+      return (JSON.parse(localStorage.getItem('user') || '{}') as { email?: string })?.email || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
   useEffect(() => {
     const raw = localStorage.getItem('user');
     if (!raw) return;
 
     try {
-      const parsed = JSON.parse(raw) as { memberId?: number; email?: string };
+      const parsed = JSON.parse(raw) as { memberId?: number };
       if (!parsed.memberId) return;
 
       memberApi
@@ -36,20 +60,47 @@ export default function TeacherSidebar() {
         })
         .catch(() => {});
     } catch {
-      // ignore parse errors
+      // ignore
     }
   }, []);
 
+  useEffect(() => {
+    if (collapsed) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (sidebarRef.current?.contains(target)) return;
+      setCollapsed(true);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [collapsed]);
+
   const menus = useMemo(
     () => [
+      { label: 'Thống kê', icon: BarChart3, path: '/teacher/dashboard' },
+      { label: 'Nhóm của tôi', icon: Users, path: '/teacher/teams' },
       { label: 'Hồ sơ', icon: UserCircle, path: '/teacher/profile' },
-      { label: 'Sự kiện', icon: CalendarDays, path: '/teacher/events' },
-      { label: 'Thời khóa biểu & phân công', icon: Clock, path: '/teacher/timetable' },
-      { label: 'Danh sách phiên đã dạy', icon: Clock, path: '/teacher/teaching-history' },
-      { label: 'Lịch sử điểm danh', icon: CheckCircle2, path: '/teacher/attendance-history' },
+      { label: 'Sự kiện', icon: Star, path: '/teacher/events' },
+      { label: 'Giáo trình', icon: BookOpen, path: '/teacher/courses' },
+      {
+        label: 'Thời khóa biểu',
+        icon: CalendarDays,
+        path: '/teacher/timetable',
+        matchPrefixPath: '/teacher/timetable',
+      },
+      { label: 'Danh sách phiên đã dạy', icon: Timer, path: '/teacher/teaching-history' },
       { label: 'Báo cáo công việc', icon: ClipboardList, path: '/teacher/tasks' },
       { label: 'Hợp đồng', icon: FileText, path: '/teacher/contracts' },
       { label: 'Đóng góp quỹ', icon: Wallet, path: '/teacher/fund-contributions' },
+      { label: 'Thiết bị', icon: Package, path: '/teacher/equipments' },
     ],
     []
   );
@@ -61,25 +112,31 @@ export default function TeacherSidebar() {
 
   return (
     <aside
+      ref={sidebarRef}
       className={`
-        h-screen bg-[#F6F8FB] border-r border-border
+        h-screen bg-[#F6F8FB]
         transition-all duration-300
         ${collapsed ? 'w-[72px] px-1.5' : 'w-72 px-5'}
         py-5 flex flex-col
       `}
     >
       {!collapsed && (
-        <div className="w-full flex items-center justify-between mb-4">
-          <div className="flex items-center gap-1">
-            <img src="/img/logo.png" alt="logo" className="w-13 h-10" />
-            <span className="text-sm font-bold text-slate-700">STOMS</span>
+        <div className="w-full flex items-center justify-between mb-4 gap-2 min-w-0">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <img src="/img/logo.png" alt="logo" className="w-13 h-10 shrink-0" />
+            <span className="text-sm font-bold text-slate-700 truncate">STOMS</span>
           </div>
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="rounded-md hover:bg-gray-200 transition"
-          >
-            <Menu size={20} color="black" />
-          </button>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <NotificationBell />
+            <button
+              type="button"
+              onClick={() => setCollapsed(!collapsed)}
+              className="rounded-md hover:bg-gray-200 transition p-1"
+              aria-label="Thu gọn menu"
+            >
+              <Menu size={20} color="black" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -104,34 +161,39 @@ export default function TeacherSidebar() {
           </div>
           <div className="mt-4 text-center">
             <div className="font-medium text-slate-700">
-              Xin chào {memberName || JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
+              Xin chào{memberName ? ` ${memberName}` : ''}
             </div>
-            <div className="text-sm text-slate-400">
-              {JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
-            </div>
+            {userEmail ? (
+              <div className="text-sm text-slate-400">{userEmail}</div>
+            ) : null}
           </div>
         </button>
       )}
 
       {collapsed && (
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="rounded-md hover:bg-gray-200 transition mb-4"
-        >
-          <Menu size={20} color="black" />
-        </button>
+        <div className="flex flex-col items-center gap-1.5 mb-4 w-full">
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="rounded-md hover:bg-gray-200 transition p-1"
+            aria-label="Mở rộng menu"
+          >
+            <Menu size={20} color="black" />
+          </button>
+          <NotificationBell variant="sidebarCollapsed" />
+        </div>
       )}
 
       <div className="overflow-y-auto no-scrollbar relative">
         <div
           className={`
-            grid border border-gray-200 rounded-xl 
+            grid gap-px bg-gray-200
             ${collapsed ? 'grid-cols-1' : 'grid-cols-2'}
           `}
         >
           {menus.map((m) => {
             const Icon = m.icon;
-            const isTimetable = m.path === '/teacher/timetable';
+            const isTimetable = m.matchPrefixPath === '/teacher/timetable';
 
             return (
               <NavLink
@@ -139,37 +201,42 @@ export default function TeacherSidebar() {
                 to={m.path}
                 end={!isTimetable}
               >
-                {({ isActive }) => (
-                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'h-[72px]'}`}>
+                {({ isActive }) => {
+                  // NavLink `end` mặc định yêu cầu match chính xác; với route con (vd: /teacher/tasks/:id)
+                  // vẫn nên coi là active để hiển thị tooltip/hiệu ứng.
+                  const active = isActive || window.location.pathname.startsWith(`${m.path}/`);
+                  return (
+                    <div className={`relative group ${collapsed ? 'h-[54px]' : 'aspect-square min-h-[64px]'}`}>
                     <div
-                      className={` 
-                        h-full rounded-xl 
+                      className={`
+                        h-full
                         flex flex-col items-center justify-center
                         transition-all
-                        ${isActive ? 'opacity-0' : 'group-hover:opacity-0'}
+                        bg-[#F6F8FB]
+                        ${active ? 'opacity-0' : 'group-hover:opacity-0'}
                       `}
                     >
                       <Icon size={18} className="text-gray-400" />
                       {!collapsed && (
-                        <div className="text-xs mt-2 text-center text-gray-400">{m.label}</div>
+                        <div className="text-xs mt-1 text-center text-gray-400">{m.label}</div>
                       )}
                     </div>
 
                     <div
                       className={`
-                        absolute inset-0 rounded-xl
+                        absolute inset-0
                         flex flex-col items-center justify-center
                         transition-all duration-300
                         ${
-                          isActive
-                            ? 'bg-[#208aae] text-white scale-100'
-                            : 'bg-[#208aae] text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
+                          active
+                            ? 'bg-white text-[#208aae] scale-100 shadow-md z-10'
+                            : 'bg-white text-[#208aae] opacity-0 scale-100 group-hover:opacity-100'
                         }
                       `}
                     >
                       <Icon size={20} />
                       {!collapsed && (
-                        <div className="text-xs mt-2 font-medium text-center px-1">{m.label}</div>
+                        <div className="text-xs mt-1 font-medium text-center px-1">{m.label}</div>
                       )}
                     </div>
 
@@ -184,13 +251,15 @@ export default function TeacherSidebar() {
                           transition-all duration-200
                           whitespace-nowrap
                           shadow-lg z-50
+                          ${active ? 'opacity-100' : ''}
                         "
                       >
                         {m.label}
                       </div>
                     )}
                   </div>
-                )}
+                  );
+                }}
               </NavLink>
             );
           })}
@@ -204,7 +273,7 @@ export default function TeacherSidebar() {
                      py-3 rounded-xl text-red-600 
                      hover:bg-red-50 transition"
         >
-          <LogOut size={16} />
+          <LogOut size={18} />
           {!collapsed && <span>Đăng xuất</span>}
         </button>
       </div>

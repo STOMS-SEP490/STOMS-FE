@@ -1,23 +1,31 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { GraduationCap, CheckCircle, BookOpen, Clock } from 'lucide-react';
+import { CheckCircle2, Layers, Package, PackageOpen } from 'lucide-react';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { useEquipmentsManagementStats } from '@/modules/equipment/hooks/useEquipmentsManagementStats';
+
+const iconClass = 'h-6 w-6';
+
+function formatStatValue(loading: boolean, n: number) {
+  if (loading) return '—';
+  return n.toLocaleString('vi-VN');
+}
 
 export default function EquipmentsLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [createBorrowingOpen, setCreateBorrowingOpen] = useState(false);
+  const { loading: statsLoading, stats } = useEquipmentsManagementStats();
 
-  let currentTab = 'equipments';
+  type EquipmentsTab = 'categories' | 'equipments';
+  let currentTab: EquipmentsTab = 'equipments';
 
   const isEquipmentManager = location.pathname.startsWith('/em/');
   const basePath = isEquipmentManager ? '/em/equipments' : '/manager/equipments';
 
-  if (location.pathname.includes('categories')) {
+  if (location.pathname.includes('/categories')) {
     currentTab = 'categories';
-  } else if (location.pathname.includes('history')) {
-    currentTab = 'history';
   }
 
   return (
@@ -39,22 +47,35 @@ export default function EquipmentsLayout() {
         </div>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-4 gap-4  mb-0">
-        <StatCard icon={<GraduationCap />} label="Tổng thiết bị" value="48" sub="Thiết bị" />
+      {/* STATS — dữ liệu thật từ API thiết bị / danh mục */}
+      <div className="grid grid-cols-4 gap-4 mb-0">
         <StatCard
-          icon={<CheckCircle />}
-          label="Đang hoạt động"
-          value="42"
-          sub="Thiết bị"
+          icon={<Package className={iconClass} strokeWidth={2} />}
+          label="Tổng thiết bị"
+          value={formatStatValue(statsLoading, stats.totalEquipment)}
+          sub="Tất cả trạng thái"
+          variant="blue"
+        />
+        <StatCard
+          icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
+          label="Khả dụng"
+          value={formatStatValue(statsLoading, stats.available)}
+          sub="Có thể mượn ngay"
           variant="green"
         />
-        <StatCard icon={<BookOpen />} label="Tổng loại thiết bị" value="156" sub="Loại thiết bị" />
         <StatCard
-          icon={<Clock />}
-          label="Tổng số lượng tồn kho"
-          value="1,248"
-          sub="Sản phẩm tồn kho"
+          icon={<Layers className={iconClass} strokeWidth={2} />}
+          label="Tổng danh mục"
+          value={formatStatValue(statsLoading, stats.totalCategories)}
+          sub="Phân loại thiết bị"
+          variant="violet"
+        />
+        <StatCard
+          icon={<PackageOpen className={iconClass} strokeWidth={2} />}
+          label="Đang mượn"
+          value={formatStatValue(statsLoading, stats.borrowed)}
+          sub="Thiết bị đang cho mượn"
+          variant="orange"
         />
       </div>
 
@@ -72,10 +93,6 @@ export default function EquipmentsLayout() {
 
               <TabsTrigger value="equipments" onClick={() => navigate(basePath)}>
                 TẤT CẢ THIẾT BỊ
-              </TabsTrigger>
-
-              <TabsTrigger value="history" onClick={() => navigate(`${basePath}/history`)}>
-                LỊCH SỬ MƯỢN
               </TabsTrigger>
             </TabsList>
 

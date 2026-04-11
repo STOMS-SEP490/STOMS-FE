@@ -29,6 +29,7 @@ import ContractDetailSidebar from './ContractDetailSidebar';
 import CreateContractModal from './CreateContractModal';
 import EditContractModal from './EditContractModal';
 import { useLocation } from 'react-router-dom';
+import sessionApi from '@/modules/request/api/sessionApi';
 
 const columns: ColumnDef<ContractListItem>[] = [
   {
@@ -146,14 +147,46 @@ export default function ContractsManagement() {
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContract, setDetailContract] = useState<ContractListItem | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailRoleLabel, setDetailRoleLabel] = useState<string | null>(null);
   const [, setMarking] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editContract, setEditContract] = useState<ContractListItem | null>(null);
 
-  const handleViewDetail = (contract: ContractListItem) => {
-    setDetailContract(contract);
+  const handleViewDetail = async (contract: ContractListItem) => {
     setDetailOpen(true);
+    setDetailRoleLabel(null);
+    setDetailContract(contract); // show quickly with list data
+    try {
+      setDetailLoading(true);
+      const full = await contractApi.getById(contract.contractId);
+      setDetailContract(full);
+
+      // contracts/{id} response doesn't include assignment role, so resolve it from session detail
+      try {
+        const sessionDetail = await sessionApi.getById(full.sessionId);
+        const assignments = sessionDetail.Assignments ?? [];
+        const matched = assignments.find((a) => {
+          const staffMemberId = Number(a.StaffMemberId ?? 0);
+          return staffMemberId === full.createdByMemberId;
+        });
+        const rawRole = String(matched?.StaffRole ?? '').toLowerCase();
+        const roleLabel = rawRole
+          ? rawRole.includes('ta') || rawRole.includes('trợ')
+            ? 'Trợ giảng'
+            : 'Giáo viên'
+          : null;
+        setDetailRoleLabel(roleLabel);
+      } catch (roleErr) {
+        console.error('fetch session role for contract detail error:', roleErr);
+      }
+    } catch (err) {
+      console.error('fetch contract detail error:', err);
+      message.error('Không tải được chi tiết hợp đồng');
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleEdit = (contract: ContractListItem) => {
@@ -347,8 +380,12 @@ export default function ContractsManagement() {
         onClose={() => {
           setDetailOpen(false);
           setDetailContract(null);
+          setDetailLoading(false);
+          setDetailRoleLabel(null);
         }}
         contract={detailContract}
+        loading={detailLoading}
+        roleLabel={detailRoleLabel}
       />
       <CreateContractModal
         open={createOpen}

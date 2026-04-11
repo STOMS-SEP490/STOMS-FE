@@ -1,3 +1,4 @@
+import { Navigate, useParams } from 'react-router-dom';
 import CoursesManagement from '../../modules/course/pages/CoursesManagement';
 import TopicsManagement from '@/modules/topic/pages/TopicsManagement';
 import CoursesLayout from '@/app/layouts/CoursesManagementLayout';
@@ -5,11 +6,13 @@ import SubjectsManagement from '@/modules/subject/pages/SubjectsManagement';
 import EquipmentsManagement from '@/modules/equipment/pages/EquipmentsManagement';
 import CategoriesManagement from '@/modules/category/pages/CategoriesManagement';
 import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout';
+import BorrowingsManagementLayout from '@/app/layouts/BorrowingsManagementLayout';
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory';
+import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement';
 import TeamsManagement from '@/modules/team/pages/TeamsManagement';
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
-import EventCalendar from '@/modules/event/pages/EventCalendar';
+import EventCalendar from '@/modules/timetable/pages/EventCalendar';
 import TransactionLayout from '@/app/layouts/TransactionsLayout';
 import Transactions from '@/modules/transaction/pages/Transaction';
 import ExpenditureFund from '@/modules/transaction/pages/ExpenditureFund';
@@ -22,9 +25,12 @@ import UserManagement from '@/modules/user/pages/UsersManagement';
 import RolesManagement from '@/modules/role/pages/RolesManagement';
 import RequestLayout from '../layouts/RequestLayout';
 import RequestDetail from '@/modules/request/pages/RequestDetail';
+import ManagerRequestReadonlyLayout from '@/app/layouts/ManagerRequestReadonlyLayout';
+import RequestDetailManagerReadonly from '@/modules/request/pages/RequestDetailManagerReadonly';
 import MembersManagement from '@/modules/member/pages/MembersManagement';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import TaskReportsManagement from '@/modules/task-report/pages/TaskReportsManagement';
+import ManagerDashboard from '@/modules/dashboard/pages/ManagerDashboard';
 
 const RequestPlaceholder = () => (
   <div className="p-6 text-sm text-gray-500">
@@ -32,8 +38,14 @@ const RequestPlaceholder = () => (
   </div>
 );
 
+/** Cũ: /manager/requests/all/:id → /manager/requests/:id */
+const RedirectOldRequestsAllId = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/manager/requests/${id ?? ''}`} replace />;
+};
+
 const ManagerRoutes = [
-  // { path: 'dashboard', element: <ManagerDashboard /> },
+  { path: 'dashboard', element: <ManagerDashboard /> },
   { path: 'events', element: <EventsManagement /> },
   { path: 'timetable', element: <EventCalendar /> },
   {
@@ -55,13 +67,37 @@ const ManagerRoutes = [
   { path: 'skills', element: <SkillsManagement /> },
 
   { path: 'logs', element: <AuditLogs /> },
+  { path: 'requests-all', element: <Navigate to="/manager/requests" replace /> },
+  {
+    path: 'requests-view/:id',
+    element: <ManagerRequestReadonlyLayout />,
+    children: [{ index: true, element: <RequestDetailManagerReadonly /> }],
+  },
   {
     path: 'requests',
     element: <RequestLayout />,
     children: [
       { index: true, element: <RequestPlaceholder /> },
+      { path: 'assignments', element: <RequestPlaceholder /> },
+      { path: 'assignments/:id', element: <RequestDetail /> },
+      { path: 'approval', element: <RequestPlaceholder /> },
+      { path: 'approval/:id', element: <RequestDetail /> },
+      { path: 'all', element: <Navigate to="/manager/requests" replace /> },
+      { path: 'all/:id', element: <RedirectOldRequestsAllId /> },
       { path: ':id', element: <RequestDetail /> },
     ],
+  },
+  {
+    path: 'equipments/history',
+    element: <Navigate to="/manager/borrowings" replace />,
+  },
+  {
+    path: 'equipments/reservations',
+    element: <Navigate to="/manager/borrowings/reservations" replace />,
+  },
+  {
+    path: 'equipments/history/reservations',
+    element: <Navigate to="/manager/borrowings/reservations" replace />,
   },
   {
     path: 'equipments',
@@ -69,7 +105,14 @@ const ManagerRoutes = [
     children: [
       { index: true, element: <EquipmentsManagement /> },
       { path: 'categories', element: <CategoriesManagement /> },
-      { path: 'history', element: <EquipmentsHistory /> },
+    ],
+  },
+  {
+    path: 'borrowings',
+    element: <BorrowingsManagementLayout />,
+    children: [
+      { index: true, element: <EquipmentsHistory /> },
+      { path: 'reservations', element: <ReservationsManagement /> },
     ],
   },
   {

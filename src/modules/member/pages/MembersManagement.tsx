@@ -10,13 +10,14 @@ import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus, Power, PowerOff, RotateCcw } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { message, Modal } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import MemberDetailSidebar from './MemberDetailSidebar';
 import CreateMemberModal from './CreateMemberModal';
 import MemberEditModal from './MemberEditModal';
-import { ROLE_MAP } from '@/constants/role';
+import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
+import { useSearchParams } from 'react-router-dom';
 
 export default function MembersManagement() {
   const {
@@ -37,6 +38,39 @@ export default function MembersManagement() {
     resetFilters,
   } = useMembers();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const memberIdFromUrl = searchParams.get('memberId');
+
+  const skipNextAutoOpenRef = useRef(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = true;
+    setOpenDetail(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('memberId');
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!memberIdFromUrl) return;
+
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const memberId = Number(memberIdFromUrl);
+    if (!memberId || Number.isNaN(memberId)) return;
+    if (openDetail && selectedMember?.memberId === memberId) return;
+
+    handleViewMember(memberId);
+  }, [openDetailFromUrl, memberIdFromUrl, openDetail, selectedMember?.memberId, handleViewMember]);
+
   const [openCreate, setOpenCreate] = useState(false);
   const [editMemberId, setEditMemberId] = useState<number | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -46,7 +80,7 @@ export default function MembersManagement() {
   }, []);
 
   const handleBan = (member: Member) => {
-    const isActive = member.user?.isActive ?? true;
+    const isActive = member.isActive ?? true;
     Modal.confirm({
       title: isActive ? 'Vô hiệu hóa tài khoản?' : 'Kích hoạt lại tài khoản?',
       content: isActive
@@ -56,7 +90,7 @@ export default function MembersManagement() {
       cancelText: 'Hủy',
       onOk: async () => {
         try {
-          const userId = member.user?.userId;
+          const userId = member.userId;
           if (!userId) {
             message.error('Không tìm thấy tài khoản');
             return;
@@ -90,7 +124,7 @@ export default function MembersManagement() {
           />
           <div>
             <p className="font-medium text-sm">{row.original.fullName}</p>
-            <p className="text-xs text-gray-500">{row.original.user.email}</p>
+            <p className="text-xs text-gray-500">{row.original.email ?? '—'}</p>
           </div>
         </div>
       ),
@@ -99,18 +133,10 @@ export default function MembersManagement() {
       id: 'role',
       header: 'Vai trò',
       cell: ({ row }) => {
-        const roleId = row.original.user.roleId;
-        const roleName = ROLE_MAP[roleId] ?? `Vai trò ${roleId || ''}`;
-        const roleColorMap: Record<number, string> = {
-          1: 'bg-purple-100 text-purple-700',
-          2: 'bg-blue-100 text-blue-700',
-          3: 'bg-cyan-100 text-cyan-700',
-          4: 'bg-green-100 text-green-700',
-          5: 'bg-orange-100 text-orange-600',
-          6: 'bg-rose-100 text-rose-600',
-        };
-        const roleColor = roleColorMap[roleId] || 'bg-gray-100 text-gray-700';
-        return <Badge className={roleColor}>{roleName}</Badge>;
+        const roleId = Number(row.original.roleId ?? 0);
+        return (
+          <Badge className={`${getRoleBadgeClass(roleId)} border`}>{getRoleLabel(roleId)}</Badge>
+        );
       },
     },
     { id: 'team', header: 'Nhóm', cell: ({ row }) => row.original.team?.teamName },
@@ -118,7 +144,7 @@ export default function MembersManagement() {
       id: 'status',
       header: 'Trạng thái',
       cell: ({ row }) =>
-        row.original.user.isActive ? (
+        row.original.isActive ? (
           <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
         ) : (
           <Badge className="bg-red-100 text-red-600">Vô hiệu hóa</Badge>
@@ -135,7 +161,7 @@ export default function MembersManagement() {
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex gap-3">
-          {row.original.user?.isActive ? (
+          {row.original.isActive ? (
             <button type="button" onClick={() => handleBan(row.original)} title="Vô hiệu hóa">
               <PowerOff size={16} className="text-red-500 cursor-pointer" />
             </button>
@@ -203,7 +229,7 @@ export default function MembersManagement() {
           onPageChange={(page) => setPageNumber(page)}
         />
 
-        <MemberDetailSidebar open={openDetail} onClose={() => setOpenDetail(false)} member={selectedMember} />
+        <MemberDetailSidebar open={openDetail} onClose={closeDetailFromUrl} member={selectedMember} />
 
         <CreateMemberModal open={openCreate} onClose={() => setOpenCreate(false)} onCreated={refetchMembers} />
 

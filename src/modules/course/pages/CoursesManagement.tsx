@@ -1,33 +1,83 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Power, PowerOff, Plus, X } from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Modal, message } from 'antd';
 import courseApi from '@/modules/course/api/courseApi';
 import courseSubjectApi from '@/modules/course/api/courseSubjectApi';
-import type { CourseListItem } from '../courseType';
+import type { CourseListItem, CourseSubjectSummary } from '../courseType';
 import type { SubjectListItem } from '@/modules/subject/subject';
-import subjectApi from '@/modules/subject/api/subjectApi';
 import { Badge } from '@/shared/components/ui/badge';
 import HoverSearch from '@/shared/components/ui/search';
 import { DataTable } from '@/shared/components/common/DataTable';
+import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
+import { useCourses } from '@/modules/course/hooks/useCourses';
+import { useCourseDetailDrawer } from '@/modules/course/hooks/useCourseDetailDrawer';
+import { useActiveSubjects } from '@/modules/course/hooks/useActiveSubjects';
+import { CourseDetailDrawer } from '@/modules/course/components/CourseDetailDrawer';
+import { useAuth } from '@/app/providers/AuthProvider';
 
-export default function CoursesManagement() {
+type Props = {
+  readOnly?: boolean;
+};
+
+type CourseSubjectRow = { subjectId: number; subjectName?: string; isActive?: boolean };
+
+function mapApiCourseSubjectToRow(
+  cs: CourseSubjectSummary,
+  subjects: SubjectListItem[],
+): CourseSubjectRow {
+  const sid = Number(cs.subjectId);
+  return {
+    subjectId: sid,
+    subjectName:
+      cs.subject?.subjectName ??
+      cs.subjectName ??
+      subjects.find((x) => x.subjectId === sid)?.subjectName ??
+      `Môn #${cs.subjectId}`,
+    isActive: cs.isActive === undefined ? true : Boolean(cs.isActive),
+  };
+}
+
+export default function CoursesManagement({ readOnly = false }: Props) {
   const context = useOutletContext<{ position: string }>();
+  const navigate = useNavigate();
 
-  const [data, setData] = useState<CourseListItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const roleId = Number(user?.role ?? 0);
+  const isManager = roleId === 1;
+  const canEdit = isManager && !readOnly;
 
-  const [search, setSearch] = useState('');
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize] = useState(10);
-  const [totalItems, setTotalItems] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openCreateFromUrl = searchParams.get('openCourseCreate');
+
+  const {
+    data,
+    loading,
+    search,
+    setSearch,
+    pageNumber,
+    pageSize,
+    totalItems,
+    setPageNumber,
+    refetch,
+  } = useCourses();
+
+  const allSubjects = useActiveSubjects();
+
+  const {
+    detailOpen,
+    detailCourse,
+    detailLoading,
+    closeDetailFromUrl,
+    openDetailById,
+  } = useCourseDetailDrawer();
 
   const [openEdit, setOpenEdit] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -36,46 +86,16 @@ export default function CoursesManagement() {
   const [courseCode, setCourseCode] = useState('');
   const [courseName, setCourseName] = useState('');
   const [description, setDescription] = useState('');
-  const [allSubjects, setAllSubjects] = useState<SubjectListItem[]>([]);
-  /** Danh sách course-subject đã gán (có isActive) — bật/tắt bằng Switch, Lưu mới gọi API */
-  const [courseSubjects, setCourseSubjects] = useState<
-    { subjectId: number; subjectName?: string; isActive?: boolean }[]
-  >([]);
-  const [initialCourseSubjects, setInitialCourseSubjects] = useState<
-    { subjectId: number; subjectName?: string; isActive?: boolean }[]
-  >([]);
+  const [courseSubjects, setCourseSubjects] = useState<CourseSubjectRow[]>([]);
+  const [initialCourseSubjects, setInitialCourseSubjects] = useState<CourseSubjectRow[]>([]);
   const [pendingSubjectIdsToAdd, setPendingSubjectIdsToAdd] = useState<number[]>([]);
   const [showAddSubject, setShowAddSubject] = useState(false);
 
-  const fetchCourses = async () => {
-    try {
-      setLoading(true);
-
-      const res = await courseApi.getCourses({
-        pageNumber,
-        pageSize,
-        CourseName: search || undefined,
-      });
-
-      setData(res.items ?? []);
-      setTotalItems(res.totalItems ?? 0);
-    } finally {
-      setLoading(false);
+  const openCreateModal = useCallback(() => {
+    if (!canEdit) {
+      message.warning('Bạn không có quyền thêm khóa học.');
+      return;
     }
-  };
-
-  useEffect(() => {
-    fetchCourses();
-  }, [pageNumber, search]);
-
-  useEffect(() => {
-    subjectApi
-      .getSubjects({ pageNumber: 1, pageSize: 500, isActive: true })
-      .then((res) => setAllSubjects(res.items ?? []))
-      .catch(() => setAllSubjects([]));
-  }, []);
-
-  const openCreateModal = () => {
     setIsCreating(true);
     setEditingCourse(null);
     setCourseCode('');
@@ -86,57 +106,67 @@ export default function CoursesManagement() {
     setPendingSubjectIdsToAdd([]);
     setShowAddSubject(false);
     setOpenEdit(true);
-  };
+  }, [canEdit]);
 
-  const openEditModal = async (c: CourseListItem) => {
-    setIsCreating(false);
-    try {
-      const detail = await courseApi.getById(c.courseId);
-      setEditingCourse(detail);
-      setCourseCode(detail.courseCode ?? '');
-      setCourseName(detail.courseName ?? '');
-      setDescription((detail as any).description ?? '');
-      const list = ((detail.courseSubjects ?? []) as any[]).map((cs) => ({
-        subjectId: Number(cs.subjectId),
-        subjectName:
-          cs.subject?.subjectName ??
-          cs.subjectName ??
-          allSubjects.find((x) => x.subjectId === Number(cs.subjectId))?.subjectName ??
-          `Môn #${cs.subjectId}`,
-        isActive: cs.isActive === undefined ? true : Boolean(cs.isActive),
-      }));
-      setCourseSubjects(list);
-      setInitialCourseSubjects(list.map((x) => ({ ...x })));
-      setPendingSubjectIdsToAdd([]);
-      setShowAddSubject(false);
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Không tải được chi tiết khóa học';
-      message.error(msg);
-      setEditingCourse(c);
-      setCourseCode(c.courseCode ?? '');
-      setCourseName(c.courseName ?? '');
-      setDescription('');
-      const list = ((c.courseSubjects ?? []) as any[]).map((cs) => ({
-        subjectId: Number(cs.subjectId),
-        subjectName:
-          cs.subject?.subjectName ??
-          cs.subjectName ??
-          allSubjects.find((x) => x.subjectId === Number(cs.subjectId))?.subjectName ??
-          `Môn #${cs.subjectId}`,
-        isActive: cs.isActive === undefined ? true : Boolean(cs.isActive),
-      }));
-      setCourseSubjects(list);
-      setInitialCourseSubjects(list.map((x) => ({ ...x })));
-      setPendingSubjectIdsToAdd([]);
-      setShowAddSubject(false);
-    } finally {
-      setOpenEdit(true);
-    }
-  };
+  useEffect(() => {
+    if (context.position !== 'content') return;
+    if (openCreateFromUrl !== '1') return;
+    openCreateModal();
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openCourseCreate');
+      return next;
+    });
+  }, [context.position, openCreateFromUrl, openCreateModal, setSearchParams]);
+
+  const openEditModal = useCallback(
+    async (c: CourseListItem) => {
+      if (!canEdit) {
+        message.warning('Bạn không có quyền chỉnh sửa khóa học.');
+        return;
+      }
+      setIsCreating(false);
+      try {
+        const detail = await courseApi.getById(c.courseId);
+        setEditingCourse(detail);
+        setCourseCode(detail.courseCode ?? '');
+        setCourseName(detail.courseName ?? '');
+        setDescription(detail.description?.trim() ? String(detail.description) : '');
+        const list = (detail.courseSubjects ?? []).map((cs) => mapApiCourseSubjectToRow(cs, allSubjects));
+        setCourseSubjects(list);
+        setInitialCourseSubjects(list.map((x) => ({ ...x })));
+        setPendingSubjectIdsToAdd([]);
+        setShowAddSubject(false);
+      } catch (e: unknown) {
+        const msg =
+          e && typeof e === 'object' && 'response' in e
+            ? (e as { response?: { data?: { message?: string } } }).response?.data?.message
+            : null;
+        message.error(msg ?? 'Không tải được chi tiết khóa học');
+        setEditingCourse(c);
+        setCourseCode(c.courseCode ?? '');
+        setCourseName(c.courseName ?? '');
+        setDescription('');
+        const list = (c.courseSubjects ?? []).map((cs) => mapApiCourseSubjectToRow(cs, allSubjects));
+        setCourseSubjects(list);
+        setInitialCourseSubjects(list.map((x) => ({ ...x })));
+        setPendingSubjectIdsToAdd([]);
+        setShowAddSubject(false);
+      } finally {
+        setOpenEdit(true);
+      }
+    },
+    [allSubjects],
+  );
 
   const closeEditModal = () => {
     if (submitting) return;
     setOpenEdit(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openCourseCreate');
+      return next;
+    });
   };
 
   const handleSubmitEdit = async () => {
@@ -167,7 +197,7 @@ export default function CoursesManagement() {
 
         message.success('Tạo khóa học thành công');
         setOpenEdit(false);
-        await fetchCourses();
+        await refetch();
         return;
       }
 
@@ -175,7 +205,6 @@ export default function CoursesManagement() {
 
       await courseApi.update(editingCourse.courseId, payloadBase);
 
-      // 1) bật/tắt (bulk) theo diff so với lúc mở modal
       const initialMap = new Map<number, boolean>(
         initialCourseSubjects.map((cs) => [cs.subjectId, cs.isActive ?? true]),
       );
@@ -197,7 +226,6 @@ export default function CoursesManagement() {
         await courseSubjectApi.activateMany(editingCourse.courseId, toActivate);
       }
 
-      // 2) gán thêm (bulk)
       const toAddIds = Array.from(
         new Set(pendingSubjectIdsToAdd.filter((id) => !courseSubjects.some((cs) => cs.subjectId === id))),
       );
@@ -207,107 +235,52 @@ export default function CoursesManagement() {
 
       message.success('Cập nhật khóa học thành công');
       setOpenEdit(false);
-      await fetchCourses();
-    } catch (e: any) {
-      message.error(getErrorMessage(e?.response?.data ?? e));
+      await refetch();
+    } catch (e: unknown) {
+      message.error(getErrorMessage(e));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleToggleActive = async (c: CourseListItem) => {
-    Modal.confirm({
-      title: c.isActive ? 'Vô hiệu hóa khóa học?' : 'Kích hoạt khóa học?',
-      content: c.isActive
-        ? 'Khóa học sẽ bị vô hiệu hóa và có thể ảnh hưởng tới các yêu cầu liên quan.'
-        : 'Khóa học sẽ được kích hoạt lại.',
-      okText: c.isActive ? 'Vô hiệu hóa' : 'Kích hoạt',
-      cancelText: 'Hủy',
-      okButtonProps: { danger: c.isActive },
-      onOk: async () => {
-        try {
-          if (c.isActive) await courseApi.deactivate(c.courseId);
-          else await courseApi.activate(c.courseId);
-          message.success('Cập nhật trạng thái khóa học thành công');
-          await fetchCourses();
-        } catch (e: any) {
-          message.error(getErrorMessage(e?.response?.data ?? e));
-        }
-      },
-    });
-  };
-
-  const handleView = async (c: CourseListItem) => {
-    try {
-      const detail: any = await courseApi.getById(c.courseId);
-      Modal.info({
-        title: `Khóa học ${detail.courseCode}`,
-        width: 680,
-        content: (
-          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-            <div>
-              <div className="text-xs text-gray-500">Tên khóa học</div>
-              <div className="text-sm font-medium">{detail.courseName}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Trạng thái</div>
-                <div className="text-sm">
-                  {detail.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-                </div>
-              </div>
-              <div className="rounded-md border p-2">
-                <div className="text-xs text-gray-500">Cập nhật lần cuối</div>
-                <div className="text-sm">
-                  {detail.updatedAt ? dayjs(detail.updatedAt).format('DD/MM/YYYY') : '—'}
-                </div>
-              </div>
-            </div>
-            <div className="pt-2">
-              <div className="text-xs text-gray-500 mb-1">Môn học trong khóa</div>
-              {detail.courseSubjects && detail.courseSubjects.length > 0 ? (
-                <div className="space-y-2">
-                  {detail.courseSubjects.map((cs: any) => (
-                    <div key={cs.subjectId} className="rounded-md border p-2 space-y-1">
-                      <div className="text-sm font-medium">
-                        {cs.subject?.subjectCode} - {cs.subject?.subjectName ?? cs.subjectName ?? `Môn #${cs.subjectId}`}
-                      </div>
-                      {cs.subject?.subjectSessions && cs.subject.subjectSessions.length > 0 && (
-                        <div className="pl-3 border-l border-gray-200 mt-1 space-y-1">
-                          {cs.subject.subjectSessions.map((ss: any) => (
-                            <div key={ss.subjectSessionId} className="text-xs text-gray-600">
-                              Buổi {ss.sessionNo}: {ss.title ?? '—'}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500">Chưa có môn học nào trong khóa.</div>
-              )}
-            </div>
-          </div>
-        ),
-        okText: 'Đóng',
+  const handleToggleActive = useCallback(
+    (c: CourseListItem) => {
+      Modal.confirm({
+        title: c.isActive ? 'Vô hiệu hóa khóa học?' : 'Kích hoạt khóa học?',
+        content: c.isActive
+          ? 'Khóa học sẽ bị vô hiệu hóa và có thể ảnh hưởng tới các yêu cầu liên quan.'
+          : 'Khóa học sẽ được kích hoạt lại.',
+        okText: c.isActive ? 'Vô hiệu hóa' : 'Kích hoạt',
+        cancelText: 'Hủy',
+        okButtonProps: { danger: c.isActive },
+        onOk: async () => {
+          try {
+            if (c.isActive) await courseApi.deactivate(c.courseId);
+            else await courseApi.activate(c.courseId);
+            message.success('Cập nhật trạng thái khóa học thành công');
+            await refetch();
+          } catch (e: unknown) {
+            message.error(getErrorMessage(e));
+          }
+        },
       });
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Không tải được chi tiết khóa học';
-      message.error(msg);
-    }
-  };
+    },
+    [refetch],
+  );
+
+  const handleView = useCallback(
+    async (c: CourseListItem) => {
+      await openDetailById(c.courseId);
+    },
+    [openDetailById],
+  );
 
   const columns = useMemo<ColumnDef<CourseListItem>[]>(
     () => [
       {
         accessorKey: 'courseCode',
         header: 'MÃ KHÓA HỌC',
-        cell: ({ row }) => (
-          <div className="text-sm font-medium">
-            {row.original.courseCode}
-          </div>
-        ),
+        cell: ({ row }) => <div className="text-sm font-medium">{row.original.courseCode}</div>,
       },
       {
         accessorKey: 'courseName',
@@ -318,39 +291,29 @@ export default function CoursesManagement() {
         header: 'TRẠNG THÁI',
         cell: ({ row }) =>
           row.original.isActive ? (
-            <Badge className="bg-green-100 text-green-700">
-              Hoạt động
-            </Badge>
+            <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
           ) : (
-            <Badge className="bg-orange-100 text-orange-600">
-              Ngừng hoạt động
-            </Badge>
+            <Badge className="bg-orange-100 text-orange-600">Ngừng hoạt động</Badge>
           ),
       },
       {
         id: 'subjects',
         header: 'SỐ MÔN HỌC',
         cell: ({ row }) => {
-          const count =
-            row.original.numberOfSubject ??
-            row.original.courseSubjects?.length ??
-            0;
+          const count = row.original.numberOfSubject ?? row.original.courseSubjects?.length ?? 0;
           return `${count} môn học`;
         },
       },
       {
         id: 'requests',
         header: 'SỐ YÊU CẦU',
-        cell: ({ row }) =>
-          `${row.original.requests?.length ?? 0} yêu cầu`,
+        cell: ({ row }) => `${row.original.requests?.length ?? 0} yêu cầu`,
       },
       {
         accessorKey: 'updatedAt',
         header: 'CẬP NHẬT',
         cell: ({ row }) =>
-          row.original.updatedAt
-            ? dayjs(row.original.updatedAt).format('DD/MM/YYYY')
-            : '—',
+          row.original.updatedAt ? dayjs(row.original.updatedAt).format('DD/MM/YYYY') : '—',
       },
       {
         id: 'actions',
@@ -358,67 +321,64 @@ export default function CoursesManagement() {
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex gap-2 items-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleView(row.original)}
-              title="Xem chi tiết"
-            >
-              <Eye size={16} className="text-gray-800" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => openEditModal(row.original)}
-              title="Sửa"
-            >
-              <Pencil size={16} className="text-blue-600" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleToggleActive(row.original)}
-              title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
-            >
-              {row.original.isActive ? (
-                <PowerOff size={16} className="text-red-500" />
-              ) : (
-                <Power size={16} className="text-green-600" />
-              )}
-            </Button>
+            {isManager ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => void handleView(row.original)}
+                aria-label="Xem chi tiết"
+              >
+                <Eye size={16} className="text-gray-800" />
+              </Button>
+            ) : (
+              <TableTextAction onClick={() => void handleView(row.original)} />
+            )}
+            {canEdit && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => void openEditModal(row.original)}
+                  title="Sửa"
+                >
+                  <Pencil size={16} className="text-blue-600" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleToggleActive(row.original)}
+                  title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                >
+                  {row.original.isActive ? (
+                    <PowerOff size={16} className="text-red-500" />
+                  ) : (
+                    <Power size={16} className="text-green-600" />
+                  )}
+                </Button>
+              </>
+            )}
           </div>
         ),
       },
     ],
-    []
+    [isManager, canEdit, handleView, openEditModal, handleToggleActive],
   );
 
   if (context.position === 'toolbar') {
     return (
       <div className="flex gap-3">
-        <HoverSearch
-          placeholder="Tìm khóa học..."
-          value={search}
-          onChange={setSearch}
-        />
+        <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
       </div>
     );
   }
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-4">
-      <div className="flex justify-between items-center mb-2">
+      <div className="flex items-center mb-2">
         <div>
           <h2 className="text-lg font-semibold text-black">Quản lý khóa học</h2>
           <p className="text-xs text-gray-500">Danh sách khóa học trong hệ thống</p>
         </div>
-        <Button
-          className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-          onClick={openCreateModal}
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          Thêm khóa học
-        </Button>
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-4">
@@ -433,8 +393,17 @@ export default function CoursesManagement() {
         />
       </div>
 
-      {/* Sidebar upsert (giống detail) */}
-      {openEdit && (
+      <CourseDetailDrawer
+        open={detailOpen}
+        onClose={closeDetailFromUrl}
+        detailCourse={detailCourse}
+        detailLoading={detailLoading}
+        onSubjectClick={(subjectId) => {
+          navigate(`/manager/courses/subjects?openDetail=1&subjectId=${subjectId}`);
+        }}
+      />
+
+      {!readOnly && openEdit && (
         <div
           className="fixed inset-0 bg-black/30 z-40 h-full"
           onClick={closeEditModal}
@@ -444,7 +413,7 @@ export default function CoursesManagement() {
       <div
         className={`fixed top-0 right-0 h-full w-[820px] max-w-[95vw] bg-[#f3f4f6] z-50
         transition-transform duration-300
-        ${openEdit ? 'translate-x-0' : 'translate-x-full'}`}
+        ${!readOnly && openEdit ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div className="flex flex-col h-full overflow-y-auto no-scrollbar text-gray-700">
           <div className="px-6 py-5 bg-[#f3f4f6] border-b">
@@ -488,7 +457,6 @@ export default function CoursesManagement() {
               />
             </div>
 
-            {/* Môn học — Switch + thêm nhiều rồi Lưu */}
             <div className="space-y-2 border-t pt-4">
               <div className="flex items-center justify-between">
                 <Label>Môn học</Label>
@@ -510,9 +478,7 @@ export default function CoursesManagement() {
 
               <div className="stoms-scrollbar max-h-[40vh] overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
                 {courseSubjects.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Chưa gán môn nào. Nhấn &quot;Thêm môn&quot; để chọn.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Chưa gán môn nào. Nhấn &quot;Thêm môn&quot; để chọn.</p>
                 ) : (
                   <div className="space-y-2">
                     {courseSubjects.map((cs) => {
@@ -612,7 +578,7 @@ export default function CoursesManagement() {
               </Button>
               <Button
                 className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-                onClick={handleSubmitEdit}
+                onClick={() => void handleSubmitEdit()}
                 disabled={submitting}
               >
                 {submitting ? (isCreating ? 'Đang tạo...' : 'Đang lưu...') : isCreating ? 'Tạo' : 'Lưu'}

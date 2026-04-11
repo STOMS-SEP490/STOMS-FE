@@ -20,7 +20,8 @@ export function useLoadRequestSessions() {
           eventSessionId: null,
           title: s.title ?? '',
           duration: s.duration ?? '02:00:00',
-          notes: s.title ?? '',
+          // Mặc định ghi chú rỗng để FE không tự điền vào textarea.
+          notes: '',
           teachersRequired: 1,
           tasRequired: 1,
           location: defaultLocation || '',
@@ -38,25 +39,25 @@ export function useLoadRequestSessions() {
     async (eventId: number, defaultLocation: string): Promise<SessionFormItem[]> => {
       setLoading(true)
       try {
-        const res = await eventApi.getEvents({
-          pageNumber: 1,
-          pageSize: 1,
-          eventId,
-        })
-        const event = res.items?.[0] as any
-        const list = (event?.eventSessions ?? []) as {
-          eventSessionId: number
-          sessionNo?: number
-          duration?: string
-          title?: string
-        }[]
+        // NOTE:
+        // BE /api/events/filter luôn null `EventSessions` để tối ưu payload,
+        // nên FE cần gọi /api/events/{id} (includeDetails) để lấy đúng sessions.
+        const event = await eventApi.getById(eventId)
+        const list = (event.eventSessions ?? []) as Array<{
+          eventSessionId?: number
+          sessionNo?: number | null
+          duration?: string | null
+          title?: string | null
+        }>
+
         return list.map((s, index) => ({
-          sessionNo: s.sessionNo ?? index + 1,
+          sessionNo: Number(s.sessionNo ?? index + 1) || index + 1,
           subjectSessionId: null,
-          eventSessionId: s.eventSessionId,
+          eventSessionId: s.eventSessionId ?? null,
           title: s.title ?? '',
-          duration: (s.duration as string) ?? '02:00:00',
-          notes: s.title ?? '',
+          duration: s.duration ?? '02:00:00',
+          // Mặc định ghi chú rỗng để người dùng tự nhập.
+          notes: '',
           teachersRequired: 1,
           tasRequired: 1,
           location: defaultLocation || '',

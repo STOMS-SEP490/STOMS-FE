@@ -34,11 +34,20 @@ export type TaskReportFilterParams = {
   pageNumber?: number;
   pageSize?: number;
   taskReportId?: number;
+  /**
+   * MemberId (backend: ?MemberId=...)
+   * - Tránh mismatch case giữa FE/BE.
+   */
+  MemberId?: number;
+  // Alias cũ (nếu còn chỗ gọi cũ)
+  memberId?: number;
   userId?: number;
   requestId?: number;
   sessionId?: number;
   title?: string;
   description?: string;
+  start?: string;
+  end?: string;
   startAt?: string;
   endAt?: string;
   createdAt?: string;

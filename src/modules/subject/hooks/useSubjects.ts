@@ -1,24 +1,51 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { SubjectListItem } from '../subject'
 import subjectApi from '../api/subjectApi'
 
-export const useSubjects = () => {
+export type UseSubjectsOptions = {
+  pageSize?: number
+  search?: string
+  setSearch?: (v: string) => void
+  /** true: non-manager — gọi filter với IsActive=true */
+  activeOnly?: boolean
+}
+
+export const useSubjects = (options?: UseSubjectsOptions) => {
   const [data, setData] = useState<SubjectListItem[]>([])
   const [loading, setLoading] = useState(false)
 
-  const [search, setSearch] = useState('')
-  const [pageNumber, setPageNumber] = useState(1)
-  const [pageSize] = useState(10)
-  const [totalItems, setTotalItems] = useState(0)
+  const [internalSearch, setInternalSearch] = useState('')
+  const setSearchParent = options?.setSearch
+  const controlled =
+    typeof setSearchParent === 'function' && typeof options?.search === 'string'
+  const search = controlled ? options!.search! : internalSearch
 
-  const fetchSubjects = async () => {
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageSize] = useState(options?.pageSize ?? 10)
+  const [totalItems, setTotalItems] = useState(0)
+  const activeOnly = Boolean(options?.activeOnly)
+
+  const setSearch = useCallback(
+    (v: string) => {
+      setPageNumber(1)
+      if (controlled && setSearchParent) {
+        setSearchParent(v)
+      } else if (!controlled) {
+        setInternalSearch(v)
+      }
+    },
+    [controlled, setSearchParent],
+  )
+
+  const fetchSubjects = useCallback(async () => {
     try {
       setLoading(true)
 
       const res = await subjectApi.getSubjects({
         pageNumber,
         pageSize,
-        subjectName: search || undefined,
+        subjectName: search.trim() || undefined,
+        ...(activeOnly ? { IsActive: true } : {}),
       })
 
       setData(res.items ?? [])
@@ -26,11 +53,11 @@ export const useSubjects = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [pageNumber, pageSize, search, activeOnly])
 
   useEffect(() => {
-    fetchSubjects()
-  }, [pageNumber, search])
+    void fetchSubjects()
+  }, [fetchSubjects])
 
   return {
     data,

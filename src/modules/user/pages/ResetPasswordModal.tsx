@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { message } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
-import userService from '@/modules/user/api/userApi';
+import authService from '@/modules/auth/api/authApi';
 import type { User } from '@/modules/user/user';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+
+const DEFAULT_RESET_PASSWORD = 'stoms123';
 
 type Props = {
   open: boolean;
@@ -16,27 +16,17 @@ type Props = {
 };
 
 export default function ResetPasswordModal({ open, onClose, user, onSuccess }: Props) {
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleConfirm = async () => {
     if (!user) return;
-    if (!newPassword || newPassword.length < 6) {
-      message.warning('Mật khẩu mới tối thiểu 6 ký tự');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      message.warning('Xác nhận mật khẩu không khớp');
-      return;
-    }
     try {
       setLoading(true);
-      await userService.changePassword(user.userId, newPassword);
-      message.success('Đổi mật khẩu thành công');
-      setNewPassword('');
-      setConfirmPassword('');
+      await authService.resetPassword({
+        email: user.email,
+        newPassword: DEFAULT_RESET_PASSWORD,
+      });
+      message.success('Đã reset mật khẩu thành công');
       onClose();
       onSuccess?.();
     } catch (err) {
@@ -47,9 +37,7 @@ export default function ResetPasswordModal({ open, onClose, user, onSuccess }: P
   };
 
   const handleClose = () => {
-    setNewPassword('');
-    setConfirmPassword('');
-    onClose();
+    if (!loading) onClose();
   };
 
   if (!user) return null;
@@ -58,42 +46,29 @@ export default function ResetPasswordModal({ open, onClose, user, onSuccess }: P
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Đặt lại mật khẩu"
+      title="Reset mật khẩu"
       description={`Tài khoản: ${user.email}`}
       className="max-w-md"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label>Mật khẩu mới</Label>
-          <Input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Tối thiểu 6 ký tự"
-            className="w-full"
-            autoComplete="new-password"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Xác nhận mật khẩu</Label>
-          <Input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Nhập lại mật khẩu"
-            className="w-full"
-            autoComplete="new-password"
-          />
-        </div>
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600">
+          Bạn có chắc muốn đặt lại mật khẩu cho tài khoản này về mật khẩu mặc định{' '}
+          <strong className="text-gray-900">{DEFAULT_RESET_PASSWORD}</strong>?
+        </p>
         <div className="flex gap-3 pt-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={handleClose}>
+          <Button type="button" variant="outline" className="flex-1" onClick={handleClose} disabled={loading}>
             Hủy
           </Button>
-          <Button type="submit" className="flex-1 bg-[#2197C0] hover:bg-[#208AAE] text-white" disabled={loading}>
-            {loading ? 'Đang đổi...' : 'Đổi mật khẩu'}
+          <Button
+            type="button"
+            className="flex-1 bg-[#2197C0] hover:bg-[#208AAE] text-white"
+            onClick={() => void handleConfirm()}
+            disabled={loading}
+          >
+            {loading ? 'Đang xử lý...' : 'Xác nhận reset'}
           </Button>
         </div>
-      </form>
+      </div>
     </Dialog>
   );
 }

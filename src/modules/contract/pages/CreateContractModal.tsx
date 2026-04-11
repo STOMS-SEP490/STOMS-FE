@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { message, Select, Spin } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
+import sessionApi from '@/modules/request/api/sessionApi';
+import type { SessionResponse } from '@/modules/request/session.types';
 import contractApi from '../api/contractApi';
-import teachingHistoryApi from '../api/teachingHistoryApi';
-import type { TeachingHistoryItem } from '../teachingHistory';
 
 type Props = {
   open: boolean;
@@ -27,7 +27,9 @@ export default function CreateContractModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [historyItems, setHistoryItems] = useState<TeachingHistoryItem[]>([]);
+  const [sessionOptions, setSessionOptions] = useState<
+    Array<Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'RequestId' | 'StartAt' | 'Location'>>
+  >([]);
 
   const memberId =
     Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || undefined;
@@ -35,40 +37,41 @@ export default function CreateContractModal({
   useEffect(() => {
     if (!open || !memberId) return;
 
-    const fetchHistory = async () => {
+    const fetchSessions = async () => {
       try {
         setSessionsLoading(true);
-        const res = await teachingHistoryApi.getTeachingHistory(memberId, {
-          pageNumber: 1,
-          pageSize: 100,
-          sessionStatus: 'Completed',
+        const res = await sessionApi.getFilter({
+          Statuses: ['COMPLETED'],
+          MemberId: memberId,
+          HasContract: false,
+          PageNumber: 1,
+          PageSize: 100,
         });
-        setHistoryItems(res.items || []);
+        const rows = (res.Items ?? [])
+          .map((raw) => ({
+            SessionId: Number(raw.SessionId ?? 0),
+            SessionNo: Number(raw.SessionNo ?? 0),
+            RequestId: Number(raw.RequestId ?? 0),
+            StartAt: String(raw.StartAt ?? ''),
+            Location: String(raw.Location ?? ''),
+          }))
+          .filter((x) => x.SessionId > 0);
+        setSessionOptions(rows);
 
         // Nếu có initialSessionId (từ lịch sử giảng dạy), ưu tiên set sẵn
         if (initialSessionId) {
           setSessionId(initialSessionId);
         }
       } catch (err) {
-        console.error('fetch teaching history error', err);
-        message.error('Không tải được danh sách buổi học đã dạy');
+        console.error('fetch sessions for contract error', err);
+        message.error('Không tải được danh sách buổi học phù hợp');
       } finally {
         setSessionsLoading(false);
       }
     };
 
-    fetchHistory();
+    void fetchSessions();
   }, [open, memberId, initialSessionId]);
-
-  const completedSessions = useMemo(
-    () =>
-      historyItems.filter((item) => {
-        if (!item) return false;
-        const status = String(item.status ?? '').toUpperCase();
-        return status.includes('HOÀN THÀNH') || status === 'COMPLETED';
-      }),
-    [historyItems]
-  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,7 +150,7 @@ export default function CreateContractModal({
             id="contractCode"
             value={contractCode}
             onChange={(e) => setContractCode(e.target.value)}
-            placeholder="Ví dụ: CTR-2024-001"
+              
             className="h-10 text-black placeholder:text-gray-500 border-gray-200"
           />
         </div>
@@ -178,11 +181,11 @@ export default function CreateContractModal({
               className="w-full"
               notFoundContent={sessionsLoading ? <Spin size="small" /> : 'Không có buổi học phù hợp'}
             >
-              {completedSessions.map((item) => (
-                <Select.Option key={item.sessionId} value={item.sessionId}>
-                  {`${item.sessionTitle || `Buổi ${item.sessionId}`} — ${new Date(
-                    item.startAt
-                  ).toLocaleString('vi-VN')} (${item.location || '—'})`}
+              {sessionOptions.map((item) => (
+                <Select.Option key={item.SessionId} value={item.SessionId}>
+                  {`Request #${item.RequestId} - Buổi ${item.SessionNo || item.SessionId} — ${new Date(
+                    item.StartAt,
+                  ).toLocaleString('vi-VN')} (${item.Location || '—'})`}
                 </Select.Option>
               ))}
             </Select>

@@ -1,17 +1,40 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message } from 'antd';
-import type { RequestListItem, RequestSessionSummary } from '../request';
+import type { RequestListItem, RequestSessionSummary, SessionTopicInfo } from '../request';
 import requestService from '../api/requestApi';
 import sessionService from '../api/sessionApi';
 import { teamSessionApi } from '@/modules/team/api/teamSessionApi';
-import assignmentService from '../api/assignmentApi';
+import assignmentService from '../../assignment/api/assignmentApi';
 import { useProgramCoordinatorId } from './useProgramCoordinatorId';
+import type { AssignmentResponse, SessionResponse } from '../session.types';
 import type {
   RequestLayoutOutletContext,
   RightPanelState,
   SessionAssignmentRow,
   SessionWithFlags,
 } from '../requestDetail.types';
+import { getRequestStatusCode, REQUEST_STATUS } from '@/constants/status';
+import { canManagerReviewAssignmentRow } from '../utils/assignmentSlotUtils';
+
+const mapSessionAssignments = (detail: any): SessionAssignmentRow[] => {
+  const rawAssignments = detail?.Assignments ?? detail?.assignments ?? [];
+  return (rawAssignments as any[])
+    .filter((a) => a && (a.assignmentId || a.AssignmentId))
+    .map((a) => {
+      const staff = a.staffMember ?? a.StaffMember ?? null;
+      const staffUser = staff?.user ?? staff?.User ?? null;
+      return {
+        assignmentId: Number(a.assignmentId ?? a.AssignmentId ?? 0),
+        staffMemberId: Number(a.staffMemberId ?? a.StaffMemberId ?? 0),
+        staffRole: String(a.staffRole ?? a.StaffRole ?? '').toUpperCase(),
+        status: String(a.status ?? a.Status ?? ''),
+        reason: String(a.reason ?? a.Reason ?? '').trim() || undefined,
+        fullName: staff?.fullName || staff?.FullName || '—',
+        email: staff?.userEmail || staff?.email || staff?.Email || staffUser?.email || staffUser?.Email || '',
+        avatarUrl: staff?.avatarUrl || staff?.AvatarUrl || '',
+      } satisfies SessionAssignmentRow;
+    });
+};
 
 const mapSessionsWithFlags = (detail: RequestListItem) => {
   const nextUiAssigned: Record<number, number[]> = {};
@@ -25,7 +48,13 @@ const mapSessionsWithFlags = (detail: RequestListItem) => {
         teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
         TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
       };
-      const reservationId = anyS.reservationId ?? anyS.ReservationId ?? null;
+      const rawReservationId =
+        anyS.reservationId ??
+        anyS.ReservationId ??
+        null;
+
+      const parsed = rawReservationId != null ? Number(rawReservationId) : NaN;
+      const reservationId = !Number.isNaN(parsed) && parsed > 0 ? parsed : null;
       const fromSessions = anyS.teamSessions ?? anyS.TeamSessions ?? [];
       const backendTeamIds = fromSessions
         .map((ts) => ts.teamId ?? ts.TeamId)
@@ -38,12 +67,17 @@ const mapSessionsWithFlags = (detail: RequestListItem) => {
             ? [singleTeamId]
             : [];
 
+      const statusStr = (s.status ?? '').toString().toLowerCase();
       const teamAssigned =
-        initialTeamIds.length > 0 || s.status?.toLowerCase() === 'approved';
+        initialTeamIds.length > 0 ||
+        statusStr === 'approved' ||
+        statusStr === 'assigned' ||
+        statusStr === 'ongoing' ||
+        statusStr === 'completed';
 
       if (initialTeamIds.length > 0) nextUiAssigned[s.sessionId] = initialTeamIds;
 
-      return {
+        return {
         ...s,
         reservationId,
         teamAssigned,
@@ -52,6 +86,79 @@ const mapSessionsWithFlags = (detail: RequestListItem) => {
     }) ?? [];
 
   return { mappedSessions, nextUiAssigned };
+};
+
+const mapTopicFromRef = (ref: SessionResponse['SubjectSession']): SessionTopicInfo | null => {
+  if (!ref) return null;
+  const duration = ref.Duration != null && String(ref.Duration).trim() ? String(ref.Duration).trim() : null;
+  const title = ref.Title?.trim() ? ref.Title.trim() : null;
+  const description = ref.Description?.trim() ? ref.Description.trim() : null;
+  if (!title && !description && !duration) return null;
+  return { title, description, duration };
+};
+
+const collectSessionSkills = (raw: SessionResponse): string[] => {
+  const fromSubject = (raw.SubjectSkill ?? [])
+    .filter((s) => s.IsActive !== false)
+    .map((s) => String(s.SkillName ?? '').trim())
+    .filter(Boolean);
+  const fromEvent = (raw.EventSessionSkill ?? [])
+    .filter((s) => s.IsActive !== false)
+    .map((s) => String(s.SkillName ?? '').trim())
+    .filter(Boolean);
+  return Array.from(new Set([...fromSubject, ...fromEvent]));
+};
+
+const mapSessionFromFilterItem = (raw: SessionResponse): SessionWithFlags => {
+  const fromSessions = raw.TeamSessions ?? [];
+  const backendTeamIds = fromSessions
+    .map((ts) => ts.TeamId)
+    .filter((id): id is number => typeof id === 'number' && id > 0);
+  const rawReservationId = raw.ReservationId ?? null;
+  const reservationNum = rawReservationId != null ? Number(rawReservationId) : NaN;
+  const reservationId = !Number.isNaN(reservationNum) && reservationNum > 0 ? reservationNum : null;
+  const statusText = String(raw.Status ?? '').toLowerCase();
+  const teamAssigned =
+    backendTeamIds.length > 0 ||
+    statusText === 'approved' ||
+    statusText === 'assigned' ||
+    statusText === 'ongoing' ||
+    statusText === 'completed';
+
+  return {
+    sessionId: Number(raw.SessionId ?? 0),
+    requestId: Number(raw.RequestId ?? 0),
+    sessionNo: Number(raw.SessionNo ?? 0),
+    startAt: String(raw.StartAt ?? ''),
+    endAt: String(raw.EndAt ?? ''),
+    location: String(raw.Location ?? ''),
+    status: String(raw.Status ?? ''),
+    notes: String(raw.Notes ?? ''),
+    teachersRequired: raw.TeachersRequired ?? null,
+    tasRequired: raw.TasRequired ?? null,
+    subjectSession: mapTopicFromRef(raw.SubjectSession ?? null),
+    eventSession: mapTopicFromRef(raw.EventSession ?? null),
+    sessionSkills: collectSessionSkills(raw),
+    reservationId,
+    teamAssigned,
+    assignedTeamIds: backendTeamIds,
+    equipmentReserved: reservationId != null,
+  } as SessionWithFlags;
+};
+
+const normalizeRequiredCount = (value: unknown, fallback: number) => {
+  const n = Number(value);
+  if (Number.isNaN(n)) return fallback;
+  return Math.max(0, n);
+};
+
+const distributeCountByTeam = (teamIds: number[], total: number) => {
+  const result = teamIds.map((teamId) => ({ teamId, count: 0 }));
+  if (!result.length || total <= 0) return result;
+  for (let i = 0; i < total; i += 1) {
+    result[i % result.length].count += 1;
+  }
+  return result;
 };
 
 export const useRequestDetailManager = (params: {
@@ -66,16 +173,18 @@ export const useRequestDetailManager = (params: {
   const [sessions, setSessions] = useState<SessionWithFlags[]>([]);
   const [rightPanel, setRightPanel] = useState<RightPanelState>(null);
   const [loading, setLoading] = useState(false);
-  const [suggestedTeamIdsBySessionId, setSuggestedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
   const [uiAssignedTeamIdsBySessionId, setUiAssignedTeamIdsBySessionId] = useState<Record<number, number[]>>({});
+  const [uiTeamQuantitiesBySessionId, setUiTeamQuantitiesBySessionId] = useState<
+    Record<number, Record<number, { teachersRequired: number; tasRequired: number }>>
+  >({});
   const [assignmentsBySessionId, setAssignmentsBySessionId] = useState<Record<number, SessionAssignmentRow[]>>({});
-  // Chứa promise đang fetch gợi ý team; sessionId chưa được tạo promise thì có thể undefined.
-  const suggestedTeamsInFlightRef = useRef<Record<number, Promise<number[]> | undefined>>({});
   const [selectedAssignmentIdsBySessionId, setSelectedAssignmentIdsBySessionId] = useState<Record<number, number[]>>(
     {}
   );
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  /** reject = PUT /reject; cancel = PUT /cancel (Hủy yêu cầu) */
+  const [rejectDialogAction, setRejectDialogAction] = useState<'reject' | 'cancel'>('reject');
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [approvingSessionId, setApprovingSessionId] = useState<number | null>(null);
@@ -87,90 +196,146 @@ export const useRequestDetailManager = (params: {
   }>({ open: false, assignmentId: null, sessionId: null, displayName: '' });
   const [rejectAssignmentReason, setRejectAssignmentReason] = useState('');
   const [, setRejectAssignmentLoading] = useState(false);
+  const lastFilterSyncKeyRef = useRef<string>('');
+
+  const applySessionState = useCallback((mappedSessions: SessionWithFlags[]) => {
+    const nextUiAssigned = mappedSessions.reduce<Record<number, number[]>>((acc, s) => {
+      const anyS = s as SessionWithFlags & {
+        teamId?: number | null;
+        TeamId?: number | null;
+        teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
+        TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
+      };
+      const fromSessions = anyS.teamSessions ?? anyS.TeamSessions ?? [];
+      const backendTeamIds = fromSessions
+        .map((ts) => ts?.teamId ?? ts?.TeamId)
+        .filter((teamId): teamId is number => typeof teamId === 'number' && teamId > 0);
+      const fromMapped = Array.isArray((anyS as any).assignedTeamIds)
+        ? ((anyS as any).assignedTeamIds as number[]).filter((teamId) => typeof teamId === 'number' && teamId > 0)
+        : [];
+      const singleTeamId = anyS.teamId ?? anyS.TeamId;
+      const teamIds =
+        fromMapped.length > 0
+          ? fromMapped
+          : backendTeamIds.length > 0
+          ? backendTeamIds
+          : typeof singleTeamId === 'number' && singleTeamId > 0
+            ? [singleTeamId]
+            : [];
+      if (teamIds.length > 0) acc[s.sessionId] = teamIds;
+      return acc;
+    }, {});
+
+    setSessions(mappedSessions);
+    setUiAssignedTeamIdsBySessionId((prev) => {
+      const hasLocal = Object.keys(prev).length > 0;
+      if (!hasLocal) return nextUiAssigned;
+      return {
+        ...nextUiAssigned,
+        ...prev,
+      };
+    });
+    const nextTeamQuantities = mappedSessions.reduce<
+      Record<number, Record<number, { teachersRequired: number; tasRequired: number }>>
+    >(
+        (acc, s) => {
+          const teamIds = nextUiAssigned[s.sessionId] ?? [];
+          const requiredTeachers = normalizeRequiredCount((s as any).teachersRequired, 1);
+          const requiredTas = normalizeRequiredCount((s as any).tasRequired, 1);
+          const teacherDist = distributeCountByTeam(teamIds, requiredTeachers);
+          const taDist = distributeCountByTeam(teamIds, requiredTas);
+          acc[s.sessionId] = teamIds.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>(
+            (m, teamId, idx) => {
+              m[teamId] = {
+                teachersRequired: teacherDist[idx]?.count ?? 0,
+                tasRequired: taDist[idx]?.count ?? 0,
+              };
+              return m;
+            },
+            {}
+          );
+          return acc;
+        },
+        {}
+      );
+    setUiTeamQuantitiesBySessionId((prev) => {
+      const hasLocal = Object.keys(prev).length > 0;
+      if (!hasLocal) return nextTeamQuantities;
+      return {
+        ...nextTeamQuantities,
+        ...prev,
+      };
+    });
+  }, []);
+
+  const loadSessionsByRequestId = useCallback(async (requestId: number): Promise<SessionWithFlags[]> => {
+    if (!requestId || requestId <= 0) return [];
+    const res = await sessionService.getFilter({
+      RequestId: requestId,
+      PageNumber: 1,
+      PageSize: 500,
+    });
+    const items = res.Items ?? [];
+    return (items as SessionResponse[])
+      .map(mapSessionFromFilterItem)
+      .filter((s) => Number(s.sessionId) > 0)
+      .sort((a, b) => Number(a.sessionNo ?? 0) - Number(b.sessionNo ?? 0));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
     setRightPanel(null);
     setSessions([]);
     setUiAssignedTeamIdsBySessionId({});
-    setSuggestedTeamIdsBySessionId({});
+    setUiTeamQuantitiesBySessionId({});
 
     const fetchData = async () => {
       try {
         setLoading(true);
         const detail = await requestService.getById(Number(id));
         setRequest(detail);
-        const { mappedSessions, nextUiAssigned } = mapSessionsWithFlags(detail);
-        setSessions(mappedSessions);
-        setUiAssignedTeamIdsBySessionId(nextUiAssigned);
+        const { mappedSessions } = mapSessionsWithFlags(detail);
+        const byFilter = await loadSessionsByRequestId(Number(detail.requestId ?? id));
+        applySessionState(byFilter.length ? byFilter : mappedSessions);
       } finally {
         setLoading(false);
       }
     };
 
     void fetchData();
-  }, [id]);
-
-  const ensureSuggestedTeamIdsForSessions = useCallback(
-    async (sessionIds: number[]) => {
-      const unique = Array.from(new Set(sessionIds)).filter((id) => id > 0);
-      if (!unique.length) return {};
-
-      // Build result using already-cached values first.
-      const result: Record<number, number[]> = {};
-      const toFetch: number[] = [];
-
-      for (const sid of unique) {
-        const cached = suggestedTeamIdsBySessionId[sid];
-        if (Array.isArray(cached)) {
-          result[sid] = cached;
-          continue;
-        }
-
-        const inFlight = suggestedTeamsInFlightRef.current[sid];
-        if (inFlight) continue; // we will await below
-        toFetch.push(sid);
-      }
-
-      // Start missing requests (if any).
-      for (const sid of toFetch) {
-        suggestedTeamsInFlightRef.current[sid] = (async () => {
-          try {
-            const teams = await sessionService.suggestTeams(sid);
-            return teams.map((t) => t.teamId) as number[];
-          } catch {
-            return [] as number[];
-          } finally {
-            delete suggestedTeamsInFlightRef.current[sid];
-          }
-        })();
-      }
-
-      // Await promises for anything that isn't cached yet.
-      const pending = unique
-        .filter((sid) => !Array.isArray(suggestedTeamIdsBySessionId[sid]) || suggestedTeamsInFlightRef.current[sid])
-        .map(async (sid) => {
-          const cached = suggestedTeamIdsBySessionId[sid];
-          if (Array.isArray(cached)) return [sid, cached] as const;
-          const p = suggestedTeamsInFlightRef.current[sid];
-          if (!p) return [sid, [] as number[]] as const;
-          const ids = await p;
-          return [sid, ids] as const;
-        });
-
-      const pairs = await Promise.all(pending);
-      const fetchedMap: Record<number, number[]> = {};
-      for (const [sid, ids] of pairs) fetchedMap[sid] = ids;
-
-      setSuggestedTeamIdsBySessionId((prev) => ({ ...prev, ...fetchedMap }));
-      Object.assign(result, fetchedMap);
-      return result;
-    },
-    [suggestedTeamIdsBySessionId]
-  );
+  }, [id, applySessionState, loadSessionsByRequestId]);
 
   useEffect(() => {
-    if (viewMode !== 'assignment') return;
+    if (!request?.requestId) return;
+    const rightPanelSessionId = rightPanel && 'session' in rightPanel ? rightPanel.session?.sessionId : null;
+    if (!rightPanelSessionId) return;
+    const syncKey = `${request.requestId}-${rightPanelSessionId}`;
+    if (lastFilterSyncKeyRef.current === syncKey) return;
+    lastFilterSyncKeyRef.current = syncKey;
+
+    let cancelled = false;
+    const syncSessionsByFilter = async () => {
+      try {
+        const byFilter = await loadSessionsByRequestId(Number(request.requestId));
+        if (cancelled || !byFilter.length) return;
+        applySessionState(byFilter);
+      } catch {
+        // keep current list if filter API fails
+      }
+    };
+    void syncSessionsByFilter();
+    return () => {
+      cancelled = true;
+    };
+  }, [request?.requestId, rightPanel, loadSessionsByRequestId, applySessionState]);
+
+  const requestStatusCode = request ? getRequestStatusCode(request.status) : null;
+  const shouldLoadSessionAssignments =
+    viewMode === 'assignment' ||
+    (requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.PUBLISHED);
+
+  useEffect(() => {
+    if (!shouldLoadSessionAssignments) return;
     if (!sessions.length) return;
     const missingIds = sessions
       .map((s) => s.sessionId)
@@ -183,44 +348,61 @@ export const useRequestDetailManager = (params: {
           missingIds.map(async (sid) => {
             try {
               const d = await sessionService.getById(sid);
-              const baseAssignments = (d.assignments ?? []).filter(
-                (a) => a && a.assignmentId
+              const baseAssignments = (d.Assignments ?? []).filter(
+                (a) => a && a.AssignmentId
               );
               if (!baseAssignments.length) {
-                return { sessionId: d.sessionId, rows: [] as SessionAssignmentRow[] };
+                return { sessionId: Number(d.SessionId ?? sid), rows: [] as SessionAssignmentRow[] };
               }
 
               const rows = await Promise.all(
-                baseAssignments.map(async (a: any) => {
+                baseAssignments.map(async (a: AssignmentResponse) => {
+                  const assignmentId = Number(a.AssignmentId ?? 0);
+                  const reasonFromSession =
+                    a.Reason != null && String(a.Reason).trim() ? String(a.Reason).trim() : undefined;
                   try {
-                    const full = await assignmentService.getById(a.assignmentId);
-                    const staff = full.staffMember;
+                    if (assignmentId <= 0) throw new Error('Invalid assignment id');
+                    const full = await assignmentService.getById(assignmentId);
+                    const staff = (full as any).staffMember ?? (full as any).StaffMember;
+                    const staffUser = staff?.user ?? staff?.User ?? null;
+                    const reasonFromDetail =
+                      full.reason != null && String(full.reason).trim()
+                        ? String(full.reason).trim()
+                        : undefined;
                     return {
-                      assignmentId: full.assignmentId,
-                      staffMemberId: full.staffMemberId,
-                      staffRole: (full.staffRole || '').toUpperCase(),
-                      status: full.status,
+                      assignmentId: Number((full as any).assignmentId ?? (full as any).AssignmentId ?? assignmentId),
+                      staffMemberId: Number((full as any).staffMemberId ?? (full as any).StaffMemberId ?? 0),
+                      staffRole: String((full as any).staffRole ?? (full as any).StaffRole ?? '').toUpperCase(),
+                      status: String((full as any).status ?? (full as any).Status ?? ''),
+                      reason: reasonFromDetail || reasonFromSession,
                       fullName: staff?.fullName || '—',
-                      email: staff?.userEmail || '',
+                      email:
+                        staff?.userEmail ||
+                        staff?.email ||
+                        staff?.Email ||
+                        staffUser?.email ||
+                        staffUser?.Email ||
+                        '',
                       avatarUrl: staff?.avatarUrl || '',
                     } satisfies SessionAssignmentRow;
                   } catch {
-                    const staff = a.staffMember ?? a.StaffMember ?? null;
-                    const staffUser = staff?.user ?? staff?.User ?? null;
+                    const staff = a.StaffMember ?? null;
+                    const staffUser = staff?.User ?? null;
                     return {
-                      assignmentId: Number(a.assignmentId),
-                      staffMemberId: Number(a.staffMemberId ?? 0),
-                      staffRole: String(a.staffRole ?? '').toUpperCase(),
-                      status: String(a.status ?? ''),
-                      fullName: staff?.fullName || staff?.FullName || '—',
-                      email: staffUser?.email ?? staffUser?.Email ?? '',
-                      avatarUrl: staff?.avatarUrl || staff?.AvatarUrl || '',
+                      assignmentId,
+                      staffMemberId: Number(a.StaffMemberId ?? 0),
+                      staffRole: String(a.StaffRole ?? '').toUpperCase(),
+                      status: String(a.Status ?? ''),
+                      reason: reasonFromSession,
+                      fullName: staff?.FullName || '—',
+                      email: staff?.Email ?? staffUser?.Email ?? '',
+                      avatarUrl: staff?.AvatarUrl ?? '',
                     } satisfies SessionAssignmentRow;
                   }
                 })
               );
 
-              return { sessionId: d.sessionId, rows };
+              return { sessionId: Number(d.SessionId ?? sid), rows };
             } catch {
               return { sessionId: sid, rows: [] as SessionAssignmentRow[] };
             }
@@ -242,51 +424,66 @@ export const useRequestDetailManager = (params: {
     return () => {
       cancelled = true;
     };
-  }, [viewMode, sessions, assignmentsBySessionId]);
+  }, [shouldLoadSessionAssignments, sessions, assignmentsBySessionId, request?.requestId]);
 
-  const handleAssignSession = useCallback((sessionId: number, teamIds: number[]) => {
-    setUiAssignedTeamIdsBySessionId((prev) => ({ ...prev, [sessionId]: teamIds }));
-    setSessions((prev) =>
-      prev.map((s) => (s.sessionId === sessionId ? { ...s, teamAssigned: teamIds.length > 0 } : s))
-    );
-  }, []);
+  const handleAssignSession = useCallback(
+    (
+      sessionId: number,
+      teamIds: number[],
+      teamQuantities: Record<number, { teachersRequired: number; tasRequired: number }>
+    ) => {
+      const targetSession = sessions.find((s) => s.sessionId === sessionId);
+      const requiredTeachers = normalizeRequiredCount(
+        (targetSession as SessionWithFlags | undefined)?.teachersRequired,
+        1
+      );
+      const requiredTas = normalizeRequiredCount(
+        (targetSession as SessionWithFlags | undefined)?.tasRequired,
+        1
+      );
+      const totalTeachers = teamIds.reduce(
+        (sum, teamId) => sum + normalizeRequiredCount(teamQuantities?.[teamId]?.teachersRequired, 0),
+        0
+      );
+      const totalTas = teamIds.reduce(
+        (sum, teamId) => sum + normalizeRequiredCount(teamQuantities?.[teamId]?.tasRequired, 0),
+        0
+      );
 
-  const handleAssignAllUi = useCallback((args: { sessionIds: number[]; teamId: number }) => {
-    const { sessionIds, teamId } = args;
-    if (sessionIds.length === 0 || !teamId) {
-      return;
-    }
-    setUiAssignedTeamIdsBySessionId((prev) => {
-      const next = { ...prev };
-      for (const sid of sessionIds) next[sid] = [teamId];
-      return next;
-    });
-    setSessions((prev) =>
-      prev.map((s) => (sessionIds.includes(s.sessionId) ? { ...s, teamAssigned: true } : s))
-    );
-  }, []);
+      if (totalTeachers > requiredTeachers || totalTas > requiredTas) {
+        message.error(
+          `Phân bổ vượt nhu cầu phiên (${requiredTeachers} GV / ${requiredTas} TG). Vui lòng giảm số lượng hoặc bớt đội.`
+        );
+        return;
+      }
 
-  const handleClearAllUi = useCallback((sessionIds: number[]) => {
-    if (sessionIds.length === 0) return;
-    setUiAssignedTeamIdsBySessionId((prev) => {
-      const next = { ...prev };
-      for (const sid of sessionIds) delete next[sid];
-      return next;
-    });
-    setSessions((prev) =>
-      prev.map((s) => (sessionIds.includes(s.sessionId) ? { ...s, teamAssigned: false } : s))
-    );
-  }, []);
+      setUiAssignedTeamIdsBySessionId((prev) => ({ ...prev, [sessionId]: teamIds }));
+      setUiTeamQuantitiesBySessionId((prev) => ({
+        ...prev,
+        [sessionId]: teamIds.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>(
+          (m, teamId) => {
+            m[teamId] = {
+              teachersRequired: normalizeRequiredCount(teamQuantities?.[teamId]?.teachersRequired, 0),
+              tasRequired: normalizeRequiredCount(teamQuantities?.[teamId]?.tasRequired, 0),
+            };
+            return m;
+          },
+          {}
+        ),
+      }));
+      setSessions((prev) =>
+        prev.map((s) => (s.sessionId === sessionId ? { ...s, teamAssigned: teamIds.length > 0 } : s))
+      );
+    },
+    [sessions]
+  );
 
   const handleQuantitiesChange = useCallback(
-    (sessionId: number, data: { teachersRequired: number; tasRequired: number }) => {
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.sessionId === sessionId
-            ? { ...s, teachersRequired: data.teachersRequired, tasRequired: data.tasRequired }
-            : s
-        )
-      );
+    (sessionId: number, data: Record<number, { teachersRequired: number; tasRequired: number }>) => {
+      setUiTeamQuantitiesBySessionId((prev) => ({
+        ...prev,
+        [sessionId]: data,
+      }));
     },
     []
   );
@@ -297,14 +494,13 @@ export const useRequestDetailManager = (params: {
       setLoading(true);
       const detail = await requestService.getById(Number(id));
       setRequest(detail);
-      const { mappedSessions, nextUiAssigned } = mapSessionsWithFlags(detail);
-      setSessions(mappedSessions);
-      setUiAssignedTeamIdsBySessionId(nextUiAssigned);
-      setSuggestedTeamIdsBySessionId({});
+      const { mappedSessions } = mapSessionsWithFlags(detail);
+      const byFilter = await loadSessionsByRequestId(Number(detail.requestId ?? id));
+      applySessionState(byFilter.length ? byFilter : mappedSessions);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, applySessionState, loadSessionsByRequestId]);
 
   const handleApproveClick = useCallback(() => {
     if (!request || !id) return;
@@ -320,6 +516,21 @@ export const useRequestDetailManager = (params: {
     });
   }, []);
 
+  const handleToggleSelectAllReviewableAssignments = useCallback((sessionId: number) => {
+    setSelectedAssignmentIdsBySessionId((prev) => {
+      const sessionRows = assignmentsBySessionId[sessionId] ?? [];
+      const reviewableIds = sessionRows
+        .filter((r) => canManagerReviewAssignmentRow(r))
+        .map((r) => r.assignmentId)
+        .filter((aid) => aid > 0);
+      const current = prev[sessionId] ?? [];
+      const allSelected =
+        reviewableIds.length > 0 && reviewableIds.every((aid) => current.includes(aid));
+      const nextForSession = allSelected ? [] : reviewableIds;
+      return { ...prev, [sessionId]: nextForSession };
+    });
+  }, [assignmentsBySessionId]);
+
   const handleApproveSelectedAssignments = useCallback(
     async (sessionId: number) => {
       const rows = assignmentsBySessionId[sessionId] ?? [];
@@ -328,9 +539,21 @@ export const useRequestDetailManager = (params: {
         return;
       }
       const selected = selectedAssignmentIdsBySessionId[sessionId] ?? [];
-      const ids = (selected.length ? selected : rows.map((r) => r.assignmentId)).filter((id) => id > 0);
+      if (!selected.length) {
+        message.warning('Vui lòng chọn ít nhất một phân công để duyệt.');
+        return;
+      }
+      const ids = selected
+        .map((id) => Number(id))
+        .filter((id) => id > 0)
+        .filter((id) => {
+          const row = rows.find((r) => r.assignmentId === id);
+          return row != null && canManagerReviewAssignmentRow(row);
+        });
       if (!ids.length) {
-        message.warning('Vui lòng chọn ít nhất một assignment để duyệt.');
+        message.warning(
+          'Các phân công đã chọn không thể duyệt (chưa có nhân sự hoặc đã được xử lý).'
+        );
         return;
       }
       try {
@@ -338,21 +561,11 @@ export const useRequestDetailManager = (params: {
         await assignmentService.approve(ids);
         message.success('Đã duyệt các assignment đã chọn.');
         const detail = await sessionService.getById(sessionId);
-        const rowsReload: SessionAssignmentRow[] =
-          (detail.assignments ?? [])
-            .filter((a) => a && a.assignmentId && a.staffMemberId)
-            .map((a) => ({
-              assignmentId: a!.assignmentId,
-              staffMemberId: a!.staffMemberId,
-              staffRole: (a!.staffRole || '').toUpperCase(),
-              status: a!.status,
-              fullName: a!.staffMember?.fullName || '—',
-              email: a!.staffMember?.userEmail || '',
-              avatarUrl: a!.staffMember?.avatarUrl || '',
-            })) ?? [];
+        const rowsReload = mapSessionAssignments(detail);
         setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
         setSelectedAssignmentIdsBySessionId((prev) => ({ ...prev, [sessionId]: [] }));
         await refreshDetail();
+        refreshRequestSidebar?.();
       } catch (err) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const msg = (err as any)?.message || 'Duyệt phân công thất bại.';
@@ -361,7 +574,7 @@ export const useRequestDetailManager = (params: {
         setApprovingSessionId(null);
       }
     },
-    [assignmentsBySessionId, selectedAssignmentIdsBySessionId, refreshDetail]
+    [assignmentsBySessionId, selectedAssignmentIdsBySessionId, refreshDetail, refreshRequestSidebar]
   );
 
   const handleOpenRejectAssignment = useCallback(
@@ -391,18 +604,7 @@ export const useRequestDetailManager = (params: {
       await assignmentService.reject(rejectAssignmentState.assignmentId, trimmed);
       message.success('Đã từ chối assignment.');
       const detail = await sessionService.getById(rejectAssignmentState.sessionId);
-      const rowsReload: SessionAssignmentRow[] =
-        (detail.assignments ?? [])
-          .filter((a) => a && a.assignmentId && a.staffMemberId)
-          .map((a) => ({
-            assignmentId: a!.assignmentId,
-            staffMemberId: a!.staffMemberId,
-            staffRole: (a!.staffRole || '').toUpperCase(),
-            status: a!.status,
-            fullName: a!.staffMember?.fullName || '—',
-            email: a!.staffMember?.userEmail || '',
-            avatarUrl: a!.staffMember?.avatarUrl || '',
-          })) ?? [];
+      const rowsReload = mapSessionAssignments(detail);
       setAssignmentsBySessionId((prev) => ({ ...prev, [rejectAssignmentState.sessionId!]: rowsReload }));
       setSelectedAssignmentIdsBySessionId((prev) => {
         const current = prev[rejectAssignmentState.sessionId!] ?? [];
@@ -433,13 +635,37 @@ export const useRequestDetailManager = (params: {
           message.error(`Phiên ${s.sessionNo} chưa có đội gán.`);
           return;
         }
-        const teachersRequired = (s as SessionWithFlags).teachersRequired ?? 1;
-        const tasRequired = (s as SessionWithFlags).tasRequired ?? 1;
-        const items = teamIds.map((teamId) => ({
-          teamId,
-          teachersRequired: typeof teachersRequired === 'number' ? teachersRequired : 1,
-          tasRequired: typeof tasRequired === 'number' ? tasRequired : 1,
-        }));
+        const requiredTeachers = normalizeRequiredCount((s as SessionWithFlags).teachersRequired, 1);
+        const requiredTas = normalizeRequiredCount((s as SessionWithFlags).tasRequired, 1);
+        const teamQuantityMap = uiTeamQuantitiesBySessionId[s.sessionId] ?? {};
+        const totalAssignedTeachers = teamIds.reduce(
+          (sum, teamId) => sum + normalizeRequiredCount(teamQuantityMap[teamId]?.teachersRequired, 0),
+          0
+        );
+        const totalAssignedTas = teamIds.reduce(
+          (sum, teamId) => sum + normalizeRequiredCount(teamQuantityMap[teamId]?.tasRequired, 0),
+          0
+        );
+
+        if (totalAssignedTeachers !== requiredTeachers || totalAssignedTas !== requiredTas) {
+          message.error(
+            `Phiên ${s.sessionNo} phải đúng nhu cầu ${requiredTeachers} GV / ${requiredTas} TG trước khi duyệt.`
+          );
+          return;
+        }
+
+        const items = teamIds
+          .map((teamId) => ({
+            teamId,
+            teachersRequired: normalizeRequiredCount(teamQuantityMap[teamId]?.teachersRequired, 0),
+            tasRequired: normalizeRequiredCount(teamQuantityMap[teamId]?.tasRequired, 0),
+          }))
+          .filter((item) => item.teachersRequired > 0 || item.tasRequired > 0);
+
+        if (!items.length) {
+          message.error(`Phiên ${s.sessionNo} chưa có phân bổ nhân sự hợp lệ.`);
+          return;
+        }
         await teamSessionApi.replaceForSession(s.sessionId, items);
       }
       await requestService.approve(Number(id), { approvedByMemberId: createdByMemberId || undefined });
@@ -455,10 +681,26 @@ export const useRequestDetailManager = (params: {
     } finally {
       setActionLoading(false);
     }
-  }, [createdByMemberId, id, refreshDetail, sessions, uiAssignedTeamIdsBySessionId, refreshRequestSidebar]);
+  }, [
+    createdByMemberId,
+    id,
+    refreshDetail,
+    sessions,
+    uiAssignedTeamIdsBySessionId,
+    uiTeamQuantitiesBySessionId,
+    refreshRequestSidebar,
+  ]);
 
   const handleRejectClick = useCallback(() => {
     if (!request || !id) return;
+    setRejectDialogAction('reject');
+    setRejectReason('');
+    setRejectOpen(true);
+  }, [id, request]);
+
+  const handleCancelRequestClick = useCallback(() => {
+    if (!request || !id) return;
+    setRejectDialogAction('cancel');
     setRejectReason('');
     setRejectOpen(true);
   }, [id, request]);
@@ -467,57 +709,73 @@ export const useRequestDetailManager = (params: {
     if (!id) return;
     const trimmed = rejectReason.trim();
     if (!trimmed) {
-      message.warning('Vui lòng nhập lý do từ chối');
+      message.warning(
+        rejectDialogAction === 'cancel' ? 'Vui lòng nhập lý do hủy' : 'Vui lòng nhập lý do từ chối',
+      );
       return;
     }
     try {
       setActionLoading(true);
-      await requestService.reject(Number(id), {
-        reason: trimmed,
-        approvedByMemberId: createdByMemberId || undefined,
-      });
-      message.success('Đã từ chối yêu cầu');
+      if (rejectDialogAction === 'cancel') {
+        await requestService.cancel(Number(id), { reason: trimmed });
+        message.success('Đã hủy yêu cầu');
+      } else {
+        await requestService.reject(Number(id), {
+          reason: trimmed,
+          approvedByMemberId: createdByMemberId || undefined,
+        });
+        message.success('Đã từ chối yêu cầu');
+      }
       setRejectOpen(false);
       setRejectReason('');
+      setRejectDialogAction('reject');
       setRightPanel(null);
       await refreshDetail();
       refreshRequestSidebar?.();
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Từ chối yêu cầu thất bại';
+      const msg =
+        (err as any)?.message ||
+        (rejectDialogAction === 'cancel' ? 'Hủy yêu cầu thất bại' : 'Từ chối yêu cầu thất bại');
       message.error(msg);
     } finally {
       setActionLoading(false);
     }
-  }, [createdByMemberId, id, rejectReason, refreshDetail, refreshRequestSidebar]);
+  }, [createdByMemberId, id, rejectDialogAction, rejectReason, refreshDetail, refreshRequestSidebar]);
 
   const handleEquipmentSuccess = useCallback(async () => {
     if (!request) return;
     const detail = await requestService.getById(Number(request.requestId));
     setRequest(detail);
-    const mapped: SessionWithFlags[] =
-      detail.sessions?.map((s) => {
-        const anyS = s as RequestSessionSummary & {
-          reservationId?: number | null;
-          ReservationId?: number | null;
-          status?: string;
-        };
-        const reservationId = anyS.reservationId ?? anyS.ReservationId ?? null;
-        return {
-          ...s,
-          reservationId,
-          teamAssigned: anyS.status?.toLowerCase() === 'approved',
-          equipmentReserved: reservationId != null,
-        };
-      }) ?? [];
-    setSessions(mapped);
-    setSuggestedTeamIdsBySessionId({});
-  }, [request]);
+    const byFilter = await loadSessionsByRequestId(Number(detail.requestId));
+    if (byFilter.length) {
+      applySessionState(byFilter);
+    } else {
+      const { mappedSessions } = mapSessionsWithFlags(detail);
+      applySessionState(mappedSessions);
+    }
+  }, [request, loadSessionsByRequestId, applySessionState]);
 
-  const assignedCount = useMemo(
-    () => sessions.filter((s) => s.teamAssigned).length,
-    [sessions]
-  );
+  const assignedCount = useMemo(() => {
+    return sessions.filter((s) => {
+      const teamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
+      if (teamIds.length === 0) return false;
+
+      const reqTeachers = normalizeRequiredCount((s as any).teachersRequired, 1);
+      const reqTas = normalizeRequiredCount((s as any).tasRequired, 1);
+      const teamQuantityMap = uiTeamQuantitiesBySessionId[s.sessionId] ?? {};
+      const assignedTeachers = teamIds.reduce(
+        (sum, teamId) => sum + normalizeRequiredCount(teamQuantityMap[teamId]?.teachersRequired, 0),
+        0
+      );
+      const assignedTas = teamIds.reduce(
+        (sum, teamId) => sum + normalizeRequiredCount(teamQuantityMap[teamId]?.tasRequired, 0),
+        0
+      );
+
+      return assignedTeachers === reqTeachers && assignedTas === reqTas;
+    }).length;
+  }, [sessions, uiAssignedTeamIdsBySessionId, uiTeamQuantitiesBySessionId]);
 
   return {
     request,
@@ -525,14 +783,15 @@ export const useRequestDetailManager = (params: {
     rightPanel,
     setRightPanel,
     loading,
-    suggestedTeamIdsBySessionId,
     uiAssignedTeamIdsBySessionId,
+    uiTeamQuantitiesBySessionId,
     assignmentsBySessionId,
     selectedAssignmentIdsBySessionId,
     approveOpen,
     setApproveOpen,
     rejectOpen,
     setRejectOpen,
+    rejectDialogAction,
     rejectReason,
     setRejectReason,
     actionLoading,
@@ -543,19 +802,19 @@ export const useRequestDetailManager = (params: {
     setRejectAssignmentReason,
     createdByMemberId,
     assignedCount,
+    refreshDetail,
     handleAssignSession,
-    handleAssignAllUi,
-    handleClearAllUi,
     handleQuantitiesChange,
     handleApproveClick,
     handleToggleAssignmentSelection,
+    handleToggleSelectAllReviewableAssignments,
     handleApproveSelectedAssignments,
     handleOpenRejectAssignment,
     handleConfirmRejectAssignment,
     handleConfirmApprove,
     handleRejectClick,
+    handleCancelRequestClick,
     handleConfirmReject,
     handleEquipmentSuccess,
-    ensureSuggestedTeamIdsForSessions,
   };
 };

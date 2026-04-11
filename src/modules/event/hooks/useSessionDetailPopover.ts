@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { message } from 'antd';
-import type { SessionDetail } from '@/modules/request/api/type';
+import type { SessionDetail } from '@/modules/request/type';
 import requestService from '@/modules/request/api/requestApi';
 import memberApi from '@/modules/member/api/memberApi';
 import type { MemberDetail } from '@/modules/member/member';
-import assignmentApi from '@/modules/request/api/assignmentApi';
-import type { AssignmentDetail } from '@/modules/request/api/type';
+import assignmentApi from '@/modules/assignment/api/assignmentApi';
+import type { AssignmentDetail } from '@/modules/request/type';
 
 export type PopoverStaffItem = {
   assignmentId: number;
@@ -15,6 +15,10 @@ export type PopoverStaffItem = {
   email: string;
   avatarUrl: string;
 };
+
+function isApprovedAssignmentStatus(status?: string | null) {
+  return String(status ?? '').trim().toLowerCase() === 'approved';
+}
 
 export function useSessionDetailPopover(open: boolean, session: SessionDetail | null) {
   const [requestCode, setRequestCode] = useState('');
@@ -27,13 +31,13 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
     // reset request info when opening a new session
     setRequestCode('');
     setRequestName('');
-  }, [open, session?.sessionId]);
+  }, [open, session?.SessionId]);
 
   useEffect(() => {
-    if (!open || !session?.requestId) return;
+    if (!open || !session?.RequestId) return;
     let cancelled = false;
     requestService
-      .getById(session.requestId)
+      .getById(session.RequestId)
       .then((r) => {
         if (cancelled) return;
         setRequestCode(r.requestCode ?? '');
@@ -45,19 +49,38 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
     return () => {
       cancelled = true;
     };
-  }, [open, session?.requestId]);
+  }, [open, session?.RequestId]);
 
   useEffect(() => {
-    if (!open || !session?.assignments?.length) return;
+    if (!open || !session?.Assignments?.length) return;
+
+    const sessionAssignments = (session.Assignments ?? []).filter((a) =>
+      isApprovedAssignmentStatus(a?.Status),
+    );
+    // 如果 session.Assignments 本身就带了成员信息（尤其 FullName），
+    // 就没必要再逐个调用 `/api/assignments/{id}` 和 `/api/members/{id}`。
+    const hasEmbeddedStaffFullNameForAssignmentId = (assignmentId: number) => {
+      const a = sessionAssignments.find((x) => x?.AssignmentId === assignmentId);
+      const fullName = a?.StaffMember?.FullName;
+      return typeof fullName === 'string' && fullName.trim().length > 0;
+    };
+
+    const hasEmbeddedMemberFullNameForStaffMemberId = (staffMemberId: number) => {
+      const a = sessionAssignments.find((x) => x?.StaffMemberId === staffMemberId);
+      const fullName = a?.StaffMember?.FullName;
+      return typeof fullName === 'string' && fullName.trim().length > 0;
+    };
 
     const assignmentIds = Array.from(
       new Set(
-        (session.assignments ?? [])
-          .map((a) => a?.assignmentId)
+        sessionAssignments
+          .map((a) => a?.AssignmentId)
           .filter((x): x is number => typeof x === 'number' && x > 0)
       )
     );
-    const missingAssignments = assignmentIds.filter((id) => !assignmentById[id]);
+    const missingAssignments = assignmentIds.filter(
+      (id) => !assignmentById[id] && !hasEmbeddedStaffFullNameForAssignmentId(id)
+    );
 
     let cancelled = false;
 
@@ -86,12 +109,14 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
 
     const memberIds = Array.from(
       new Set(
-        (session.assignments ?? [])
-          .map((a) => a?.staffMemberId)
+        sessionAssignments
+          .map((a) => a?.StaffMemberId)
           .filter((x): x is number => typeof x === 'number' && x > 0)
       )
     );
-    const missingMembers = memberIds.filter((id) => !membersById[id]);
+    const missingMembers = memberIds.filter(
+      (id) => !membersById[id] && !hasEmbeddedMemberFullNameForStaffMemberId(id)
+    );
 
     if (missingMembers.length) {
       Promise.all(
@@ -119,33 +144,34 @@ export function useSessionDetailPopover(open: boolean, session: SessionDetail | 
     return () => {
       cancelled = true;
     };
-  }, [open, session?.assignments, assignmentById, membersById]);
+  }, [open, session?.Assignments, assignmentById, membersById]);
 
   const staff: PopoverStaffItem[] = useMemo(() => {
-    const items = session?.assignments ?? [];
+    const items = (session?.Assignments ?? []).filter((a) => isApprovedAssignmentStatus(a?.Status));
     return items
       .filter(Boolean)
       .map((a) => ({
-        assignmentId: a!.assignmentId,
-        staffMemberId: a!.staffMemberId,
-        role: (a!.staffRole || '').toUpperCase(),
+        assignmentId: a!.AssignmentId,
+        staffMemberId: a!.StaffMemberId,
+        role: (a!.StaffRole || '').toUpperCase(),
         name:
-          membersById[a!.staffMemberId]?.fullName ??
-          assignmentById[a!.assignmentId]?.staffMember?.fullName ??
-          a!.staffMember?.fullName ??
+          membersById[a!.StaffMemberId]?.fullName ??
+          assignmentById[a!.AssignmentId]?.staffMember?.fullName ??
+          a!.StaffMember?.FullName ??
           '—',
         email:
-          membersById[a!.staffMemberId]?.user?.email ??
-          assignmentById[a!.assignmentId]?.staffMember?.userEmail ??
-          a!.staffMember?.userEmail ??
+          membersById[a!.StaffMemberId]?.email ??
+          assignmentById[a!.AssignmentId]?.staffMember?.userEmail ??
+          a!.StaffMember?.Email ??
+          a!.StaffMember?.User?.Email ??
           '',
         avatarUrl:
-          membersById[a!.staffMemberId]?.avatarUrl ??
-          assignmentById[a!.assignmentId]?.staffMember?.avatarUrl ??
-          a!.staffMember?.avatarUrl ??
+          membersById[a!.StaffMemberId]?.avatarUrl ??
+          assignmentById[a!.AssignmentId]?.staffMember?.avatarUrl ??
+          a!.StaffMember?.AvatarUrl ??
           '',
       }));
-  }, [session?.assignments, membersById, assignmentById]);
+  }, [session?.Assignments, membersById, assignmentById]);
 
   return { requestCode, requestName, staff };
 }

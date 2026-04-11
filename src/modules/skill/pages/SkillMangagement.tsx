@@ -8,15 +8,18 @@ import { Dialog } from '@/shared/components/ui/dialog';
 import { message, Modal } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus, Power, PowerOff } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import skillApi from '../api/skillApi';
 import type { SkillListItem, SkillUpsertPayload } from '../skill';
 import { useSkills } from '../hooks/useSkills';
+import { useSearchParams } from 'react-router-dom';
 
 export default function SkillsManagement() {
   const { data, loading, search, setSearch, pageNumber, pageSize, totalItems, setPageNumber, refetch } =
     useSkills();
+
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [openUpsert, setOpenUpsert] = useState(false);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
@@ -25,6 +28,29 @@ export default function SkillsManagement() {
 
   const [skillName, setSkillName] = useState('');
   const [description, setDescription] = useState('');
+
+  const openDetailFromUrl = searchParams.get('openDetail');
+  const skillIdFromUrl = searchParams.get('skillId');
+
+  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
+  const skipNextAutoOpenRef = useRef(false);
+
+  const [openDetail, setOpenDetail] = useState(false);
+  const [detailSkill, setDetailSkill] = useState<SkillListItem | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const closeDetailFromUrl = () => {
+    skipNextAutoOpenRef.current = openDetailFromUrl === '1';
+    setOpenDetail(false);
+    setDetailSkill(null);
+    setDetailLoading(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('openDetail');
+      next.delete('skillId');
+      return next;
+    });
+  };
 
   const openCreate = () => {
     setMode('create');
@@ -102,27 +128,39 @@ export default function SkillsManagement() {
   };
 
   const handleView = (s: SkillListItem) => {
-    Modal.info({
-      title: `Kỹ năng #${s.skillId}`,
-      content: (
-        <div className="space-y-2">
-          <div>
-            <div className="text-xs text-gray-500">Tên kỹ năng</div>
-            <div className="text-sm font-medium">{s.skillName || '—'}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Mô tả</div>
-            <div className="text-sm">{s.description || '—'}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Trạng thái</div>
-            <div className="text-sm">{s.isActive ? 'Đang hoạt động' : 'Vô hiệu hóa'}</div>
-          </div>
-        </div>
-      ),
-      okText: 'Đóng',
-    });
+    // Manual open (from table). No need to fetch again.
+    setDetailSkill(s);
+    setDetailLoading(false);
+    setOpenDetail(true);
   };
+
+  useEffect(() => {
+    if (openDetailFromUrl !== '1') return;
+    if (!skillIdFromUrl) return;
+    if (skipNextAutoOpenRef.current) {
+      skipNextAutoOpenRef.current = false;
+      return;
+    }
+
+    const id = Number(skillIdFromUrl);
+    if (!id || Number.isNaN(id)) return;
+
+    if (openDetail && detailSkill?.skillId === id) return;
+
+    (async () => {
+      try {
+        setDetailLoading(true);
+        const full = await skillApi.getById(id);
+        setDetailSkill(full);
+        setOpenDetail(true);
+      } catch {
+        message.error('Không tải được thông tin kỹ năng');
+      } finally {
+        setDetailLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDetailFromUrl, skillIdFromUrl, openDetail, detailSkill?.skillId]);
 
   const stats = useMemo(() => {
     const active = data.filter((x) => x.isActive).length;
@@ -285,6 +323,35 @@ export default function SkillsManagement() {
           </Button>
         </div>
       </Dialog>
+
+      <Modal
+        open={openDetail}
+        onCancel={closeDetailFromUrl}
+        title={detailSkill ? `Kỹ năng #${detailSkill.skillId}` : 'Chi tiết kỹ năng'}
+        footer={null}
+        width={520}
+      >
+        {detailLoading && !detailSkill ? (
+          <div className="text-sm text-gray-500">Đang tải chi tiết...</div>
+        ) : detailSkill ? (
+          <div className="space-y-2 text-sm">
+            <div>
+              <div className="text-xs text-gray-500">Tên kỹ năng</div>
+              <div className="text-sm font-medium">{detailSkill.skillName || '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Mô tả</div>
+              <div className="text-sm">{detailSkill.description || '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Trạng thái</div>
+              <div className="text-sm">{detailSkill.isActive ? 'Đang hoạt động' : 'Vô hiệu hóa'}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500">Không có dữ liệu.</div>
+        )}
+      </Modal>
     </div>
   );
 }

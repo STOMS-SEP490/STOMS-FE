@@ -1,11 +1,30 @@
-import { X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  X,
+  CalendarClock,
+  FileText,
+  Hash,
+  GraduationCap,
+  MapPin,
+  Monitor,
+  User,
+  Mail,
+  Phone,
+  Home,
+  CreditCard,
+  Landmark,
+  Receipt,
+  Clock,
+} from 'lucide-react';
 import type { ContractListItem } from '../contract';
 import { Badge } from '@/shared/components/ui/badge';
+import { cn } from '@/shared/lib/utils';
 
 type Props = {
   open: boolean;
   onClose: () => void;
   contract: ContractListItem | null;
+  loading?: boolean;
   roleLabel?: string | null;
 };
 
@@ -14,155 +33,209 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN');
 }
 
-export default function ContractDetailSidebar({ open, onClose, contract, roleLabel }: Props) {
-  if (!contract) return null;
+function getSessionTitle(session: ContractListItem['session']): string {
+  const s = session as { sessionTitle?: string; title?: string } | undefined;
+  const t = (s?.sessionTitle || s?.title || '').trim();
+  return t || '—';
+}
+
+export default function ContractDetailSidebar({ open, onClose, contract, loading, roleLabel }: Props) {
+  if (!open) return null;
+
+  if (loading || !contract) {
+    return (
+      <>
+        <div className="fixed inset-0 z-40 h-full bg-black/35" onClick={onClose} aria-hidden />
+        <div
+          className={cn(
+            'fixed right-0 top-0 z-50 h-full w-full max-w-2xl',
+            'border-l border-slate-200/80 bg-white shadow-2xl',
+            'transition-transform duration-300 ease-out',
+            open ? 'translate-x-0' : 'translate-x-full'
+          )}
+        >
+          <div className="flex h-full flex-col overflow-hidden">
+            <header className="shrink-0 bg-gradient-to-b from-slate-50/90 to-white px-5 pb-4 pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Chi tiết hợp đồng</p>
+                  <h2 className="text-lg font-semibold tracking-tight text-slate-900">Đang tải…</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="shrink-0 rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Đóng"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </header>
+            <div className="flex flex-1 items-center justify-center bg-slate-50/70 px-5">
+              <span className="text-sm text-slate-500">
+                {loading ? 'Đang tải chi tiết hợp đồng...' : 'Không có dữ liệu hợp đồng'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   const lecturer = contract.createdByUser?.member;
   const lecturerName = lecturer?.fullName ?? '—';
 
   const statusLabel =
     contract.isPaid === true ? 'Đã thanh toán' : contract.isPaid === false ? 'Chưa thanh toán' : 'Không rõ';
-  const statusStyle =
+  const statusBadgeClass =
     contract.isPaid === true
-      ? 'bg-green-100 text-green-700'
+      ? 'border-0 bg-emerald-100 text-emerald-800'
       : contract.isPaid === false
-        ? 'bg-orange-100 text-orange-700'
-        : 'bg-gray-100 text-gray-600';
+        ? 'border-0 bg-amber-100 text-amber-900'
+        : 'border-0 bg-slate-200 text-slate-700';
+
+  const amountFormatted =
+    contract.amount != null ? `${contract.amount.toLocaleString('vi-VN')} đ` : '—';
+
+  const sessionTitle = getSessionTitle(contract.session);
+  const modeLabel =
+    contract.session?.isOnline == null
+      ? 'Không rõ'
+      : contract.session.isOnline
+        ? 'Online'
+        : 'Offline';
 
   return (
     <>
       {open && (
-        <div
-          className="fixed inset-0 bg-black/35 z-40 h-full"
-          onClick={onClose}
-          aria-hidden
-        />
+        <div className="fixed inset-0 z-40 h-full bg-black/35" onClick={onClose} aria-hidden />
       )}
       <div
-        className={`fixed top-0 right-0 h-full w-[520px] z-50
-        bg-white border-l shadow-2xl
-        transition-transform duration-300
-        ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        className={cn(
+          'fixed right-0 top-0 z-50 h-full w-full max-w-2xl',
+          'border-l border-slate-200/80 bg-white shadow-2xl',
+          'transition-transform duration-300 ease-out',
+          open ? 'translate-x-0' : 'translate-x-full'
+        )}
       >
-        <div className="flex flex-col h-full overflow-y-auto">
-          {/* Header */}
-          <div className="sticky top-0 z-10 bg-white border-b">
-            <div className="px-5 pt-5 pb-3">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-semibold text-black truncate">
+        <div className="flex h-full flex-col overflow-hidden">
+          <header className="shrink-0 bg-gradient-to-b from-slate-50/90 to-white px-5 pb-4 pt-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Chi tiết hợp đồng</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-lg font-semibold tracking-tight text-slate-900">
                     Hợp đồng {contract.contractCode}
                   </h2>
-                  <div className="mt-1 flex items-center gap-2 text-sm text-gray-600">
-                    <span className="truncate">Giảng viên: {lecturerName}</span>
+                  <Badge className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium', statusBadgeClass)}>
+                    {statusLabel}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <HeaderChip icon={Hash} label={contract.contractCode} title="Mã hợp đồng" />
+                  <HeaderChip icon={Receipt} label={`#${contract.contractId}`} title="ID hợp đồng" />
+                  <HeaderChip
+                    icon={FileText}
+                    label={amountFormatted}
+                    title="Số tiền"
+                    accent="emerald"
+                  />
+                  <HeaderChip icon={User} label={lecturerName} title="Giảng viên" />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="shrink-0 rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Đóng"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </header>
+
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 px-5 py-5">
+            <div className="space-y-8">
+              <Section icon={FileText} title="Thông tin hợp đồng" tone="indigo">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                  <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <MetaRow icon={Hash} label="Mã hợp đồng" value={contract.contractCode} />
+                    <MetaRow icon={Receipt} label="ID hợp đồng" value={String(contract.contractId)} />
+                    <MetaRow
+                      icon={FileText}
+                      label="Số tiền"
+                      value={
+                        contract.amount != null ? (
+                          <span className="font-semibold text-emerald-700 tabular-nums">
+                            {contract.amount.toLocaleString('vi-VN')} đ
+                          </span>
+                        ) : (
+                          '—'
+                        )
+                      }
+                    />
+                    <MetaRow icon={CalendarClock} label="Ngày tạo" value={formatDateTime(contract.createdAt)} />
+                    <MetaRow
+                      icon={CalendarClock}
+                      label="Ngày cập nhật"
+                      value={formatDateTime(contract.updatedAt)}
+                      className="sm:col-span-2"
+                    />
                   </div>
                 </div>
+              </Section>
 
-                <div className="flex items-start gap-3 shrink-0">
-                  <Badge className={statusStyle}>{statusLabel}</Badge>
-                  <button
-                    onClick={onClose}
-                    className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                    aria-label="Đóng"
-                  >
-                    <X size={18} />
-                  </button>
+              <Section icon={GraduationCap} title="Thông tin giảng viên" tone="amber">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                  <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <MetaRow icon={User} label="Họ tên" value={lecturerName} />
+                    <MetaRow icon={Mail} label="Email" value={contract.createdByUser?.email ?? '—'} />
+                    <MetaRow icon={Phone} label="Số điện thoại" value={lecturer?.phone ?? '—'} />
+                    <MetaRow icon={Home} label="Địa chỉ" value={lecturer?.address ?? '—'} />
+                    <MetaRow icon={CreditCard} label="CMND/CCCD" value={lecturer?.cin ?? '—'} />
+                    <MetaRow
+                      icon={Landmark}
+                      label="Ngân hàng"
+                      value={
+                        lecturer?.bankName && lecturer?.bankCode
+                          ? `${lecturer.bankName} · ${lecturer.bankCode}`
+                          : '—'
+                      }
+                    />
+                    <MetaRow icon={Receipt} label="Mã số thuế" value={lecturer?.taxNumber ?? '—'} />
+                  </div>
                 </div>
-              </div>
+              </Section>
+
+              <Section icon={Monitor} title="Thông tin buổi học" tone="teal">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3">
+                    <h4 className="min-w-0 flex-1 text-sm font-semibold leading-snug text-slate-900">
+                      {sessionTitle}
+                    </h4>
+                    {contract.session?.sessionNo != null ? (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-slate-600">
+                        Buổi {contract.session.sessionNo}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <MetaRow
+                      icon={Clock}
+                      label="Thời gian"
+                      value={
+                        contract.session?.startAt && contract.session?.endAt
+                          ? `${formatDateTime(contract.session.startAt)} → ${formatDateTime(contract.session.endAt)}`
+                          : '—'
+                      }
+                    />
+                    <MetaRow icon={MapPin} label="Địa điểm" value={contract.session?.location ?? '—'} />
+                    <MetaRow icon={Monitor} label="Hình thức" value={modeLabel} />
+                    <MetaRow icon={User} label="Vai trò" value={roleLabel ?? '—'} />
+                  </div>
+                </div>
+              </Section>
             </div>
-          </div>
-
-          {/* Content */}
-          <div className="px-5 py-4 space-y-4 bg-[#f7f7f8]">
-            <Card title="Thông tin hợp đồng">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <InfoRow
-                  label="Mã hợp đồng"
-                  value={
-                    <span className="inline-flex items-center rounded-full bg-slate-900 text-white px-3 py-1 text-xs font-semibold tracking-wide">
-                      {contract.contractCode}
-                    </span>
-                  }
-                />
-                <InfoRow label="ID hợp đồng" value={contract.contractId} />
-                <InfoRow
-                  label="Số tiền"
-                  value={
-                    contract.amount != null ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-semibold">
-                        {contract.amount.toLocaleString('vi-VN')} đ
-                      </span>
-                    ) : (
-                      '—'
-                    )
-                  }
-                />
-                <InfoRow label="Ngày tạo" value={formatDateTime(contract.createdAt)} />
-                <InfoRow label="Ngày cập nhật" value={formatDateTime(contract.updatedAt)} />
-              </div>
-            </Card>
-
-            <Card title="Thông tin giảng viên">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <InfoRow label="Họ tên" value={lecturerName} />
-                <InfoRow label="Email" value={contract.createdByUser?.email ?? '—'} />
-                <InfoRow label="Số điện thoại" value={lecturer?.phone ?? '—'} />
-                <InfoRow label="Địa chỉ" value={lecturer?.address ?? '—'} />
-                <InfoRow label="CMND/CCCD" value={lecturer?.cin ?? '—'} />
-                <InfoRow
-                  label="Ngân hàng"
-                  value={
-                    lecturer?.bankName && lecturer?.bankCode
-                      ? `${lecturer.bankName} - ${lecturer.bankCode}`
-                      : '—'
-                  }
-                />
-                <InfoRow label="Mã số thuế" value={lecturer?.taxNumber ?? '—'} />
-              </div>
-            </Card>
-
-            <Card title="Thông tin buổi học">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <InfoRow
-                  label="Tên phiên"
-                  value={
-                    contract.session?.title ? (
-                      <span className="font-semibold text-slate-900">
-                        {contract.session.title}
-                      </span>
-                    ) : (
-                      '—'
-                    )
-                  }
-                />
-                <InfoRow label="Buổi số" value={contract.session?.sessionNo ?? '—'} />
-                <InfoRow
-                  label="Thời gian"
-                  value={
-                    contract.session?.startAt && contract.session?.endAt
-                      ? `${formatDateTime(contract.session.startAt)} - ${formatDateTime(
-                          contract.session.endAt,
-                        )}`
-                      : '—'
-                  }
-                />
-                <InfoRow label="Địa điểm" value={contract.session?.location ?? '—'} />
-                <InfoRow
-                  label="Hình thức"
-                  value={
-                    contract.session?.isOnline == null
-                      ? 'Không rõ'
-                      : contract.session.isOnline
-                        ? 'Online'
-                        : 'Offline'
-                  }
-                />
-                <InfoRow
-                  label="Dạy với vai trò"
-                  value={roleLabel ?? '—'}
-                />
-              </div>
-            </Card>
           </div>
         </div>
       </div>
@@ -170,23 +243,84 @@ export default function ContractDetailSidebar({ open, onClose, contract, roleLab
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function HeaderChip({
+  icon: Icon,
+  label,
+  title,
+  accent,
+}: {
+  icon: LucideIcon;
+  label: string;
+  title: string;
+  accent?: 'emerald';
+}) {
+  const chipIconClass = accent === 'emerald' ? 'text-emerald-600' : 'text-[#2197C0]';
   return (
-    <div className="rounded-2xl border bg-white shadow-sm">
-      <div className="px-4 py-2.5 border-b">
-        <h3 className="font-semibold text-gray-900">{title}</h3>
+    <span
+      title={title}
+      className={cn(
+        'inline-flex max-w-full items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs text-slate-700',
+        accent === 'emerald'
+          ? 'bg-emerald-50/90 font-semibold text-emerald-900'
+          : 'bg-white/90 font-medium'
+      )}
+    >
+      <Icon className={cn('h-3.5 w-3.5 shrink-0', chipIconClass)} aria-hidden />
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
+const sectionIconClass = {
+  indigo: 'text-indigo-600',
+  amber: 'text-amber-600',
+  teal: 'text-teal-600',
+} as const;
+
+function Section({
+  icon: Icon,
+  title,
+  tone,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  tone: keyof typeof sectionIconClass;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2.5">
+        <Icon
+          className={cn('h-5 w-5 shrink-0', sectionIconClass[tone])}
+          strokeWidth={2}
+          aria-hidden
+        />
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
       </div>
-      <div className="px-4 py-3">{children}</div>
-    </div>
+      <div>{children}</div>
+    </section>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+function MetaRow({
+  icon: Icon,
+  label,
+  value,
+  className,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div>
-      <div className="text-xs text-gray-500 font-medium">{label}</div>
-      <div className="mt-1 text-sm text-gray-900 break-words">{value}</div>
+    <div className={cn('flex min-w-0 gap-3', className)}>
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#2197C0]" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium text-slate-500">{label}</div>
+        <div className="mt-0.5 text-sm font-medium break-words text-slate-900">{value}</div>
+      </div>
     </div>
   );
 }
-

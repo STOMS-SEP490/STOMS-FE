@@ -64,10 +64,13 @@ export type EventUpdatePayload = {
   description: string;
 };
 
+/** Tham số FE; getEvents map sang BE EventFilterRequest (PageNumber, IsActive, EventName, …) */
 export type EventFilterParams = {
   pageNumber?: number;
   pageSize?: number;
+  /** Gửi lên BE dưới dạng EventName (contains) */
   keyword?: string;
+  /** Gửi lên BE dưới dạng IsActive */
   isActive?: boolean;
   eventId?: number;
 };
@@ -78,10 +81,22 @@ export type CalendarEvent = {
   title: string;
   start: Date;
   end: Date;
+  /** Tên phiên từ API timetable (SessionTitle). */
+  sessionTitle?: string;
+  /** Thông tin request để hiển thị đúng trên lịch/popover. */
+  requestCode?: string;
+  requestName?: string;
   resource?: string;
   color?: string;
+  /** Số buổi (SessionNo) nếu có — dùng cho Lịch sắp tới, tooltip, v.v. */
+  sessionNo?: number | null;
   /** Trạng thái phiên (hiển thị trên lịch) */
   status?: string | number | null;
   statusLabel?: string;
   statusClassName?: string;
+  /**
+   * Type request để tô màu thẻ lịch:
+   * subject (xanh dương), course (tím), event (cam)
+   */
+  requestKind?: 'subject' | 'course' | 'event' | 'other';
 };
