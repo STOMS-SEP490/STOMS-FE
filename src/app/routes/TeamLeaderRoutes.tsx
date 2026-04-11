@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import MyTeamPage from '@/modules/team/pages/MyTeamPage';
-import EventCalendar from '@/modules/event/pages/EventCalendar';
+import EventCalendar from '@/modules/timetable/pages/EventCalendar';
 import AvailableEquipmentsPage from '@/modules/equipment/pages/AvailableEquipmentsPage';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage';
@@ -14,9 +14,12 @@ import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeaching
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherTaskReportPage from '@/modules/task-report/pages/TeacherTaskReportPage';
 import TeamLeaderAssignmentsLayout from '@/app/layouts/TeamLeaderAssignmentsLayout';
-import TeamLeaderAssignmentsPage from '@/modules/contract/pages/TeamLeaderAssignmentsPage';
+import TeamLeaderAssignmentsPage from '@/modules/attendance/pages/TeamLeaderAssignmentsPage';
+import TeamLeaderDashboard from '@/modules/dashboard/pages/TeamLeaderDashboard';
 
 const TeamLeaderRoutes = [
+  { index: true, element: <Navigate to="dashboard" replace /> },
+  { path: 'dashboard', element: <TeamLeaderDashboard /> },
   {
     path: 'assignments',
     element: <TeamLeaderAssignmentsLayout />,

@@ -11,7 +11,7 @@ import { resolveSessionTopicTitleFromSessionLike } from '@/modules/event/utils/s
 
 async function loadPersonalTeachingScheduleEvents(memberId: number): Promise<CalendarEvent[]> {
   try {
-    const res = await teachingHistoryApi.getTeachingSchedule(memberId, {
+    const res = await teachingHistoryApi.getTeachingSchedule({
       pageNumber: 1,
       pageSize: 500,
     });

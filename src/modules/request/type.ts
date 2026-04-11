@@ -13,7 +13,7 @@ export type {
   EquipmentResponse,
   PagedReservationResponse,
   PagedEquipmentResponse,
-} from './reservation.types';
+} from '../reservation/reservation.types';
 
 export type {
   AssignmentResponse,

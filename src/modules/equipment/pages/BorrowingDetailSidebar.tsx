@@ -4,6 +4,7 @@ import type { BorrowingListItem } from '../borrowing'
 import { Badge } from '@/shared/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar'
 import { getBorrowingStatusColor, getBorrowingStatusDisplay } from '@/constants/borrowing'
+import { getEquipmentBorrowingStatusInfo } from '@/constants/status'
 import { cn } from '@/shared/lib/utils'
 import { Checkbox, Image, message } from 'antd'
 import { Button } from '@/shared/components/ui/button'
@@ -20,66 +21,6 @@ type Props = {
 function formatDateTime(date?: string | null) {
   if (!date) return '—'
   return new Date(date).toLocaleString('vi-VN')
-}
-
-function getEquipmentBorrowingStatusMeta(rawStatus?: string | null) {
-  const normalized = String(rawStatus ?? '').trim().toLowerCase()
-
-  if (normalized.includes('returned') || normalized === '2') {
-    return {
-      isReturned: true,
-      label: 'Đã trả',
-      className: 'bg-emerald-100 text-emerald-700',
-    }
-  }
-
-  if (normalized.includes('damaged') || normalized === '3') {
-    return {
-      isReturned: false,
-      label: 'Bị hỏng',
-      className: 'bg-amber-100 text-amber-700',
-    }
-  }
-
-  // Lost / Mất
-  if (normalized.includes('lost') || normalized === '4' || normalized.includes('mất')) {
-    return {
-      isReturned: false,
-      label: 'Mất',
-      className: 'bg-red-100 text-red-700',
-    }
-  }
-
-  // Generic equipment statuses (to avoid EN/VN mismatch)
-  if (normalized.includes('available')) {
-    return {
-      isReturned: false,
-      label: 'Khả dụng',
-      className: 'bg-green-100 text-green-700',
-    }
-  }
-
-  if (normalized.includes('borrowed')) {
-    return {
-      isReturned: false,
-      label: 'Đang mượn',
-      className: 'bg-orange-100 text-orange-700',
-    }
-  }
-
-  if (normalized.includes('unavailable')) {
-    return {
-      isReturned: false,
-      label: 'Không khả dụng',
-      className: 'bg-gray-100 text-gray-700',
-    }
-  }
-
-  return {
-    isReturned: false,
-    label: rawStatus || 'Đang mượn',
-    className: 'bg-gray-100 text-gray-700',
-  }
 }
 
 export default function BorrowingDetailSidebar({
@@ -321,7 +262,7 @@ export default function BorrowingDetailSidebar({
               {details.length > 0 ? (
                 <ul className="space-y-2">
                   {details.map((item) => {
-                    const statusMeta = getEquipmentBorrowingStatusMeta(
+                    const statusMeta = getEquipmentBorrowingStatusInfo(
                       localStatusById[item.equipmentBorrowingId] ?? item.status
                     )
                     return (

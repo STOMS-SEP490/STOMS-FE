@@ -482,8 +482,6 @@ export default function ReservationsManagement() {
 
   return (
     <div className="space-y-4">
-      
-
       <div className="pt-1">
         <DataTable
           columns={columns}

@@ -6,6 +6,7 @@ import {
   getEquipmentStatusColor,
   getEquipmentStatusDisplay,
 } from '@/constants/equipment'
+import { getEquipmentBorrowingStatusInfo } from '@/constants/status'
 import { Image, message } from 'antd'
 
 type Props = {
@@ -186,6 +187,9 @@ export default function EquipmentDetailSidebar({
               {equipment.currentBorrowings && equipment.currentBorrowings.length > 0 ? (
                 <ul className="space-y-1">
                   {equipment.currentBorrowings.map((b) => (
+                    (() => {
+                      const borrowingStatus = getEquipmentBorrowingStatusInfo(b.status);
+                      return (
                     <li
                       key={b.equipmentBorrowingId}
                       className="rounded-xl border bg-white px-3 py-2 flex items-center justify-between gap-3"
@@ -199,8 +203,10 @@ export default function EquipmentDetailSidebar({
                           {formatDateTime(b.checkinAt)}
                         </div>
                       </div>
-                      <Badge className="bg-gray-100 text-gray-700">{b.status}</Badge>
+                      <Badge className={borrowingStatus.className}>{borrowingStatus.label}</Badge>
                     </li>
+                      );
+                    })()
                   ))}
                 </ul>
               ) : (

@@ -6,6 +6,7 @@ import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory'
 import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout'
 import BorrowingsManagementLayout from '@/app/layouts/BorrowingsManagementLayout'
 import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement'
+import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage'
 
 const EquipmentManagerRoutes = [
   {
@@ -47,6 +48,10 @@ const EquipmentManagerRoutes = [
       { index: true, element: <EquipmentsHistory /> },
       { path: 'reservations', element: <ReservationsManagement /> },
     ],
+  },
+  {
+    path: 'fund-contributions',
+    element: <TeacherContributionHistoryPage />,
   },
 ]
 

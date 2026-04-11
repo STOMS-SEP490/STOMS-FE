@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { Calendar, Clock, GraduationCap, Hash, List, MapPin, UserCheck, Users, X } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
-import attendanceApi from '@/modules/request/api/attendanceApi';
+import attendanceApi from '@/modules/attendance/attendanceApi';
 import type { TeamLeaderTimetableAssignmentRow } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
 import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/type';
 import { Badge } from '@/shared/components/ui/badge';

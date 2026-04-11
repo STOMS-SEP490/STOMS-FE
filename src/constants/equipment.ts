@@ -17,7 +17,6 @@ export const EQUIPMENT_STATUS = {
 export type EquipmentStatusValue =
   (typeof EQUIPMENT_STATUS)[keyof typeof EQUIPMENT_STATUS]
 
-/** Mapping status (string hoặc number từ API) → label + style */
 export const EQUIPMENT_STATUS_MAP: Record<
   string,
   { label: string; className: string }
@@ -29,11 +28,11 @@ export const EQUIPMENT_STATUS_MAP: Record<
   },
   [EQUIPMENT_STATUS.BORROWED]: {
     label: 'Đang mượn',
-    className: 'bg-orange-100 text-orange-700',
+    className: 'bg-yellow-100 text-yellow-700',
   },
   [EQUIPMENT_STATUS.DAMAGED]: {
     label: 'Hỏng hóc',
-    className: 'bg-yellow-100 text-yellow-700',
+    className: 'bg-orange-100 text-orange-700',
   },
   [EQUIPMENT_STATUS.LOST]: {
     label: 'Mất',

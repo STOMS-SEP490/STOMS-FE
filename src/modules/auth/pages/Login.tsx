@@ -1,21 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import authService from '@/modules/auth/api/authApi';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { saveAuthToStorage } from '@/modules/auth/authStorage';
+import { getHomePathByRole, getRoleIdFromStorage } from '@/modules/auth/roleAccess';
 
 type AuthContextType = {
   setImage: (src: string) => void;
 };
-
-function getHomePathByRole(roleId: number) {
-  if (roleId === 2) return '/tl';
-  if (roleId === 3) return '/pc';
-  if (roleId === 4 || roleId === 5) return '/teacher';
-  if (roleId === 6) return '/em';
-  return '/manager/dashboard';
-}
 
 export default function Login() {
   const { setImage } = useOutletContext<AuthContextType>();
@@ -33,13 +26,7 @@ export default function Login() {
     // nếu đã login thì redirect
     const token = localStorage.getItem('accessToken');
     if (token) {
-      try {
-        const raw = localStorage.getItem('user');
-        const roleId = raw ? Number(JSON.parse(raw)?.roleId) : NaN;
-        navigate(getHomePathByRole(roleId));
-      } catch {
-        navigate('/manager/dashboard');
-      }
+      navigate(getHomePathByRole(getRoleIdFromStorage()));
     }
   }, []);
 
@@ -108,30 +95,34 @@ export default function Login() {
       </p>
 
       <form className="space-y-4" onSubmit={handleLogin}>
-        <input
-          type="email"
-          placeholder="abc@gmail.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-3 rounded-lg 
-                    bg-[#6e8ebd] placeholder-white/70
-                    focus:outline-none focus:ring-2 focus:ring-blue-950"
-        />
+        <div className="relative">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+            <Mail size={18} />
+          </span>
+          <input
+            type="email"
+            placeholder="Email của bạn"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-2xl border border-sky-100 bg-white py-3 pl-12 pr-4 text-slate-700 placeholder-slate-400 shadow-[0_4px_16px_rgba(2,132,199,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-300"
+          />
+        </div>
 
         <div className="relative">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+            <Lock size={18} />
+          </span>
           <input
             type={showPassword ? 'text' : 'password'}
-            placeholder="*****"
+            placeholder="Mật khẩu"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 pr-12 rounded-lg 
-                      bg-[#6e8ebd] placeholder-white/70
-                      focus:outline-none focus:ring-2 focus:ring-blue-950"
+            className="w-full rounded-2xl border border-sky-100 bg-white py-3 pl-12 pr-12 text-slate-700 placeholder-slate-400 shadow-[0_4px_16px_rgba(2,132,199,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-300"
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition bg-transparent border-0 p-0"
+            className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition bg-transparent border-0 p-0"
             tabIndex={-1}
           >
             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -141,7 +132,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 rounded-lg 
+          className="mt-4 w-full py-3 rounded-lg 
                     bg-[#193350]
                     hover:opacity-90 transition"
         >

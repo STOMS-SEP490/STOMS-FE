@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BarChart3, Laptop, Menu, LogOut, ClipboardList } from 'lucide-react'
+import { BarChart3, Laptop, Menu, LogOut, ClipboardList, Wallet } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/modules/auth/pages/Logout'
 import NotificationBell from '@/shared/components/common/NotificationBell'
@@ -79,6 +79,12 @@ export default function EquipmentSidebar() {
         icon: ClipboardList,
         path: '/em/borrowings',
         end: false,
+      },
+      {
+        label: 'Đóng góp quỹ',
+        icon: Wallet,
+        path: '/em/fund-contributions',
+        end: true,
       },
     ],
     []

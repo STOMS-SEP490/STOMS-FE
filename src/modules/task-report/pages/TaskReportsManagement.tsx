@@ -25,6 +25,7 @@ import requestApi from '@/modules/request/api/requestApi';
 import { expenseApi } from '@/modules/transaction/api/expenseApi';
 import { walletApi } from '@/modules/transaction/api/walletApi';
 import type { WalletListItem } from '@/modules/transaction/api/walletApi';
+import { EXPENSE_STATUS, getExpenseStatusInfo } from '@/constants/status';
 
 type RequestSessionSummary = NonNullable<RequestListItem['sessions']>[number];
 
@@ -253,7 +254,9 @@ export default function TaskReportsManagement() {
   const filteredTaskReports = useMemo(() => {
     if (!onlyPendingExpense) return taskReports;
     return taskReports.filter((report) =>
-      (report.expenses ?? []).some((e) => e.status === 1)
+      (report.expenses ?? []).some(
+        (e) => getExpenseStatusInfo(e.status).code === EXPENSE_STATUS.PENDING,
+      )
     );
   }, [taskReports, onlyPendingExpense]);
 
@@ -647,24 +650,13 @@ export default function TaskReportsManagement() {
 
                         <div className="col-span-2 flex items-center justify-between gap-3 pt-1">
                           <div>
-                            {e.status === 1 ? (
-                              <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200">
-                                Đang chờ
-                              </Badge>
-                            ) : e.status === 2 ? (
-                              <Badge className="bg-green-100 text-green-700 border border-green-200">
-                                Đã duyệt
-                              </Badge>
-                            ) : e.status === 3 ? (
-                              <Badge className="bg-red-100 text-red-600 border border-red-200">
-                                Đã từ chối
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-gray-500">{e.status ?? '—'}</span>
-                            )}
+                            {(() => {
+                              const info = getExpenseStatusInfo(e.status);
+                              return <Badge className={info.className}>{info.label}</Badge>;
+                            })()}
                           </div>
 
-                          {e.status === 1 ? (
+                          {getExpenseStatusInfo(e.status).code === EXPENSE_STATUS.PENDING ? (
                             <div className="flex items-center gap-2">
                               <Button
                                 size="sm"

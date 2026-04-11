@@ -13,7 +13,7 @@ import {
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
-import { getSessionStatusInfo } from '@/constants/status';
+import { getSessionStatusCode, getSessionStatusInfo, SESSION_STATUS } from '@/constants/status';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -282,29 +282,41 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
       return [
         {
           id: 'date',
-          header: 'Ngày',
+          header: 'NGÀY',
           enableSorting: false,
           cell: ({ row }) => (
             <div className="text-xs text-gray-700 whitespace-nowrap">
               <div className="font-medium text-gray-900">{formatDate(row.original.startAt)}</div>
+              <div className="text-[11px] text-slate-500">{formatTimeRange(row.original.startAt, row.original.endAt)}</div>
             </div>
           ),
         },
         {
-          id: 'time',
-          header: 'Giờ',
+          id: 'sessionName',
+          header: 'PHIÊN',
           enableSorting: false,
           cell: ({ row }) => (
-            <div className="text-xs text-gray-700 whitespace-nowrap">
-              <div className="font-medium text-gray-900">
-                {formatDateTime(row.original.startAt)} - {formatDateTime(row.original.endAt)}
+            <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
+              <div className="text-[13px] font-semibold text-slate-900 line-clamp-2">
+                {row.original.requestName || row.original.requestCode || '—'}
               </div>
+              <div className="text-[11px] text-slate-500">{getSessionDisplayName(row.original)}</div>
             </div>
+          ),
+        },
+        {
+          id: 'requestCode',
+          header: 'YÊU CẦU',
+          enableSorting: false,
+          cell: ({ row }) => (
+            <span className="text-xs text-gray-700 whitespace-nowrap font-semibold">
+              {row.original.requestCode ?? '—'}
+            </span>
           ),
         },
         {
           id: 'location',
-          header: 'Địa điểm',
+          header: 'ĐỊA ĐIỂM',
           cell: ({ row }) => (
             <div className="text-sm text-gray-700">
               <span className="font-medium text-slate-900">{row.original.location || '—'}</span>
@@ -315,47 +327,6 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             </div>
           ),
         },
-        {
-          id: 'requestCode',
-          header: 'Mã request',
-          enableSorting: false,
-          cell: ({ row }) => (
-            <span className="text-xs text-gray-700 whitespace-nowrap font-semibold">
-              {row.original.requestCode ?? '—'}
-            </span>
-          ),
-        },
-        {
-          id: 'sessionNo',
-          header: 'Buổi số',
-          enableSorting: false,
-          cell: ({ row }) => (
-            <span className="text-xs text-gray-700 whitespace-nowrap">
-              Buổi: {row.original.sessionNo ?? '—'}
-            </span>
-          ),
-        },
-        {
-          id: 'status',
-          header: 'Trạng thái',
-          enableSorting: false,
-          cell: ({ row }) => {
-            const info = getSessionStatusInfo(row.original.status);
-            let label = info.label;
-            if (isAttendanceTab) {
-              const statusUpper = String(row.original.status ?? '').toUpperCase();
-              if (statusUpper.includes('ONGOING')) label = 'Đang diễn ra';
-              if (statusUpper.includes('ASSIGNED')) label = 'Sắp tới';
-            }
-            return (
-              <span
-                className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}
-              >
-                {label}
-              </span>
-            );
-          },
-        },
         ...(isAttendanceTab
           ? [
               {
@@ -364,17 +335,24 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 enableSorting: false,
                 cell: ({ row }: { row: { original: TeamLeaderTimetableAssignmentRow } }) => {
                   return (() => {
-                    const statusUpper = String(row.original.status ?? '').toUpperCase();
-                    const jwtMemberId = currentMemberId;
-                    const attendanceByMemberId = row.original.attendanceByMemberId ?? null;
-                    const isOngoing = statusUpper.includes('ONGOING');
-                    const isCompletedSession = statusUpper.includes('COMPLETED');
-                    const isAssigned = statusUpper.includes('ASSIGNED');
+                    const statusCode = getSessionStatusCode(row.original.status);
+                    const jwtMemberId = currentMemberId != null ? Number(currentMemberId) : null;
+                    const attendanceByMemberId =
+                      row.original.attendanceByMemberId != null
+                        ? Number(row.original.attendanceByMemberId)
+                        : null;
+                    const isOngoing = statusCode === SESSION_STATUS.ONGOING;
+                    const isCompletedSession = statusCode === SESSION_STATUS.COMPLETED;
+                    const isAssigned = statusCode === SESSION_STATUS.ASSIGNED;
 
-                    const isResponsibleForSession =
-                      jwtMemberId != null &&
+                    const hasValidJwtMemberId =
+                      jwtMemberId != null && Number.isFinite(jwtMemberId) && jwtMemberId > 0;
+                    const hasOwnerAssigned =
                       attendanceByMemberId != null &&
-                      attendanceByMemberId === jwtMemberId;
+                      Number.isFinite(attendanceByMemberId) &&
+                      attendanceByMemberId > 0;
+                    const isResponsibleForSession =
+                      hasValidJwtMemberId && (!hasOwnerAssigned || attendanceByMemberId === jwtMemberId);
 
                     const checkinAt = row.original.checkinAt ?? null;
                     const checkoutAt = row.original.checkoutAt ?? null;
@@ -386,7 +364,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
 
                     /** Đã ủy quyền / người khác là người điểm danh: chỉ disable 2 nút (không đổi nội dung ô). */
                     const someoneElseIsDelegate =
-                      attendanceByMemberId != null && jwtMemberId != null && attendanceByMemberId !== jwtMemberId;
+                      hasOwnerAssigned && hasValidJwtMemberId && attendanceByMemberId !== jwtMemberId;
 
                     const dashNode = (
                       <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-400 whitespace-nowrap">
@@ -442,18 +420,18 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
 
                         if (checkinAt != null) {
                           return (
-                            <button
-                              type="button"
-                              onClick={() => void openPanel(row.original, 'checkin')}
-                              className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 whitespace-nowrap"
-                              title="Sửa điểm danh check-in"
-                            >
+                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 whitespace-nowrap">
                               <LogIn className="h-3 w-3" />
                               Check-in: {formatDateTime(checkinAt ?? undefined)}
-                            </button>
+                            </span>
                           );
                         }
-                        return dashNode;
+                        return (
+                          <button type="button" disabled className={checkinDisabledCls} title="Chưa có dữ liệu check-in">
+                            <LogIn className="h-3 w-3" />
+                            Check-in
+                          </button>
+                        );
                       }
 
                       // Tab phân công: chỉ hiển thị thời gian khi phiên đang diễn ra / completed
@@ -502,9 +480,6 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                           );
                         }
 
-                        if (!isResponsibleForSession) {
-                          return dashNode;
-                        }
                         if (canCheckout && checkoutAt == null) {
                           return (
                             <button
@@ -521,18 +496,18 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
 
                         if (checkoutAt != null) {
                           return (
-                            <button
-                              type="button"
-                              onClick={() => void openPanel(row.original, 'checkout')}
-                              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100 whitespace-nowrap"
-                              title="Sửa điểm danh check-out"
-                            >
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 whitespace-nowrap">
                               <LogOut className="h-3 w-3" />
                               Check-out: {formatDateTime(checkoutAt ?? undefined)}
-                            </button>
+                            </span>
                           );
                         }
-                        return dashNode;
+                        return (
+                          <button type="button" disabled className={checkoutDisabledCls} title="Chưa có dữ liệu check-out">
+                            <LogOut className="h-3 w-3" />
+                            Check-out
+                          </button>
+                        );
                       }
 
                       if (isOngoing || isCompletedSession) {

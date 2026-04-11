@@ -7,7 +7,7 @@ import type {
   AttendanceDelegatePayload,
   AttendanceFilterParams,
   AttendanceFilterResponse,
-} from '../attendance';
+} from '@/modules/request/attendance';
 
 const attendanceApi = {
   delegate: (payload: AttendanceDelegatePayload): Promise<void> => {

@@ -3,6 +3,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
+import { Badge } from '@/shared/components/ui/badge';
 import HoverSearch from '@/shared/components/ui/search';
 import { message, Modal } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -220,13 +221,9 @@ export default function TopicsManagement() {
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.isActive ? (
-            <span className="inline-flex items-center rounded-full bg-green-50 text-green-700 px-2 py-0.5 border border-green-100">
-              Đang hoạt động
-            </span>
+            <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
           ) : (
-            <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 px-2 py-0.5 border border-gray-200">
-              Vô hiệu hóa
-            </span>
+            <Badge className="bg-orange-100 text-orange-600">Ngừng hoạt động</Badge>
           )}
         </div>
       ),

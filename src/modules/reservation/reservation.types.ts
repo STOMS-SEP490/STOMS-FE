@@ -80,6 +80,7 @@ export type CheckAvailabilityRequest = {
   CategoryIds?: number[];
   EquipmentName?: string;
   EquipmentCode?: string;
+  IsAvailable?: boolean;
   PageNumber?: number;
   PageSize?: number;
 };
@@ -107,6 +108,10 @@ export type ReservationCreateRequest = {
   StartAt: string;
   EndAt: string;
   Equipment: { EquipmentId: number }[];
+};
+
+export type ReservationBulkCreateRequest = {
+  Reservations: ReservationCreateRequest[];
 };
 
 /** BE: ReservationUpdateRequest */

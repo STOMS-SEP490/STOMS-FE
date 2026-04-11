@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/type';
 import sessionApi from '@/modules/request/api/sessionApi';
-import attendanceApi from '@/modules/request/api/attendanceApi';
+import attendanceApi from '@/modules/attendance/attendanceApi';
 import requestApi from '@/modules/request/api/requestApi';
 import type { TeamLeaderTimetableAssignmentRow } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
 import { getAttendanceOwnerId } from '@/shared/utils/attendanceOwner';
@@ -50,8 +50,9 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
     const raw = localStorage.getItem('user');
     if (!raw) return null;
     try {
-      const parsed = JSON.parse(raw) as { memberId?: number };
-      return parsed.memberId ?? null;
+      const parsed = JSON.parse(raw) as { memberId?: number | string };
+      const id = Number(parsed.memberId ?? 0);
+      return Number.isFinite(id) && id > 0 ? id : null;
     } catch {
       return null;
     }

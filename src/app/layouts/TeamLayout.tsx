@@ -7,7 +7,7 @@ import { teamApi } from '@/modules/team/api/teamApi';
 import memberApi from '@/modules/member/api/memberApi';
 
 export default function TeamLayout() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
 
   const { data: teamsPaged, isLoading: teamsLoading } = useQuery({
     queryKey: ['teams-summary'],

@@ -482,6 +482,7 @@ export default function CreateBorrowingModal({
           await reservationApi.getAvailability({
             StartAt: startAt,
             EndAt: endAt,
+            IsAvailable: true,
             PageNumber: 1,
             PageSize: 500,
           }),

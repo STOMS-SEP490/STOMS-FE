@@ -3,7 +3,7 @@ import memberApi from '@/modules/member/api/memberApi';
 import {
   BarChart3,
   BookOpen,
-  CalendarDays,
+  Star,
   Users,
   Wallet,
   CheckCircle,
@@ -93,7 +93,7 @@ export default function PCSidebar() {
       { label: 'Dashboard', icon: BarChart3, path: '/pc/dashboard' },
       { label: 'Yêu cầu', icon: CheckCircle, path: '/pc/requests', matchPrefixPath: '/pc/requests' },
       { label: 'Nhóm', icon: Users, path: '/pc/teams' },
-      { label: 'Sự kiện', icon: CalendarDays, path: '/pc/events' },
+      { label: 'Sự kiện', icon: Star, path: '/pc/events' },
       { label: 'Giáo trình', icon: BookOpen, path: '/pc/courses', matchPrefixPath: '/pc/courses' },
       { label: 'Chủ đề', icon: Bookmark, path: '/pc/topics', matchPrefixPath: '/pc/topics' },
       { label: 'Quỹ', icon: Wallet, path: '/pc/fund-contributions' },
