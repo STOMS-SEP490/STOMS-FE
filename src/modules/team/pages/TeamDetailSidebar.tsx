@@ -16,20 +16,28 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN');
 }
 
-/** Topic để hiển thị: ưu tiên topics từ GET /teams/:id, không thì teamTopics (filter). */
+/** Chỉ hiển thị topic đang active (isActive === false → ẩn; thiếu field → coi như active, giống MyTeamPage). */
+function isTopicActive(isActive?: boolean) {
+  return isActive !== false;
+}
+
+/** Topic để hiển thị: ưu tiên topics từ GET /teams/:id, không thì teamTopics; cả hai đều lọc active. */
 function getDisplayTopics(team: Team): Array<{
   topicId: number;
   topicName: string;
   createdAt?: string | null;
 }> {
   if (team.topics && team.topics.length > 0) {
-    return team.topics.map((t) => ({
-      topicId: t.topicId,
-      topicName: t.topicName,
-    }));
+    return team.topics
+      .filter((t) => isTopicActive(t.isActive))
+      .map((t) => ({
+        topicId: t.topicId,
+        topicName: t.topicName,
+        createdAt: t.createdAt,
+      }));
   }
   return (team.teamTopics ?? [])
-    .filter((tt) => tt.isActive !== false)
+    .filter((tt) => isTopicActive(tt.isActive))
     .map((tt) => ({
       topicId: tt.topicId,
       topicName: tt.topicName ?? `Chủ đề #${tt.topicId}`,
