@@ -7,6 +7,8 @@ import attendanceApi from '@/modules/attendance/api/attendanceApi';
 import type { Attendance } from '@/modules/attendance/attendance';
 import { getAttendanceOwnerId } from '@/shared/utils/attendanceOwner';
 import { Badge } from '@/shared/components/ui/badge';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
+import { message } from 'antd';
 
 export type TeamLeaderSessionDetailPanelProps = {
   session: RequestSessionSummary;
@@ -54,44 +56,7 @@ export default function TeamLeaderSessionDetailPanel({
 
         const res = await attendanceApi.getBySession(session.sessionId);
         if (cancelled) return;
-        const nextItems = res.items ?? [];
-        if (nextItems.length > 0) {
-          setAttendances(nextItems);
-          return;
-        }
-
-        const sessionDetail = await sessionApi.getById(session.sessionId);
-        if (cancelled) return;
-        const assignments = sessionDetail.Assignments ?? [];
-        if (!assignments.length) {
-          setAttendances([]);
-          return;
-        }
-
-        const ownerId = delegateColumn?.sessionAttendanceByMemberId ?? null;
-
-        const virtualAttendances: Attendance[] = assignments
-          .filter((a) => Number(a.StaffMemberId) > 0)
-          .map((a, idx) => {
-            const memberId = Number(a.StaffMemberId);
-            return {
-              attendanceId: idx + 1,
-              memberId,
-              sessionId: session.sessionId,
-              checkinAt: null,
-              checkoutAt: null,
-              attendanceByMemberId:
-                ownerId != null && Number(ownerId) > 0 && Number(ownerId) === memberId ? Number(ownerId) : null,
-              note: null,
-              member: {
-                fullName: a.StaffMember?.FullName ?? null,
-                avatarUrl: a.StaffMember?.AvatarUrl ?? null,
-                email: a.StaffMember?.Email ?? a.StaffMember?.User?.Email ?? null,
-              },
-            };
-          });
-
-        setAttendances(virtualAttendances);
+        setAttendances(res.items ?? []);
       } catch (err: unknown) {
         if (cancelled) return;
         const msg =
@@ -374,6 +339,8 @@ export default function TeamLeaderSessionDetailPanel({
                                       );
                                     }
                                     delegateColumn.onDelegated?.();
+                                  } catch (err: unknown) {
+                                    message.error(getErrorMessage(err));
                                   } finally {
                                     setDelegatingMemberId(null);
                                   }

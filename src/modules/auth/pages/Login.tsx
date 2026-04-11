@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { message } from 'antd';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import authService from '@/modules/auth/api/authApi';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -34,7 +35,7 @@ export default function Login() {
     e.preventDefault();
 
     if (!email || !password) {
-      alert('Vui lòng nhập email và mật khẩu');
+      message.warning('Vui lòng nhập email và mật khẩu');
       return;
     }
 
@@ -73,6 +74,7 @@ export default function Login() {
         token: res.accessToken,
       });
 
+      message.success('Đăng nhập thành công');
       navigate(getHomePathByRole(Number(res.roleId)));
     } catch (error: unknown) {
       const axiosErr = error as { response?: { data?: unknown; status?: number } };
@@ -81,7 +83,7 @@ export default function Login() {
         (typeof data === 'string' && data) ||
         (typeof data === 'object' && data !== null && 'message' in data && String((data as Record<string, unknown>).message)) ||
         'Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.';
-      alert(msg);
+      message.error(msg);
     } finally {
       setLoading(false);
     }

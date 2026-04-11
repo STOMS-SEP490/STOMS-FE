@@ -45,6 +45,7 @@ const RedirectOldRequestsAllId = () => {
 };
 
 const ManagerRoutes = [
+  { index: true, element: <Navigate to="dashboard" replace /> },
   { path: 'dashboard', element: <ManagerDashboard /> },
   { path: 'events', element: <EventsManagement /> },
   { path: 'timetable', element: <EventCalendar /> },

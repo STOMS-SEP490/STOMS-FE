@@ -11,7 +11,7 @@ import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherC
 const EquipmentManagerRoutes = [
   {
     index: true,
-    element: <Navigate to="equipments" replace />,
+    element: <Navigate to="dashboard" replace />,
   },
   {
     path: 'dashboard',

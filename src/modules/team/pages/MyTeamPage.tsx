@@ -104,12 +104,12 @@ export default function MyTeamPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <img
-            src={row.original.avatarUrl || '/img/avatar.png'}
+            src={row.original.avatarUrl || '/img/ava.png'}
             alt={row.original.fullName}
             className="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-200 bg-white"
             onError={(e) => {
               e.currentTarget.onerror = null;
-              e.currentTarget.src = '/img/avatar.png';
+              e.currentTarget.src = '/img/ava.png';
             }}
           />
           <div className="min-w-0 leading-snug">
@@ -285,12 +285,12 @@ function MemberDetailPanel({
             <div className="flex min-w-0 gap-4">
               <div className="relative shrink-0">
                 <img
-                  src={member.avatarUrl || '/img/avatar.png'}
+                  src={member.avatarUrl || '/img/ava.png'}
                   alt={member.fullName}
                   className="h-20 w-20 rounded-2xl object-cover bg-white ring-1 ring-slate-200/80"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/img/avatar.png';
+                    e.currentTarget.src = '/img/ava.png';
                   }}
                 />
               </div>
