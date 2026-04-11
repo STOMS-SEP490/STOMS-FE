@@ -12,6 +12,8 @@ type OutletContext = {
   position?: string;
   createBorrowingOpen?: boolean;
   setCreateBorrowingOpen?: (open: boolean) => void;
+  createReservationOpen?: boolean;
+  setCreateReservationOpen?: (open: boolean) => void;
   hideSectionTitle?: boolean;
 };
 
@@ -19,6 +21,7 @@ export default function BorrowingsManagementLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [createBorrowingOpen, setCreateBorrowingOpen] = useState(false);
+  const [createReservationOpen, setCreateReservationOpen] = useState(false);
 
   const isEquipmentManager = location.pathname.startsWith('/em/');
   const basePath = isEquipmentManager ? '/em/borrowings' : '/manager/borrowings';
@@ -236,6 +239,8 @@ export default function BorrowingsManagementLayout() {
                 position: 'header',
                 createBorrowingOpen,
                 setCreateBorrowingOpen,
+                createReservationOpen,
+                setCreateReservationOpen,
               } as OutletContext
             }
           />
@@ -274,6 +279,8 @@ export default function BorrowingsManagementLayout() {
                 position: 'toolbar',
                 createBorrowingOpen,
                 setCreateBorrowingOpen,
+                createReservationOpen,
+                setCreateReservationOpen,
               } as OutletContext
             }
           />
@@ -287,6 +294,8 @@ export default function BorrowingsManagementLayout() {
               position: 'content',
               createBorrowingOpen,
               setCreateBorrowingOpen,
+              createReservationOpen,
+              setCreateReservationOpen,
               hideSectionTitle: true,
             } as OutletContext
           }
