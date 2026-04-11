@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
 import { Modal, message } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import HoverSearch from '@/shared/components/ui/search';
@@ -16,10 +17,13 @@ import {
 } from '@/modules/reservation/utils/normalizeReservationResponse';
 import ReservationDetailSidebar from './ReservationDetailSidebar';
 import EditReservationModal from './EditReservationModal';
+import CreateReservationModal from './CreateReservationModal';
 
 type OutletContext = {
   position?: string;
   hideSectionTitle?: boolean;
+  createReservationOpen?: boolean;
+  setCreateReservationOpen?: (open: boolean) => void;
 };
 
 const PAGE_SIZE = 10;
@@ -67,6 +71,12 @@ export default function ReservationsManagement() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailReservation, setDetailReservation] = useState<ReservationDetail | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [createOpenLocal, setCreateOpenLocal] = useState(false);
+
+  const openCreate =
+    context?.createReservationOpen ?? createOpenLocal;
+  const setOpenCreate =
+    context?.setCreateReservationOpen ?? setCreateOpenLocal;
 
   const [reservationIdSearch, setReservationIdSearch] = useState('');
   const [cancelFilter, setCancelFilter] = useState<'all' | 'cancelled' | 'active'>('all');
@@ -447,7 +457,18 @@ export default function ReservationsManagement() {
   }, [context?.position, openDetailFromUrl, reservationIdFromUrl, detailOpen, detailReservation?.ReservationId]);
 
   // Layout regions: header / toolbar / content
-  if (context?.position === 'header') return null;
+  if (context?.position === 'header') {
+    return (
+      <Button
+        className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+        type="button"
+        onClick={() => setOpenCreate(true)}
+      >
+        <Plus size={16} />
+        Tạo đặt trước
+      </Button>
+    );
+  }
 
   if (context?.position === 'toolbar') {
     return (
@@ -482,7 +503,17 @@ export default function ReservationsManagement() {
 
   return (
     <div className="space-y-4">
-      
+      <CreateReservationModal
+        open={openCreate}
+        onClose={() => setOpenCreate(false)}
+        onCreated={async (detail) => {
+          setOpenCreate(false);
+          setPageNumber(1);
+          await fetchReservations();
+          setDetailReservation(detail);
+          setDetailOpen(true);
+        }}
+      />
 
       <div className="pt-1">
         <DataTable
