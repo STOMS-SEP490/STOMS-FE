@@ -61,10 +61,10 @@ export const REQUEST_STATUS_LABEL: Record<number, string> = {
   1: 'Chờ duyệt',
   2: 'Từ chối',
   3: 'Đã duyệt',
-  4: 'Đang phân công',
+  4: 'Đã phân công',
   5: 'Đã công bố',
   6: 'Hoàn thành',
-  7: 'Đã hủy',
+  7: 'Huỷ',
 };
 
 export const SESSION_STATUS_LABEL: Record<number, string> = {
@@ -297,13 +297,22 @@ function normalizeStatusCode(
     if (s.includes('approved') || s.includes('đã duyệt')) return REQUEST_STATUS.APPROVED;
     if (s.includes('rejected') || s.includes('reject') || s.includes('từ chối'))
       return REQUEST_STATUS.REJECTED;
-    if (s.includes('assigning') || s.includes('đang phân công'))
+    if (
+      s.includes('assigning') ||
+      s.includes('đang phân công') ||
+      s.includes('đã phân công')
+    )
       return REQUEST_STATUS.ASSIGNING;
     if (s.includes('published') || s.includes('đã công bố'))
       return REQUEST_STATUS.PUBLISHED;
     if (s.includes('completed') || s.includes('hoàn thành') || s.includes('done') || s.includes('finished'))
       return REQUEST_STATUS.COMPLETED;
-    if (s.includes('cancelled') || s.includes('canceled') || s.includes('đã hủy'))
+    if (
+      s.includes('cancelled') ||
+      s.includes('canceled') ||
+      s.includes('đã hủy') ||
+      s.includes('huỷ')
+    )
       return REQUEST_STATUS.CANCELLED;
   }
   if (mapping === SESSION_STATUS_LABEL) {

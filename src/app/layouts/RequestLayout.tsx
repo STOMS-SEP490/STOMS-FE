@@ -6,6 +6,7 @@ import { RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { REQUEST_STATUS, REQUEST_STATUS_LABEL } from '@/constants/status';
 
 /** Tab Duyệt yêu cầu (/approval): chỉ lọc theo các trạng thái phê duyệt. */
 const APPROVAL_TAB_STATUS_FILTERS: ManagerRequestStatusFilter[] = [
@@ -129,8 +130,8 @@ export default function RequestLayout() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả loại</SelectItem>
-              <SelectItem value="event">Event</SelectItem>
-              <SelectItem value="subject">Môn</SelectItem>
+              <SelectItem value="event">Sự kiện</SelectItem>
+              <SelectItem value="subject">Môn học</SelectItem>
               <SelectItem value="course">Khóa học</SelectItem>
             </SelectContent>
           </Select>
@@ -146,15 +147,15 @@ export default function RequestLayout() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="pending">Chờ duyệt</SelectItem>
-                <SelectItem value="rejected">Từ chối</SelectItem>
-                <SelectItem value="approved">Đã duyệt</SelectItem>
+                <SelectItem value="pending">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PENDING]}</SelectItem>
+                <SelectItem value="rejected">{REQUEST_STATUS_LABEL[REQUEST_STATUS.REJECTED]}</SelectItem>
+                <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
                 {tabValue === 'all' ? (
                   <>
-                    <SelectItem value="assigning">Đang phân công</SelectItem>
-                    <SelectItem value="published">Đã công bố</SelectItem>
-                    <SelectItem value="completed">Hoàn thành</SelectItem>
-                    <SelectItem value="cancelled">Đã hủy</SelectItem>
+                    <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
+                    <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
+                    <SelectItem value="completed">{REQUEST_STATUS_LABEL[REQUEST_STATUS.COMPLETED]}</SelectItem>
+                    <SelectItem value="cancelled">{REQUEST_STATUS_LABEL[REQUEST_STATUS.CANCELLED]}</SelectItem>
                   </>
                 ) : null}
               </SelectContent>

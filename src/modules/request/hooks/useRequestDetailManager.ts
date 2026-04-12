@@ -559,7 +559,7 @@ export const useRequestDetailManager = (params: {
       try {
         setApprovingSessionId(sessionId);
         await assignmentService.approve(ids);
-        message.success('Đã duyệt các assignment đã chọn.');
+        message.success('Đã duyệt các phân công đã chọn.');
         const detail = await sessionService.getById(sessionId);
         const rowsReload = mapSessionAssignments(detail);
         setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
