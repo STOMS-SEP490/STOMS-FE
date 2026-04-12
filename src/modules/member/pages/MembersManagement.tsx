@@ -111,7 +111,6 @@ export default function MembersManagement() {
   };
 
   const columns: ColumnDef<Member>[] = [
-    { accessorKey: 'memberId', header: 'Mã người dùng' },
     {
       id: 'user',
       header: 'Tên người dùng',
@@ -159,25 +158,44 @@ export default function MembersManagement() {
       id: 'actions',
       header: 'Thao tác',
       enableSorting: false,
-      cell: ({ row }) => (
-        <div className="flex gap-3">
-          {row.original.isActive ? (
-            <button type="button" onClick={() => handleBan(row.original)} title="Vô hiệu hóa">
-              <PowerOff size={16} className="text-red-500 cursor-pointer" />
-            </button>
-          ) : (
-            <button type="button" onClick={() => handleBan(row.original)} title="Kích hoạt">
-              <Power size={16} className="text-green-600 cursor-pointer" />
-            </button>
-          )}
-          <button type="button" onClick={() => handleViewMember(row.original.memberId)} title="Xem chi tiết">
-            <Eye size={16} className="text-gray-800 cursor-pointer" />
-          </button>
-          <button type="button" onClick={() => setEditMemberId(row.original.memberId)} title="Chỉnh sửa">
-            <Pencil size={16} className="text-blue-600 cursor-pointer" />
-          </button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const m = row.original;
+        return (
+          <div className="flex gap-3">
+            <span title="Xem chi tiết">
+              <Eye
+                size={16}
+                className="cursor-pointer text-gray-800"
+                onClick={() => void handleViewMember(m.memberId)}
+              />
+            </span>
+            <span title="Chỉnh sửa">
+              <Pencil
+                size={16}
+                className="cursor-pointer text-blue-600"
+                onClick={() => setEditMemberId(m.memberId)}
+              />
+            </span>
+            {m.isActive ? (
+              <span title="Vô hiệu hóa">
+                <PowerOff
+                  size={16}
+                  className="cursor-pointer text-red-500"
+                  onClick={() => handleBan(m)}
+                />
+              </span>
+            ) : (
+              <span title="Kích hoạt">
+                <Power
+                  size={16}
+                  className="cursor-pointer text-green-600"
+                  onClick={() => handleBan(m)}
+                />
+              </span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

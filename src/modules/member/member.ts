@@ -6,6 +6,7 @@ export type MemberTeam = {
   updatedAt?: string | null;
   leaderMemberId?: number | null;
   leaderMemberName?: string | null;
+  totalMembers?: number | null;
   teamSessions?: unknown[];
   teamTopics?: unknown[];
 };

@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
-import dayjs from 'dayjs'
-import { Eye, Pencil, Power, PowerOff, Trash2, Plus } from 'lucide-react'
+import { Eye, Loader2, Pencil, Power, PowerOff, Trash2, Plus } from 'lucide-react'
 import { DataTable } from '@/shared/components/common/DataTable'
-import { TableTextAction } from '@/shared/components/common/TableTextAction'
 import { Badge } from '@/shared/components/ui/badge'
 import HoverSearch from '@/shared/components/ui/search'
 import { Button } from '@/shared/components/ui/button'
@@ -23,6 +22,8 @@ import subjectApi from '../api/subjectApi'
 import subjectSkillApi, { type SubjectSkillItem } from '../api/subjectSkillApi'
 import subjectSessionApi from '../api/subjectSessionApi'
 import { SubjectDetailDrawer } from '../components/SubjectDetailDrawer'
+import { dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi'
+import type { CoursesManagementLayoutOutletContext } from '@/app/layouts/coursesManagementOutletContext'
 
 type EditableSession = {
   subjectSessionId?: number
@@ -33,15 +34,23 @@ type EditableSession = {
 }
 
 export default function SubjectsManagement() {
-  const context = useOutletContext<{ position: string }>()
+  const context = useOutletContext<CoursesManagementLayoutOutletContext>()
+  const queryClient = useQueryClient()
 
   const { user } = useAuth()
   const roleId = Number(user?.role ?? 0)
   const isManager = roleId === 1
 
+  const subjectListLifted =
+    context.subjectListLifted === true &&
+    typeof context.setSubjectListSearch === 'function' &&
+    typeof context.subjectListSearch === 'string' &&
+    typeof context.setSubjectListPage === 'function' &&
+    typeof context.subjectListPage === 'number'
+
   const {
     data,
-    loading,
+    isListBlocking,
     search,
     setSearch,
     pageNumber,
@@ -49,7 +58,17 @@ export default function SubjectsManagement() {
     totalItems,
     setPageNumber,
     refetch,
-  } = useSubjects()
+  } = useSubjects(
+    subjectListLifted
+      ? {
+          search: context.subjectListSearch,
+          setSearch: context.setSubjectListSearch,
+          pageNumber: context.subjectListPage,
+          setPageNumber: context.setSubjectListPage,
+          activeOnly: false,
+        }
+      : { activeOnly: false },
+  )
 
   const [searchParams, setSearchParams] = useSearchParams()
   const openDetailFromUrl = searchParams.get('openDetail')
@@ -319,6 +338,7 @@ export default function SubjectsManagement() {
         setPendingSkillIdsToAdd([])
         setOpenEdit(false)
         await refetch()
+        void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey })
         return
       }
 
@@ -412,6 +432,7 @@ export default function SubjectsManagement() {
       message.success('Cập nhật môn học thành công')
       setOpenEdit(false)
       await refetch()
+      void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey })
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra'
       message.error(msg)
@@ -435,6 +456,7 @@ export default function SubjectsManagement() {
           else await subjectApi.activate(s.subjectId)
           message.success('Cập nhật trạng thái thành công')
           await refetch()
+          void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey })
         } catch (e: any) {
           const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra'
           message.error(msg)
@@ -467,77 +489,86 @@ export default function SubjectsManagement() {
   const columns = useMemo<ColumnDef<SubjectListItem>[]>(() => [
     {
       accessorKey: 'subjectCode',
-      header: 'MÃ MÔN HỌC',
-      cell: ({ row }) => <div className="text-sm font-medium">{row.original.subjectCode}</div>,
+      header: 'Mã môn học',
+      cell: ({ row }) => (
+        <span className="text-sm font-semibold text-slate-900">{row.original.subjectCode}</span>
+      ),
     },
     {
       accessorKey: 'subjectName',
-      header: 'TÊN MÔN HỌC',
+      header: 'Tên môn học',
+      cell: ({ row }) => (
+        <div className="min-w-0 truncate text-sm font-medium text-slate-900">
+          {row.original.subjectName}
+        </div>
+      ),
     },
     {
       accessorKey: 'isActive',
-      header: 'TRẠNG THÁI',
+      header: 'Trạng thái',
       cell: ({ row }) =>
         row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
+          <Badge className="border bg-green-100 text-green-700">Hoạt động</Badge>
         ) : (
-          <Badge className="bg-orange-100 text-orange-600">Ngừng hoạt động</Badge>
+          <Badge className="border bg-orange-100 text-orange-600">Ngừng hoạt động</Badge>
         ),
     },
     {
       accessorKey: 'createdAt',
-      header: 'NGÀY TẠO',
+      header: 'Ngày tạo',
       cell: ({ row }) =>
         row.original.createdAt
-          ? dayjs(row.original.createdAt).format('DD/MM/YYYY')
+          ? new Date(row.original.createdAt).toLocaleString('vi-VN')
           : '—',
     },
     {
       id: 'actions',
-      header: 'THAO TÁC',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          {isManager ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleView(row.original)}
-              aria-label="Xem chi tiết"
-            >
-              <Eye size={16} className="text-gray-800" />
-            </Button>
-          ) : (
-            <TableTextAction onClick={() => handleView(row.original)} />
-          )}
-
-          {isManager && (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => openEditModal(row.original)}
-                title="Sửa"
-              >
-                <Pencil className="w-4 h-4 text-blue-600" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleToggleActive(row.original)}
-                title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
-              >
-                {row.original.isActive ? (
-                  <PowerOff className="w-4 h-4 text-red-500" />
+      header: 'Thao tác',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const s = row.original
+        return (
+          <div className="flex gap-3">
+            <span title="Xem chi tiết">
+              <Eye
+                size={16}
+                className="cursor-pointer text-gray-800"
+                onClick={() => handleView(s)}
+              />
+            </span>
+            {isManager ? (
+              <>
+                <span title="Chỉnh sửa">
+                  <Pencil
+                    size={16}
+                    className="cursor-pointer text-blue-600"
+                    onClick={() => void openEditModal(s)}
+                  />
+                </span>
+                {s.isActive ? (
+                  <span title="Vô hiệu hóa">
+                    <PowerOff
+                      size={16}
+                      className="cursor-pointer text-red-500"
+                      onClick={() => void handleToggleActive(s)}
+                    />
+                  </span>
                 ) : (
-                  <Power className="w-4 h-4 text-green-600" />
+                  <span title="Kích hoạt">
+                    <Power
+                      size={16}
+                      className="cursor-pointer text-green-600"
+                      onClick={() => void handleToggleActive(s)}
+                    />
+                  </span>
                 )}
-              </Button>
-            </>
-          )}
-        </div>
-      ),
+              </>
+            ) : null}
+          </div>
+        )
+      },
     },
-  ], [isManager])
+  ], [isManager, handleView, openEditModal, handleToggleActive])
 
   if (context.position === 'toolbar') {
     return (
@@ -545,26 +576,15 @@ export default function SubjectsManagement() {
         <HoverSearch
           placeholder="Tìm môn học..."
           value={search}
-          onChange={(v) => {
-            setSearch(v)
-            setPageNumber(1)
-          }}
+          onChange={(value) => setSearch(value)}
         />
       </div>
     )
   }
 
   return (
-      <div className="stoms-scrollbar h-full overflow-y-auto p-6 space-y-4">
-      <div className="flex items-center">
-        <div>
-          <h2 className="text-lg font-semibold text-black">Quản lý môn học</h2>
-          <p className="text-xs text-gray-500">Danh sách môn học trong hệ thống</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border shadow-sm p-4">
-        {loading && <div className="text-sm text-gray-500 mb-3">Đang tải...</div>}
+    <div className="space-y-4">
+      <div className="relative min-h-[200px]">
         <DataTable
           columns={columns}
           data={data}
@@ -572,7 +592,18 @@ export default function SubjectsManagement() {
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(page) => setPageNumber(page)}
+          comfortable
         />
+        {isListBlocking ? (
+          <div
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-md bg-white/75 backdrop-blur-[1px]"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" aria-hidden />
+            <span className="text-sm text-slate-500">Đang tải...</span>
+          </div>
+        ) : null}
       </div>
 
       <SubjectDetailDrawer

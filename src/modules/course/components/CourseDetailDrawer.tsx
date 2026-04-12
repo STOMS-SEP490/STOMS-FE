@@ -13,7 +13,6 @@ import {
   FileText,
   Hash,
   Layers,
-  Sparkles,
   X,
 } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
@@ -139,26 +138,26 @@ export function CourseDetailDrawer({
               </div>
             ) : showBody && detailCourse ? (
               <div className="space-y-8">
-                <Section icon={CalendarClock} title="Thông tin chung">
+                <Section icon={CalendarClock} title="Thông tin chung" accent="amber">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <MetaTile
                       icon={CalendarClock}
                       label="Cập nhật lần cuối"
                       value={formatDateTime(detailCourse.updatedAt)}
                     />
-                    <MetaTile icon={Hash} label="Course ID" value={String(detailCourse.courseId)} />
+                    <MetaTile icon={Hash} label="Mã số khóa" value={String(detailCourse.courseId)} />
                   </div>
                 </Section>
 
-                <Section icon={FileText} title="Mô tả">
+                <Section icon={FileText} title="Mô tả" accent="sky">
                   <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
                     {detailCourse.description?.trim()
                       ? detailCourse.description
-                      : 'Chưa có mô tả (API chi tiết có thể chưa trả về trường này).'}
+                      : 'Chưa có mô tả'}
                   </p>
                 </Section>
 
-                <Section icon={BookOpen} title="Môn học trong khóa">
+                <Section icon={BookOpen} title="Môn học trong khóa" accent="emerald">
                   {detailCourse.courseSubjects && detailCourse.courseSubjects.length > 0 ? (
                     <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white">
                       {detailCourse.courseSubjects.map((cs: CourseSubjectSummary) => (
@@ -174,7 +173,7 @@ export function CourseDetailDrawer({
                   )}
                 </Section>
 
-                <Section icon={ClipboardList} title="Yêu cầu liên quan">
+                <Section icon={ClipboardList} title="Yêu cầu liên quan" accent="violet">
                   <button
                     type="button"
                     onClick={() => setRequestsExpanded((v) => !v)}
@@ -230,19 +229,38 @@ function HeaderChip({
   );
 }
 
+const SECTION_ACCENTS = {
+  amber: { wrap: 'bg-amber-100/90 ring-amber-200/50', icon: 'text-amber-700' },
+  sky: { wrap: 'bg-sky-100/90 ring-sky-200/50', icon: 'text-sky-700' },
+  emerald: { wrap: 'bg-emerald-100/90 ring-emerald-200/50', icon: 'text-emerald-700' },
+  violet: { wrap: 'bg-violet-100/90 ring-violet-200/50', icon: 'text-violet-700' },
+} as const;
+
+type SectionAccent = keyof typeof SECTION_ACCENTS;
+
 function Section({
   icon: Icon,
   title,
+  accent = 'sky',
   children,
 }: {
   icon: LucideIcon;
   title: string;
+  accent?: SectionAccent;
   children: ReactNode;
 }) {
+  const a = SECTION_ACCENTS[accent];
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2.5">
-        <Icon className="h-5 w-5 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
+        <span
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset',
+            a.wrap,
+          )}
+        >
+          <Icon className={cn('h-5 w-5', a.icon)} strokeWidth={2} aria-hidden />
+        </span>
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
       </div>
       <div>{children}</div>
@@ -287,14 +305,6 @@ function SubjectBlock({
   const desc = sub?.description?.trim();
   const sessions = sub?.subjectSessions ?? [];
   const sessionTotal = sub?.numberOfSession ?? sessions.length;
-  const skillItems =
-    sub?.subjectSkills
-      ?.map((sk) => ({
-        id: sk.skillId,
-        name: sk.skillName ?? sk.skill?.skillName ?? '',
-      }))
-      .filter((x) => x.name) ?? [];
-
   return (
     <div className="min-w-0 border-b border-slate-100 bg-white last:border-b-0">
       <div className="group flex min-h-[2.75rem] items-stretch gap-0">
@@ -317,7 +327,7 @@ function SubjectBlock({
             />
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-2.5">
-            <span className="inline-flex w-fit max-w-full shrink-0 rounded-md bg-[#2197C0]/[0.09] px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-[#2197C0]">
+            <span className="inline-flex w-fit max-w-full shrink-0 rounded-md bg-[#2197C0]/[0.09] px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#2197C0]">
               {subjectCode}
             </span>
             <span className="min-w-0 text-[13px] font-medium leading-snug text-slate-900 sm:text-sm">
@@ -358,35 +368,6 @@ function SubjectBlock({
                   <p className="mt-1 text-sm leading-relaxed text-slate-800">{desc}</p>
                 </div>
               ) : null}
-
-              {skillItems.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600">
-                    <Sparkles className="h-3.5 w-3.5 text-violet-600" aria-hidden />
-                    Kỹ năng
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {skillItems.slice(0, 12).map((sk) => (
-                      <span
-                        key={sk.id}
-                        className="rounded-lg bg-violet-100/90 px-2.5 py-1 text-xs font-semibold text-violet-950 ring-1 ring-violet-300/60"
-                      >
-                        {sk.name}
-                      </span>
-                    ))}
-                    {skillItems.length > 12 && (
-                      <span className="self-center text-xs font-medium text-slate-600">
-                        +{skillItems.length - 12}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-2 rounded-lg bg-violet-50/90 px-3 py-2 ring-1 ring-violet-200/70">
-                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" aria-hidden />
-                  <p className="text-sm font-medium leading-snug text-slate-800">Chưa gán kỹ năng cho môn này.</p>
-                </div>
-              )}
 
               {sessions.length > 0 ? (
                 <div className="space-y-3 border-t border-slate-200 pt-4">
@@ -437,12 +418,12 @@ function SessionRow({
       <div className="relative flex w-9 shrink-0 flex-col items-center self-stretch">
         {!isLast ? (
           <div
-            className="pointer-events-none absolute bottom-[-0.75rem] left-1/2 top-9 w-0.5 -translate-x-1/2 bg-slate-300/90"
+            className="pointer-events-none absolute bottom-[-0.75rem] left-1/2 top-9 w-0.5 -translate-x-1/2 bg-sky-200/70"
             aria-hidden
           />
         ) : null}
         <div
-          className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-slate-50 text-[12px] font-bold tabular-nums text-slate-900"
+          className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-200/90 bg-sky-50/95 text-[12px] font-bold tabular-nums text-sky-800 shadow-sm"
           aria-hidden
         >
           {sessionNo}
