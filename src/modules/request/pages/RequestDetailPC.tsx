@@ -14,7 +14,14 @@ import { Paperclip } from 'lucide-react';
 import { message } from 'antd';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { getRequestType } from '@/shared/components/request/RequestCard';
-import { getRequestStatusInfo, getSessionStatusCode, getSessionStatusInfo, SESSION_STATUS } from '@/constants/status';
+import {
+  getRequestStatusInfo,
+  getRequestStatusCode,
+  getSessionStatusCode,
+  getSessionStatusInfo,
+  REQUEST_STATUS,
+  SESSION_STATUS,
+} from '@/constants/status';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext, SessionWithFlags } from '../requestDetail.types';
 import type { RequestSessionSummary } from '../request';
@@ -25,6 +32,7 @@ import { Button } from '@/shared/components/ui/button';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import sessionService from '../api/sessionApi';
+import requestService from '../api/requestApi';
 
 export default function RequestDetailPC() {
   const { id } = useParams<{ id: string }>();
@@ -50,6 +58,9 @@ export default function RequestDetailPC() {
   const [cancelSessionOpen, setCancelSessionOpen] = useState(false);
   const [cancelSessionReason, setCancelSessionReason] = useState('');
   const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
+  const [huyYeuCauOpen, setHuyYeuCauOpen] = useState(false);
+  const [huyYeuCauReason, setHuyYeuCauReason] = useState('');
+  const [huyYeuCauLoading, setHuyYeuCauLoading] = useState(false);
 
   const openAttachmentPreview = (fileName: string | null | undefined, fileUrl: string | null | undefined) => {
     if (!fileUrl) return;
@@ -93,6 +104,10 @@ export default function RequestDetailPC() {
     eventId: request.eventId,
   });
   const statusInfo = getRequestStatusInfo(request.status);
+  const requestStatusCode = getRequestStatusCode(request.status);
+  const canHuyYeuCau =
+    requestStatusCode === REQUEST_STATUS.APPROVED ||
+    requestStatusCode === REQUEST_STATUS.ASSIGNING;
   const isRejected = statusInfo.label === 'Từ chối';
   const sessionCount = sessions.length || request.sessionsRequired || 0;
   const resolvedDetailSession =
@@ -111,6 +126,30 @@ export default function RequestDetailPC() {
     if (!resolvedDetailSession) return;
     setCancelSessionReason('');
     setCancelSessionOpen(true);
+  };
+
+  const handleConfirmHuyYeuCau = async () => {
+    const trimmed = huyYeuCauReason.trim();
+    if (!trimmed) {
+      message.warning('Vui lòng nhập lý do hủy yêu cầu.');
+      return;
+    }
+    try {
+      setHuyYeuCauLoading(true);
+      await requestService.cancel(Number(id), { reason: trimmed });
+      message.success('Đã hủy yêu cầu');
+      setHuyYeuCauOpen(false);
+      setHuyYeuCauReason('');
+      setRightPanel(null);
+      await refreshDetail();
+      refreshRequestSidebar?.();
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msg = (err as any)?.message || 'Hủy yêu cầu thất bại.';
+      message.error(msg);
+    } finally {
+      setHuyYeuCauLoading(false);
+    }
   };
 
   const handleConfirmCancelSession = async () => {
@@ -153,6 +192,21 @@ export default function RequestDetailPC() {
               <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}>
                 {statusInfo.label}
               </span>
+              {canHuyYeuCau ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setHuyYeuCauReason('');
+                    setHuyYeuCauOpen(true);
+                  }}
+                  className="shrink-0 gap-1.5 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                  Hủy yêu cầu
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -502,6 +556,51 @@ export default function RequestDetailPC() {
             </div>
           </div>
         )}
+
+        {/* Hủy yêu cầu (PC) — PUT /requests/{id}/cancel */}
+        <Dialog
+          open={huyYeuCauOpen}
+          onClose={() => !huyYeuCauLoading && setHuyYeuCauOpen(false)}
+          title="Hủy yêu cầu"
+          description="Nhập lý do hủy. Thao tác không thể hoàn tác."
+          className="max-w-md border-0 shadow-2xl"
+        >
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="huy-yeu-cau-reason" className="text-black">
+                Lý do <span className="text-red-500">*</span>
+              </Label>
+              <textarea
+                id="huy-yeu-cau-reason"
+                rows={4}
+                value={huyYeuCauReason}
+                onChange={(e) => setHuyYeuCauReason(e.target.value)}
+                placeholder="Ví dụ: Không còn nhu cầu, đổi lịch..."
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-lg border-gray-200"
+                disabled={huyYeuCauLoading}
+                onClick={() => setHuyYeuCauOpen(false)}
+              >
+                Đóng
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-lg border-red-200 text-red-600 hover:bg-red-50"
+                disabled={huyYeuCauLoading}
+                onClick={handleConfirmHuyYeuCau}
+              >
+                {huyYeuCauLoading ? 'Đang xử lý...' : 'Xác nhận hủy'}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
 
         {/* Hủy phiên (PUT /sessions/cancel) — cần lý do */}
         <Dialog
