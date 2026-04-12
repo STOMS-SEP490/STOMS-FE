@@ -14,6 +14,69 @@ export type SessionForTeam = {
   tasRequired?: number | null;
 };
 
+function readTeamNumeric(team: Team | undefined, keys: readonly string[]): number | undefined {
+  if (!team) return undefined;
+  const record = team as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return Math.floor(value);
+    if (typeof value === 'string' && value.trim() !== '') {
+      const n = Number(value);
+      if (!Number.isNaN(n) && n >= 0) return Math.floor(n);
+    }
+  }
+  return undefined;
+}
+
+/** Trần GV có thể gán cho một đội (theo API team-suggestions). Ưu tiên tổng pool; không có dữ liệu → không giới hạn phía FE. */
+function getTeamTeacherAssignCap(team: Team | undefined): number | undefined {
+  const total = readTeamNumeric(team, [
+    'totalTeacherCount',
+    'TotalTeacherCount',
+    'teachersCount',
+    'TeachersCount',
+    'teacherCount',
+    'TeacherCount',
+  ]);
+  const avail = readTeamNumeric(team, [
+    'availableTeacherCount',
+    'availableTeachersCount',
+    'AvailableTeacherCount',
+    'AvailableTeachersCount',
+  ]);
+  if (total != null) return total;
+  if (avail != null) return avail;
+  return undefined;
+}
+
+function getTeamTaAssignCap(team: Team | undefined): number | undefined {
+  const total = readTeamNumeric(team, ['totalTaCount', 'TotalTaCount', 'tasCount', 'TasCount', 'taCount', 'TaCount']);
+  const avail = readTeamNumeric(team, [
+    'availableTaCount',
+    'AvailableTACount',
+    'AvailableTaCount',
+    'availableTACount',
+  ]);
+  if (total != null) return total;
+  if (avail != null) return avail;
+  return undefined;
+}
+
+function cappedAllocForTeam(
+  team: Team | undefined,
+  needTeachers: number,
+  needTas: number,
+): { teachersRequired: number; tasRequired: number } {
+  const capT = getTeamTeacherAssignCap(team);
+  const capTa = getTeamTaAssignCap(team);
+  const nt = Math.max(0, needTeachers);
+  const na = Math.max(0, needTas);
+  return {
+    teachersRequired: capT != null ? Math.min(nt, capT) : nt,
+    tasRequired: capTa != null ? Math.min(na, capTa) : na,
+  };
+}
+
 type Props = {
   session: SessionForTeam & { sessionId: number };
   currentTeamQuantities?: Record<number, { teachersRequired: number; tasRequired: number }>;
@@ -86,13 +149,14 @@ export default function RequestDetailTeamPanel({
       return acc;
     }, {});
     if (ids.length > 0 && Object.values(next).every((v) => v.teachersRequired === 0 && v.tasRequired === 0)) {
-      next[ids[0]] = { teachersRequired: requestedTeachers, tasRequired: requestedTas };
+      const firstTeam = suggestedTeams.find((t) => t.teamId === ids[0]);
+      next[ids[0]] = cappedAllocForTeam(firstTeam, requestedTeachers, requestedTas);
     }
     setTeamQuantities(next);
     setShowAddTeam(false);
     // Chỉ đồng bộ khi đổi phiên hoặc tập id đội từ parent (vd. bỏ đội 0 GV/0 TG); không gắn currentTeamQuantities để tránh đóng panel "Thêm đội" khi gõ số.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.sessionId, assignedIdsKey, requestedTeachers, requestedTas]);
+  }, [session.sessionId, assignedIdsKey, requestedTeachers, requestedTas, suggestedTeams]);
 
   const filteredTeams = useMemo(() => {
     const q = teamSearch.trim().toLowerCase();
@@ -119,9 +183,17 @@ export default function RequestDetailTeamPanel({
       const current = teamQuantities[teamId] ?? { teachersRequired: 0, tasRequired: 0 };
       const otherTeachers = totals.teachers - current.teachersRequired;
       const otherTas = totals.tas - current.tasRequired;
+      const teamRow = suggestedTeams.find((t) => t.teamId === teamId);
+      const capTeachers = getTeamTeacherAssignCap(teamRow);
+      const capTas = getTeamTaAssignCap(teamRow);
+      const roomTeachers = Math.max(0, requestedTeachers - otherTeachers);
+      const roomTas = Math.max(0, requestedTas - otherTas);
+      const maxTeachersThisTeam =
+        capTeachers != null ? Math.min(roomTeachers, capTeachers) : roomTeachers;
+      const maxTasThisTeam = capTas != null ? Math.min(roomTas, capTas) : roomTas;
 
-      if (field === 'teachersRequired' && otherTeachers + safeValue > requestedTeachers) return;
-      if (field === 'tasRequired' && otherTas + safeValue > requestedTas) return;
+      if (field === 'teachersRequired' && safeValue > maxTeachersThisTeam) return;
+      if (field === 'tasRequired' && safeValue > maxTasThisTeam) return;
 
       setTeamQuantities((prev) => {
         const next = {
@@ -134,7 +206,7 @@ export default function RequestDetailTeamPanel({
         return next;
       });
     },
-    [requestedTas, requestedTeachers, session.sessionId, teamQuantities, totals]
+    [requestedTas, requestedTeachers, session.sessionId, suggestedTeams, teamQuantities, totals]
   );
 
   const toggleTeamAdded = useCallback((teamId: number) => {
@@ -155,12 +227,13 @@ export default function RequestDetailTeamPanel({
           0
         );
         const usedTas = prev.reduce((sum, id) => sum + Math.max(0, Number(prevQ[id]?.tasRequired ?? 0) || 0), 0);
+        const needT = Math.max(0, requestedTeachers - usedTeachers);
+        const needTa = Math.max(0, requestedTas - usedTas);
+        const picked = suggestedTeams.find((t) => t.teamId === teamId);
+        const capped = cappedAllocForTeam(picked, needT, needTa);
         const next = {
           ...prevQ,
-          [teamId]: {
-            teachersRequired: Math.max(0, requestedTeachers - usedTeachers),
-            tasRequired: Math.max(0, requestedTas - usedTas),
-          },
+          [teamId]: capped,
         };
         return next;
       });
@@ -177,7 +250,7 @@ export default function RequestDetailTeamPanel({
       closePopupTimerRef.current = null;
     }
     setTeamDetailPopup(null);
-  }, [requestedTas, requestedTeachers, session.sessionId]);
+  }, [requestedTas, requestedTeachers, session.sessionId, suggestedTeams]);
 
   const removeAddedTeam = useCallback((teamId: number) => {
     setAddedTeamIds((prev) => prev.filter((id) => id !== teamId));

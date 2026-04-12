@@ -16,6 +16,14 @@ const APPROVAL_TAB_STATUS_FILTERS: ManagerRequestStatusFilter[] = [
   'approved',
 ];
 
+/** Tab Phân công cần duyệt: chỉ trạng thái yêu cầu 3–5 (APPROVED / ASSIGNING / PUBLISHED). */
+const ASSIGNMENT_TAB_STATUS_FILTERS: ManagerRequestStatusFilter[] = [
+  'all',
+  'approved',
+  'assigning',
+  'published',
+];
+
 export default function RequestLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,7 +65,9 @@ export default function RequestLayout() {
 
   useEffect(() => {
     if (tabValue === 'assignment') {
-      setStatusFilter('assigning');
+      setStatusFilter((prev) =>
+        ASSIGNMENT_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
+      );
       return;
     }
 
@@ -91,7 +101,9 @@ export default function RequestLayout() {
           onValueChange={(v) => {
             const mode = v as 'all' | 'approval' | 'assignment';
             if (mode === 'assignment') {
-              setStatusFilter('assigning');
+              setStatusFilter((prev) =>
+                ASSIGNMENT_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
+              );
               navigate('/manager/requests/assignments');
               return;
             }
@@ -136,8 +148,24 @@ export default function RequestLayout() {
             </SelectContent>
           </Select>
 
-          {/* Status Filter — khác theo tab */}
-          {tabValue !== 'assignment' && tabValue !== 'approval' ? (
+          {/* Status Filter — tab Phân công chỉ 3–5; tab Tất cả đủ enum */}
+          {tabValue === 'assignment' && (
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as ManagerRequestStatusFilter)}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[180px]">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
+                <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
+                <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {tabValue === 'all' && (
             <Select
               value={statusFilter}
               onValueChange={(v) => setStatusFilter(v as ManagerRequestStatusFilter)}
@@ -150,18 +178,12 @@ export default function RequestLayout() {
                 <SelectItem value="pending">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PENDING]}</SelectItem>
                 <SelectItem value="rejected">{REQUEST_STATUS_LABEL[REQUEST_STATUS.REJECTED]}</SelectItem>
                 <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
-                {tabValue === 'all' ? (
-                  <>
-                    <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
-                    <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
-                    <SelectItem value="completed">{REQUEST_STATUS_LABEL[REQUEST_STATUS.COMPLETED]}</SelectItem>
-                    <SelectItem value="cancelled">{REQUEST_STATUS_LABEL[REQUEST_STATUS.CANCELLED]}</SelectItem>
-                  </>
-                ) : null}
+                <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
+                <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
+                <SelectItem value="completed">{REQUEST_STATUS_LABEL[REQUEST_STATUS.COMPLETED]}</SelectItem>
+                <SelectItem value="cancelled">{REQUEST_STATUS_LABEL[REQUEST_STATUS.CANCELLED]}</SelectItem>
               </SelectContent>
             </Select>
-          ) : (
-            <></>
           )}
 
           {/* Reset Button */}
@@ -178,7 +200,7 @@ export default function RequestLayout() {
       </div>
       <div className="flex gap-4 flex-1 min-h-0 min-w-0 overflow-hidden pb-4">
         {/* Sidebar */}
-        <div className="w-[360px] shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
+        <div className="w-[min(420px,40vw)] min-w-[320px] shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <RequestSidebar
             basePath={requestBasePath}
             search={search}

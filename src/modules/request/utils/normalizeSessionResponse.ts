@@ -9,11 +9,19 @@ import type {
 const pick = <T>(obj: Record<string, unknown>, pascal: string, camel: string): T | undefined =>
   (obj[pascal] as T | undefined) ?? (obj[camel] as T | undefined);
 
+function pickPositiveId(raw: unknown): number {
+  if (raw == null || raw === '') return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
 function normalizeStaffMember(raw: unknown): SessionStaffMemberResponse | null | undefined {
   if (raw == null) return null;
   const s = raw as Record<string, unknown>;
+  const teamIdNum = pickPositiveId(pick(s, 'TeamId', 'teamId'));
   return {
     MemberId: Number(pick(s, 'MemberId', 'memberId') ?? 0),
+    TeamId: teamIdNum > 0 ? teamIdNum : null,
     FullName: (pick(s, 'FullName', 'fullName') as string | null | undefined) ?? null,
     AvatarUrl: (pick(s, 'AvatarUrl', 'avatarUrl') as string | null | undefined) ?? null,
     Email: (pick(s, 'Email', 'email') as string | null | undefined) ?? null,
@@ -23,9 +31,11 @@ function normalizeStaffMember(raw: unknown): SessionStaffMemberResponse | null |
 
 function normalizeAssignment(raw: unknown): AssignmentResponse {
   const a = raw as Record<string, unknown>;
+  const assignTeamNum = pickPositiveId(pick(a, 'TeamId', 'teamId'));
   return {
     AssignmentId: Number(pick(a, 'AssignmentId', 'assignmentId') ?? 0),
     SessionId: Number(pick(a, 'SessionId', 'sessionId') ?? 0),
+    TeamId: assignTeamNum > 0 ? assignTeamNum : null,
     StaffMemberId: Number(pick(a, 'StaffMemberId', 'staffMemberId') ?? 0),
     StaffRole: String(pick(a, 'StaffRole', 'staffRole') ?? ''),
     Status: String(pick(a, 'Status', 'status') ?? ''),

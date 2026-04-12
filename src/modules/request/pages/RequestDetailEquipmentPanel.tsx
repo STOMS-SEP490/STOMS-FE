@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import { Check, ImageOff, Search } from 'lucide-react';
 import { DatePicker, Image, Select as AntSelect, message } from 'antd';
@@ -29,6 +29,28 @@ type ReservationRow = {
 
 const PAGE_SIZE = 50;
 
+/** Không chọn ngày trước hôm nay (lịch). */
+function disabledBorrowDate(current: dayjs.Dayjs | null) {
+  if (!current) return false;
+  return current.isBefore(dayjs(), 'day');
+}
+
+/** Hôm nay: không chọn giờ/phút đã qua. */
+function disabledBorrowTime(date: dayjs.Dayjs | null) {
+  if (!date || !date.isSame(dayjs(), 'day')) {
+    return {};
+  }
+  const now = dayjs();
+  return {
+    disabledHours: () => Array.from({ length: now.hour() }, (_, i) => i),
+    disabledMinutes: (selectedHour: number) => {
+      if (selectedHour < now.hour()) return Array.from({ length: 60 }, (_, i) => i);
+      if (selectedHour > now.hour()) return [];
+      return Array.from({ length: now.minute() }, (_, i) => i);
+    },
+  };
+}
+
 type Props = {
   sessions: SessionOption[];
   createdByMemberId: number;
@@ -47,9 +69,17 @@ export default function RequestDetailEquipmentPanel({
   ]);
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false);
   const [selectedEquipmentById, setSelectedEquipmentById] = useState<Record<number, EquipmentResponse>>({});
-  const [availabilityByKey, setAvailabilityByKey] = useState<
-    Record<string, { items: EquipmentResponse[]; total: number; loading: boolean; error: string | null }>
-  >({});
+  type AvailabilityEntry = {
+    items: EquipmentResponse[];
+    total: number;
+    loading: boolean;
+    error: string | null;
+    /** Đã fetch xong (kể cả danh sách rỗng / lỗi) — tránh lặp vô hạn effect. */
+    loaded: boolean;
+  };
+  const [availabilityByKey, setAvailabilityByKey] = useState<Record<string, AvailabilityEntry>>({});
+  const availabilityByKeyRef = useRef(availabilityByKey);
+  availabilityByKeyRef.current = availabilityByKey;
   const [categories, setCategories] = useState<CategoryListItem[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [reserveSubmitLoading, setReserveSubmitLoading] = useState(false);
@@ -90,14 +120,19 @@ export default function RequestDetailEquipmentPanel({
   // UX: panel này hỗ trợ "đặt dài hạn" bằng cách chọn nhiều phiên cùng lúc,
   // lấy khung thời gian mượn/trả từ session đầu-cuối để check availability.
 
-  // Load thiết bị khả dụng theo từng dòng (session + start/end + category)
+  // Load thiết bị khả dụng theo từng dòng (session + start/end + category).
+  // Không đưa `availabilityByKey` vào dependency: mỗi lần set state sẽ chạy lại effect;
+  // điều kiện cũ `!items.length` còn khiến reload vô hạn khi API trả danh sách rỗng (vd. sau khi bấm "Now").
   useEffect(() => {
     if (sessions.length === 0) return;
     const rowsToLoad = reservationRows
       .filter((r) => r.sessionIds.length > 0 && r.startAtLocal && r.endAtLocal)
       .filter((r) => {
         const key = getRowAvailabilityKey(r);
-        return !availabilityByKey[key]?.loading && !availabilityByKey[key]?.items?.length;
+        const entry = availabilityByKeyRef.current[key];
+        if (entry?.loading) return false;
+        if (entry?.loaded) return false;
+        return true;
       });
     if (rowsToLoad.length === 0) return;
 
@@ -105,7 +140,7 @@ export default function RequestDetailEquipmentPanel({
       const key = getRowAvailabilityKey(row);
       setAvailabilityByKey((prev) => ({
         ...prev,
-        [key]: { items: [], total: 0, loading: true, error: null },
+        [key]: { items: [], total: 0, loading: true, error: null, loaded: false },
       }));
 
       try {
@@ -114,14 +149,26 @@ export default function RequestDetailEquipmentPanel({
         if (!start.isValid() || !end.isValid()) {
           setAvailabilityByKey((prev) => ({
             ...prev,
-            [key]: { items: [], total: 0, loading: false, error: 'Thời gian mượn/trả không hợp lệ.' },
+            [key]: {
+              items: [],
+              total: 0,
+              loading: false,
+              error: 'Thời gian mượn/trả không hợp lệ.',
+              loaded: true,
+            },
           }));
           return;
         }
         if (!end.isAfter(start)) {
           setAvailabilityByKey((prev) => ({
             ...prev,
-            [key]: { items: [], total: 0, loading: false, error: 'Giờ trả phải sau giờ mượn.' },
+            [key]: {
+              items: [],
+              total: 0,
+              loading: false,
+              error: 'Giờ trả phải sau giờ mượn.',
+              loaded: true,
+            },
           }));
           return;
         }
@@ -138,7 +185,13 @@ export default function RequestDetailEquipmentPanel({
 
         setAvailabilityByKey((prev) => ({
           ...prev,
-          [key]: { items: res.Items ?? [], total: res.TotalItems ?? 0, loading: false, error: null },
+          [key]: {
+            items: res.Items ?? [],
+            total: res.TotalItems ?? 0,
+            loading: false,
+            error: null,
+            loaded: true,
+          },
         }));
       } catch (err: unknown) {
         const msg =
@@ -147,13 +200,13 @@ export default function RequestDetailEquipmentPanel({
             : 'Không tải được thiết bị khả dụng.';
         setAvailabilityByKey((prev) => ({
           ...prev,
-          [key]: { items: [], total: 0, loading: false, error: msg },
+          [key]: { items: [], total: 0, loading: false, error: msg, loaded: true },
         }));
       }
     };
 
     rowsToLoad.forEach((r) => void load(r));
-  }, [reservationRows, sessions, availabilityByKey, getRowAvailabilityKey]);
+  }, [reservationRows, sessions, getRowAvailabilityKey]);
 
   const setReservationRowSessions = useCallback(
     (_index: number, nextSessionIds: number[]) => {
@@ -174,8 +227,18 @@ export default function RequestDetailEquipmentPanel({
         const earliest = [...selectedSessions].sort((a, b) => dayjs(a.startAt).valueOf() - dayjs(b.startAt).valueOf())[0];
         const latest = [...selectedSessions].sort((a, b) => dayjs(a.endAt).valueOf() - dayjs(b.endAt).valueOf()).slice(-1)[0];
 
-        const startAtLocal = earliest?.startAt ? dayjs(earliest.startAt).format('YYYY-MM-DDTHH:mm') : '';
-        const endAtLocal = latest?.endAt ? dayjs(latest.endAt).format('YYYY-MM-DDTHH:mm') : '';
+        const now = dayjs();
+        let start = earliest?.startAt ? dayjs(earliest.startAt) : null;
+        if (start && start.isBefore(now)) {
+          start = now;
+        }
+        let end = latest?.endAt ? dayjs(latest.endAt) : null;
+        if (start && end && !end.isAfter(start)) {
+          end = start.add(1, 'hour');
+        }
+
+        const startAtLocal = start ? start.format('YYYY-MM-DDTHH:mm') : '';
+        const endAtLocal = end ? end.format('YYYY-MM-DDTHH:mm') : '';
 
         next[0] = {
           ...next[0],
@@ -277,6 +340,10 @@ export default function RequestDetailEquipmentPanel({
       const end = dayjs(row.endAtLocal);
       if (!start.isValid() || !end.isValid() || !end.isAfter(start)) {
         setReserveSubmitError('Thời gian không hợp lệ.');
+        return;
+      }
+      if (start.isBefore(dayjs())) {
+        setReserveSubmitError('Giờ mượn không được là thời điểm trong quá khứ.');
         return;
       }
       await reservationApi.create({
@@ -396,11 +463,17 @@ export default function RequestDetailEquipmentPanel({
                         showTime={{ format: 'HH:mm' }}
                         format="DD/MM/YYYY HH:mm"
                         placeholder="Chọn giờ mượn"
-                        onChange={(v) =>
+                        disabledDate={disabledBorrowDate}
+                        disabledTime={disabledBorrowTime}
+                        onChange={(v) => {
+                          if (v && v.isBefore(dayjs())) {
+                            message.warning('Giờ mượn không được chọn thời điểm trong quá khứ.');
+                            return;
+                          }
                           setReservationRowTime(rowIndex, {
                             startAtLocal: v ? v.format('YYYY-MM-DDTHH:mm') : '',
-                          })
-                        }
+                          });
+                        }}
                       />
                     </div>
                     <div>
@@ -506,6 +579,13 @@ export default function RequestDetailEquipmentPanel({
                       return (
                         <div className="py-10 text-center text-xs text-slate-500 rounded-xl bg-white/60">
                           {row.startAtLocal && row.endAtLocal ? 'Đang tải thiết bị...' : 'Vui lòng chọn giờ mượn/giờ trả.'}
+                        </div>
+                      );
+                    }
+                    if (cache.loading) {
+                      return (
+                        <div className="py-10 text-center text-xs text-slate-500 rounded-xl bg-white/60">
+                          Đang tải thiết bị...
                         </div>
                       );
                     }

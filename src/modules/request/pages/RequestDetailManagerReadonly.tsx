@@ -239,7 +239,6 @@ export default function RequestDetailManagerReadonly() {
                             <span className="text-xs text-sky-600 font-medium">
                               {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                             </span>
-                            <span className="text-xs text-slate-500">Dạy học</span>
                             <span
                               className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
                                 (session as SessionWithFlags).teamAssigned
@@ -424,7 +423,6 @@ export default function RequestDetailManagerReadonly() {
                     <h2 className="text-lg font-bold text-slate-900">Phiên {rightPanel.session.sessionNo}</h2>
                   )}
                   <div className="flex flex-wrap items-center gap-2 mt-2">
-                    <span className="text-xs font-medium text-sky-600">Dạy học</span>
                     {(() => {
                       const info = getSessionStatusInfo((resolvedDetailSession as any)?.status);
                       return (

@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { GraduationCap, CheckCircle, BookOpen, Clock, XCircle } from 'lucide-react';
 import dayjs from 'dayjs';
 import { StatCard } from '@/shared/components/common/StatCard';
@@ -8,11 +8,21 @@ import borrowingApi from '@/modules/equipment/api/borrowingApi';
 import reservationApi from '@/modules/reservation/api/reservationApi';
 import { normalizeReservationPagedResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 
-type OutletContext = {
+export type BorrowingsManagementOutletContext = {
   position?: string;
   createBorrowingOpen?: boolean;
   setCreateBorrowingOpen?: (open: boolean) => void;
   hideSectionTitle?: boolean;
+  /**
+   * Đặt trước: dùng chung cho toolbar + vì layout render nhiều `<Outlet />` (mỗi cái một instance component).
+   * API: IsTemporarilyCancelled = true (Tạm hủy) | false (Đang hoạt động) | bỏ qua (Tất cả).
+   */
+  reservationIdSearch?: string;
+  setReservationIdSearch?: (v: string) => void;
+  reservationCancelFilter?: 'all' | 'cancelled' | 'active';
+  setReservationCancelFilter?: (v: 'all' | 'cancelled' | 'active') => void;
+  reservationPageNumber?: number;
+  setReservationPageNumber?: (p: number) => void;
 };
 
 export default function BorrowingsManagementLayout() {
@@ -42,6 +52,29 @@ export default function BorrowingsManagementLayout() {
     upcoming: 0,
     cancelled: 0,
   });
+
+  const [reservationIdSearch, setReservationIdSearchState] = useState('');
+  const [reservationCancelFilter, setReservationCancelFilterState] = useState<
+    'all' | 'cancelled' | 'active'
+  >('all');
+  const [reservationPageNumber, setReservationPageNumber] = useState(1);
+
+  const setReservationIdSearch = useCallback((v: string) => {
+    setReservationIdSearchState(v);
+    setReservationPageNumber(1);
+  }, []);
+
+  const setReservationCancelFilter = useCallback((v: 'all' | 'cancelled' | 'active') => {
+    setReservationCancelFilterState(v);
+    setReservationPageNumber(1);
+  }, []);
+
+  useEffect(() => {
+    if (isReservationsTab) return;
+    setReservationIdSearchState('');
+    setReservationCancelFilterState('all');
+    setReservationPageNumber(1);
+  }, [isReservationsTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -220,6 +253,25 @@ export default function BorrowingsManagementLayout() {
     ];
   }, [borrowingsStats, isReservationsTab, loadingStats, reservationsStats]);
 
+  const reservationsFilterProps: Pick<
+    BorrowingsManagementOutletContext,
+    | 'reservationIdSearch'
+    | 'setReservationIdSearch'
+    | 'reservationCancelFilter'
+    | 'setReservationCancelFilter'
+    | 'reservationPageNumber'
+    | 'setReservationPageNumber'
+  > = isReservationsTab
+    ? {
+        reservationIdSearch,
+        setReservationIdSearch,
+        reservationCancelFilter,
+        setReservationCancelFilter,
+        reservationPageNumber,
+        setReservationPageNumber,
+      }
+    : {};
+
   return (
     <div className="p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
@@ -236,7 +288,8 @@ export default function BorrowingsManagementLayout() {
                 position: 'header',
                 createBorrowingOpen,
                 setCreateBorrowingOpen,
-              } as OutletContext
+                ...reservationsFilterProps,
+              } as BorrowingsManagementOutletContext
             }
           />
         </div>
@@ -274,7 +327,8 @@ export default function BorrowingsManagementLayout() {
                 position: 'toolbar',
                 createBorrowingOpen,
                 setCreateBorrowingOpen,
-              } as OutletContext
+                ...reservationsFilterProps,
+              } as BorrowingsManagementOutletContext
             }
           />
         </div>
@@ -288,7 +342,8 @@ export default function BorrowingsManagementLayout() {
               createBorrowingOpen,
               setCreateBorrowingOpen,
               hideSectionTitle: true,
-            } as OutletContext
+              ...reservationsFilterProps,
+            } as BorrowingsManagementOutletContext
           }
         />
       </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, AlertTriangle, Paperclip, ImageOff, Users, Wrench, ChevronDown, ChevronRight } from 'lucide-react';
@@ -6,7 +6,16 @@ import { message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';
-import { getAssignmentStaffRoleAccent, getRequestStatusCode, getRequestStatusInfo, getSessionStatusCode, getSessionStatusInfo, REQUEST_STATUS, SESSION_STATUS } from '@/constants/status';
+import {
+  getAssignmentStaffRoleAccent,
+  getAssignmentStatusInfo,
+  getRequestStatusCode,
+  getRequestStatusInfo,
+  getSessionStatusCode,
+  getSessionStatusInfo,
+  REQUEST_STATUS,
+  SESSION_STATUS,
+} from '@/constants/status';
 import {
   canManagerReviewAssignmentRow,
   isAssignmentApproved,
@@ -28,6 +37,21 @@ import sessionService from '../api/sessionApi';
 import reservationService from '@/modules/reservation/api/reservationApi';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import { teamApi } from '@/modules/team/api/teamApi';
+
+const RESERVE_EQUIPMENT_ALLOWED_REQUEST_STATUS = new Set<number>([
+  REQUEST_STATUS.PENDING,
+  REQUEST_STATUS.APPROVED,
+  REQUEST_STATUS.ASSIGNING,
+  REQUEST_STATUS.PUBLISHED,
+]);
+
+const RESERVE_EQUIPMENT_SESSION_STATUS = new Set<number>([
+  SESSION_STATUS.PENDING,
+  SESSION_STATUS.APPROVED,
+  SESSION_STATUS.ASSIGNING,
+  SESSION_STATUS.ASSIGNMENT_REJECTED,
+  SESSION_STATUS.ASSIGNED,
+]);
 
 export default function RequestDetail() {
   type ApproveSessionPreview = {
@@ -92,6 +116,26 @@ export default function RequestDetail() {
     viewMode,
     refreshRequestSidebar,
   });
+
+  const canReserveEquipment = useMemo(() => {
+    if (!request?.status) return false;
+    const code = getRequestStatusCode(request.status);
+    return code != null && RESERVE_EQUIPMENT_ALLOWED_REQUEST_STATUS.has(code);
+  }, [request?.status]);
+
+  useEffect(() => {
+    if (rightPanel?.mode !== 'equipment') return;
+    if (!canReserveEquipment) setRightPanel(null);
+  }, [rightPanel?.mode, canReserveEquipment, setRightPanel]);
+
+  const sessionsEligibleForEquipmentReserve = useMemo(() => {
+    return sessions.filter((s) => {
+      const code = getSessionStatusCode(s.status);
+      return code != null && RESERVE_EQUIPMENT_SESSION_STATUS.has(code);
+    });
+  }, [sessions]);
+
+  const hasUnreservedEquipmentSlot = sessionsEligibleForEquipmentReserve.some((s) => !s.equipmentReserved);
 
   const remainingUnassignedSessions = Math.max(0, sessions.length - assignedCount);
   const [highlightSessionId, setHighlightSessionId] = useState<number | null>(null);
@@ -456,6 +500,7 @@ export default function RequestDetail() {
                   const rows = assignmentsBySessionId[session.sessionId] ?? [];
                   const pendingCount = rows.filter((r) => canManagerReviewAssignmentRow(r)).length;
                   const fullyAssigned = isSessionFullyAssigned(session);
+                  const sessionPending = getSessionStatusCode(session.status) === SESSION_STATUS.PENDING;
                   const sessionTitle = getSessionDisplayTitle(session);
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
                   const sessionStatusInfo = getSessionStatusInfo(session.status);
@@ -495,25 +540,23 @@ export default function RequestDetail() {
                           >
                             {sessionStatusInfo.label}
                           </span>
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
-                              fullyAssigned
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : 'bg-amber-50 text-amber-800 border-amber-200'
-                            }`}
-                          >
-                            {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                            {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
-                          </span>
-                          <Badge
-                            className={
-                              pendingCount > 0
-                                ? 'bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-semibold'
-                                : 'bg-emerald-50 text-emerald-900 border-emerald-200 text-[10px] font-semibold'
-                            }
-                          >
-                            {pendingCount > 0 ? `Chờ duyệt ${pendingCount}` : 'Đã duyệt xong'}
-                          </Badge>
+                          {sessionPending ? (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                                fullyAssigned
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
+                            </span>
+                          ) : null}
+                          {pendingCount > 0 ? (
+                            <Badge className="bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-semibold">
+                              {pendingCount} phân công chờ duyệt
+                            </Badge>
+                          ) : null}
                         </div>
                         <span
                           className={`inline-flex items-center gap-0.5 text-xs font-semibold select-none ${
@@ -626,16 +669,16 @@ export default function RequestDetail() {
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
-              <Button
-                onClick={() =>
-                  sessions.some((s) => !s.equipmentReserved) && setRightPanel({ mode: 'equipment' })
-                }
-                disabled={sessions.every((s) => s.equipmentReserved)}
-                className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50 text-[11px] h-8 rounded-lg px-3"
-              >
-                <Plus size={14} />
-                Đặt trước thiết bị
-              </Button>
+              {canReserveEquipment ? (
+                <Button
+                  onClick={() => hasUnreservedEquipmentSlot && setRightPanel({ mode: 'equipment' })}
+                  disabled={!hasUnreservedEquipmentSlot}
+                  className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50 text-[11px] h-8 rounded-lg px-3"
+                >
+                  <Plus size={14} />
+                  Đặt trước thiết bị
+                </Button>
+              ) : null}
             </div>
             {sessions.length === 0 ? (
               <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách phiên chi tiết.</p>
@@ -645,6 +688,7 @@ export default function RequestDetail() {
                   const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
                   const teamCount = teamIds.length;
                   const fullyAssigned = isSessionFullyAssigned(session);
+                  const sessionPending = getSessionStatusCode(session.status) === SESSION_STATUS.PENDING;
                   const topic = session.subjectSession ?? session.eventSession;
                   const sessionTitle = getSessionDisplayTitle(session);
                   const sessionSkills = session.sessionSkills ?? [];
@@ -656,7 +700,7 @@ export default function RequestDetail() {
                       role="button"
                       tabIndex={0}
                       data-request-session-id={session.sessionId}
-                      data-request-session-unassigned={String(!fullyAssigned)}
+                      data-request-session-unassigned={String(sessionPending && !fullyAssigned)}
                       onClick={() => setRightPanel({ mode: 'detail', session })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -682,16 +726,18 @@ export default function RequestDetail() {
                           >
                             {sessionStatusInfo.label}
                           </span>
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                              fullyAssigned
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-amber-50 text-amber-800 border border-amber-200'
-                            }`}
-                          >
-                            {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                            {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
-                          </span>
+                          {sessionPending ? (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                fullyAssigned
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-800 border border-amber-200'
+                              }`}
+                            >
+                              {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
+                            </span>
+                          ) : null}
                         </div>
                         <span
                           className="inline-flex items-center gap-0.5 text-xs font-semibold text-sky-700 select-none"
@@ -808,18 +854,18 @@ export default function RequestDetail() {
             onClick={() => setRightPanel(null)}
           />
 
-          {/* Panel: thu hẹp khi xem chi tiết phiên để cân bằng, đồng bộ với sidebar detail khác (vd. BorrowingDetailSidebar 560px) */}
-          <div
-            className={`w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden ${
-              rightPanel.mode === 'detail' ? 'max-w-xl' : 'max-w-2xl'
-            } border-l`}
-          >
+          {/* Panel: max-w-2xl — đồng bộ TeamLeaderAssignmentsPage */}
+          <div className="w-full max-w-2xl h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden border-l">
             {/* Header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
                 {rightPanel.mode !== 'detail' && (
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                    {rightPanel.mode === 'team' ? 'Đang gán đội' : 'Đặt trước thiết bị'}
+                    {rightPanel.mode === 'team'
+                      ? 'Đang gán đội'
+                      : rightPanel.mode === 'assignment'
+                        ? 'Duyệt phân công'
+                        : 'Đặt trước thiết bị'}
                   </p>
                 )}
                 {rightPanel.mode === 'equipment' ? (
@@ -843,9 +889,32 @@ export default function RequestDetail() {
                       {dayjs(resolvedDetailSession.startAt).format('DD/MM/YYYY')}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <span className="text-xs font-medium text-sky-600">Dạy học</span>
                       {(() => {
                         const info = getSessionStatusInfo((resolvedDetailSession as any).status);
+                        return (
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
+                            {info.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </>
+                ) : rightPanel.mode === 'assignment' && resolvedPanelSession ? (
+                  <>
+                    <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                      {getSessionDisplayTitle(resolvedPanelSession)}
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                      Phiên {resolvedPanelSession.sessionNo}
+                      {' · '}
+                      {dayjs(resolvedPanelSession.startAt).format('HH:mm')} –{' '}
+                      {dayjs(resolvedPanelSession.endAt).format('HH:mm')}
+                      {' · '}
+                      {dayjs(resolvedPanelSession.startAt).format('DD/MM/YYYY')}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {(() => {
+                        const info = getSessionStatusInfo((resolvedPanelSession as any).status);
                         return (
                           <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
                             {info.label}
@@ -966,6 +1035,7 @@ export default function RequestDetail() {
                         requestCode={request.requestCode ?? ''}
                         assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                         showReservedEquipment={false}
+                        showTeamSummary={false}
                         sectionMode="info"
                       />
                     </>
@@ -988,13 +1058,13 @@ export default function RequestDetail() {
                       !hasSelectedReviewable;
 
                     return (
-                  <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
+                  <div className="rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden">
                     <div className="px-4 py-2.5 bg-slate-50/70 flex items-center justify-between gap-2 flex-wrap">
                       <div className="min-w-0">
                         <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
                         {hasUnfilledSlot && rows.length > 0 ? (
                           <p className="text-[11px] text-red-600 mt-0.5">
-                            Còn slot trống 
+                            Chưa được phân công đủ
                           </p>
                         ) : null}
                       </div>
@@ -1084,6 +1154,7 @@ export default function RequestDetail() {
                           const canReview = canManagerReviewAssignmentRow(row);
                           const isTeacherRole =
                             row.staffRole === 'TE' || row.staffRole === 'TEACHER';
+                          const assignmentStatusUi = getAssignmentStatusInfo(row.status);
                           if (isCancelled) {
                             return (
                               <div
@@ -1129,41 +1200,70 @@ export default function RequestDetail() {
                             );
                           }
                           const accent = getAssignmentStaffRoleAccent(isTeacherRole);
-                          const pendingOrange = {
-                            stripe: 'border-l-[3px] border-l-orange-500 bg-orange-50/40',
-                            avatar: 'bg-orange-100 text-orange-900',
-                            selectHi: 'ring-1 ring-inset ring-orange-400/60 bg-orange-50/65',
-                          };
-                          const rowAccent = canReview ? pendingOrange : accent;
+                          const rowStripeClass = (() => {
+                            if (!filled) {
+                              return isTeacherRole
+                                ? 'border-l-[3px] border-l-violet-400 bg-violet-50/65'
+                                : 'border-l-[3px] border-l-yellow-400 bg-yellow-50/65';
+                            }
+                            if (isRejected) return 'border-l-[3px] border-l-rose-500 bg-rose-50/30';
+                            if (canReview) {
+                              if (isTeacherRole) {
+                                return checked
+                                  ? 'border-l-[3px] border-l-violet-600 bg-violet-100/95'
+                                  : 'border-l-[3px] border-l-violet-400 bg-violet-50/70';
+                              }
+                              return checked
+                                ? 'border-l-[3px] border-l-amber-500 bg-amber-50/90'
+                                : 'border-l-[3px] border-l-yellow-400 bg-yellow-50/60';
+                            }
+                            return accent.stripe;
+                          })();
+                          const filledAvatarClass = (() => {
+                            if (!filled) return '';
+                            if (canReview) {
+                              if (isTeacherRole) {
+                                return checked
+                                  ? 'bg-violet-200/90 text-violet-950'
+                                  : 'bg-violet-100 text-violet-800';
+                              }
+                              return checked
+                                ? 'bg-amber-100 text-amber-950'
+                                : 'bg-yellow-100 text-yellow-900';
+                            }
+                            return accent.avatar;
+                          })();
                           return (
                             <div
                               key={row.assignmentId}
-                              className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 transition-[box-shadow,background-color] ${
-                                !filled
-                                  ? 'border-l-[3px] border-l-red-500 bg-rose-50/45'
-                                  : isRejected
-                                    ? 'border-l-[3px] border-l-rose-500 bg-rose-50/30'
-                                    : checked && canReview
-                                      ? `${rowAccent.stripe} ${rowAccent.selectHi}`
-                                      : rowAccent.stripe
-                              }`}
+                              className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 transition-[background-color,border-color] ${rowStripeClass}`}
                             >
                               <div className="flex min-w-0 flex-1 items-center gap-3">
                                 <div
-                                  className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${filled ? rowAccent.avatar : 'bg-slate-100 text-slate-600'}`}
+                                  className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${
+                                    filled
+                                      ? filledAvatarClass
+                                      : isTeacherRole
+                                        ? 'bg-violet-100 text-violet-700'
+                                        : 'bg-yellow-100 text-yellow-800'
+                                  }`}
                                 >
-                                  {row.avatarUrl ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={row.avatarUrl}
-                                      alt={row.fullName}
-                                      className="h-full w-full object-cover"
-                                      onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                      }}
-                                    />
+                                  {filled ? (
+                                    row.avatarUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={row.avatarUrl}
+                                        alt={row.fullName}
+                                        className="h-full w-full object-cover"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
+                                        }}
+                                      />
+                                    ) : (
+                                      (row.fullName || '—')[0]
+                                    )
                                   ) : (
-                                    (filled ? row.fullName : '?')[0]
+                                    <span className="text-base font-semibold leading-none">?</span>
                                   )}
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -1177,35 +1277,29 @@ export default function RequestDetail() {
                               </div>
                               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                                 {isApproved && (
-                                  <span className="inline-flex items-center rounded-full bg-emerald-100/90 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
-                                    Đã duyệt
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
+                                  >
+                                    {assignmentStatusUi.label}
                                   </span>
                                 )}
                                 {isRejected && (
-                                  <span className="inline-flex items-center rounded-full bg-rose-100/90 px-2.5 py-1 text-[11px] font-semibold text-rose-800">
-                                    Đã từ chối
-                                  </span>
-                                )}
-                                {!filled && !isApproved && !isRejected && (
-                                  <span className="inline-flex items-center rounded-full bg-amber-100/90 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
-                                    Thiếu người
-                                  </span>
-                                )}
-                                {canReview && (
-                                  <span className="inline-flex items-center rounded-full bg-orange-100/95 px-2.5 py-1 text-[11px] font-semibold text-orange-950">
-                                    Chờ duyệt
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
+                                  >
+                                    {assignmentStatusUi.label}
                                   </span>
                                 )}
                                 {canReview && (
                                   <>
                                     <button
                                       type="button"
-                                      className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"
+                                      className="text-xs font-medium text-red-600 hover:text-red-700 underline-offset-2 hover:underline bg-transparent border-0 p-0 shadow-none cursor-pointer"
                                       onClick={() =>
                                         handleOpenRejectAssignment(rightPanel.session.sessionId, row)
                                       }
                                     >
-                                      Từ chối
+                                      Từ chối 
                                     </button>
                                     <button
                                       type="button"
@@ -1215,13 +1309,13 @@ export default function RequestDetail() {
                                           row.assignmentId
                                         )
                                       }
-                                      className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${
+                                      className={`text-xs font-medium bg-transparent border-0 p-0 shadow-none cursor-pointer underline-offset-2 ${
                                         checked
-                                          ? 'border-orange-600 bg-orange-100 text-orange-950'
-                                          : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                                          ? 'text-emerald-600 hover:text-emerald-700'
+                                          : 'text-slate-600 hover:text-slate-900 hover:underline'
                                       }`}
                                     >
-                                      {checked ? 'Bỏ chọn' : 'Chọn duyệt'}
+                                      {checked ? 'Đã chọn' : 'Chọn duyệt'}
                                     </button>
                                   </>
                                 )}
@@ -1236,28 +1330,24 @@ export default function RequestDetail() {
                               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Giảng viên
                               </p>
-                              <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(true).avatar}`}>
-                                <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(true).selectHi}`}>
-                                  {teacherRows.length ? (
-                                    teacherRows.map(renderAssignmentRow)
-                                  ) : (
-                                    <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                  )}
-                                </div>
+                              <div className="divide-y divide-slate-200/45 overflow-hidden rounded-xl bg-violet-50/40">
+                                {teacherRows.length ? (
+                                  teacherRows.map(renderAssignmentRow)
+                                ) : (
+                                  <p className="px-3 py-2 text-xs text-gray-500">—</p>
+                                )}
                               </div>
                             </div>
                             <div>
                               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Trợ giảng
                               </p>
-                              <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(false).avatar}`}>
-                                <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(false).selectHi}`}>
-                                  {taRows.length ? (
-                                    taRows.map(renderAssignmentRow)
-                                  ) : (
-                                    <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                  )}
-                                </div>
+                              <div className="divide-y divide-slate-200/45 overflow-hidden rounded-xl bg-yellow-50/45">
+                                {taRows.length ? (
+                                  taRows.map(renderAssignmentRow)
+                                ) : (
+                                  <p className="px-3 py-2 text-xs text-gray-500">—</p>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1313,7 +1403,7 @@ export default function RequestDetail() {
               )}
               {rightPanel.mode === 'equipment' && (
                 <RequestDetailEquipmentPanel
-                  sessions={sessions
+                  sessions={sessionsEligibleForEquipmentReserve
                     .filter((s) => !s.equipmentReserved)
                     .map((s) => ({
                       sessionId: s.sessionId,
@@ -1477,7 +1567,7 @@ export default function RequestDetail() {
           </Button>
           <Button
             type="button"
-            className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs px-4"
+            className="rounded-lg bg-red-900 text-white text-xs px-4 hover:bg-red-950 focus-visible:ring-red-900/40"
             onClick={handleConfirmRejectAssignment}
           >
             Xác nhận từ chối
