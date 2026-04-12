@@ -15,11 +15,21 @@ import { DataTable } from '@/shared/components/common/DataTable';
 import { Button } from '@/shared/components/ui/button';
 import requestApi from '../api/requestApi';
 
-const getRequestType = (row: RequestListItem) => {
-  if (row.subjectId) return 'Subject';
-  if (row.courseId) return 'Course';
-  if (row.eventId) return 'Event';
-  return 'Khác';
+type RequestTypeKey = 'subject' | 'course' | 'event' | 'other';
+
+/** Nhãn hiển thị có thể đổi; màu badge gắn theo `key` để không phụ thuộc việt hóa. */
+const REQUEST_TYPE_BADGE_CLASS: Record<RequestTypeKey, string> = {
+  subject: 'bg-blue-100 text-blue-700',
+  course: 'bg-purple-100 text-purple-700',
+  event: 'bg-orange-100 text-orange-700',
+  other: 'bg-gray-200 text-gray-700',
+};
+
+const getRequestTypeInfo = (row: RequestListItem): { key: RequestTypeKey; label: string } => {
+  if (row.subjectId) return { key: 'subject', label: 'Môn học' };
+  if (row.courseId) return { key: 'course', label: 'Khóa học' };
+  if (row.eventId) return { key: 'event', label: 'Sự kiện' };
+  return { key: 'other', label: 'Khác' };
 };
 
 export default function RequestsManagement() {
@@ -58,18 +68,11 @@ export default function RequestsManagement() {
     {
       header: 'Loại',
       cell: ({ row }) => {
-        const type = getRequestType(row.original);
-
-        const colorMap: Record<string, string> = {
-          Subject: 'bg-blue-100 text-blue-700',
-          Course: 'bg-purple-100 text-purple-700',
-          Event: 'bg-orange-100 text-orange-700',
-          Khác: 'bg-gray-200 text-gray-700',
-        };
+        const { key, label } = getRequestTypeInfo(row.original);
 
         return (
-          <Badge className={colorMap[type]}>
-            {type}
+          <Badge className={REQUEST_TYPE_BADGE_CLASS[key]}>
+            {label}
           </Badge>
         );
       },

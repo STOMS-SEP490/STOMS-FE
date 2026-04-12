@@ -29,7 +29,7 @@ import {
 import HoverSearch from '@/shared/components/ui/search';
 import RequestCard from '@/shared/components/request/RequestCard';
 import { expenseApi } from '@/modules/transaction/api/expenseApi';
-import { REQUEST_STATUS, getRequestStatusCode, getExpenseStatusInfo, EXPENSE_STATUS } from '@/constants/status';
+import { getExpenseStatusInfo, EXPENSE_STATUS } from '@/constants/status';
 
 const COMPLETED_STATUSES = ['completed', 'hoàn thành', 'done', 'finished'];
 
@@ -147,13 +147,6 @@ export default function TeacherTaskReportPage() {
   const selectedSessionId = typeof activeTarget === 'number' ? activeTarget : null;
   const isRequestLevelReport = activeTarget === 'request';
   const showRightPanel = activeTarget !== null;
-
-  const selectedRequestStatusCode = useMemo(() => {
-    if (!selectedRequestId) return null;
-    return getRequestStatusCode(requestMap.get(selectedRequestId)?.status);
-  }, [selectedRequestId, requestMap]);
-
-  const isRequestCompleted = selectedRequestStatusCode === REQUEST_STATUS.COMPLETED;
 
   const [formState, setFormState] = useState<ReportRow>({
     title: '',
@@ -494,7 +487,7 @@ export default function TeacherTaskReportPage() {
       const endAtVal = formState.endAt ? dayjs(formState.endAt).toISOString() : undefined;
 
       if (editingId != null) {
-        // Khi đang edit: bấm "Cập nhật" sẽ tự lưu chi phí (thêm mới / chỉnh sửa) trước.
+        // Khi đang edit: bấm "Lưu" sẽ tự lưu chi phí (thêm mới / chỉnh sửa) trước.
         let didSaveExpense = false;
         if (showNewExpenseForm) {
           const ok = await handleSaveNewExpense();
@@ -1118,7 +1111,7 @@ export default function TeacherTaskReportPage() {
           }
           description={
             editingId != null
-              ? 'Cập nhật nội dung báo cáo.'
+              ? 'Chỉnh sửa nội dung báo cáo.'
               : 'Điền thông tin báo cáo công việc.'
           }
           className="max-w-xl"
@@ -1491,9 +1484,7 @@ export default function TeacherTaskReportPage() {
                 {saving
                   ? 'Đang lưu...'
                   : editingId != null
-                    ? isRequestCompleted
-                      ? 'Lưu chi phí'
-                      : 'Cập nhật'
+                    ? 'Lưu'
                     : 'Thêm báo cáo'}
               </Button>
             </div>
