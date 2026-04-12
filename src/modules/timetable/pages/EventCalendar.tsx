@@ -17,7 +17,7 @@ import {
   CircleAlert,
   MapPin,
 } from 'lucide-react';
-import './EventCalendar.css';
+import './EventCalendar.css'; 
 import {
   useCalendarEvents,
   type TeamLeaderTimetableScope,
@@ -139,6 +139,7 @@ export default function EventCalendar() {
   const {
     actionMode,
     setActionMode,
+    switchActionMode,
     activeSession,
     sessionDetail: attendanceSessionDetail,
     attendanceItems,
@@ -796,6 +797,7 @@ export default function EventCalendar() {
         isSubmitting={isSubmitting}
         setIsSubmitting={setIsSubmitting}
         setActionMode={setActionMode}
+        switchActionMode={switchActionMode}
         closePanel={closePanel}
         saveAttendance={saveAttendance}
         refreshAttendanceItems={refreshAttendanceItems}

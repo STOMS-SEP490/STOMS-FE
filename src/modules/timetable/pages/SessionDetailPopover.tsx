@@ -121,20 +121,6 @@ export default function SessionDetailPopover({
     setDetailSession(null);
   };
 
-  const getCalendarScroller = () =>
-    (document.querySelector(
-      '.event-calendar-page .fc-timegrid-body .fc-scroller, .event-calendar-page .fc-scroller',
-    ) as HTMLElement | null);
-
-  const getCalendarScrollTop = () => getCalendarScroller()?.scrollTop ?? null;
-
-  const restoreCalendarScrollTop = (scrollTop: number | null) => {
-    if (scrollTop == null) return;
-    const el = getCalendarScroller();
-    if (!el) return;
-    el.scrollTop = scrollTop;
-  };
-
   const openDetail = async () => {
     if (!session) return;
     if (detailOpen) return;
@@ -142,9 +128,7 @@ export default function SessionDetailPopover({
     detailFetchSeq.current += 1;
     const seq = detailFetchSeq.current;
 
-    const scrollTopBeforeOpen = getCalendarScrollTop();
     setDetailOpen(true);
-    requestAnimationFrame(() => restoreCalendarScrollTop(scrollTopBeforeOpen));
     setDetailLoading(true);
     setDetailError(null);
     setDetailRequest(null);
@@ -217,7 +201,6 @@ export default function SessionDetailPopover({
     } finally {
       if (seq !== detailFetchSeq.current) return;
       setDetailLoading(false);
-      requestAnimationFrame(() => restoreCalendarScrollTop(scrollTopBeforeOpen));
     }
   };
 
@@ -271,17 +254,18 @@ export default function SessionDetailPopover({
       {!detailOpen && <div className="fixed inset-0 z-[70]" onClick={onClose} aria-hidden />}
 
       {detailOpen && (
-        <div className="fixed inset-0 z-[75] flex justify-end">
+        <div className="fixed inset-0 isolate z-[75] pointer-events-auto">
           <div
-            className="flex-1 bg-black/30"
+            className="absolute inset-0 animate-in fade-in-0 duration-300 bg-slate-900/30 backdrop-blur-sm"
             onClick={() => {
               closeDetail();
               onClose();
             }}
+            aria-hidden
           />
 
-          <div className="w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden max-w-xl border-l">
-            <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[640px] flex-col overflow-hidden border-l border-slate-200 bg-white text-black shadow-2xl animate-in slide-in-from-right fade-in-0 duration-300 ease-out">
+            <div className="flex items-start justify-between border-b border-gray-100 p-6 pb-4">
               <div>
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
                 <h2 className="text-lg font-bold text-slate-900">
@@ -329,7 +313,7 @@ export default function SessionDetailPopover({
                 />
               )}
             </div>
-          </div>
+          </aside>
         </div>
       )}
 

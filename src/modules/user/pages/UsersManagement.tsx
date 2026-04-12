@@ -1,5 +1,6 @@
 
 import { ROLE_MAP, getRoleLabel, getRoleBadgeClass } from '@/constants/role';
+import { dashboardApi } from '@/modules/dashboard/api/dashboardApi';
 import userService from '@/modules/user/api/userApi';
 import type { User } from '@/modules/user/user';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -10,19 +11,19 @@ import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  BookOpen,
   CheckCircle,
   Clock,
   Eye,
-  GraduationCap,
   Key,
+  LogIn,
   Pencil,
   Plus,
   Power,
   PowerOff,
   RotateCcw,
+  Users,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { message, Modal } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
@@ -39,8 +40,9 @@ export default function UserManagement() {
   const [totalItems, setTotalItems] = useState(0);
   const [totalAllUsers, setTotalAllUsers] = useState(0);
   const [totalActiveUsers, setTotalActiveUsers] = useState(0);
-  const [totalInactiveUsers, setTotalInactiveUsers] = useState(0);
-  const [totalTeachersAndTAs, setTotalTeachersAndTAs] = useState(0);
+  /** Backend: `lockedUsers` = tài khoản vô hiệu hóa (cùng ý thẻ này). */
+  const [lockedUsers, setLockedUsers] = useState(0);
+  const [loggedInTodayUsers, setLoggedInTodayUsers] = useState(0);
   const [openCreate, setOpenCreate] = useState(false);
   const [openDetail, setOpenDetail] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
@@ -91,36 +93,49 @@ export default function UserManagement() {
     })();
   }, [openDetailFromUrl, userIdFromUrl, openDetail, selectedUser?.userId]);
 
-  const fetchUsers = async () => {
+  /** Chỉ tải danh sách + phân trang (1 API). Đổi filter / trang chỉ cần gọi hàm này. */
+  const fetchTable = useCallback(async () => {
     try {
       const params: Record<string, unknown> = { pageNumber, pageSize };
       if (filterEmail.trim()) params.Email = filterEmail.trim();
       if (filterRoleId !== 'all') params.RoleId = Number(filterRoleId);
       if (filterStatus === 'active') params.IsActive = true;
       if (filterStatus === 'inactive') params.IsActive = false;
-      const [res, allRes, activeRes, inactiveRes, teacherRes, taRes] = await Promise.all([
-        userService.getUsers(params),
-        userService.getUsers({ pageNumber: 1, pageSize: 1 }),
-        userService.getUsers({ pageNumber: 1, pageSize: 1, IsActive: true }),
-        userService.getUsers({ pageNumber: 1, pageSize: 1, IsActive: false }),
-        userService.getUsers({ pageNumber: 1, pageSize: 1, RoleId: 4 }),
-        userService.getUsers({ pageNumber: 1, pageSize: 1, RoleId: 5 }),
-      ]);
-
+      const res = await userService.getUsers(params);
       setUsers(res.items ?? []);
       setTotalItems(res.totalItems ?? 0);
-      setTotalAllUsers(allRes.totalItems ?? 0);
-      setTotalActiveUsers(activeRes.totalItems ?? 0);
-      setTotalInactiveUsers(inactiveRes.totalItems ?? 0);
-      setTotalTeachersAndTAs((teacherRes.totalItems ?? 0) + (taRes.totalItems ?? 0));
     } catch (err) {
       message.error(getErrorMessage(err));
     }
-  };
+  }, [pageNumber, pageSize, filterEmail, filterRoleId, filterStatus]);
 
+  /** Thống kê: GET /dashboard/users/statistics — dùng trực tiếp `summary` từ API. */
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = await dashboardApi.getUsersOverview();
+      const s = data.summary;
+      setTotalAllUsers(s.totalUsers ?? 0);
+      setTotalActiveUsers(s.activeUsers ?? 0);
+      setLockedUsers(s.lockedUsers ?? 0);
+      setLoggedInTodayUsers(s.loggedInTodayUsers ?? 0);
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    }
+  }, []);
+
+  const refreshTableAndStats = useCallback(async () => {
+    await Promise.all([fetchTable(), fetchStats()]);
+  }, [fetchTable, fetchStats]);
+
+  /** Bảng: mỗi lần đổi filter/trang → 1 request. */
   useEffect(() => {
-    fetchUsers();
-  }, [pageNumber, filterEmail, filterRoleId, filterStatus]);
+    void fetchTable();
+  }, [fetchTable]);
+
+  /** Thống kê: 1 request /dashboard/users/statistics (Strict Mode dev có thể gọi ×2). */
+  useEffect(() => {
+    void fetchStats();
+  }, [fetchStats]);
 
   const handleResetFilters = () => {
     setFilterEmail('');
@@ -147,7 +162,7 @@ export default function UserManagement() {
             await userService.activateUser(user.userId);
             message.success('Đã kích hoạt tài khoản');
           }
-          fetchUsers();
+          void refreshTableAndStats();
         } catch (err) {
           message.error(getErrorMessage(err));
         }
@@ -158,7 +173,7 @@ export default function UserManagement() {
   const columns: ColumnDef<User>[] = [
     {
       accessorKey: 'userId',
-      header: 'User ID',
+      header: 'Mã người dùng',
     },
     {
       accessorKey: 'email',
@@ -272,67 +287,75 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-2">
+      {/* STATS — theo `summary` của /dashboard/users/statistics */}
+      <div className="grid grid-cols-2 gap-4 mb-2 md:grid-cols-4">
         <StatCard
-          icon={<GraduationCap />}
+          icon={<Users className="h-5 w-5" />}
           label="Tổng người dùng"
           value={totalAllUsers.toLocaleString('vi-VN')}
-          sub="tổng số tài khoản"
+          sub="tổng số tài khoản trong hệ thống"
         />
         <StatCard
-          icon={<CheckCircle />}
+          icon={<CheckCircle className="h-5 w-5" />}
           label="Đang hoạt động"
           value={totalActiveUsers.toLocaleString('vi-VN')}
-          sub="tài khoản đang hoạt động"
+          sub="tài khoản đang được kích hoạt"
           variant="green"
         />
         <StatCard
-          icon={<BookOpen />}
-          label="Tổng giảng viên"
-          value={totalTeachersAndTAs.toLocaleString('vi-VN')}
-          sub="giảng viên và trợ giảng"
+          icon={<Clock className="h-5 w-5" />}
+          label="Vô hiệu hóa"
+          value={lockedUsers.toLocaleString('vi-VN')}
+          sub="tài khoản đã vô hiệu hóa"
+          variant="rose"
         />
         <StatCard
-          icon={<Clock />}
-          label="Vô hiệu hóa"
-          value={totalInactiveUsers.toLocaleString('vi-VN')}
-          sub="người dùng đã bị vô hiệu hóa"
+          icon={<LogIn className="h-5 w-5" />}
+          label="Đăng nhập hôm nay"
+          value={loggedInTodayUsers.toLocaleString('vi-VN')}
+          sub="đã có phiên đăng nhập trong ngày"
+          variant="orange"
         />
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex justify-end gap-3 mb-2">
+      {/* Filter Bar — nhãn rõ Vai trò / Trạng thái (đồng bộ cách đặt tên như trang thành viên: Tất cả nhóm) */}
+      <div className="flex justify-end gap-3 mb-2 flex-wrap">
         <HoverSearch
           placeholder="Tìm theo email..."
           value={filterEmail}
           onChange={setFilterEmail}
         />
-        <div className="flex items-center gap-3">
-          <Select value={filterRoleId} onValueChange={setFilterRoleId}>
-            <SelectTrigger className="text-sm bg-white w-[140px]">
-              <SelectValue placeholder="Vai trò" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              {Object.entries(ROLE_MAP).map(([id, name]) => (
-                <SelectItem key={id} value={id}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Vai trò</span>
+            <Select value={filterRoleId} onValueChange={setFilterRoleId}>
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                <SelectValue placeholder="Chọn vai trò" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả vai trò</SelectItem>
+                {Object.entries(ROLE_MAP).map(([id, name]) => (
+                  <SelectItem key={id} value={id}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="text-sm bg-white w-[140px]">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="active">Hoạt động</SelectItem>
-              <SelectItem value="inactive">Vô hiệu hóa</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                <SelectValue placeholder="Chọn trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="active">Hoạt động</SelectItem>
+                <SelectItem value="inactive">Vô hiệu hóa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <Button variant="secondary" className="bg-white" onClick={handleResetFilters} title="Đặt lại bộ lọc">
             <RotateCcw size={16} />
@@ -340,20 +363,23 @@ export default function UserManagement() {
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={users}
-        pageNumber={pageNumber}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={(page) => setPageNumber(page)}
-      />
+      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+        <DataTable
+          columns={columns}
+          data={users}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={(page) => setPageNumber(page)}
+          comfortable
+        />
+      </div>
 
       <UserCreateForm
         open={openCreate}
         onClose={() => setOpenCreate(false)}
         onCreated={() => {
-          fetchUsers();
+          void refreshTableAndStats();
           setOpenCreate(false);
         }}
       />
@@ -361,7 +387,7 @@ export default function UserManagement() {
       <UserDetailDrawer
         open={openDetail}
         onClose={closeDetailFromUrl}
-        user={selectedUser}
+        userId={openDetail ? selectedUser?.userId ?? null : null}
       />
 
       <UserEditModal
@@ -369,7 +395,7 @@ export default function UserManagement() {
         onClose={() => setOpenEdit(false)}
         user={selectedUser}
         onUpdated={() => {
-          fetchUsers();
+          void refreshTableAndStats();
           setOpenEdit(false);
         }}
       />

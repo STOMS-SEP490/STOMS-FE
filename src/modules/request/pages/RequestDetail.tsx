@@ -924,7 +924,7 @@ export default function RequestDetail() {
                                     alt={row.fullName}
                                     className="h-full w-full object-cover"
                                     onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                      (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
                                     }}
                                   />
                                 ) : (
@@ -983,7 +983,7 @@ export default function RequestDetail() {
                                   alt={row.fullName}
                                   className="h-full w-full object-cover"
                                   onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                    (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
                                   }}
                                 />
                               ) : (
@@ -1275,7 +1275,7 @@ export default function RequestDetail() {
                                         alt={row.fullName}
                                         className="h-full w-full object-cover"
                                         onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                          (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
                                         }}
                                       />
                                     ) : (
@@ -1335,7 +1335,7 @@ export default function RequestDetail() {
                                       alt={row.fullName}
                                       className="h-full w-full object-cover"
                                       onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).src = '/img/avatar.png';
+                                        (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
                                       }}
                                     />
                                   ) : (

@@ -245,7 +245,7 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
                   )}
                 </Section>
 
-                <Section icon={Layers} title="Buổi học (mẫu / outline)">
+                <Section icon={Layers} title="Buổi học">
                   {sortedSessions.length > 0 ? (
                     <ol className="flex flex-col gap-3">
                       {sortedSessions.map((ss, index) => (
