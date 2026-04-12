@@ -76,7 +76,6 @@ export default function RequestDetail() {
     assignedCount,
     refreshDetail,
     handleAssignSession,
-    handleQuantitiesChange,
     handleApproveClick,
     handleToggleAssignmentSelection,
     handleToggleSelectAllReviewableAssignments,
@@ -504,7 +503,7 @@ export default function RequestDetail() {
                             }`}
                           >
                             {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                            {fullyAssigned ? 'Đã gắn đủ' : 'Chưa đủ'}
+                            {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
                           </span>
                           <Badge
                             className={
@@ -577,7 +576,7 @@ export default function RequestDetail() {
             )}
             <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-slate-700">Tiến độ gắn đội</span>
+                <span className="text-sm font-medium text-slate-700">Tiến độ phân đội</span>
                 <span className="text-sm font-semibold text-slate-800 tabular-nums">
                   {assignedCount}/{sessions.length || 0} phiên
                 </span>
@@ -691,7 +690,7 @@ export default function RequestDetail() {
                             }`}
                           >
                             {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                            {fullyAssigned ? 'Đã gắn đủ' : 'Chưa đủ'}
+                            {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
                           </span>
                         </div>
                         <span
@@ -901,7 +900,6 @@ export default function RequestDetail() {
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                         onClose={() => setRightPanel(null)}
                         onAssignSession={handleAssignSession}
-                        onQuantitiesChange={handleQuantitiesChange}
                       />
                     ) : null}
                   </div>
@@ -954,7 +952,6 @@ export default function RequestDetail() {
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                   onClose={() => setRightPanel(null)}
                   onAssignSession={handleAssignSession}
-                  onQuantitiesChange={handleQuantitiesChange}
                 />
               )}
               {rightPanel.mode === 'assignment' && (
@@ -1548,6 +1545,12 @@ export default function RequestDetail() {
                 {approveSessionPreviews.map((preview) => {
                   const teamIds = uiAssignedTeamIdsBySessionId[preview.sessionId] ?? [];
                   const qtyMap = uiTeamQuantitiesBySessionId[preview.sessionId] ?? {};
+                  const teamIdsWithStaff = teamIds.filter((teamId) => {
+                    const q = qtyMap[teamId];
+                    const gv = q?.teachersRequired ?? 0;
+                    const tg = q?.tasRequired ?? 0;
+                    return gv > 0 || tg > 0;
+                  });
                   return (
                     <div
                       key={preview.sessionId}
@@ -1579,11 +1582,12 @@ export default function RequestDetail() {
                           <List className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                           <span className="font-medium text-slate-600">Đội đã gán:</span>
                           <span className="font-semibold text-slate-800">
-                            {teamIds.length > 0
-                              ? teamIds
+                            {teamIdsWithStaff.length > 0
+                              ? teamIdsWithStaff
                                   .map((teamId, idx) => {
                                     const teamName =
-                                      preview.teams.find((t) => t.teamId === teamId)?.teamName ?? `Đội phụ trách ${idx + 1}`;
+                                      preview.teams.find((t) => t.teamId === teamId)?.teamName ??
+                                      `Đội phụ trách ${idx + 1}`;
                                     const q = qtyMap[teamId];
                                     const teacherQty = q?.teachersRequired ?? 0;
                                     const taQty = q?.tasRequired ?? 0;

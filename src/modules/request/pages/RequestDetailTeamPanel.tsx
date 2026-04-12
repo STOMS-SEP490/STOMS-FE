@@ -24,10 +24,6 @@ type Props = {
     teamIds: number[],
     teamQuantities: Record<number, { teachersRequired: number; tasRequired: number }>
   ) => void;
-  onQuantitiesChange?: (
-    sessionId: number,
-    data: Record<number, { teachersRequired: number; tasRequired: number }>
-  ) => void;
 };
 
 export default function RequestDetailTeamPanel({
@@ -36,7 +32,6 @@ export default function RequestDetailTeamPanel({
   currentAssignedTeamIds,
   onClose,
   onAssignSession,
-  onQuantitiesChange,
 }: Props) {
   const [suggestedTeams, setSuggestedTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
@@ -75,6 +70,11 @@ export default function RequestDetailTeamPanel({
     void fetchTeams();
   }, [session.sessionId]);
 
+  const assignedIdsKey = useMemo(
+    () => (currentAssignedTeamIds ?? []).slice().sort((a, b) => a - b).join(','),
+    [currentAssignedTeamIds],
+  );
+
   useEffect(() => {
     const ids = currentAssignedTeamIds ?? [];
     setAddedTeamIds(ids);
@@ -90,7 +90,9 @@ export default function RequestDetailTeamPanel({
     }
     setTeamQuantities(next);
     setShowAddTeam(false);
-  }, [session.sessionId]);
+    // Chỉ đồng bộ khi đổi phiên hoặc tập id đội từ parent (vd. bỏ đội 0 GV/0 TG); không gắn currentTeamQuantities để tránh đóng panel "Thêm đội" khi gõ số.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.sessionId, assignedIdsKey, requestedTeachers, requestedTas]);
 
   const filteredTeams = useMemo(() => {
     const q = teamSearch.trim().toLowerCase();
@@ -129,11 +131,10 @@ export default function RequestDetailTeamPanel({
             [field]: safeValue,
           },
         };
-        onQuantitiesChange?.(session.sessionId, next);
         return next;
       });
     },
-    [onQuantitiesChange, requestedTas, requestedTeachers, session.sessionId, teamQuantities, totals]
+    [requestedTas, requestedTeachers, session.sessionId, teamQuantities, totals]
   );
 
   const toggleTeamAdded = useCallback((teamId: number) => {
@@ -143,7 +144,6 @@ export default function RequestDetailTeamPanel({
         setTeamQuantities((prevQ) => {
           const next = { ...prevQ };
           delete next[teamId];
-          onQuantitiesChange?.(session.sessionId, next);
           return next;
         });
         return prev.filter((id) => id !== teamId);
@@ -162,7 +162,6 @@ export default function RequestDetailTeamPanel({
             tasRequired: Math.max(0, requestedTas - usedTas),
           },
         };
-        onQuantitiesChange?.(session.sessionId, next);
         return next;
       });
 
@@ -178,14 +177,13 @@ export default function RequestDetailTeamPanel({
       closePopupTimerRef.current = null;
     }
     setTeamDetailPopup(null);
-  }, [onQuantitiesChange, requestedTas, requestedTeachers, session.sessionId]);
+  }, [requestedTas, requestedTeachers, session.sessionId]);
 
   const removeAddedTeam = useCallback((teamId: number) => {
     setAddedTeamIds((prev) => prev.filter((id) => id !== teamId));
     setTeamQuantities((prevQ) => {
       const next = { ...prevQ };
       delete next[teamId];
-      onQuantitiesChange?.(session.sessionId, next);
       return next;
     });
     // Khi xóa đội, đảm bảo popup chi tiết đóng lại
@@ -198,7 +196,7 @@ export default function RequestDetailTeamPanel({
       closePopupTimerRef.current = null;
     }
     setTeamDetailPopup(null);
-  }, [onQuantitiesChange, session.sessionId]);
+  }, [session.sessionId]);
 
   // Popup sizing/positioning:
   // - Make it wider & shorter for readability.

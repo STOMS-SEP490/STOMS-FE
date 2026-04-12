@@ -29,15 +29,17 @@ const authService = {
     });
   },
 
-  /** Bước 2: xác thực OTP (chỉ verify, chưa đổi mật khẩu). */
+  /** Bước 2: xác thực OTP — BE trả về resetToken dùng cho bước completions. */
   verifyForgotPasswordOtp: async (data: { email: string; otp: string }) => {
-    return axiosClient.post('/auth/forgot-password/otp-verifications', data);
+    return axiosClient.post<
+      | { resetToken?: string; ResetToken?: string }
+      | Record<string, unknown>
+    >('/auth/forgot-password/otp-verifications', data);
   },
 
-  /** Bước 3: hoàn tất đặt lại mật khẩu sau khi OTP đã được verify. */
+  /** Bước 3: đặt lại mật khẩu (resetToken từ bước verify OTP). */
   completeForgotPassword: async (data: {
-    email: string;
-    otp: string;
+    resetToken: string;
     newPassword: string;
     confirmPassword: string;
   }) => {
