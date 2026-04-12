@@ -19,6 +19,11 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { Check, Square } from 'lucide-react';
 
+/** Tài khoản đang hoạt động: BE trả `false` khi đã vô hiệu hóa; thiếu field coi như active (giống MembersManagement). */
+function isMemberAccountActive(m: Member): boolean {
+  return m.isActive !== false;
+}
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -37,7 +42,9 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
   useEffect(() => {
     if (open) {
       teamApi.getTeams({ pageSize: 500 }).then((res) => setTeams(res.items ?? []));
-      memberApi.getMembers({ pageSize: 500 }).then((res) => setMembers(res.items ?? []));
+      memberApi
+        .getMembers({ pageSize: 500 })
+        .then((res) => setMembers((res.items ?? []).filter(isMemberAccountActive)));
     }
   }, [open]);
 
@@ -92,20 +99,6 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
     onClose();
   };
 
-  const allFilteredSelected =
-    filteredMembers.length > 0 && filteredMembers.every((m) => selectedMemberIds.includes(m.memberId));
-
-  const toggleSelectAll = () => {
-    if (allFilteredSelected) {
-      setSelectedMemberIds((prev) => prev.filter((id) => !filteredMembers.some((m) => m.memberId === id)));
-    } else {
-      setSelectedMemberIds((prev) => {
-        const add = filteredMembers.map((m) => m.memberId).filter((id) => !prev.includes(id));
-        return [...prev, ...add];
-      });
-    }
-  };
-
   return (
     <Dialog
       open={open}
@@ -114,7 +107,7 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
       description="Chọn nhóm và các thành viên cần thêm"
       className="max-w-md"
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <Label className="text-black font-medium">
             Nhóm <span className="text-red-500">*</span>
@@ -145,50 +138,36 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
           />
           <div
             className={cn(
-              'border border-gray-200 rounded-md overflow-hidden max-h-[200px] overflow-y-auto no-scrollbar'
+              'border border-gray-200 rounded-md overflow-hidden max-h-[min(280px,45vh)] overflow-y-auto no-scrollbar'
             )}
           >
             {filteredMembers.length === 0 ? (
               <p className="p-3 text-sm text-gray-500 text-center">Không có thành viên</p>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={toggleSelectAll}
-                  className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50 cursor-pointer hover:bg-gray-100 w-full text-left"
-                >
-                  {allFilteredSelected ? (
-                    <Check size={16} className="text-[#2197C0] shrink-0" />
-                  ) : (
-                    <Square size={16} className="text-gray-400 shrink-0" />
-                  )}
-                  <span className="text-sm text-black font-medium">Chọn tất cả</span>
-                </button>
-                {filteredMembers.map((m) => {
-                  const isSelected = selectedMemberIds.includes(m.memberId);
-                  return (
-                    <button
-                      key={m.memberId}
-                      type="button"
-                      onClick={() => handleToggleMember(m.memberId)}
-                      className={cn(
-                        'flex items-center gap-2 px-3 py-2 w-full text-left border-b border-gray-100 last:border-0',
-                        isSelected ? 'bg-[#2197C0]/10' : 'hover:bg-gray-50'
-                      )}
-                    >
-                      {isSelected ? (
-                        <Check size={16} className="text-[#2197C0] shrink-0" />
-                      ) : (
-                        <Square size={16} className="text-gray-400 shrink-0" />
-                      )}
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm text-black truncate">{m.fullName}</span>
-                        <span className="text-xs text-gray-500 truncate">{m.email}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </>
+              filteredMembers.map((m) => {
+                const isSelected = selectedMemberIds.includes(m.memberId);
+                return (
+                  <button
+                    key={m.memberId}
+                    type="button"
+                    onClick={() => handleToggleMember(m.memberId)}
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-2 w-full text-left border-b border-gray-100 last:border-0',
+                      isSelected ? 'bg-[#2197C0]/10' : 'hover:bg-gray-50'
+                    )}
+                  >
+                    {isSelected ? (
+                      <Check size={16} className="text-[#2197C0] shrink-0" />
+                    ) : (
+                      <Square size={16} className="text-gray-400 shrink-0" />
+                    )}
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm text-black truncate">{m.fullName}</span>
+                      <span className="text-xs text-gray-500 truncate">{m.email}</span>
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
           {selectedMemberIds.length > 0 && (
