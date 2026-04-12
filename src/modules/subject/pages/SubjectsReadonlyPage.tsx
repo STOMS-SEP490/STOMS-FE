@@ -19,7 +19,7 @@ export default function SubjectsReadonlyPage() {
   const { subjectSearch, setSubjectSearch } = useOutletContext<CoursesReadonlyOutletContext>();
   const {
     data,
-    loading,
+    isListBlocking,
     pageNumber,
     pageSize,
     totalItems,
@@ -130,11 +130,11 @@ export default function SubjectsReadonlyPage() {
 
   return (
     <div className="relative flex w-full min-w-0 flex-1 min-h-0 flex-col">
-      {loading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/60">
+      {isListBlocking ? (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/70 backdrop-blur-[1px]">
           <span className="text-sm text-slate-500">Đang tải...</span>
         </div>
-      )}
+      ) : null}
       <DataTable
         columns={columns}
         data={data}

@@ -1135,7 +1135,7 @@ export default function ManagerDashboard() {
                 <p className="text-xs font-semibold text-gray-500 uppercase">
                   Khóa học phổ biến
                 </p>
-                <p className="text-sm text-gray-600">Top theo lượt đăng ký (request completed)</p>
+                <p className="text-sm text-gray-600">Top theo lượt đăng ký</p>
               </div>
             </div>
             {popularCoursesData.length > 0 ? (

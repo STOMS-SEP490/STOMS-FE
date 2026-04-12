@@ -1,4 +1,6 @@
 import authService from '@/modules/auth/api/authApi';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
+import { message } from 'antd';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
@@ -49,18 +51,18 @@ export default function ForgotPassword() {
     try {
       setLoading(true);
       await authService.requestForgotPasswordOtp(email);
+      message.success('Đã gửi mã OTP đến email của bạn.');
       setStep(2);
-    } catch (error) {
-      console.error(error);
-      alert('Gửi OTP thất bại');
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
 
   const handleConfirmOtp = () => {
-    if (!otp) {
-      alert('Vui lòng nhập OTP');
+    if (!otp.trim()) {
+      message.warning('Vui lòng nhập mã OTP.');
       return;
     }
     setStep(3);
@@ -76,11 +78,10 @@ export default function ForgotPassword() {
         confirmPassword: data.confirmPassword,
       });
 
-      alert('Đổi mật khẩu thành công');
+      message.success('Đổi mật khẩu thành công. Vui lòng đăng nhập lại.');
       navigate('/login');
-    } catch (error) {
-      console.error(error);
-      alert('Đổi mật khẩu thất bại');
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }

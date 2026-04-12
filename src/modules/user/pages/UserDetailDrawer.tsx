@@ -4,13 +4,11 @@ import { Skeleton, message } from 'antd';
 import {
   Bell,
   CalendarClock,
-  Hash,
   Laptop,
   Lock,
   Mail,
   MonitorSmartphone,
   Shield,
-  UserCircle,
   X,
 } from 'lucide-react';
 import userService from '@/modules/user/api/userApi';
@@ -45,13 +43,6 @@ function shortenAgent(ua: string, max = 72) {
   const t = ua.trim();
   if (t.length <= max) return t;
   return `${t.slice(0, max)}…`;
-}
-
-function memberFullName(member: Record<string, unknown> | null | undefined): string | null {
-  if (!member || typeof member !== 'object') return null;
-  const fn = member.fullName;
-  if (typeof fn === 'string' && fn.trim()) return fn.trim();
-  return null;
 }
 
 export default function UserDetailDrawer({ open, onClose, userId }: Props) {
@@ -93,7 +84,6 @@ export default function UserDetailDrawer({ open, onClose, userId }: Props) {
     );
   }, [detail?.userDevices]);
 
-  const memberName = detail ? memberFullName(detail.member ?? undefined) : null;
   const notificationCount = Array.isArray(detail?.notifications) ? detail!.notifications!.length : 0;
 
   if (!open) return null;
@@ -148,7 +138,6 @@ export default function UserDetailDrawer({ open, onClose, userId }: Props) {
                       </Badge>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <HeaderChip icon={Hash} label={`#${detail.userId}`} title="Mã người dùng" />
                       <HeaderChip
                         icon={Mail}
                         label={detail.email}
@@ -163,13 +152,6 @@ export default function UserDetailDrawer({ open, onClose, userId }: Props) {
                       >
                         {roleName}
                       </span>
-                      {detail.memberId != null && detail.memberId > 0 ? (
-                        <HeaderChip
-                          icon={UserCircle}
-                          label={`Thành viên #${detail.memberId}`}
-                          title="Mã hồ sơ thành viên"
-                        />
-                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -216,8 +198,6 @@ export default function UserDetailDrawer({ open, onClose, userId }: Props) {
               <div className="space-y-8">
                 <Section icon={CalendarClock} title="Thông tin chung">
                   <MetaPanel layout="grid">
-                    <MetaRow variant="grid" icon={Hash} label="User ID" value={String(detail.userId)} />
-                    <MetaRow variant="grid" icon={Hash} label="Role ID" value={String(detail.roleId)} />
                     <MetaRow
                       variant="grid"
                       icon={CalendarClock}
@@ -266,21 +246,6 @@ export default function UserDetailDrawer({ open, onClose, userId }: Props) {
                   </MetaPanel>
                 </Section>
 
-                <Section icon={UserCircle} title="Hồ sơ thành viên">
-                  {memberName ? (
-                    <MetaPanel>
-                      <MetaRow icon={UserCircle} label="Họ tên (member)" value={memberName} />
-                      {detail.memberId != null ? (
-                        <MetaRow icon={Hash} label="Member ID" value={String(detail.memberId)} />
-                      ) : null}
-                    </MetaPanel>
-                  ) : (
-                    <p className="text-sm text-slate-500">
-                      Tài khoản chưa gắn hồ sơ thành viên (member) hoặc API chưa trả về chi tiết.
-                    </p>
-                  )}
-                </Section>
-
                 <Section icon={MonitorSmartphone} title="Thiết bị đăng nhập">
                   {sortedDevices.length > 0 ? (
                     <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
@@ -322,7 +287,6 @@ function DeviceRow({ device, isLast }: { device: UserDevice; isLast: boolean }) 
           <span className="rounded-md bg-[#2197C0]/10 px-2 py-0.5 text-xs font-semibold text-[#1a7a99]">
             {platformLabel(device.platform)}
           </span>
-          <span className="text-xs text-slate-500">ID #{device.userDeviceId}</span>
           {device.isActive ? (
             <Badge className="border-0 bg-emerald-50 text-emerald-800">Phiên hoạt động</Badge>
           ) : (

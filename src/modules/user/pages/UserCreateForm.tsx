@@ -78,7 +78,7 @@ export default function UserCreateForm({ open, onClose, onCreated }: Props) {
       onClose={handleClose}
       title="Tạo tài khoản"
       description="Tạo nhiều tài khoản theo vai trò"
-      className="max-w-md"
+      className="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="space-y-1.5">

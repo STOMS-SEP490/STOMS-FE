@@ -144,6 +144,20 @@ export default function UserManagement() {
     setPageNumber(1);
   };
 
+  /** Đổi bộ lọc → luôn về trang 1 (tránh đang page 5 + search mới → API trả rỗng dù có dữ liệu ở page 1). */
+  const setFilterEmailAndResetPage = (v: string) => {
+    setFilterEmail(v);
+    setPageNumber(1);
+  };
+  const setFilterRoleIdAndResetPage = (v: string) => {
+    setFilterRoleId(v);
+    setPageNumber(1);
+  };
+  const setFilterStatusAndResetPage = (v: string) => {
+    setFilterStatus(v);
+    setPageNumber(1);
+  };
+
   const handleBan = (user: User) => {
     const isActive = user.isActive;
     Modal.confirm({
@@ -171,10 +185,6 @@ export default function UserManagement() {
   };
 
   const columns: ColumnDef<User>[] = [
-    {
-      accessorKey: 'userId',
-      header: 'Mã người dùng',
-    },
     {
       accessorKey: 'email',
       header: 'Email',
@@ -323,12 +333,12 @@ export default function UserManagement() {
         <HoverSearch
           placeholder="Tìm theo email..."
           value={filterEmail}
-          onChange={setFilterEmail}
+          onChange={setFilterEmailAndResetPage}
         />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Vai trò</span>
-            <Select value={filterRoleId} onValueChange={setFilterRoleId}>
+            <Select value={filterRoleId} onValueChange={setFilterRoleIdAndResetPage}>
               <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
                 <SelectValue placeholder="Chọn vai trò" />
               </SelectTrigger>
@@ -345,7 +355,7 @@ export default function UserManagement() {
 
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <Select value={filterStatus} onValueChange={setFilterStatusAndResetPage}>
               <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
                 <SelectValue placeholder="Chọn trạng thái" />
               </SelectTrigger>
