@@ -6,6 +6,8 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { Eye, EyeOff, KeyRound, Lock, Mail } from 'lucide-react';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 type AuthContextType = {
   setImage: (src: string) => void;
 };
@@ -48,9 +50,20 @@ export default function ForgotPassword() {
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed) {
+      message.warning('Vui lòng nhập email.');
+      return;
+    }
+    if (!EMAIL_RE.test(trimmed)) {
+      message.warning(
+        'Email không hợp lệ. Địa chỉ phải có ký tự @ (ví dụ: ten@gmail.com).',
+      );
+      return;
+    }
     try {
       setLoading(true);
-      await authService.requestForgotPasswordOtp(email);
+      await authService.requestForgotPasswordOtp(trimmed);
       message.success('Đã gửi mã OTP đến email của bạn.');
       setStep(2);
     } catch (error: unknown) {
@@ -96,17 +109,19 @@ export default function ForgotPassword() {
             Hãy nhập địa chỉ email của bạn để khôi phục mật khẩu.
           </p>
 
-          <form onSubmit={handleRequestOtp} className="space-y-4">
+          <form onSubmit={handleRequestOtp} className="space-y-4" noValidate>
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Mail size={18} />
               </span>
               <input
-                type="email"
+                type="text"
+                inputMode="email"
+                name="email"
+                autoComplete="email"
                 placeholder="Email của bạn"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
                 className={inputClass}
               />
             </div>
@@ -160,7 +175,7 @@ export default function ForgotPassword() {
             Vui lòng nhập mật khẩu mới của bạn.
           </p>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Lock size={18} />
