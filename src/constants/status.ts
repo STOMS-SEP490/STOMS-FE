@@ -71,12 +71,12 @@ export const SESSION_STATUS_LABEL: Record<number, string> = {
   1: 'Chờ duyệt',
   2: 'Đã duyệt',
   3: 'Từ chối',
-  4: 'Đang phân công',
-  5: 'Phân công bị từ chối',
-  6: 'Đã phân công',
-  7: 'Đã hủy',
+  4: 'Đã phân công',
+  5: 'Từ chối phân công',
+  6: 'Duyệt phân công',
+  7: 'Huỷ',
   8: 'Đang diễn ra',
-  9: 'Đã hoàn thành',
+  9: 'Hoàn thành',
 };
 
 /** BE có thể trả `AssignmentRejected`, `ASSIGNMENT_REJECTED`, hoặc mã 5 — không chỉ một dạng chuỗi. */
@@ -322,15 +322,23 @@ function normalizeStatusCode(
     if (
       s.includes('assignmentrejected') ||
       normalized === 'assignment_rejected' ||
+      s.includes('từ chối phân công') ||
       s.includes('phân công bị từ chối')
     ) {
       return SESSION_STATUS.ASSIGNMENT_REJECTED;
     }
     if (normalized === 'rejected' || s.includes('reject') || s.includes('từ chối'))
       return SESSION_STATUS.REJECTED;
-    if (normalized === 'assigning' || s.includes('đang phân công')) return SESSION_STATUS.ASSIGNING;
-    if (normalized === 'assigned' || s.includes('đã phân công')) return SESSION_STATUS.ASSIGNED;
-    if (normalized === 'cancelled' || s.includes('đã hủy')) return SESSION_STATUS.CANCELLED;
+    // Mã 4 (ASSIGNING): nhãn «Đã phân công»; mã 6 (ASSIGNED): «Duyệt phân công»
+    if (normalized === 'assigned' || s.includes('duyệt phân công')) return SESSION_STATUS.ASSIGNED;
+    if (
+      normalized === 'assigning' ||
+      s.includes('đang phân công') ||
+      s.includes('đã phân công')
+    )
+      return SESSION_STATUS.ASSIGNING;
+    if (normalized === 'cancelled' || s.includes('đã hủy') || s.includes('huỷ'))
+      return SESSION_STATUS.CANCELLED;
     if (normalized === 'ongoing' || s.includes('đang diễn')) return SESSION_STATUS.ONGOING;
     if (normalized === 'completed' || s.includes('hoàn thành')) return SESSION_STATUS.COMPLETED;
   }

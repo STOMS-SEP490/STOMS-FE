@@ -19,7 +19,6 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import type { RequestSessionSummary } from '../request';
 import RequestDetailTeamPanel from './RequestDetailTeamPanel';
-import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
@@ -889,16 +888,13 @@ export default function RequestDetail() {
                     }
                     requestId={Number(request.requestId)}
                     requestCode={request.requestCode ?? ''}
+                    assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                     showReservedEquipment={false}
                     sectionMode="info"
+                    showTeamSummary={String(request.status ?? '').toLowerCase() !== 'pending'}
                   />
                   <div className="mt-6">
-                    {String(request.status ?? '').toLowerCase() !== 'pending' ? (
-                      <RequestDetailTeamSummary
-                        session={rightPanel.session}
-                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                      />
-                    ) : (
+                    {String(request.status ?? '').toLowerCase() === 'pending' ? (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
                         currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
@@ -907,190 +903,8 @@ export default function RequestDetail() {
                         onAssignSession={handleAssignSession}
                         onQuantitiesChange={handleQuantitiesChange}
                       />
-                    )}
+                    ) : null}
                   </div>
-                  {(() => {
-                    const code = getRequestStatusCode(request.status);
-                    if (code == null || code < REQUEST_STATUS.PUBLISHED) return null;
-                    const sess =
-                      sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session;
-                    const rows = assignmentsBySessionId[sess.sessionId] ?? [];
-                    const teacherRows = rows.filter((row) => row.staffRole === 'TE' || row.staffRole === 'TEACHER');
-                    const taRows = rows.filter((row) => row.staffRole === 'TA');
-                    const renderReadRow = (
-                      row: (typeof rows)[number],
-                      colorScheme: 'sky' | 'amber'
-                    ) => {
-                      const filled = isAssignmentSlotFilled(row);
-                      const approved = isAssignmentApproved(row);
-                      const rejected = isAssignmentRejected(row);
-                      const cancelled = isAssignmentCancelled(row);
-                      const cancelReason = (row.reason ?? '').trim();
-                      if (cancelled) {
-                        return (
-                          <div
-                            key={row.assignmentId}
-                            className="space-y-2.5 border-l-[3px] border-l-red-500 bg-red-50/90 px-3 py-3"
-                          >
-                            <p className="text-xs font-medium text-red-800">Cần phân công lại</p>
-                            <div className="flex items-center gap-3 opacity-90 pointer-events-none">
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-semibold text-red-800">
-                                {row.avatarUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={row.avatarUrl}
-                                    alt={row.fullName}
-                                    className="h-full w-full object-cover"
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                    }}
-                                  />
-                                ) : (
-                                  (filled ? row.fullName : '?')[0]
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-slate-900">
-                                  {filled ? row.fullName : 'Chưa có nhân sự'}
-                                </p>
-                                <p className="truncate text-xs text-slate-500">
-                                  {filled ? row.email || '—' : 'Slot trống — cần Team Leader bổ sung'}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-red-200/90 bg-white/70 px-3 py-2">
-                              <p className="text-xs font-medium text-red-900 mb-1">Lý do:</p>
-                              {cancelReason ? (
-                                <p className="text-xs text-red-950 leading-relaxed whitespace-pre-wrap">
-                                  {cancelReason}
-                                </p>
-                              ) : (
-                                <p className="text-xs text-red-700/80 italic">Chưa có lý do ghi nhận.</p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }
-                      const accent = getAssignmentStaffRoleAccent(colorScheme === 'sky');
-                      const pendingManagerReview = canManagerReviewAssignmentRow(row);
-                      const rowAccent = pendingManagerReview
-                        ? {
-                            stripe: 'border-l-[3px] border-l-orange-500 bg-orange-50/40',
-                            avatar: 'bg-orange-100 text-orange-900',
-                          }
-                        : accent;
-                      return (
-                        <div
-                          key={row.assignmentId}
-                          className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 ${
-                            filled
-                              ? rejected
-                                ? 'border-l-[3px] border-l-rose-500 bg-rose-50/30'
-                                : rowAccent.stripe
-                              : 'border-l-[3px] border-l-red-500 bg-rose-50/45'
-                          }`}
-                        >
-                          <div className="flex min-w-0 flex-1 items-center gap-3">
-                            <div
-                              className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${filled ? rowAccent.avatar : 'bg-slate-100 text-slate-600'}`}
-                            >
-                              {row.avatarUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={row.avatarUrl}
-                                  alt={row.fullName}
-                                  className="h-full w-full object-cover"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                  }}
-                                />
-                              ) : (
-                                (filled ? row.fullName : '?')[0]
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-slate-900">
-                                {filled ? row.fullName : 'Chưa có nhân sự'}
-                              </p>
-                              <p className="truncate text-xs text-slate-500">
-                                {filled ? row.email || '—' : 'Slot trống — cần Team Leader bổ sung'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            {approved && (
-                              <span className="inline-flex items-center rounded-full bg-emerald-100/90 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
-                                Đã duyệt
-                              </span>
-                            )}
-                            {rejected && (
-                              <span className="inline-flex items-center rounded-full bg-rose-100/90 px-2.5 py-1 text-[11px] font-semibold text-rose-800">
-                                Đã từ chối
-                              </span>
-                            )}
-                            {pendingManagerReview && (
-                              <span className="inline-flex items-center rounded-full bg-orange-100/95 px-2.5 py-1 text-[11px] font-semibold text-orange-950">
-                                Chờ duyệt
-                              </span>
-                            )}
-                            {!filled && !approved && !rejected && (
-                              <span className="inline-flex items-center rounded-full bg-amber-100/90 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
-                                Thiếu người
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    };
-                    return (
-                      <div className="mt-6 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
-                        <div className="px-4 py-2.5 bg-slate-50/70">
-                          <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            Giảng viên tím nhẹ, trợ giảng vàng nhẹ; ô trống đỏ; chờ duyệt cam.
-                          </p>
-                        </div>
-                        <div className="space-y-4 px-4 py-3 text-sm">
-                          {!rows.length ? (
-                            <p className="text-xs text-gray-500">
-                              Chưa có dữ liệu phân công cho phiên này (đang tải hoặc chưa tạo slot).
-                            </p>
-                          ) : (
-                            <>
-                              <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Giảng viên
-                                </p>
-                                <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(true).avatar}`}>
-                                  <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(true).selectHi}`}>
-                                    {teacherRows.length ? (
-                                      teacherRows.map((r) => renderReadRow(r, 'sky'))
-                                    ) : (
-                                      <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Trợ giảng
-                                </p>
-                                <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(false).avatar}`}>
-                                  <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(false).selectHi}`}>
-                                    {taRows.length ? (
-                                      taRows.map((r) => renderReadRow(r, 'amber'))
-                                    ) : (
-                                      <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
                   <div className="mt-6">
                     <RequestSessionDetailPanel
                       session={
@@ -1153,14 +967,9 @@ export default function RequestDetail() {
                         }
                         requestId={Number(request.requestId)}
                         requestCode={request.requestCode ?? ''}
+                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                         showReservedEquipment={false}
                         sectionMode="info"
-                      />
-                      <RequestDetailTeamSummary
-                        session={
-                          sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
-                        }
-                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                       />
                     </>
                   )}

@@ -13,7 +13,6 @@ import type { SessionTopicInfo } from '@/modules/request/request';
 import type {
   AssignMemberPayload,
   RoleKey,
-  SessionMap,
   TeamLeaderAssignmentsTab,
   TeamRequestItem,
   TeamSessionLite,
@@ -355,6 +354,8 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   }, []);
 
   const [activeSession, setActiveSession] = useState<TeamSessionLite | null>(null);
+  /** Đang gọi getFilter theo request + team để đồng bộ danh sách phiên (tránh flash dữ liệu cũ/sai). */
+  const [requestSessionsLoading, setRequestSessionsLoading] = useState(false);
 
   const loadInitial = useCallback(async (tab: TeamLeaderAssignmentsTab) => {
     try {
@@ -609,46 +610,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     );
   }, []);
 
-  const ensureSessionDetails = useCallback(
-    async (sessionIds: number[]) => {
-      const missing = sessionIds.filter((id) => !sessionDetailsById[id]);
-      if (!missing.length) return;
-      try {
-        const details = await Promise.all(
-          missing.map(async (id) => {
-            try {
-              const s = await sessionApi.getById(id);
-              return [id, s] as const;
-            } catch {
-              return null;
-            }
-          }),
-        );
-
-        const next: SessionMap = {};
-        details.forEach((p) => {
-          if (!p) return;
-          next[p[0]] = p[1];
-        });
-
-        if (Object.keys(next).length) {
-          setSessionDetailsById((prev) => ({ ...prev, ...next }));
-        }
-      } catch (err) {
-        console.error(err);
-        message.error('Không tải được chi tiết phiên.');
-      }
-    },
-    [sessionDetailsById],
-  );
-
-  useEffect(() => {
-    if (!selectedRequest?.sessions?.length) return;
-    const ids = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
-    if (!ids.length) return;
-    void ensureSessionDetails(ids);
-  }, [selectedRequest, ensureSessionDetails]);
-
   const ensureSuggestedStaffForAssignments = useCallback(
     async (
       assignmentIds: number[],
@@ -710,10 +671,17 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   );
 
   useEffect(() => {
-    if (!selectedRequestId) return;
-    if (activeTab === 'assigning' && currentTeamId == null) return;
+    if (!selectedRequestId) {
+      setRequestSessionsLoading(false);
+      return;
+    }
+    if (activeTab === 'assigning' && currentTeamId == null) {
+      setRequestSessionsLoading(false);
+      return;
+    }
 
     let cancelled = false;
+    setRequestSessionsLoading(true);
 
     const syncRequestSessionsByTeam = async () => {
       try {
@@ -764,6 +732,10 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         );
       } catch (err) {
         console.error(err);
+      } finally {
+        if (!cancelled) {
+          setRequestSessionsLoading(false);
+        }
       }
     };
 
@@ -774,11 +746,28 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     };
   }, [selectedRequestId, currentTeamId, activeTab]);
 
+  /** Mỗi lần mở phiên: luôn gọi GET /sessions/:id để đồng bộ chi tiết drawer (không dùng cache từ filter). */
   useEffect(() => {
     if (!activeSession) return;
     const id = activeSession.sessionId;
-    if (id > 0) void ensureSessionDetails([id]);
-  }, [activeSession, ensureSessionDetails]);
+    if (id <= 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const d = await sessionApi.getById(id);
+        if (cancelled) return;
+        setSessionDetailsById((prev) => ({ ...prev, [id]: d }));
+        refreshSessionInRequestState(d);
+      } catch (err) {
+        if (!cancelled) {
+          message.error(getErrorMessage(err, 'Không tải được chi tiết phiên.'));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSession?.sessionId, refreshSessionInRequestState]);
 
   const flushAutoAssignSession = useCallback(
     async (sessionId: number) => {
@@ -1078,6 +1067,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
   return {
     loading,
+    requestSessionsLoading,
     sendingAssignments,
     autoAssigning,
     applyingToOtherSessions,

@@ -41,9 +41,20 @@ function normalizeAssignment(raw: unknown): AssignmentResponse {
 
 function normalizeTeamSession(raw: unknown): TeamSessionResponse {
   const ts = raw as Record<string, unknown>;
+  const teamObj = pick(ts, 'Team', 'team') as Record<string, unknown> | null | undefined;
+  const teamIdTop = pick(ts, 'TeamId', 'teamId') as number | undefined;
+  const teamIdNested =
+    teamObj && typeof teamObj === 'object'
+      ? (pick(teamObj, 'TeamId', 'teamId') as number | undefined)
+      : undefined;
+  const teamNameTop = (pick(ts, 'TeamName', 'teamName') as string | null | undefined) ?? null;
+  const teamNameNested =
+    teamObj && typeof teamObj === 'object'
+      ? ((pick(teamObj, 'TeamName', 'teamName') as string | null | undefined) ?? null)
+      : null;
   return {
-    TeamId: pick(ts, 'TeamId', 'teamId') as number | undefined,
-    TeamName: (pick(ts, 'TeamName', 'teamName') as string | null | undefined) ?? null,
+    TeamId: teamIdTop ?? teamIdNested,
+    TeamName: teamNameTop || teamNameNested || null,
     TeachersRequired: pick(ts, 'TeachersRequired', 'teachersRequired') as number | null | undefined,
     TasRequired: pick(ts, 'TasRequired', 'tasRequired') as number | null | undefined,
   };

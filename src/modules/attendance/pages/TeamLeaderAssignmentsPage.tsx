@@ -35,6 +35,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import {
   ASSIGNMENT_STATUS,
   getAssignmentStatusInfo,
+  getSessionStatusCode,
   getSessionStatusInfo,
   getTeamLeaderRequestStatusInfo,
   isSessionAssignmentRejectedStatus,
@@ -100,53 +101,17 @@ function isAssignmentPendingManagerReview(status: string | number | null | undef
   return getAssignmentStatusInfo(status).code === ASSIGNMENT_STATUS.PENDING;
 }
 
-function getAssignmentReviewBadge(status: string | number | null | undefined): {
-  label: string;
-  className: string;
-} | null {
-  const raw = String(status ?? '').trim();
-  const statusCode = Number(raw);
-
-  if (isSessionAssignmentRejectedStatus(status)) {
-    return {
-      label: 'Phân công bị từ chối',
-      className: 'bg-rose-50 text-rose-800 border-rose-200',
-    };
-  }
-
-  const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
-  if (
-    normalized === 'ASSIGNED' ||
-    (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNED)
-  ) {
-    return {
-      label: 'Phân công đã được duyệt',
-      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    };
-  }
-
-  return null;
-}
-
 /**
- * Badge danh sách phiên: ưu tiên trạng thái phiên AssignmentRejected;
- * sau đó mới theo slot (chi tiết) hoặc status từ filter.
+ * Badge phụ danh sách phiên (không lặp lại nhãn trạng thái phiên):
+ * - Cảnh báo vận hành: cần phân lại, chưa có slot
+ * - Chỉ với phiên APPROVED (Đã duyệt): thêm «Chưa gán đủ» khi đã tải chi tiết và slot chưa đủ
  */
-function getSessionListProgressBadge(
+function getSessionListSecondaryBadge(
   session: { status: string },
   detailLoaded: boolean,
   stats: { total: number; filled: number },
-  effectiveSessionStatus?: string,
   hasPendingCancelReassign?: boolean,
-): { label: string; className: string; showAlert?: boolean } {
-  const sessionStatus = (effectiveSessionStatus ?? session.status).trim();
-  if (isSessionAssignmentRejectedStatus(sessionStatus)) {
-    return {
-      label: 'Từ chối phân công',
-      className: 'bg-rose-50 text-rose-800 border-rose-200',
-    };
-  }
-
+): { label: string; className: string; showAlert?: boolean } | null {
   if (detailLoaded && hasPendingCancelReassign) {
     return {
       label: 'Cần phân lại (có slot đã hủy nhận)',
@@ -155,51 +120,23 @@ function getSessionListProgressBadge(
     };
   }
 
-  if (detailLoaded) {
-    if (stats.total === 0) {
-      return {
-        label: 'Chưa có slot',
-        className: 'bg-amber-50 text-amber-800 border-amber-200',
-        showAlert: true,
-      };
-    }
-    if (stats.filled === stats.total) {
-      return {
-        label: 'Đã gán đủ',
-        className: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-      };
-    }
+  if (detailLoaded && stats.total === 0) {
     return {
-      label: 'Chưa gán đủ',
+      label: 'Chưa có slot',
       className: 'bg-amber-50 text-amber-800 border-amber-200',
+      showAlert: true,
     };
   }
 
-  const raw = String(session.status ?? '').trim();
-  const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
-  const statusCode = Number(raw);
+  const sessionCode = getSessionStatusCode(session.status);
+  if (sessionCode !== SESSION_STATUS.APPROVED || !detailLoaded) return null;
+  if (stats.total === 0) return null;
+  if (stats.filled >= stats.total) return null;
 
-  if (
-    normalized === 'ASSIGNED' ||
-    (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNED)
-  ) {
-    return {
-      label: 'Đã gán đủ',
-      className: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    };
-  }
-  if (
-    normalized === 'ASSIGNING' ||
-    (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNING)
-  ) {
-    return {
-      label: 'Chưa gán đủ',
-      className: 'bg-amber-50 text-amber-800 border-amber-200',
-    };
-  }
-
-  const info = getSessionStatusInfo(session.status);
-  return { label: info.label, className: info.className };
+  return {
+    label: 'Chưa gán đủ',
+    className: 'bg-amber-50 text-amber-800 border-amber-200',
+  };
 }
 
 /**
@@ -257,6 +194,7 @@ type TeamLeaderAssignmentsPageProps = {
 export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignmentsPageProps) {
   const {
     loading,
+    requestSessionsLoading,
     filteredRequests,
     selectedRequestId,
     setSelectedRequestId,
@@ -951,13 +889,19 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     <div>
                       <p className="text-[11px] text-slate-500">Số lượng phiên</p>
                       <p className="font-medium text-sm text-slate-900 mt-0.5">
-                        {selectedRequest.sessions.length} phiên
+                        {requestSessionsLoading ? '—' : `${selectedRequest.sessions.length} phiên`}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
+              {requestSessionsLoading ? (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[280px] py-12">
+                  <Spin tip="Đang tải danh sách phiên theo team..." />
+                </div>
+              ) : (
+                <>
               {/* Progress uses only sessions loaded via getById (when user opens a session) */}
               {(() => {
                 const sessions = selectedRequest.sessions;
@@ -1024,8 +968,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     {selectedRequest.sessions.map((session) => {
                       const detailLoaded = Boolean(sessionDetailsById[session.sessionId]);
                       const stats = getSessionStats(session);
-                      const effSessionStatus =
-                        sessionDetailsById[session.sessionId]?.Status ?? session.status;
+                      const sessionStatusInfo = getSessionStatusInfo(session.status);
                       const isActive = activeSession?.sessionId === session.sessionId;
                       const detail = sessionDetailsById[session.sessionId];
                       const title = getSessionDisplayTitleWithDetail(
@@ -1041,13 +984,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       const teamCount = countTeamsOnSession(detail);
                       const fullyAssigned =
                         detailLoaded && stats.total > 0 && stats.filled === stats.total;
-                      const assignmentReviewBadge = getAssignmentReviewBadge(session.status);
                       const hasPendingCancelReassign = sessionHasPendingCancelReassign(detail, stats);
-                      const progressBadge = getSessionListProgressBadge(
+                      const secondaryBadge = getSessionListSecondaryBadge(
                         session,
                         detailLoaded,
                         stats,
-                        effSessionStatus,
                         hasPendingCancelReassign,
                       );
                       return (
@@ -1069,25 +1010,28 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
                               <span className="text-xs text-sky-700 font-medium tabular-nums">
+                                <span className="text-slate-600 font-medium">
+                                  {dayjs(session.startAt).format('DD/MM/YYYY')}
+                                </span>
+                                <span className="text-slate-300 font-normal mx-1">·</span>
                                 {dayjs(session.startAt).format('HH:mm')} -{' '}
                                 {dayjs(session.endAt).format('HH:mm')}
                               </span>
-                              {assignmentReviewBadge &&
-                                !isSessionAssignmentRejectedStatus(effSessionStatus) && (
-                                  <span
-                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${assignmentReviewBadge.className}`}
-                                  >
-                                    {assignmentReviewBadge.label}
-                                  </span>
-                                )}
                               <span
-                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${progressBadge.className}`}
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${sessionStatusInfo.className}`}
                               >
-                                {progressBadge.showAlert && (
-                                  <AlertCircle className="w-3 h-3 shrink-0" />
-                                )}
-                                {progressBadge.label}
+                                {sessionStatusInfo.label}
                               </span>
+                              {secondaryBadge ? (
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${secondaryBadge.className}`}
+                                >
+                                  {secondaryBadge.showAlert && (
+                                    <AlertCircle className="w-3 h-3 shrink-0" />
+                                  )}
+                                  {secondaryBadge.label}
+                                </span>
+                              ) : null}
                             </div>
                             <span
                               className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-700 select-none"
@@ -1135,9 +1079,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   </div>
                 )}
               </div>
+                </>
+              )}
             </div>
           )}
-                              </div>
+          </div>
 
       </div>
           </div>

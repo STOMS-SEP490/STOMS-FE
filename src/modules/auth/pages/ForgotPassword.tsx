@@ -57,7 +57,7 @@ export default function ForgotPassword() {
     }
     if (!EMAIL_RE.test(trimmed)) {
       message.warning(
-        'Email không hợp lệ. Địa chỉ phải có ký tự @ (ví dụ: ten@gmail.com).',
+        'Email không hợp lệ.',
       );
       return;
     }
@@ -73,20 +73,39 @@ export default function ForgotPassword() {
     }
   };
 
-  const handleConfirmOtp = () => {
-    if (!otp.trim()) {
+  const handleConfirmOtp = async () => {
+    const trimmedOtp = otp.trim();
+    if (!trimmedOtp) {
       message.warning('Vui lòng nhập mã OTP.');
       return;
     }
-    setStep(3);
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      message.warning('Thiếu email. Vui lòng quay lại bước 1.');
+      setStep(1);
+      return;
+    }
+    try {
+      setLoading(true);
+      await authService.verifyForgotPasswordOtp({
+        email: trimmedEmail,
+        otp: trimmedOtp,
+      });
+      message.success('Xác thực OTP thành công.');
+      setStep(3);
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onSubmit = async (data: FormValues) => {
     try {
       setLoading(true);
-      await authService.confirmForgotPassword({
-        email,
-        otp,
+      await authService.completeForgotPassword({
+        email: email.trim(),
+        otp: otp.trim(),
         newPassword: data.password,
         confirmPassword: data.confirmPassword,
       });
@@ -161,8 +180,13 @@ export default function ForgotPassword() {
               />
             </div>
 
-            <button type="button" onClick={handleConfirmOtp} className={`mt-2 ${primaryBtnClass}`}>
-              Xác Nhận Mã
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void handleConfirmOtp()}
+              className={`mt-2 ${primaryBtnClass}`}
+            >
+              {loading ? 'Đang xác thực...' : 'Xác Nhận Mã'}
             </button>
           </div>
         </>

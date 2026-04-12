@@ -285,6 +285,7 @@ export const useRequestDetailManager = (params: {
   useEffect(() => {
     if (!id) return;
     setRightPanel(null);
+    setRequest(null);
     setSessions([]);
     setUiAssignedTeamIdsBySessionId({});
     setUiTeamQuantitiesBySessionId({});
@@ -293,10 +294,13 @@ export const useRequestDetailManager = (params: {
       try {
         setLoading(true);
         const detail = await requestService.getById(Number(id));
-        setRequest(detail);
         const { mappedSessions } = mapSessionsWithFlags(detail);
         const byFilter = await loadSessionsByRequestId(Number(detail.requestId ?? id));
         applySessionState(byFilter.length ? byFilter : mappedSessions);
+        setRequest(detail);
+      } catch (err) {
+        console.error(err);
+        setRequest(null);
       } finally {
         setLoading(false);
       }
@@ -493,10 +497,10 @@ export const useRequestDetailManager = (params: {
     try {
       setLoading(true);
       const detail = await requestService.getById(Number(id));
-      setRequest(detail);
       const { mappedSessions } = mapSessionsWithFlags(detail);
       const byFilter = await loadSessionsByRequestId(Number(detail.requestId ?? id));
       applySessionState(byFilter.length ? byFilter : mappedSessions);
+      setRequest(detail);
     } finally {
       setLoading(false);
     }
@@ -746,7 +750,6 @@ export const useRequestDetailManager = (params: {
   const handleEquipmentSuccess = useCallback(async () => {
     if (!request) return;
     const detail = await requestService.getById(Number(request.requestId));
-    setRequest(detail);
     const byFilter = await loadSessionsByRequestId(Number(detail.requestId));
     if (byFilter.length) {
       applySessionState(byFilter);
@@ -754,6 +757,7 @@ export const useRequestDetailManager = (params: {
       const { mappedSessions } = mapSessionsWithFlags(detail);
       applySessionState(mappedSessions);
     }
+    setRequest(detail);
   }, [request, loadSessionsByRequestId, applySessionState]);
 
   const assignedCount = useMemo(() => {

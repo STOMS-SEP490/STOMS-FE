@@ -15,7 +15,6 @@ import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
-import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import sessionService from '../api/sessionApi';
 
 export default function RequestDetailManagerReadonly() {
@@ -453,16 +452,10 @@ export default function RequestDetailManagerReadonly() {
                       session={sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session}
                       requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
+                      assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                       showReservedEquipment
                       canEditReservation={false}
                     />
-
-                    <div className="mt-6">
-                      <RequestDetailTeamSummary
-                        session={rightPanel.session}
-                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                      />
-                    </div>
                   </>
                 ) : null}
 

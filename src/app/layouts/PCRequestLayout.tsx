@@ -105,9 +105,9 @@ export default function PCRequestLayout() {
         </div>
       </div>
 
-      <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
+      <div className="flex gap-4 flex-1 min-h-0 min-w-0 overflow-hidden pb-4">
         {/* Sidebar */}
-        <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
+        <div className="w-[360px] shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <RequestSidebar
             basePath="/pc/requests"
             search={search}
@@ -120,8 +120,8 @@ export default function PCRequestLayout() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto no-scrollbar pr-1">
+        <div className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col">
+          <div className="h-full min-h-0 overflow-hidden pr-1">
             <Outlet
               context={
                 {

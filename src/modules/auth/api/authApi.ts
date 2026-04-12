@@ -29,13 +29,19 @@ const authService = {
     });
   },
 
-  confirmForgotPassword: async (data: {
+  /** Bước 2: xác thực OTP (chỉ verify, chưa đổi mật khẩu). */
+  verifyForgotPasswordOtp: async (data: { email: string; otp: string }) => {
+    return axiosClient.post('/auth/forgot-password/otp-verifications', data);
+  },
+
+  /** Bước 3: hoàn tất đặt lại mật khẩu sau khi OTP đã được verify. */
+  completeForgotPassword: async (data: {
     email: string;
     otp: string;
     newPassword: string;
     confirmPassword: string;
   }) => {
-    return axiosClient.post('/auth/forgot-password/confirm', data);
+    return axiosClient.post('/auth/forgot-password/completions', data);
   },
 };
 
