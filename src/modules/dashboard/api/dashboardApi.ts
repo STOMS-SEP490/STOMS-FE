@@ -152,6 +152,9 @@ export type DashboardCourseSummary = {
   totalSubjectSessions: number;
 };
 
+/** React Query key cho GET /dashboard/courses/summary (layout giáo trình + invalidate sau CRUD). */
+export const dashboardCoursesSummaryQueryKey = ['dashboard', 'courses', 'summary'] as const;
+
 export type DashboardSubjectTopicDistribution = {
   topicId: number;
   topicName: string;

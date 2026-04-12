@@ -1,13 +1,16 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { GraduationCap, CheckCircle, BookOpen, Clock, Plus } from 'lucide-react';
+import { GraduationCap, CheckCircle2, Layers, CalendarDays, Plus } from 'lucide-react';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useQuery } from '@tanstack/react-query';
-import courseApi from '@/modules/course/api/courseApi';
-import subjectApi from '@/modules/subject/api/subjectApi';
-import sessionApi from '@/modules/request/api/sessionApi';
+import { dashboardApi, dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi';
 import { Button } from '@/shared/components/ui/button';
 import { useAuth } from '@/app/providers/AuthProvider';
+import type { CoursesManagementLayoutOutletContext } from '@/app/layouts/coursesManagementOutletContext';
+import type { CourseListStatusFilter } from '@/modules/course/hooks/useCourses';
+
+const iconClass = 'h-6 w-6';
 
 export default function CoursesLayout() {
   const navigate = useNavigate();
@@ -21,6 +24,76 @@ export default function CoursesLayout() {
 
   const currentTab = location.pathname.includes('subjects') ? 'subjects' : 'courses';
   const [, setSearchParams] = useSearchParams();
+
+  /** Hai `<Outlet />` mount `CoursesManagement` hai lần — state danh sách phải nằm ở layout. */
+  const [courseListSearch, setCourseListSearchState] = useState('');
+  const [courseListStatusFilter, setCourseListStatusFilterState] =
+    useState<CourseListStatusFilter>('all');
+  const [courseListPage, setCourseListPage] = useState(1);
+
+  const setCourseListSearch = useCallback((v: string) => {
+    setCourseListPage(1);
+    setCourseListSearchState(v);
+  }, []);
+
+  const setCourseListStatusFilter = useCallback((v: CourseListStatusFilter) => {
+    setCourseListPage(1);
+    setCourseListStatusFilterState(v);
+  }, []);
+
+  const [subjectListSearch, setSubjectListSearchState] = useState('');
+  const [subjectListPage, setSubjectListPage] = useState(1);
+
+  const setSubjectListSearch = useCallback((v: string) => {
+    setSubjectListPage(1);
+    setSubjectListSearchState(v);
+  }, []);
+
+  /** Tab Môn học: reset state danh sách khóa (hai Outlet không còn mount CoursesManagement). */
+  useEffect(() => {
+    if (currentTab !== 'subjects') return;
+    setCourseListSearchState('');
+    setCourseListStatusFilterState('all');
+    setCourseListPage(1);
+  }, [currentTab]);
+
+  /** Tab Khóa học: reset state danh sách môn. */
+  useEffect(() => {
+    if (currentTab !== 'courses') return;
+    setSubjectListSearchState('');
+    setSubjectListPage(1);
+  }, [currentTab]);
+
+  const coursesListOutletContext = useMemo((): Partial<CoursesManagementLayoutOutletContext> => {
+    if (currentTab !== 'courses') return {};
+    return {
+      courseListLifted: true,
+      courseListSearch,
+      setCourseListSearch,
+      courseListStatusFilter,
+      setCourseListStatusFilter,
+      courseListPage,
+      setCourseListPage,
+    };
+  }, [
+    currentTab,
+    courseListSearch,
+    setCourseListSearch,
+    courseListStatusFilter,
+    setCourseListStatusFilter,
+    courseListPage,
+  ]);
+
+  const subjectsListOutletContext = useMemo((): Partial<CoursesManagementLayoutOutletContext> => {
+    if (currentTab !== 'subjects') return {};
+    return {
+      subjectListLifted: true,
+      subjectListSearch,
+      setSubjectListSearch,
+      subjectListPage,
+      setSubjectListPage,
+    };
+  }, [currentTab, subjectListSearch, setSubjectListSearch, subjectListPage]);
 
   const openCreateCourse = () => {
     setSearchParams((prev) => {
@@ -40,40 +113,27 @@ export default function CoursesLayout() {
     });
   };
 
-  const { data: coursesPaged, isLoading: coursesLoading } = useQuery({
-    queryKey: ['courses-summary'],
-    queryFn: () => courseApi.getCourses({ pageNumber: 1, pageSize: 1 }),
+  /** Một request GET /dashboard/courses/summary — thay cho 4 query totalItems riêng lẻ. */
+  const { data: courseSummary, isLoading: summaryLoading } = useQuery({
+    queryKey: dashboardCoursesSummaryQueryKey,
+    queryFn: () => dashboardApi.getCourseSummary(),
+    staleTime: 60_000,
   });
 
-  const { data: activeCoursesPaged, isLoading: activeCoursesLoading } = useQuery({
-    queryKey: ['courses-summary', 'active'],
-    queryFn: () => courseApi.getCourses({ pageNumber: 1, pageSize: 1, IsActive: true }),
-  });
-
-  const { data: subjectsPaged, isLoading: subjectsLoading } = useQuery({
-    queryKey: ['subjects-summary'],
-    queryFn: () => subjectApi.getSubjects({ pageNumber: 1, pageSize: 1 }),
-  });
-
-  const { data: sessionsPaged, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sessions-summary'],
-    queryFn: () => sessionApi.getFilter({ PageNumber: 1, PageSize: 1 }),
-  });
-
-  const totalCourses = coursesPaged?.totalItems ?? 0;
-  const totalActiveCourses = activeCoursesPaged?.totalItems ?? 0;
-  const totalSubjects = subjectsPaged?.totalItems ?? 0;
-  const totalSessions = sessionsPaged?.TotalItems ?? 0;
+  const totalCourses = courseSummary?.totalCourses ?? 0;
+  const totalActiveCourses = courseSummary?.activeCourses ?? 0;
+  const totalSubjects = courseSummary?.totalSubjects ?? 0;
+  const totalSessions = courseSummary?.totalSubjectSessions ?? 0;
 
   const statValue = (loading: boolean, value: number) => (loading ? '—' : value.toLocaleString('vi-VN'));
 
   return (
-    <div className="overflow-y-auto p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="p-6 space-y-4 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
-      <div className="bg-white flex justify-between px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
+      <div className="bg-white flex justify-between px-4 py-3 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>
-          <p className="text-xs text-gray-500">Quản lý khóa học và môn học trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-slate-900">Quản lý giáo trình</h2>
+          <p className="text-xs text-slate-500">Quản lý khóa học và môn học trong hệ thống</p>
         </div>
         {canEdit && currentTab === 'courses' && (
           <Button
@@ -95,57 +155,72 @@ export default function CoursesLayout() {
         )}
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-4">
+      {/* STATS — palette giống Quản lý thiết bị: xanh / xanh lá / tím / cam */}
+      <div className="grid grid-cols-4 gap-4 mb-0">
         <StatCard
-          icon={<GraduationCap />}
+          icon={<GraduationCap className={iconClass} strokeWidth={2} />}
           label="Tổng khóa học"
-          value={statValue(coursesLoading, totalCourses)}
-          sub="Khóa học"
+          value={statValue(summaryLoading, totalCourses)}
+          sub="Tất cả khóa trong hệ thống"
+          variant="blue"
         />
         <StatCard
-          icon={<CheckCircle />}
+          icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
           label="Đang hoạt động"
-          value={statValue(activeCoursesLoading, totalActiveCourses)}
-          sub="Khóa học"
+          value={statValue(summaryLoading, totalActiveCourses)}
+          sub="Khóa học đang bật"
           variant="green"
         />
         <StatCard
-          icon={<BookOpen />}
+          icon={<Layers className={iconClass} strokeWidth={2} />}
           label="Tổng môn học"
-          value={statValue(subjectsLoading, totalSubjects)}
-          sub="Môn học"
+          value={statValue(summaryLoading, totalSubjects)}
+          sub="Phân bổ theo chương trình"
+          variant="violet"
         />
         <StatCard
-          icon={<Clock />}
+          icon={<CalendarDays className={iconClass} strokeWidth={2} />}
           label="Tổng buổi học"
-          value={statValue(sessionsLoading, totalSessions)}
-          sub="Buổi học"
+          value={statValue(summaryLoading, totalSessions)}
+          sub="Buổi theo môn học"
+          variant="orange"
         />
       </div>
 
       {/* TABS */}
-      <div className=" px-6 py-2">
+      <div className="px-4 py-2 mb-1">
         <Tabs value={currentTab}>
           <div className="flex items-center justify-between">
             <TabsList>
               <TabsTrigger value="courses" onClick={() => navigate(basePath)}>
-                KHÓA HỌC
+                Khóa học
               </TabsTrigger>
 
               {isManager && (
                 <TabsTrigger value="subjects" onClick={() => navigate('/manager/courses/subjects')}>
-                  MÔN HỌC
+                  Môn học
                 </TabsTrigger>
               )}
             </TabsList>
 
-            <Outlet context={{ position: 'toolbar' }} />
+            <Outlet
+              context={{
+                position: 'toolbar',
+                ...coursesListOutletContext,
+                ...subjectsListOutletContext,
+              } satisfies CoursesManagementLayoutOutletContext}
+            />
           </div>
         </Tabs>
       </div>
-      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
-        <Outlet context={{ position: 'content' }} />
+      <div className="bg-white rounded-xl border shadow-sm px-4 py-3">
+        <Outlet
+          context={{
+            position: 'content',
+            ...coursesListOutletContext,
+            ...subjectsListOutletContext,
+          } satisfies CoursesManagementLayoutOutletContext}
+        />
       </div>
     </div>
   );

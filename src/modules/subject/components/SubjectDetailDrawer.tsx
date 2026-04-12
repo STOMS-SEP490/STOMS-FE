@@ -265,7 +265,7 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
                     </ol>
                   ) : (
                     <p className="text-sm text-slate-500">
-                      Chưa có danh sách buổi mẫu (hoặc API chưa trả về subjectSessions).
+                      Chưa có danh sách các buổi
                     </p>
                   )}
                 </Section>
