@@ -1,7 +1,7 @@
 import authService from '@/modules/auth/api/authApi';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import { message } from 'antd';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { Eye, EyeOff, KeyRound, Lock, Mail } from 'lucide-react';
@@ -19,6 +19,8 @@ export default function ForgotPassword() {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
+  /** Token từ API verify OTP, bắt buộc cho POST /auth/forgot-password/completions */
+  const [resetToken, setResetToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -43,8 +45,19 @@ export default function ForgotPassword() {
     register,
     handleSubmit,
     watch,
+    reset,
     formState: { errors, isValid },
-  } = useForm<FormValues>({ mode: 'onChange' });
+  } = useForm<FormValues>({
+    mode: 'onChange',
+    defaultValues: { password: '', confirmPassword: '' },
+  });
+
+  const goBackToEmailStep = useCallback(() => {
+    setStep(1);
+    setOtp('');
+    setResetToken('');
+    reset({ password: '', confirmPassword: '' });
+  }, [reset]);
 
   const password = watch('password');
 
@@ -57,7 +70,7 @@ export default function ForgotPassword() {
     }
     if (!EMAIL_RE.test(trimmed)) {
       message.warning(
-        'Email không hợp lệ. Địa chỉ phải có ký tự @ (ví dụ: ten@gmail.com).',
+        'Email không hợp lệ.',
       );
       return;
     }
@@ -65,6 +78,8 @@ export default function ForgotPassword() {
       setLoading(true);
       await authService.requestForgotPasswordOtp(trimmed);
       message.success('Đã gửi mã OTP đến email của bạn.');
+      setResetToken('');
+      setOtp('');
       setStep(2);
     } catch (error: unknown) {
       message.error(getErrorMessage(error));
@@ -73,20 +88,53 @@ export default function ForgotPassword() {
     }
   };
 
-  const handleConfirmOtp = () => {
-    if (!otp.trim()) {
+  const handleConfirmOtp = async () => {
+    const trimmedOtp = otp.trim();
+    if (!trimmedOtp) {
       message.warning('Vui lòng nhập mã OTP.');
       return;
     }
-    setStep(3);
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      message.warning('Thiếu email. Vui lòng quay lại bước 1.');
+      setStep(1);
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = (await authService.verifyForgotPasswordOtp({
+        email: trimmedEmail,
+        otp: trimmedOtp,
+      })) as { resetToken?: string; ResetToken?: string };
+      const token =
+        (typeof res?.resetToken === 'string' && res.resetToken) ||
+        (typeof res?.ResetToken === 'string' && res.ResetToken) ||
+        '';
+      if (!token) {
+        message.error('Không nhận được mã xác thực đặt lại mật khẩu. Vui lòng thử lại.');
+        return;
+      }
+      setResetToken(token);
+      message.success('Xác thực OTP thành công.');
+      setStep(3);
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onSubmit = async (data: FormValues) => {
+    const token = resetToken.trim();
+    if (!token) {
+      message.error('Phiên đặt lại mật khẩu không hợp lệ. Vui lòng xác thực OTP lại.');
+      setStep(2);
+      return;
+    }
     try {
       setLoading(true);
-      await authService.confirmForgotPassword({
-        email,
-        otp,
+      await authService.completeForgotPassword({
+        resetToken: token,
         newPassword: data.password,
         confirmPassword: data.confirmPassword,
       });
@@ -161,9 +209,28 @@ export default function ForgotPassword() {
               />
             </div>
 
-            <button type="button" onClick={handleConfirmOtp} className={`mt-2 ${primaryBtnClass}`}>
-              Xác Nhận Mã
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void handleConfirmOtp()}
+              className={`mt-2 ${primaryBtnClass}`}
+            >
+              {loading ? 'Đang xác thực...' : 'Xác Nhận Mã'}
             </button>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 text-sm">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={goBackToEmailStep}
+                className="text-left text-blue-200 hover:underline disabled:opacity-60"
+              >
+                Quay lại nhập email
+              </button>
+              <Link to="/login" className="text-right text-blue-200 hover:underline sm:ml-auto">
+                Quay lại đăng nhập
+              </Link>
+            </div>
           </div>
         </>
       )}
@@ -235,6 +302,20 @@ export default function ForgotPassword() {
             >
               {loading ? 'Đang cập nhật...' : 'Cập Nhật Mật Khẩu'}
             </button>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 text-sm">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={goBackToEmailStep}
+                className="text-left text-blue-200 hover:underline disabled:opacity-60"
+              >
+                Quay lại nhập email
+              </button>
+              <Link to="/login" className="text-right text-blue-200 hover:underline sm:ml-auto">
+                Quay lại đăng nhập
+              </Link>
+            </div>
           </form>
         </>
       )}

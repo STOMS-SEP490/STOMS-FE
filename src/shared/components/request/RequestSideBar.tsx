@@ -6,6 +6,14 @@ import { getRequestStatusCode, getRequestStatusInfo, REQUEST_STATUS } from '@/co
 
 const REQUEST_APPROVAL_STATUSES = ['PENDING', 'REJECTED', 'APPROVED'] as const;
 
+/** Tab Phân công cần duyệt: chỉ yêu cầu trạng thái 3–5 (APPROVED / ASSIGNING / PUBLISHED). */
+const ASSIGNMENT_TAB_REQUEST_STATUSES_API = ['APPROVED', 'ASSIGNING', 'PUBLISHED'] as const;
+const ASSIGNMENT_TAB_REQUEST_STATUS_CODES = new Set<number>([
+  REQUEST_STATUS.APPROVED,
+  REQUEST_STATUS.ASSIGNING,
+  REQUEST_STATUS.PUBLISHED,
+]);
+
 function isPendingStatus(status: string | undefined): boolean {
   const s = (status ?? '').toLowerCase();
   return s === 'pending' || s.includes('chờ') || s.includes('pending');
@@ -57,7 +65,7 @@ export type RequestSidebarProps = {
   /** Tắt redirect tự động khi danh sách theo filter đang rỗng. */
   autoNavigateWhenEmpty?: boolean;
   /**
-   * Tab Duyệt phân công: gọi API với AssignmentStatuses=1 (Pending), không gửi Statuses.
+   * Tab Duyệt phân công: luôn AssignmentStatuses=1 (Pending); thêm Statuses khi statusFilter khác all.
    */
   filterByPendingAssignments?: boolean;
 };
@@ -79,7 +87,16 @@ export default function RequestSidebar({
   /** Tab Tất cả + trạng thái “Tất cả”: không gửi Statuses, BE trả về mọi yêu cầu (đỡ lặp list đủ enum). */
   const requestQueryOptions = (() => {
     if (filterByPendingAssignments) {
-      return { assignmentStatuses: ['1'] };
+      if (statusFilter !== 'all') {
+        return {
+          assignmentStatuses: ['1'],
+          statuses: [STATUS_FILTER_TO_API[statusFilter]],
+        };
+      }
+      return {
+        assignmentStatuses: ['1'],
+        statuses: [...ASSIGNMENT_TAB_REQUEST_STATUSES_API],
+      };
     }
     if (onlyPending) {
       return { statuses: ['PENDING'] };
@@ -118,7 +135,13 @@ export default function RequestSidebar({
       })();
       if (!matchType) return false;
 
-      if (filterByPendingAssignments) return true;
+      if (filterByPendingAssignments) {
+        const code = getRequestStatusCode(item.status);
+        if (code == null || !ASSIGNMENT_TAB_REQUEST_STATUS_CODES.has(code)) return false;
+        if (statusFilter === 'all') return true;
+        const want = STATUS_FILTER_TO_REQUEST_CODE[statusFilter];
+        return code === want;
+      }
 
       if (onlyPending) return isPendingStatus(item.status);
       if (statusFilter === 'all') return true;

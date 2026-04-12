@@ -54,6 +54,8 @@ export type ReservationResponse = {
   StartAt?: string | null;
   EndAt?: string | null;
   CreatedAt?: string | null;
+  /** Tổng số thiết bị (BE có thể gửi kèm; không bắt buộc). */
+  TotalEquipments?: number | null;
   CreatedByUser?: CreateByUserReservationResponse | null;
   EquipmentReservations?: EquipmentReservationItemResponse[] | null;
   Sessions?: SessionReservationResponse[] | null;

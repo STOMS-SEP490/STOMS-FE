@@ -122,6 +122,12 @@ export function normalizeReservationResponse(raw: ReservationResponse | Record<s
     equipmentReservations = null;
   }
 
+  const totalEqRaw = pick(r, 'TotalEquipments', 'totalEquipments');
+  const totalEquipments =
+    totalEqRaw == null || totalEqRaw === ''
+      ? null
+      : Number(totalEqRaw);
+
   return {
     ReservationId: Number(pick(r, 'ReservationId', 'reservationId') ?? 0),
     CreatedByMemberId: (pick(r, 'CreatedByMemberId', 'createdByMemberId') as number | null | undefined) ?? null,
@@ -129,6 +135,7 @@ export function normalizeReservationResponse(raw: ReservationResponse | Record<s
     StartAt: dateToIsoString(pick(r, 'StartAt', 'startAt')),
     EndAt: dateToIsoString(pick(r, 'EndAt', 'endAt')),
     CreatedAt: dateToIsoString(pick(r, 'CreatedAt', 'createdAt')),
+    TotalEquipments: Number.isFinite(totalEquipments) ? totalEquipments : null,
     CreatedByUser: normalizeCreateByUser(pick(r, 'CreatedByUser', 'createdByUser')),
     EquipmentReservations: equipmentReservations,
     Sessions:

@@ -94,7 +94,7 @@ export default function ManagerRequestReadonlyLayout() {
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0 min-w-0 overflow-hidden pb-4">
-        <div className="w-[360px] shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
+        <div className="w-[min(420px,40vw)] min-w-[320px] shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <RequestSidebar
             basePath="/manager/requests-view"
             search={search}
