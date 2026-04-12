@@ -1,67 +1,95 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { SubjectListItem } from '../subject'
-import subjectApi from '../api/subjectApi'
+import { useCallback, useEffect, useState } from 'react';
+import type { SubjectListItem } from '../subject';
+import subjectApi from '../api/subjectApi';
 
 export type UseSubjectsOptions = {
-  pageSize?: number
-  search?: string
-  setSearch?: (v: string) => void
+  pageSize?: number;
+  search?: string;
+  setSearch?: (v: string) => void;
   /** true: non-manager — gọi filter với IsActive=true */
-  activeOnly?: boolean
-}
+  activeOnly?: boolean;
+  /** Layout 2 Outlet — đồng bộ phân trang */
+  pageNumber?: number;
+  setPageNumber?: (n: number) => void;
+};
 
 export const useSubjects = (options?: UseSubjectsOptions) => {
-  const [data, setData] = useState<SubjectListItem[]>([])
-  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState<SubjectListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
 
-  const [internalSearch, setInternalSearch] = useState('')
-  const setSearchParent = options?.setSearch
-  const controlled =
-    typeof setSearchParent === 'function' && typeof options?.search === 'string'
-  const search = controlled ? options!.search! : internalSearch
+  const [internalSearch, setInternalSearch] = useState('');
+  const setSearchParent = options?.setSearch;
+  const searchControlled =
+    typeof setSearchParent === 'function' && typeof options?.search === 'string';
+  const search = searchControlled ? options!.search! : internalSearch;
 
-  const [pageNumber, setPageNumber] = useState(1)
-  const [pageSize] = useState(options?.pageSize ?? 10)
-  const [totalItems, setTotalItems] = useState(0)
-  const activeOnly = Boolean(options?.activeOnly)
+  const [internalPage, setInternalPage] = useState(1);
+  const setPageParent = options?.setPageNumber;
+  const pageControlled =
+    typeof setPageParent === 'function' && typeof options?.pageNumber === 'number';
+  const pageNumber = pageControlled ? options!.pageNumber! : internalPage;
+
+  const [pageSize] = useState(options?.pageSize ?? 10);
+  const [totalItems, setTotalItems] = useState(0);
+  const activeOnly = Boolean(options?.activeOnly);
 
   const setSearch = useCallback(
     (v: string) => {
-      setPageNumber(1)
-      if (controlled && setSearchParent) {
-        setSearchParent(v)
-      } else if (!controlled) {
-        setInternalSearch(v)
+      if (searchControlled && setSearchParent) {
+        setSearchParent(v);
+      } else {
+        setInternalSearch(v);
+        setInternalPage(1);
       }
     },
-    [controlled, setSearchParent],
-  )
+    [searchControlled, setSearchParent],
+  );
+
+  const setPageNumber = useCallback(
+    (n: number) => {
+      if (pageControlled && setPageParent) {
+        setPageParent(n);
+      } else {
+        setInternalPage(n);
+      }
+    },
+    [pageControlled, setPageParent],
+  );
 
   const fetchSubjects = useCallback(async () => {
     try {
-      setLoading(true)
+      setLoading(true);
 
       const res = await subjectApi.getSubjects({
         pageNumber,
         pageSize,
         subjectName: search.trim() || undefined,
         ...(activeOnly ? { IsActive: true } : {}),
-      })
+      });
 
-      setData(res.items ?? [])
-      setTotalItems(res.totalItems ?? 0)
+      setData(res.items ?? []);
+      setTotalItems(res.totalItems ?? 0);
     } finally {
-      setLoading(false)
+      setLoading(false);
+      setHasFetchedOnce(true);
     }
-  }, [pageNumber, pageSize, search, activeOnly])
+  }, [pageNumber, pageSize, search, activeOnly]);
 
   useEffect(() => {
-    void fetchSubjects()
-  }, [fetchSubjects])
+    setLoading(true);
+    const t = setTimeout(() => {
+      void fetchSubjects();
+    }, 300);
+    return () => clearTimeout(t);
+  }, [fetchSubjects]);
+
+  const isListBlocking = loading || !hasFetchedOnce;
 
   return {
     data,
     loading,
+    isListBlocking,
     search,
     setSearch,
     pageNumber,
@@ -69,5 +97,5 @@ export const useSubjects = (options?: UseSubjectsOptions) => {
     totalItems,
     setPageNumber,
     refetch: fetchSubjects,
-  }
-}
+  };
+};

@@ -7,6 +7,8 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { saveAuthToStorage } from '@/modules/auth/authStorage';
 import { getHomePathByRole, getRoleIdFromStorage } from '@/modules/auth/roleAccess';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 type AuthContextType = {
   setImage: (src: string) => void;
 };
@@ -39,6 +41,13 @@ export default function Login() {
       return;
     }
 
+    if (!EMAIL_RE.test(email.trim())) {
+      message.warning(
+        'Email không hợp lệ',
+      );
+      return;
+    }
+
     if (loading) return;
 
     setLoading(true);
@@ -59,13 +68,10 @@ export default function Login() {
         fcmToken: '',
       });
 
-      // clear token/user cũ
       localStorage.clear();
 
-      // lưu token + user (dùng helper chung)
       saveAuthToStorage(res);
 
-      // đồng bộ với AuthProvider (currentUser) để useAuth() nhận biết đã login
       setCurrentUser({
         id: res.userId,
         email: res.email,
@@ -96,13 +102,15 @@ export default function Login() {
         Đăng nhập bằng địa chỉ email
       </p>
 
-      <form className="space-y-4" onSubmit={handleLogin}>
+      <form className="space-y-4" onSubmit={handleLogin} noValidate>
         <div className="relative">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
             <Mail size={18} />
           </span>
           <input
-            type="email"
+            type="text"
+            inputMode="email"
+            autoComplete="email"
             placeholder="Email của bạn"
             value={email}
             onChange={(e) => setEmail(e.target.value)}

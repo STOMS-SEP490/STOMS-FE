@@ -1,24 +1,38 @@
-import { useState, useEffect } from 'react';
-import { X, BarChart3 } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  BarChart3,
+  Building2,
+  CalendarClock,
+  CreditCard,
+  Hash,
+  ListChecks,
+  Mail,
+  MapPin,
+  Phone,
+  Shield,
+  Sparkles,
+  UserCircle,
+  Users,
+  X,
+} from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import type { MemberDetail } from '@/modules/member/member';
 import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import { Badge } from '@/shared/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
+import { cn } from '@/shared/lib/utils';
 import memberSkillApi from '@/modules/member/api/memberSkillApi';
 import skillApi from '@/modules/skill/api/skillApi';
 import type { SkillListItem } from '@/modules/skill/skill';
 import type { PaginationResponse } from '@/shared/types/api';
 import { dashboardApi, type DashboardRangeParams } from '@/modules/dashboard/api/dashboardApi';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-} from 'recharts';
 
 type Props = {
   open: boolean;
@@ -26,14 +40,39 @@ type Props = {
   member: MemberDetail | null;
 };
 
+function formatDateTime(date?: string | null) {
+  if (!date) return '—';
+  return new Date(date).toLocaleString('vi-VN');
+}
+
+function formatDateOnly(date?: string | null) {
+  if (!date) return '—';
+  return new Date(date).toLocaleDateString('vi-VN');
+}
+
+function dash(v: unknown): ReactNode {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'string' && !v.trim()) return '—';
+  return v as ReactNode;
+}
+
 export default function MemberDetailSidebar({ open, onClose, member }: Props) {
-  const [skillNames, setSkillNames] = useState<string[]>([]);
+  const [skillNamesFallback, setSkillNamesFallback] = useState<string[]>([]);
   const [workloadRange, setWorkloadRange] =
     useState<NonNullable<DashboardRangeParams['range']>>('thismonth');
 
+  const skillsFromMember = useMemo(() => {
+    const list = member?.skills ?? [];
+    return list.filter((s) => s.isActive !== false).map((s) => s.skillName);
+  }, [member?.skills]);
+
   useEffect(() => {
     if (!open || !member?.memberId) {
-      setSkillNames([]);
+      setSkillNamesFallback([]);
+      return;
+    }
+    if (skillsFromMember.length > 0) {
+      setSkillNamesFallback([]);
       return;
     }
     let cancelled = false;
@@ -41,17 +80,18 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
       .then(([memberSkills, skillsRes]) => {
         if (cancelled) return;
         const allSkills = (skillsRes as PaginationResponse<SkillListItem>).items ?? [];
-        // Chỉ hiện MemberSkill đang bật; isActive === false thì ẩn; undefined coi như true (API cũ)
         const activeOnly = memberSkills.filter((s) => s.isActive !== false);
         const ids = new Set(activeOnly.map((s) => s.skillId));
         const names = allSkills.filter((s) => ids.has(s.skillId)).map((s) => s.skillName);
-        setSkillNames(names);
+        setSkillNamesFallback(names);
       })
-      .catch(() => setSkillNames([]));
+      .catch(() => setSkillNamesFallback([]));
     return () => {
       cancelled = true;
     };
-  }, [open, member?.memberId]);
+  }, [open, member?.memberId, skillsFromMember.length]);
+
+  const displaySkillNames = skillsFromMember.length > 0 ? skillsFromMember : skillNamesFallback;
 
   const { data: workload } = useQuery({
     queryKey: ['dashboard', 'member-workload', member?.memberId ?? 0, workloadRange],
@@ -59,346 +99,470 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
     enabled: Boolean(open && member?.memberId),
   });
 
-  if (!member) return null;
+  if (!open || !member) return null;
 
   const hasRole = member.roleId != null;
   const roleLabel = hasRole ? getRoleLabel(member.roleId) : '—';
-
-  const formatPercent = (x?: number) => {
-    const v = Number(x ?? 0);
-    const sign = v > 0 ? '+' : '';
-    return `${sign}${v.toFixed(1)}%`;
-  };
-
-  const workloadChartData = workload
-    ? ([
-        {
-          key: 'hours',
-          label: 'Giờ giảng',
-          value: Number(workload.totalTeachingHours ?? 0),
-          changePercent: Number(workload.totalTeachingHoursChangePercent ?? 0),
-        },
-        {
-          key: 'completed',
-          label: 'Hoàn thành',
-          value: Number(workload.completedSessions ?? 0),
-          changePercent: Number(workload.completedSessionsChangePercent ?? 0),
-        },
-        {
-          key: 'canceled',
-          label: 'Bị hủy',
-          value: Number(workload.canceledSessions ?? 0),
-          changePercent: Number(workload.canceledSessionsChangePercent ?? 0),
-        },
-        {
-          key: 'income',
-          label: 'Thu nhập (VND)',
-          value: Number(workload.estimatedIncome ?? 0),
-          changePercent: Number(workload.estimatedIncomeChangePercent ?? 0),
-        },
-      ] as const)
-    : [];
-
-  const workloadIsEmpty = Boolean(
-    workload &&
-      workloadChartData.every((x) => {
-        const v = Number(x.value ?? 0);
-        return !Number.isFinite(v) || v === 0;
-      }),
-  );
-
-  const formatWorkloadValue = (
-    key: (typeof workloadChartData)[number]['key'],
-    v: unknown,
-  ) => {
-    const n = Number(v ?? 0);
-    if (key === 'income') {
-      return n.toLocaleString('vi-VN', {
-        style: 'currency',
-        currency: 'VND',
-        maximumFractionDigits: 0,
-      });
-    }
-    if (key === 'hours') return `${n.toFixed(1)}h`;
-    return `${n}`;
-  };
-
-  const WorkloadItem = (props: {
-    label: string;
-    value: React.ReactNode;
-    changePercent: number;
-    tone: 'green' | 'blue' | 'amber' | 'rose';
-  }) => {
-    const toneMap = {
-      green: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-      blue: 'bg-sky-50 text-sky-700 border-sky-100',
-      amber: 'bg-amber-50 text-amber-700 border-amber-100',
-      rose: 'bg-rose-50 text-rose-700 border-rose-100',
-    } as const;
-    return (
-      <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-        <div className="min-w-0">
-          <p className="text-[11px] text-slate-500 font-medium">{props.label}</p>
-          <p className="mt-1 text-xl font-semibold text-slate-900 truncate">
-            {props.value}
-          </p>
-          <span
-            className={`mt-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-              toneMap[props.tone]
-            }`}
-          >
-            {formatPercent(props.changePercent)}
-          </span>
-        </div>
-      </div>
-    );
-  };
+  const team = member.team;
 
   return (
     <>
-      {open && <div className="fixed inset-0 bg-black/30 z-40 h-full" onClick={onClose} />}
+      <div className="fixed inset-0 z-40 h-full bg-black/35" onClick={onClose} aria-hidden />
 
       <div
-        className={`fixed top-0 right-0 h-full w-[600px] bg-[#f3f4f6] z-50
-        transition-transform duration-300
-        ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        className={cn(
+          'fixed right-0 top-0 z-50 h-full w-[720px] max-w-[96vw]',
+          'border-l border-slate-200/80 bg-white shadow-2xl',
+          'translate-x-0 transition-transform duration-300 ease-out',
+        )}
       >
-        <div className="flex flex-col h-full overflow-y-auto no-scrollbar text-gray-700">
-          <div className="px-8 py-6 bg-[#f3f4f6] ">
-            <div className="flex justify-between items-start">
-              <div className="flex gap-4">
+        <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
+          <header className="w-full shrink-0 bg-gradient-to-b from-slate-50/90 to-white">
+            <div className="flex w-full items-start justify-between gap-3 px-5 pb-3 pt-5">
+              <div className="flex min-w-0 flex-1 gap-4">
                 <img
-                  src={member.avatarUrl || '/img/ava.png'}
-                  className="w-16 h-16 rounded-full object-cover"
+                  src={member.avatarUrl?.trim() || '/img/ava.png'}
                   alt=""
+                  className="h-[72px] w-[72px] shrink-0 rounded-full object-cover"
                 />
-                <div>
-                  <h2 className="text-lg font-semibold">{member.fullName}</h2>
-                  <p className="text-sm text-gray-500">{member.email ?? '—'}</p>
-                  <div className="flex gap-2 mt-2">
-                    {member.team?.teamName && (
-                      <Badge className="bg-green-100 text-green-700">{member.team.teamName}</Badge>
-                    )}
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="truncate text-lg font-semibold tracking-tight text-slate-900">
+                      {dash(member.fullName)}
+                    </h2>
                     <Badge
-                      className={
-                        hasRole
-                          ? `${getRoleBadgeClass(member.roleId)} border`
-                          : 'bg-slate-100 text-slate-600 border border-slate-200'
-                      }
+                      className={cn(
+                        'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                        member.isActive
+                          ? 'border-0 bg-emerald-100 text-emerald-800'
+                          : 'border-0 bg-rose-100 text-rose-800',
+                      )}
                     >
-                      {roleLabel}
+                      {member.isActive ? 'Hoạt động' : 'Đã khóa'}
                     </Badge>
                   </div>
+                  <p className="truncate text-sm text-slate-500">{dash(member.email)}</p>
+                  <div className="flex w-full flex-wrap gap-2">
+                    {team?.teamName ? (
+                      <HeaderChip
+                        icon={Building2}
+                        label={team.teamName}
+                        title="Nhóm"
+                        iconClassName="text-emerald-600"
+                      />
+                    ) : null}
+                    <span
+                      title="Vai trò"
+                      className={cn(
+                        'inline-flex max-w-full items-center rounded-lg px-2.5 py-1 text-xs font-medium',
+                        hasRole ? getRoleBadgeClass(member.roleId) : 'bg-slate-100 text-slate-600',
+                      )}
+                    >
+                      {roleLabel}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <button type="button" onClick={onClose}>
-                <X size={20} />
+              <button
+                type="button"
+                onClick={onClose}
+                className="shrink-0 rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Đóng"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mt-4 mb-0">
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">ID THÀNH VIÊN</p>
-                <p>{member.memberId}</p>
+            <div className="flex w-full flex-col divide-y divide-slate-200/60 bg-slate-50/50 sm:flex-row sm:divide-x sm:divide-y-0">
+              <div className="min-w-0 flex-1 px-4 py-3 sm:px-5">
+                <HeaderStat label="Vai trò" value={roleLabel} accent="violet" layout="strip" />
               </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">VAI TRÒ</p>
-                <p>{roleLabel}</p>
+              <div className="min-w-0 flex-1 px-4 py-3 sm:px-5">
+                <HeaderStat label="Ngày tham gia" value={formatDateOnly(member.createdAt)} accent="emerald" layout="strip" />
               </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">NGÀY THAM GIA</p>
-                <p>{formatDate(member.createdAt)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">CẬP NHẬT LẦN CUỐI</p>
-                <p>{formatDateTime(member.updatedAt)}</p>
+              <div className="min-w-0 flex-1 px-4 py-3 sm:px-5">
+                <HeaderStat
+                  label="Cập nhật lần cuối"
+                  value={formatDateTime(member.updatedAt)}
+                  accent="amber"
+                  layout="strip"
+                />
               </div>
             </div>
-          </div>
+          </header>
 
-          <Section title="Thông tin tài khoản">
-            <Field label="User ID" value={member.userId} />
-            <Field label="Email" value={member.email} />
-            <Field label="Vai trò (roleId)" value={member.roleId != null ? `${member.roleId} — ${roleLabel}` : '—'} />
-            <Field
-              label="Trạng thái"
-              value={
-                member.isActive ? (
-                  <Badge className="bg-green-100 text-green-700">Đang hoạt động</Badge>
-                ) : (
-                  <Badge className="bg-red-100 text-red-700">Đã khóa</Badge>
-                )
-              }
-            />
-            <Field label="Ngày tạo tài khoản" value={formatDateTime(member.userCreatedAt)} />
-            <Field label="Cập nhật tài khoản" value={formatDateTime(member.userUpdatedAt)} />
-            <Field label="Khóa tài khoản lúc" value={formatDateTime(member.userLockedAt)} />
-          </Section>
-
-        
-
-          <Section title="Thông tin cá nhân">
-            <Field label="Họ và tên" value={member.fullName} />
-            <Field label="Số điện thoại" value={member.phone} />
-            <Field label="Địa chỉ" value={member.address} />
-            <Field label="CMND/CCCD" value={member.cin} />
-            <Field label="Mã số thuế" value={member.taxNumber} />
-            <Field label="Mã ngân hàng" value={member.bankCode} />
-            <Field label="Tên ngân hàng" value={member.bankName} />
-            <Field label="Tên nhóm" value={member.team?.teamName ?? '—'} />
-          </Section>
-
-          <Section title="Kỹ năng">
-            <div className="col-span-2">
-              <p className="text-xs text-gray-400 mb-1">Các kỹ năng đã gán</p>
-              <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
-                {skillNames.length === 0 ? (
-                  <span className="text-gray-500">Chưa có kỹ năng nào</span>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {skillNames.map((name) => (
-                      <Badge key={name} variant="secondary" className="bg-blue-50 text-blue-700">
-                        {name}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </Section>
-
-          <Section title="Khối lượng công việc">
-            <div className="col-span-2 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                  <BarChart3 className="h-4 w-4 text-teal-600" />
-                  Thống kê theo khoảng thời gian
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500">Khoảng:</span>
-                  <select
-                    className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-teal-400"
-                    value={workloadRange}
-                    onChange={(e) =>
-                      setWorkloadRange(
-                        e.target.value as NonNullable<DashboardRangeParams['range']>,
+          <div className="relative min-h-0 w-full flex-1 overflow-y-auto bg-slate-50/70 px-5 py-5">
+            <div className="w-full max-w-none space-y-8">
+              <Section icon={Shield} title="Thông tin tài khoản" accent="sky">
+                <MetaPanel layout="grid">
+                  <MetaRow variant="grid" icon={Mail} label="Email" value={dash(member.email)} iconClassName="text-sky-600" />
+                  <MetaRow
+                    variant="grid"
+                    icon={UserCircle}
+                    label="Vai trò"
+                    value={hasRole ? roleLabel : '—'}
+                    iconClassName="text-sky-600"
+                  />
+                  <MetaRow
+                    variant="grid"
+                    icon={Shield}
+                    label="Trạng thái"
+                    value={
+                      member.isActive ? (
+                        <Badge className="border-0 bg-emerald-100 text-emerald-800">Hoạt động</Badge>
+                      ) : (
+                        <Badge className="border-0 bg-rose-100 text-rose-800">Đã khóa</Badge>
                       )
                     }
-                    disabled={!member?.memberId}
-                  >
-                    <option value="today">Hôm nay</option>
-                    <option value="thisweek">Tuần này</option>
-                    <option value="thismonth">Tháng này</option>
-                    <option value="last3months">3 tháng gần đây</option>
-                    <option value="last6months">6 tháng gần đây</option>
-                    <option value="1year">1 năm gần đây</option>
-                  </select>
-                </div>
-              </div>
+                    iconClassName="text-sky-600"
+                  />
+                  <MetaRow
+                    variant="grid"
+                    icon={CalendarClock}
+                    label="Ngày tạo tài khoản"
+                    value={formatDateTime(member.userCreatedAt)}
+                    iconClassName="text-sky-600"
+                  />
+                  <MetaRow
+                    variant="grid"
+                    icon={CalendarClock}
+                    label="Cập nhật tài khoản"
+                    value={formatDateTime(member.userUpdatedAt)}
+                    iconClassName="text-sky-600"
+                  />
+                  
+                </MetaPanel>
+              </Section>
 
-              {!member?.memberId ? (
-                <div className="text-sm text-gray-500">
-                  Tài khoản này chưa có thông tin thành viên nên không thể thống kê workload.
+              <Section icon={UserCircle} title="Thông tin cá nhân" accent="emerald">
+                <MetaPanel layout="grid">
+                  <MetaRow variant="grid" icon={UserCircle} label="Họ và tên" value={dash(member.fullName)} iconClassName="text-emerald-600" />
+                  <MetaRow variant="grid" icon={Phone} label="Số điện thoại" value={dash(member.phone)} iconClassName="text-emerald-600" />
+                  <MetaRow
+                    variant="grid"
+                    icon={MapPin}
+                    label="Địa chỉ"
+                    value={dash(member.address)}
+                    iconClassName="text-emerald-600"
+                    className="sm:col-span-2"
+                  />
+                  <MetaRow variant="grid" icon={Hash} label="CMND/CCCD" value={dash(member.cin)} iconClassName="text-emerald-600" />
+                  <MetaRow variant="grid" icon={Hash} label="Mã số thuế" value={dash(member.taxNumber)} iconClassName="text-emerald-600" />
+                  <MetaRow variant="grid" icon={CreditCard} label="Mã ngân hàng" value={dash(member.bankCode)} iconClassName="text-emerald-600" />
+                  <MetaRow variant="grid" icon={CreditCard} label="Tên ngân hàng" value={dash(member.bankName)} iconClassName="text-emerald-600" />
+                </MetaPanel>
+              </Section>
+
+              <Section icon={Building2} title="Nhóm" accent="violet">
+                {team ? (
+                  <MetaPanel layout="grid">
+                    <MetaRow variant="grid" icon={Building2} label="Tên nhóm" value={dash(team.teamName)} iconClassName="text-violet-600" />
+                    <MetaRow variant="grid" icon={UserCircle} label="Trưởng nhóm" value={dash(team.leaderMemberName)} iconClassName="text-violet-600" />
+                    <MetaRow
+                      variant="grid"
+                      icon={Users}
+                      label="Số thành viên nhóm"
+                      value={team.totalMembers != null ? String(team.totalMembers) : '—'}
+                      iconClassName="text-violet-600"
+                    />
+                    <MetaRow variant="grid" icon={CalendarClock} label="Nhóm tạo lúc" value={formatDateTime(team.createdAt)} iconClassName="text-violet-600" />
+                    <MetaRow variant="grid" icon={CalendarClock} label="Nhóm cập nhật" value={formatDateTime(team.updatedAt)} iconClassName="text-violet-600" />
+                    <MetaRow
+                      variant="grid"
+                      icon={ListChecks}
+                      label="Phiên nhóm (teamSessions)"
+                      value={String(Array.isArray(team.teamSessions) ? team.teamSessions.length : 0)}
+                      iconClassName="text-violet-600"
+                    />
+                    <MetaRow
+                      variant="grid"
+                      icon={ListChecks}
+                      label="Đề tài nhóm (teamTopics)"
+                      value={String(Array.isArray(team.teamTopics) ? team.teamTopics.length : 0)}
+                      iconClassName="text-violet-600"
+                    />
+                  </MetaPanel>
+                ) : (
+                  <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:px-5 sm:py-4">
+                    <p className="text-sm text-slate-500">Chưa gắn nhóm.</p>
+                  </div>
+                )}
+              </Section>
+
+              <Section icon={Sparkles} title="Kỹ năng" accent="fuchsia">
+                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+                  <p className="mb-2 text-xs font-medium text-fuchsia-900/70">Các kỹ năng đã gắn</p>
+                  {displaySkillNames.length === 0 ? (
+                    <p className="text-sm text-slate-500">Chưa có kỹ năng nào.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {displaySkillNames.map((name, i) => (
+                        <Badge
+                          key={name}
+                          className={cn(
+                            'border-0 font-medium',
+                            i % 2 === 0
+                              ? 'bg-teal-50 text-teal-800'
+                              : 'bg-violet-50 text-violet-800',
+                          )}
+                        >
+                          {name}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ) : !workload ? (
-                <div className="text-sm text-gray-500">Đang tải workload...</div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="relative h-52 rounded-xl border border-slate-200 bg-white p-3">
-                    {workloadIsEmpty && (
-                      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/75 backdrop-blur-[1px]">
-                        <div className="text-sm text-slate-500">
-                          Chưa có dữ liệu trong khoảng này
-                        </div>
-                      </div>
-                    )}
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={workloadChartData}
-                        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              </Section>
+
+              <Section icon={BarChart3} title="Khối lượng công việc" accent="orange">
+                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-3 pb-2 pt-3 sm:px-4 sm:pb-3 sm:pt-4">
+                    <p className="text-xs text-slate-600">Thống kê theo khoảng thời gian</p>
+                    <Select
+                      value={workloadRange}
+                      onValueChange={(v) =>
+                        setWorkloadRange(v as NonNullable<DashboardRangeParams['range']>)
+                      }
+                      disabled={!member.memberId}
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          'h-9 w-[min(100%,228px)] shrink-0 border-slate-200/90 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm',
+                          'hover:bg-slate-50/90 focus:ring-2 focus:ring-slate-300/50',
+                        )}
                       >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="label" tick={{ fontSize: 12 }} interval={0} />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip
-                          formatter={(value: any, _name: any, props: any) => {
-                            const key = props?.payload?.key as (typeof workloadChartData)[number]['key'];
-                            return formatWorkloadValue(key, value);
-                          }}
-                          labelFormatter={(label) => `Chỉ số: ${label}`}
-                        />
-                        <Legend />
-                        <Bar dataKey="value" name="Giá trị" fill="#14b8a6" radius={[8, 8, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                        <SelectValue placeholder="Chọn khoảng thời gian" />
+                      </SelectTrigger>
+                      <SelectContent align="end" position="popper" className="z-[60]">
+                        <SelectItem value="today">Hôm nay</SelectItem>
+                        <SelectItem value="thisweek">Tuần này</SelectItem>
+                        <SelectItem value="thismonth">Tháng này</SelectItem>
+                        <SelectItem value="last3months">3 tháng gần đây</SelectItem>
+                        <SelectItem value="last6months">6 tháng gần đây</SelectItem>
+                        <SelectItem value="1year">1 năm gần đây</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <WorkloadItem
-                      label="Tổng giờ giảng"
-                      value={`${Number(workload.totalTeachingHours ?? 0).toFixed(1)}h`}
-                      changePercent={workload.totalTeachingHoursChangePercent ?? 0}
-                      tone="blue"
-                    />
-                    <WorkloadItem
-                      label="Phiên hoàn thành"
-                      value={Number(workload.completedSessions ?? 0)}
-                      changePercent={workload.completedSessionsChangePercent ?? 0}
-                      tone="green"
-                    />
-                    <WorkloadItem
-                      label="Phiên bị hủy"
-                      value={Number(workload.canceledSessions ?? 0)}
-                      changePercent={workload.canceledSessionsChangePercent ?? 0}
-                      tone="rose"
-                    />
-                    <WorkloadItem
-                      label="Thu nhập ước tính"
-                      value={Number(workload.estimatedIncome ?? 0).toLocaleString('vi-VN', {
-                        style: 'currency',
-                        currency: 'VND',
-                        maximumFractionDigits: 0,
-                      })}
-                      changePercent={workload.estimatedIncomeChangePercent ?? 0}
-                      tone="amber"
-                    />
-                  </div>
+                  {!member.memberId ? (
+                    <p className="px-3 pb-4 pt-1 text-sm text-slate-500 sm:px-4">
+                      Không có mã thành viên để tải workload.
+                    </p>
+                  ) : !workload ? (
+                    <p className="px-3 pb-4 pt-1 text-sm text-slate-500 sm:px-4">Đang tải…</p>
+                  ) : (
+                    <>
+                      
+                        <div className="flex flex-col divide-y divide-slate-200/70 border-t border-slate-200/70 sm:flex-row sm:divide-x sm:divide-y-0">
+                          <WorkloadMetricCell
+                            label="Tổng giờ giảng"
+                            value={`${Number(workload.totalTeachingHours ?? 0).toFixed(1)}h`}
+                            changePercent={workload.totalTeachingHoursChangePercent ?? 0}
+                            deltaClass="text-sky-600"
+                          />
+                          <WorkloadMetricCell
+                            label="Phiên hoàn thành"
+                            value={Number(workload.completedSessions ?? 0)}
+                            changePercent={workload.completedSessionsChangePercent ?? 0}
+                            deltaClass="text-emerald-600"
+                          />
+                          <WorkloadMetricCell
+                            label="Phiên bị hủy"
+                            value={Number(workload.canceledSessions ?? 0)}
+                            changePercent={workload.canceledSessionsChangePercent ?? 0}
+                            deltaClass="text-rose-600"
+                          />
+                          <WorkloadMetricCell
+                            label="Thu nhập ước tính"
+                            value={Number(workload.estimatedIncome ?? 0).toLocaleString('vi-VN', {
+                              style: 'currency',
+                              currency: 'VND',
+                              maximumFractionDigits: 0,
+                            })}
+                            changePercent={workload.estimatedIncomeChangePercent ?? 0}
+                            deltaClass="text-amber-700"
+                          />
+                        </div>
+                      
+                    </>
+                  )}
                 </div>
-              )}
+              </Section>
             </div>
-          </Section>
+          </div>
         </div>
       </div>
     </>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+type AccentKey = 'sky' | 'violet' | 'emerald' | 'amber' | 'fuchsia' | 'orange';
+
+const HEADER_STAT_ACCENT: Record<
+  AccentKey,
+  { bar: string; labelTint: string }
+> = {
+  sky: { bar: 'border-l-sky-400', labelTint: 'text-sky-700/80' },
+  violet: { bar: 'border-l-violet-400', labelTint: 'text-violet-800/80' },
+  emerald: { bar: 'border-l-emerald-400', labelTint: 'text-emerald-800/80' },
+  amber: { bar: 'border-l-amber-400', labelTint: 'text-amber-900/75' },
+  fuchsia: { bar: 'border-l-fuchsia-400', labelTint: 'text-fuchsia-900/75' },
+  orange: { bar: 'border-l-orange-400', labelTint: 'text-orange-900/75' },
+};
+
+const SECTION_ICON_ACCENT: Record<AccentKey, string> = {
+  sky: 'text-sky-600',
+  violet: 'text-violet-600',
+  emerald: 'text-emerald-600',
+  amber: 'text-amber-600',
+  fuchsia: 'text-fuchsia-600',
+  orange: 'text-orange-600',
+};
+
+function HeaderStat({
+  label,
+  value,
+  accent,
+  layout = 'inline',
+}: {
+  label: string;
+  value: string;
+  accent: AccentKey;
+  /** `strip` = dùng trong thanh full-width, không vạch trái từng ô. */
+  layout?: 'inline' | 'strip';
+}) {
+  const a = HEADER_STAT_ACCENT[accent];
+  if (layout === 'strip') {
+    return (
+      <div className="w-full min-w-0">
+        <p className={cn('text-[10px] font-semibold uppercase tracking-wide', a.labelTint)}>{label}</p>
+        <p className="mt-1 break-words text-sm font-medium leading-snug text-slate-900" title={value}>
+          {value}
+        </p>
+      </div>
+    );
+  }
   return (
-    <div className="p-6 bg-white rounded-xl shadow-sm mx-6 m-2 space-y-4">
-      <h3 className="font-semibold">{title}</h3>
-      <div className="grid grid-cols-2 gap-4 text-sm">{children}</div>
+    <div className={cn('min-w-0 border-l-2 py-0.5 pl-3', a.bar)}>
+      <p className={cn('text-[10px] font-semibold uppercase tracking-wide', a.labelTint)}>{label}</p>
+      <p className="mt-0.5 truncate text-sm font-medium text-slate-900" title={value}>
+        {value}
+      </p>
     </div>
   );
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function HeaderChip({
+  icon: Icon,
+  label,
+  title,
+  iconClassName = 'text-sky-600',
+}: {
+  icon: LucideIcon;
+  label: string;
+  title: string;
+  iconClassName?: string;
+}) {
   return (
-    <div>
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
-      <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm">
-        {value ?? '—'}
+    <span
+      title={title}
+      className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-slate-100/80 px-2.5 py-1 text-xs text-slate-700"
+    >
+      <Icon className={cn('h-3.5 w-3.5 shrink-0', iconClassName)} aria-hidden />
+      <span className="min-w-0 truncate font-medium">{label}</span>
+    </span>
+  );
+}
+
+function Section({
+  icon: Icon,
+  title,
+  accent = 'sky',
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  accent?: AccentKey;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2.5">
+        <Icon className={cn('h-5 w-5 shrink-0', SECTION_ICON_ACCENT[accent])} strokeWidth={2} aria-hidden />
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      </div>
+      <div className="w-full">{children}</div>
+    </section>
+  );
+}
+
+function MetaPanel({
+  children,
+  layout = 'list',
+}: {
+  children: ReactNode;
+  layout?: 'list' | 'grid';
+}) {
+  if (layout === 'grid') {
+    return (
+      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <div className="grid grid-cols-1 gap-x-8 gap-y-4 p-4 sm:grid-cols-2 sm:px-5 sm:py-4">{children}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+      <div className="divide-y divide-slate-100 px-4">{children}</div>
+    </div>
+  );
+}
+
+function MetaRow({
+  icon: Icon,
+  label,
+  value,
+  variant = 'list',
+  iconClassName = 'text-slate-500',
+  valueClassName,
+  className,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: ReactNode;
+  variant?: 'list' | 'grid';
+  iconClassName?: string;
+  valueClassName?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn('flex gap-3', variant === 'list' && 'py-3.5', className)}>
+      <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', iconClassName)} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium text-slate-500">{label}</div>
+        <div className={cn('mt-0.5 break-words text-sm font-medium text-slate-900', valueClassName)}>{value}</div>
       </div>
     </div>
   );
 }
 
-function formatDate(date?: string | null) {
-  if (!date) return '—';
-  return new Date(date).toLocaleDateString('vi-VN');
-}
-
-function formatDateTime(date?: string | null) {
-  if (!date) return '—';
-  return new Date(date).toLocaleString('vi-VN');
+function WorkloadMetricCell({
+  label,
+  value,
+  changePercent,
+  deltaClass,
+}: {
+  label: string;
+  value: ReactNode;
+  changePercent: number;
+  deltaClass: string;
+}) {
+  const v = Number(changePercent ?? 0);
+  const sign = v > 0 ? '+' : '';
+  const pct = `${sign}${v.toFixed(1)}%`;
+  return (
+    <div className="min-w-0 flex-1 px-3 py-3 sm:px-4">
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-xl font-semibold tabular-nums text-slate-900">{value}</p>
+      <p className={cn('mt-1.5 text-[11px] font-medium tabular-nums', deltaClass)}>{pct}</p>
+    </div>
+  );
 }

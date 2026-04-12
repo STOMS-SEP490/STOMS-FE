@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Power, PowerOff, Plus, X } from 'lucide-react';
+import { Eye, Loader2, Pencil, Power, PowerOff, Plus, RotateCcw, X } from 'lucide-react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import dayjs from 'dayjs';
 import { Modal, message } from 'antd';
 import courseApi from '@/modules/course/api/courseApi';
 import courseSubjectApi from '@/modules/course/api/courseSubjectApi';
@@ -11,17 +11,25 @@ import type { SubjectListItem } from '@/modules/subject/subject';
 import { Badge } from '@/shared/components/ui/badge';
 import HoverSearch from '@/shared/components/ui/search';
 import { DataTable } from '@/shared/components/common/DataTable';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
-import { useCourses } from '@/modules/course/hooks/useCourses';
+import type { CoursesManagementLayoutOutletContext } from '@/app/layouts/coursesManagementOutletContext';
+import { useCourses, type CourseListStatusFilter } from '@/modules/course/hooks/useCourses';
 import { useCourseDetailDrawer } from '@/modules/course/hooks/useCourseDetailDrawer';
 import { useActiveSubjects } from '@/modules/course/hooks/useActiveSubjects';
 import { CourseDetailDrawer } from '@/modules/course/components/CourseDetailDrawer';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi';
 
 type Props = {
   readOnly?: boolean;
@@ -46,8 +54,9 @@ function mapApiCourseSubjectToRow(
 }
 
 export default function CoursesManagement({ readOnly = false }: Props) {
-  const context = useOutletContext<{ position: string }>();
+  const context = useOutletContext<CoursesManagementLayoutOutletContext>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { user } = useAuth();
   const roleId = Number(user?.role ?? 0);
@@ -57,17 +66,41 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const openCreateFromUrl = searchParams.get('openCourseCreate');
 
+  const listLifted =
+    context.courseListLifted === true &&
+    typeof context.setCourseListSearch === 'function' &&
+    typeof context.courseListSearch === 'string' &&
+    typeof context.setCourseListStatusFilter === 'function' &&
+    typeof context.courseListStatusFilter !== 'undefined' &&
+    typeof context.setCourseListPage === 'function' &&
+    typeof context.courseListPage === 'number';
+
   const {
     data,
-    loading,
+    isListBlocking,
     search,
     setSearch,
+    statusFilter,
+    setFiltersAndResetPage,
+    resetFilters,
     pageNumber,
     pageSize,
     totalItems,
     setPageNumber,
     refetch,
-  } = useCourses();
+  } = useCourses(
+    listLifted
+      ? {
+          search: context.courseListSearch,
+          setSearch: context.setCourseListSearch,
+          statusFilter: context.courseListStatusFilter,
+          setStatusFilter: context.setCourseListStatusFilter,
+          pageNumber: context.courseListPage,
+          setPageNumber: context.setCourseListPage,
+          activeOnly: false,
+        }
+      : { activeOnly: false },
+  );
 
   const allSubjects = useActiveSubjects();
 
@@ -198,6 +231,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         message.success('Tạo khóa học thành công');
         setOpenEdit(false);
         await refetch();
+        void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey });
         return;
       }
 
@@ -236,6 +270,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       message.success('Cập nhật khóa học thành công');
       setOpenEdit(false);
       await refetch();
+      void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey });
     } catch (e: unknown) {
       message.error(getErrorMessage(e));
     } finally {
@@ -259,13 +294,14 @@ export default function CoursesManagement({ readOnly = false }: Props) {
             else await courseApi.activate(c.courseId);
             message.success('Cập nhật trạng thái khóa học thành công');
             await refetch();
+            void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey });
           } catch (e: unknown) {
             message.error(getErrorMessage(e));
           }
         },
       });
     },
-    [refetch],
+    [queryClient, refetch],
   );
 
   const handleView = useCallback(
@@ -279,110 +315,144 @@ export default function CoursesManagement({ readOnly = false }: Props) {
     () => [
       {
         accessorKey: 'courseCode',
-        header: 'MÃ KHÓA HỌC',
-        cell: ({ row }) => <div className="text-sm font-medium">{row.original.courseCode}</div>,
+        header: 'Mã khóa học',
+        cell: ({ row }) => (
+          <span className="text-sm font-semibold text-slate-900">{row.original.courseCode}</span>
+        ),
       },
       {
         accessorKey: 'courseName',
-        header: 'TÊN KHÓA HỌC',
+        header: 'Tên khóa học',
+        cell: ({ row }) => (
+          <div className="min-w-0 truncate text-sm font-medium text-slate-900">{row.original.courseName}</div>
+        ),
       },
       {
         accessorKey: 'isActive',
-        header: 'TRẠNG THÁI',
+        header: 'Trạng thái',
         cell: ({ row }) =>
           row.original.isActive ? (
-            <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
+            <Badge className="border bg-green-100 text-green-700">Hoạt động</Badge>
           ) : (
-            <Badge className="bg-orange-100 text-orange-600">Ngừng hoạt động</Badge>
+            <Badge className="border bg-orange-100 text-orange-600">Ngừng hoạt động</Badge>
           ),
       },
       {
         id: 'subjects',
-        header: 'SỐ MÔN HỌC',
+        header: 'Số môn học',
         cell: ({ row }) => {
           const count = row.original.numberOfSubject ?? row.original.courseSubjects?.length ?? 0;
-          return `${count} môn học`;
+          return <span className="text-sm text-slate-700">{`${count} môn học`}</span>;
         },
       },
       {
         id: 'requests',
-        header: 'SỐ YÊU CẦU',
-        cell: ({ row }) => `${row.original.requests?.length ?? 0} yêu cầu`,
+        header: 'Số yêu cầu',
+        cell: ({ row }) => (
+          <span className="text-sm text-slate-700">{`${row.original.requests?.length ?? 0} yêu cầu`}</span>
+        ),
       },
       {
         accessorKey: 'updatedAt',
-        header: 'CẬP NHẬT',
+        header: 'Cập nhật',
         cell: ({ row }) =>
-          row.original.updatedAt ? dayjs(row.original.updatedAt).format('DD/MM/YYYY') : '—',
+          row.original.updatedAt
+            ? new Date(row.original.updatedAt).toLocaleString('vi-VN')
+            : '—',
       },
       {
         id: 'actions',
-        header: 'HÀNH ĐỘNG',
+        header: 'Thao tác',
         enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex gap-2 items-center">
-            {isManager ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => void handleView(row.original)}
-                aria-label="Xem chi tiết"
-              >
-                <Eye size={16} className="text-gray-800" />
-              </Button>
-            ) : (
-              <TableTextAction onClick={() => void handleView(row.original)} />
-            )}
-            {canEdit && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => void openEditModal(row.original)}
-                  title="Sửa"
-                >
-                  <Pencil size={16} className="text-blue-600" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleToggleActive(row.original)}
-                  title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                >
-                  {row.original.isActive ? (
-                    <PowerOff size={16} className="text-red-500" />
+        cell: ({ row }) => {
+          const c = row.original;
+          return (
+            <div className="flex gap-3">
+              <span title="Xem chi tiết">
+                <Eye
+                  size={16}
+                  className="cursor-pointer text-gray-800"
+                  onClick={() => void handleView(c)}
+                />
+              </span>
+              {canEdit ? (
+                <>
+                  <span title="Chỉnh sửa">
+                    <Pencil
+                      size={16}
+                      className="cursor-pointer text-blue-600"
+                      onClick={() => void openEditModal(c)}
+                    />
+                  </span>
+                  {c.isActive ? (
+                    <span title="Vô hiệu hóa">
+                      <PowerOff
+                        size={16}
+                        className="cursor-pointer text-red-500"
+                        onClick={() => handleToggleActive(c)}
+                      />
+                    </span>
                   ) : (
-                    <Power size={16} className="text-green-600" />
+                    <span title="Kích hoạt">
+                      <Power
+                        size={16}
+                        className="cursor-pointer text-green-600"
+                        onClick={() => handleToggleActive(c)}
+                      />
+                    </span>
                   )}
-                </Button>
-              </>
-            )}
-          </div>
-        ),
+                </>
+              ) : null}
+            </div>
+          );
+        },
       },
     ],
-    [isManager, canEdit, handleView, openEditModal, handleToggleActive],
+    [canEdit, handleView, openEditModal, handleToggleActive],
   );
 
   if (context.position === 'toolbar') {
+    if (!isManager) {
+      return (
+        <div className="flex gap-3 items-center">
+          <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
+        </div>
+      );
+    }
     return (
-      <div className="flex gap-3">
-        <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
+      <div className="flex gap-3 items-center">
+        <HoverSearch
+          placeholder="Tìm khóa học..."
+          value={search}
+          onChange={(value) => setSearch(value)}
+        />
+        <Select
+          value={statusFilter}
+          onValueChange={(v) =>
+            setFiltersAndResetPage({
+              statusFilter: v as CourseListStatusFilter,
+            })
+          }
+        >
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[160px]">
+            <SelectValue placeholder="Trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="active">Đang hoạt động</SelectItem>
+            <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button variant="secondary" className="bg-white" onClick={resetFilters} type="button">
+          <RotateCcw className="w-4 h-4" />
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-4">
-      <div className="flex items-center mb-2">
-        <div>
-          <h2 className="text-lg font-semibold text-black">Quản lý khóa học</h2>
-          <p className="text-xs text-gray-500">Danh sách khóa học trong hệ thống</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border shadow-sm p-4">
-        {loading && <div className="text-sm text-gray-500 mb-3">Đang tải...</div>}
+    <div className="space-y-4">
+      <div className="relative min-h-[200px]">
         <DataTable
           columns={columns}
           data={data}
@@ -390,7 +460,18 @@ export default function CoursesManagement({ readOnly = false }: Props) {
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(page) => setPageNumber(page)}
+          comfortable
         />
+        {isListBlocking ? (
+          <div
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-md bg-white/75 backdrop-blur-[1px]"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" aria-hidden />
+            <span className="text-sm text-slate-500">Đang tải...</span>
+          </div>
+        ) : null}
       </div>
 
       <CourseDetailDrawer
@@ -415,14 +496,14 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         transition-transform duration-300
         ${!readOnly && openEdit ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <div className="flex flex-col h-full overflow-y-auto no-scrollbar text-gray-700">
-          <div className="px-6 py-5 bg-[#f3f4f6] border-b">
-            <div className="flex justify-between items-start">
+        <div className="flex h-full flex-col overflow-y-auto text-slate-700 no-scrollbar">
+          <div className="border-b bg-[#f3f4f6] px-6 py-5">
+            <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-black">
+                <h2 className="text-lg font-semibold text-slate-900">
                   {isCreating ? 'Tạo khóa học' : 'Cập nhật khóa học'}
                 </h2>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-500">
                   {isCreating
                     ? 'Tạo mới một khóa học trong hệ thống.'
                     : 'Chỉnh sửa thông tin cơ bản của khóa học.'}
@@ -430,7 +511,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
               </div>
               <button
                 onClick={closeEditModal}
-                className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                 aria-label="Đóng"
               >
                 <X size={20} />
@@ -473,7 +554,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Gạt để bật/tắt môn đã gán; thêm mới qua nút bên trên (tick nhiều ô rồi bấm Lưu).
+                Gạt để bật/tắt môn đã gán
               </p>
 
               <div className="stoms-scrollbar max-h-[40vh] overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
@@ -493,11 +574,11 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                           className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
                         >
                           <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-medium text-black truncate">{name}</span>
-                            <span className="text-xs text-gray-500">ID: {cs.subjectId}</span>
+                            <span className="truncate text-sm font-medium text-slate-900">{name}</span>
+                            <span className="text-xs text-slate-500">Mã môn: {cs.subjectId}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-xs text-gray-500 hidden sm:inline">
+                            <span className="hidden text-xs text-slate-500 sm:inline">
                               {isActive ? 'Đang dùng' : 'Đang tắt'}
                             </span>
                             <Switch
@@ -527,7 +608,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                     Đóng
                   </Button>
                 </div>
-                <div className="text-xs text-gray-500 mb-1">
+                <div className="mb-1 text-xs text-slate-500">
                   Chọn một hoặc nhiều môn chưa gán; bấm <strong>Lưu</strong> để gán hàng loạt.
                 </div>
                 <div className="stoms-scrollbar max-h-64 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
@@ -560,7 +641,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                               <span className="flex-1">
                                 {s.subjectCode} - {s.subjectName}
                               </span>
-                              <span className="text-xs text-gray-400">#{s.subjectId}</span>
+                              <span className="text-xs text-slate-400">#{s.subjectId}</span>
                             </label>
                           );
                         })}
