@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom';
+import EventCalendar from '@/modules/timetable/pages/EventCalendar';
 import PCDashboard from '@/modules/dashboard/pages/PCDashboard';
 import CreateRequestPage from '@/modules/request/pages/CreateRequestPage';
 import RequestsManagement from '@/modules/request/pages/RequestsManagement';
@@ -30,6 +31,8 @@ const ProgramCoordinatorRoutes = [
     ],
   },
   { path: 'events', element: <EventsManagement /> },
+  { path: 'timetable', element: <EventCalendar /> },
+  { path: 'timetable/assignments', element: <Navigate to="/pc/timetable" replace /> },
   {
     path: 'courses',
     element: <CoursesReadonlyLayout />,

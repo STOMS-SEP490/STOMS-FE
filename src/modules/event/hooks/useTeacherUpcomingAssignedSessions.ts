@@ -54,10 +54,13 @@ export function useTeacherUpcomingAssignedSessions(
 ) {
   const location = useLocation();
   const isTeacherTimetable = location.pathname.startsWith('/teacher/timetable');
+  const isPCTimetable = location.pathname.startsWith('/pc/timetable');
   const isTeamLeaderTimetable = location.pathname.startsWith('/tl/timetable');
   const teamLeaderPersonal = options?.teamLeaderPersonal === true;
   const useTeacherStyleUpcoming =
-    isTeacherTimetable || (isTeamLeaderTimetable && teamLeaderPersonal);
+    isTeacherTimetable ||
+    isPCTimetable ||
+    (isTeamLeaderTimetable && teamLeaderPersonal);
   const [cards, setCards] = useState<TeacherUpcomingScheduleCard[]>([]);
   const [loading, setLoading] = useState(false);
 
