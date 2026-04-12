@@ -1,14 +1,17 @@
 import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
-import { Calendar, Clock, GraduationCap, Hash, List, MapPin, UserCheck, Users, X } from 'lucide-react';
+import { UserCheck, X } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import attendanceApi from '@/modules/attendance/attendanceApi';
 import type { TeamLeaderTimetableAssignmentRow } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
 import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/type';
-import { Badge } from '@/shared/components/ui/badge';
+import { cn } from '@/shared/lib/utils';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
+import { message } from 'antd';
 
 type AttendanceActionMode = 'delegate' | 'checkin' | 'checkout' | null;
+type AttendanceTab = Exclude<AttendanceActionMode, null>;
 
 function getInitials(name?: string) {
   if (!name) return 'NA';
@@ -33,6 +36,8 @@ export type TeamLeaderAttendanceSlideOverProps = {
   isSubmitting: boolean;
   setIsSubmitting: (v: boolean) => void;
   setActionMode: Dispatch<SetStateAction<AttendanceActionMode>>;
+  /** Đổi tab Check-in / Check-out / Ủy quyền (đồng bộ chọn member). */
+  switchActionMode: (mode: AttendanceTab) => void;
   closePanel: () => void;
   saveAttendance: () => void;
   refreshAttendanceItems: () => Promise<{ items: AttendanceItem[]; membersById: Record<number, MemberDetail> } | void>;
@@ -57,11 +62,13 @@ export default function TeamLeaderAttendanceSlideOver({
   isSubmitting,
   setIsSubmitting,
   setActionMode,
+  switchActionMode,
   closePanel,
   saveAttendance,
   refreshAttendanceItems,
   refetch,
-  overlayZClass = 'z-40',
+  /** Cùng mức z với panel Chi tiết phiên (tl/timetable) để lớp mờ nhất quán */
+  overlayZClass = 'z-[80]',
 }: TeamLeaderAttendanceSlideOverProps) {
   const filteredAttendanceItems = useMemo(() => {
     const keyword = memberSearch.trim().toLowerCase();
@@ -76,203 +83,121 @@ export default function TeamLeaderAttendanceSlideOver({
   }, [attendanceItems, memberSearch, membersById]);
 
   const topic = sessionDetail?.SubjectSession ?? sessionDetail?.EventSession;
-  const responseText = topic?.Description?.trim() ? topic.Description.trim() : (sessionDetail?.Notes ?? '').trim();
   const requestNameText = activeSession?.requestName?.trim() ? activeSession.requestName.trim() : '';
-  const requestCodeText = activeSession?.requestCode?.trim() ? activeSession.requestCode.trim() : '';
-  const locationText =
-    sessionDetail?.Location?.trim() ? sessionDetail.Location.trim() : (activeSession?.location ?? '').trim();
-
-  const backendTeamIds = (sessionDetail?.TeamSessions ?? [])
-    .map((ts) => ts?.TeamId)
-    .filter((id): id is number => typeof id === 'number' && id > 0);
-  const statusStr = String(sessionDetail?.Status ?? '').toLowerCase();
-  const teamAssigned =
-    backendTeamIds.length > 0 ||
-    ['approved', 'assigned', 'ongoing', 'completed'].includes(statusStr);
 
   const startAt = sessionDetail?.StartAt ?? activeSession?.startAt;
   const endAt = sessionDetail?.EndAt ?? activeSession?.endAt;
 
-  const teachersRequiredText = sessionDetail?.TeachersRequired ?? '—';
-  const tasRequiredText = sessionDetail?.TasRequired ?? '—';
+  /** Tiêu đề header: ưu tiên tên khóa / tên yêu cầu. */
+  const panelTitle = useMemo(() => {
+    const t = topic?.Title?.trim();
+    if (t) return t;
+    if (requestNameText) return requestNameText;
+    if (activeSession?.sessionNo != null) return `Phiên ${activeSession.sessionNo}`;
+    return 'Điểm danh';
+  }, [topic?.Title, requestNameText, activeSession?.sessionNo]);
 
-  const skills = useMemo(() => {
-    if (!sessionDetail) return [];
-    const fromEvent = (sessionDetail.EventSessionSkill ?? []).filter((s) => (s.IsActive ?? true) !== false);
-    const fromSubject = (sessionDetail.SubjectSkill ?? []).filter((s) => (s.IsActive ?? true) !== false);
-    const names = [
-      ...fromEvent.map((s) => String(s.SkillName ?? '').trim()),
-      ...fromSubject.map((s) => String(s.SkillName ?? '').trim()),
-    ].filter(Boolean);
-    return Array.from(new Set(names));
-  }, [sessionDetail]);
+  const headerSubtitle =
+    startAt && endAt
+      ? `${dayjs(startAt).format('DD/MM/YYYY')} · ${dayjs(startAt).format('HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
+      : '';
+
+  const tabs: { id: AttendanceTab; label: string }[] = [
+    { id: 'checkin', label: 'Check-in' },
+    { id: 'checkout', label: 'Check-out' },
+    { id: 'delegate', label: 'Ủy quyền' },
+  ];
 
   return (
     <div
-      className={`fixed inset-0 transition ${overlayZClass} ${actionMode ? 'pointer-events-auto' : 'pointer-events-none'}`}
+      className={`fixed inset-0 isolate ${overlayZClass} ${actionMode ? 'pointer-events-auto' : 'pointer-events-none'}`}
     >
       <div
-        className={`absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity ${
+        className={`absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity duration-300 ease-out ${
           actionMode ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={closePanel}
+        aria-hidden={!actionMode}
       />
       <aside
-        className={`absolute right-0 top-0 h-full w-full max-w-xl border-l border-gray-100 bg-white shadow-2xl transition-transform duration-300 ${
+        className={`absolute right-0 top-0 h-full w-full max-w-[640px] border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-out will-change-transform motion-reduce:transition-none ${
           actionMode ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-start justify-between gap-3 p-6 pb-4 border-b border-gray-100">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-[#2197C0]">
-                {actionMode === 'delegate'
-                  ? 'Ủy quyền điểm danh'
-                  : actionMode === 'checkin'
-                    ? 'Check-in member'
-                    : 'Check-out member'}
+          <div className="px-6 pt-5 pb-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 pr-2">
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Điểm danh</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900 leading-snug">{panelTitle}</h2>
+                {headerSubtitle ? (
+                  <p className="mt-1 text-xs text-slate-500">{headerSubtitle}</p>
+                ) : null}
               </div>
-              <h2 className="mt-1 text-lg font-bold text-slate-900">Phiên {activeSession?.sessionNo ?? '—'}</h2>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className="text-xs font-medium text-[#2197C0]">Dạy học</span>
-                <span
-                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                    teamAssigned
-                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                      : 'bg-amber-50 text-amber-800 border border-amber-200'
-                  }`}
-                >
-                  {teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
-                </span>
-              </div>
+              <button
+                type="button"
+                className="shrink-0 rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+                onClick={closePanel}
+                aria-label="Đóng"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
-              onClick={closePanel}
-            >
-              <X className="h-4 w-4" />
-            </button>
+            {actionMode ? (
+              <nav
+                className="mt-3 flex flex-wrap items-center gap-5 border-b border-slate-200"
+                role="tablist"
+                aria-label="Chế độ điểm danh"
+              >
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={actionMode === tab.id}
+                    onClick={() => switchActionMode(tab.id)}
+                    className={cn(
+                      '-mb-px cursor-pointer border-b-2 bg-transparent px-0 pb-2 text-[11px] font-medium transition-colors sm:text-xs',
+                      actionMode === tab.id
+                        ? 'border-[#2197C0] text-[#2197C0]'
+                        : 'border-transparent text-slate-500 hover:text-slate-700',
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+            ) : null}
           </div>
 
-          <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
-            <div className="rounded-2xl bg-white shadow-sm border border-gray-100 mb-4">
-              <div className="px-4 py-2.5 border-b border-gray-100">
-                <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
-              </div>
-              <div className="px-4 py-3 space-y-2 text-sm">
-                {(topic?.Title?.trim() || responseText || topic?.Duration?.trim()) && (
-                  <div className="space-y-2">
-                    {topic?.Title?.trim() ? (
-                      <div className="flex items-start gap-3">
-                        <span className="text-xs text-gray-500 shrink-0 mt-0.5">Tiêu đề:</span>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-black">{topic.Title.trim()}</p>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {topic?.Duration?.trim() ? (
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <span className="text-xs text-gray-500">Thời lượng:</span>
-                        <span className="font-medium text-black">{topic.Duration.trim()}</span>
-                      </div>
-                    ) : null}
-
-                    {skills.length ? (
-                      <div className="flex items-start gap-3">
-                        <span className="text-xs text-gray-500 shrink-0 mt-0.5">Kỹ năng:</span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {skills.map((name) => (
-                            <Badge
-                              key={name}
-                              className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px]"
-                            >
-                              {name}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
+          <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4">
+            <div className="rounded-2xl bg-white shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-gray-900">Danh sách member được phân công</h3>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Chọn member để{' '}
+                    {actionMode === 'delegate'
+                      ? 'ủy quyền điểm danh (bao gồm check-out)'
+                      : actionMode === 'checkin'
+                        ? 'check-in'
+                        : 'check-out'}
+                    .
+                  </p>
+                </div>
+                {(actionMode === 'checkin' || actionMode === 'checkout') && (
+                  <button
+                    type="button"
+                    onClick={saveAttendance}
+                    className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#2197C0] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#208AAE] disabled:opacity-50"
+                    disabled={isSubmitting || selectedMemberIds.length === 0}
+                  >
+                    Lưu điểm danh
+                  </button>
                 )}
-
-                <div className="flex items-center gap-3 text-gray-600">
-                  <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                  <span className="text-gray-500">Thời gian:</span>
-                  <span className="font-medium text-black">
-                    {startAt && endAt
-                      ? `${dayjs(startAt).format('HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
-                      : '—'}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3 text-gray-600">
-                  <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                  <span className="text-gray-500">Ngày:</span>
-                  <span className="font-medium text-black">{startAt ? dayjs(startAt).format('DD/MM/YYYY') : '—'}</span>
-                </div>
-
-                <div className="flex items-center gap-3 text-gray-600">
-                  <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                  <span className="text-gray-500">Địa điểm:</span>
-                  <span className="font-medium text-black">{locationText || '—'}</span>
-                </div>
-
-                <div className="flex items-center gap-3 text-gray-600">
-                  <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                  <span className="text-gray-500">Mã yêu cầu:</span>
-                  <span className="font-semibold text-[#2197C0]">{requestCodeText || '—'}</span>
-                </div>
-
-                <div className="flex items-center gap-3 text-gray-600">
-                  <List className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                  <span className="text-gray-500">Tên yêu cầu:</span>
-                  <span className="font-medium text-black">
-                    {requestNameText?.trim() ? requestNameText.trim() : '—'}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3 text-gray-700">
-                  <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                  <span className="text-gray-500">Số lượng giảng viên:</span>
-                  <span className="font-medium text-black">{teachersRequiredText}</span>
-                </div>
-
-                <div className="flex items-center gap-3 text-gray-700">
-                  <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                  <span className="text-gray-500">Số lượng trợ giảng:</span>
-                  <span className="font-medium text-black">{tasRequiredText}</span>
-                </div>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <div>
-                <div className="font-semibold text-slate-900">Danh sách member được phân công</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  Chọn member để{' '}
-                  {actionMode === 'delegate'
-                    ? 'ủy quyền điểm danh (bao gồm check-out)'
-                    : actionMode === 'checkin'
-                      ? 'check-in'
-                      : 'check-out'}
-                  .
-                </div>
-              </div>
-              {(actionMode === 'checkin' || actionMode === 'checkout') && (
-                <button
-                  type="button"
-                  onClick={saveAttendance}
-                  className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
-                  disabled={isSubmitting || selectedMemberIds.length === 0}
-                >
-                  Lưu điểm danh
-                </button>
-              )}
-            </div>
-
-            <div className="mt-0 flex flex-wrap items-center gap-3 bg-white px-4 py-3">
+              <div className="flex flex-wrap items-center gap-3 px-5 py-3">
               <HoverSearch
                 value={memberSearch}
                 onChange={setMemberSearch}
@@ -316,15 +241,17 @@ export default function TeamLeaderAttendanceSlideOver({
                   </label>
                 )}
               </div>
-            </div>
+              </div>
 
-            <div className=" grid gap-3">
+              <div className="px-5 pb-5">
               {filteredAttendanceItems.length === 0 && (
-                <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
+                <div className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
                   Chưa có member nào cần điểm danh.
                 </div>
               )}
 
+              {filteredAttendanceItems.length > 0 && (
+              <div className="flex flex-col divide-y divide-slate-100 overflow-hidden rounded-xl bg-slate-50/50">
               {filteredAttendanceItems.map((attendance) => {
                 const memberId = attendance.MemberId;
                 const assigned = (sessionDetail?.Assignments ?? []).find(
@@ -352,7 +279,7 @@ export default function TeamLeaderAttendanceSlideOver({
                 return (
                   <div
                     key={attendance.AttendanceId}
-                    className="grid grid-cols-1 items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 md:grid-cols-[1fr_1.2fr_auto]"
+                    className="grid grid-cols-1 items-center gap-4 bg-white px-4 py-3.5 md:grid-cols-[1fr_1.2fr_auto]"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
@@ -397,11 +324,13 @@ export default function TeamLeaderAttendanceSlideOver({
                               await refreshAttendanceItems();
                               await refetch?.();
                               setActionMode(null);
+                            } catch (err: unknown) {
+                              message.error(getErrorMessage(err));
                             } finally {
                               setIsSubmitting(false);
                             }
                           }}
-                          className="inline-flex w-fit justify-self-end items-center gap-0.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100 whitespace-nowrap"
+                          className="inline-flex w-fit justify-self-end items-center gap-0.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 hover:bg-violet-100 whitespace-nowrap"
                           disabled={isSubmitting}
                         >
                           <UserCheck className="h-3 w-3" />
@@ -473,6 +402,9 @@ export default function TeamLeaderAttendanceSlideOver({
                   </div>
                 );
               })}
+              </div>
+              )}
+              </div>
             </div>
           </div>
         </div>

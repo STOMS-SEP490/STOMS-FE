@@ -188,10 +188,24 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
     selectedMemberIds,
   ]);
 
+  /** Đổi tab Check-in / Check-out / Ủy quyền trong panel — đồng bộ lựa chọn member với logic mở panel. */
+  const switchActionMode = useCallback(
+    (mode: Exclude<AttendanceActionMode, null>) => {
+      setActionMode(mode);
+      if (mode === 'checkin' || mode === 'checkout') {
+        setSelectedMemberIds(getSelectedIdsByMode(attendanceItems, mode));
+      } else {
+        setSelectedMemberIds([]);
+      }
+    },
+    [attendanceItems],
+  );
+
   return {
     currentMemberId,
     actionMode,
     setActionMode,
+    switchActionMode,
     activeSession,
     sessionDetail,
     attendanceItems,

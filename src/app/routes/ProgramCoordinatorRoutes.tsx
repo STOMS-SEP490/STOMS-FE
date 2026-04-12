@@ -14,8 +14,8 @@ import ProgramCoordinatorTeamsPage from '@/modules/team/pages/ProgramCoordinator
 import PCRequestLayout from '@/app/layouts/PCRequestLayout';
 
 const ProgramCoordinatorRoutes = [
-  { path: 'dashboard', element: <PCDashboard /> },
   { index: true, element: <Navigate to="dashboard" replace /> },
+  { path: 'dashboard', element: <PCDashboard /> },
   {
     path: 'requests',
     children: [

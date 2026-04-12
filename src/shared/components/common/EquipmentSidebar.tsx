@@ -12,7 +12,7 @@ export default function EquipmentSidebar() {
   const navigate = useNavigate()
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
     const avatarUrl = localStorage.getItem('memberAvatarUrl') || ''
-    return avatarUrl.trim() ? avatarUrl : '/img/avatar.png'
+    return avatarUrl.trim() ? avatarUrl : '/img/ava.png'
   })
   const [memberName, setMemberName] = useState(() => localStorage.getItem('memberFullName') || '')
   const [userEmail, setUserEmail] = useState('')
@@ -135,7 +135,7 @@ export default function EquipmentSidebar() {
               onError={(e) => {
                 const img = e.currentTarget
                 img.onerror = null
-                img.src = '/img/avatar.png'
+                img.src = '/img/ava.png'
               }}
             />
           </div>

@@ -16,6 +16,7 @@ import TeacherDashboard from '@/modules/dashboard/pages/TeacherDashboard';
 import MyTeamPage from '@/modules/team/pages/MyTeamPage';
 
 const TeacherRoutes = [
+  { index: true, element: <Navigate to="dashboard" replace /> },
   { path: 'dashboard', element: <TeacherDashboard /> },
   { path: 'teams', element: <MyTeamPage /> },
   { path: 'events', element: <EventsManagement /> },
