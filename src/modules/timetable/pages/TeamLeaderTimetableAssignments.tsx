@@ -46,6 +46,21 @@ function getSessionDisplayName(row: TeamLeaderTimetableAssignmentRow) {
   return 'Phiên dạy';
 }
 
+/** Tiêu đề panel — ưu tiên tên phiên/khóa từ API, không chỉ "Phiên 2". */
+function getSessionPanelTitle(
+  session: RequestSessionSummary | null,
+  requestName?: string | null,
+): string {
+  if (!session) return '—';
+  const topic = session.subjectSession ?? session.eventSession;
+  const title = topic?.title?.trim();
+  if (title) return title;
+  const rn = requestName?.trim();
+  if (rn) return rn;
+  if (session.sessionNo != null) return `Phiên ${session.sessionNo}`;
+  return 'Chi tiết phiên';
+}
+
 type TeamLeaderTimetableAssignmentsProps = {
   isAttendanceTab?: boolean;
   embedded?: boolean;
@@ -91,6 +106,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
     currentMemberId,
     actionMode,
     setActionMode,
+    switchActionMode,
     activeSession,
     sessionDetail,
     attendanceItems,
@@ -689,29 +705,30 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
       </div>
 
       <div
-        className={`fixed inset-0 z-[80] transition ${detailOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={`fixed inset-0 isolate z-[80] ${detailOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         <div
-          className={`absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity ${
+          className={`absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity duration-300 ease-out ${
             detailOpen ? 'opacity-100' : 'opacity-0'
           }`}
           onClick={closeDetail}
+          aria-hidden={!detailOpen}
         />
         <aside
-          className={`absolute right-0 top-0 h-full w-full max-w-[640px] border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ${
+          className={`absolute right-0 top-0 h-full w-full max-w-[640px] border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-out will-change-transform motion-reduce:transition-none ${
             detailOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
           <div className="flex h-full flex-col">
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-[#2197C0]">Chi tiết phiên</div>
-                <h3 className="mt-1 text-lg font-semibold text-slate-900">
-                  Phiên {detailSession?.sessionNo ?? '—'}
+              <div className="min-w-0 pr-2">
+                <div className="text-xs text-gray-400 uppercase tracking-wide">Chi tiết phiên</div>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900 leading-snug">
+                  {getSessionPanelTitle(detailSession, detailRequest?.requestName)}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-500">
                   {detailSession
-                    ? `${formatDate(detailSession.startAt)} • ${formatDateTime(detailSession.startAt)}-${formatDateTime(detailSession.endAt)}`
+                    ? `${formatDate(detailSession.startAt)} · ${formatTimeRange(detailSession.startAt, detailSession.endAt)}`
                     : ''}
                 </p>
               </div>
@@ -782,6 +799,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
         isSubmitting={isSubmitting}
         setIsSubmitting={setIsSubmitting}
         setActionMode={setActionMode}
+        switchActionMode={switchActionMode}
         closePanel={closePanel}
         saveAttendance={saveAttendance}
         refreshAttendanceItems={refreshAttendanceItems}

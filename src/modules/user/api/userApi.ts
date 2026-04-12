@@ -16,6 +16,7 @@ const userService = {
     return axiosClient.get('/users/filter', { params });
   },
 
+  /** Trả về đủ trường mở rộng: avatarUrl, userDevices, memberId, … */
   getUserById: async (id: number): Promise<User> => {
     return axiosClient.get(`/users/${id}`);
   },

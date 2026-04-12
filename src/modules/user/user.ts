@@ -6,13 +6,32 @@ export type CurrentUser = {
   token: string;
 };
 
-export type User = {
+/** Thiết bị / trình duyệt đã từng đăng nhập (GET /users/{id} đầy đủ). */
+export type UserDevice = {
+  userDeviceId: number;
   userId: number;
-  email: string;
-  passwordHash: string;
+  platform: string;
+  deviceName: string;
+  lastSeenAt: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  lockedAt: string | null;
+  authSessions?: unknown[];
+};
+
+export type User = {
+  userId: number;
+  email: string;
+  passwordHash?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lockedAt?: string | null;
   roleId: number;
+  memberId?: number | null;
+  avatarUrl?: string | null;
+  member?: Record<string, unknown> | null;
+  notifications?: unknown[];
+  role?: unknown | null;
+  userDevices?: UserDevice[];
 };

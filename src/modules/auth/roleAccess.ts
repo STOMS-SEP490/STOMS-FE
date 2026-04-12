@@ -14,10 +14,12 @@ export function getRoleIdFromStorage(): number | null {
   }
 }
 
+/** Đồng bộ với `index → dashboard` trong Manager/TL/PC/Teacher/EM Routes */
 export function getHomePathByRole(roleId: number | null | undefined): string {
-  if (roleId === ROLE_ID.TEAM_LEADER) return '/tl';
-  if (roleId === ROLE_ID.PROGRAM_COORDINATOR) return '/pc';
-  if (roleId === ROLE_ID.TEACHER || roleId === ROLE_ID.ASSISTANT) return '/teacher';
-  if (roleId === ROLE_ID.EQUIPMENT_MANAGER) return '/em';
+  if (roleId === ROLE_ID.MANAGER) return '/manager/dashboard';
+  if (roleId === ROLE_ID.TEAM_LEADER) return '/tl/dashboard';
+  if (roleId === ROLE_ID.PROGRAM_COORDINATOR) return '/pc/dashboard';
+  if (roleId === ROLE_ID.TEACHER || roleId === ROLE_ID.ASSISTANT) return '/teacher/dashboard';
+  if (roleId === ROLE_ID.EQUIPMENT_MANAGER) return '/em/dashboard';
   return '/manager/dashboard';
 }

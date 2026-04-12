@@ -8,6 +8,7 @@ import sessionApi from '@/modules/request/api/sessionApi';
 import memberApi from '@/modules/request/api/memberApi';
 import requestApi from '@/modules/request/api/requestApi';
 import { resolveSessionTopicTitleFromSessionLike } from '@/modules/event/utils/sessionTopicTitle';
+import { SESSION_STATUS } from '@/constants/status';
 
 async function loadPersonalTeachingScheduleEvents(memberId: number): Promise<CalendarEvent[]> {
   try {
@@ -73,7 +74,13 @@ async function loadCalendarEventsViaSessionFilter(
 ): Promise<CalendarEvent[]> {
   const sessionsRes = await sessionApi.getFilter({
     ...(omitTeamId ? {} : { TeamId: teamId }),
-    Statuses: ['ASSIGNED', 'ONGOING', 'COMPLETED'],
+    /** BE `/sessions/filter`: truyền mã trạng thái (6–9) thay cho chuỗi enum. */
+    Statuses: [
+      SESSION_STATUS.ASSIGNED,
+      SESSION_STATUS.CANCELLED,
+      SESSION_STATUS.ONGOING,
+      SESSION_STATUS.COMPLETED,
+    ],
     PageNumber: 1,
     PageSize: 500,
   });

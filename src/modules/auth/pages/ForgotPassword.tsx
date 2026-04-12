@@ -1,7 +1,8 @@
 import authService from '@/modules/auth/api/authApi';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { Eye, EyeOff, KeyRound, Lock, Mail } from 'lucide-react';
 
 type AuthContextType = {
   setImage: (src: string) => void;
@@ -15,6 +16,15 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const inputClass =
+    'w-full rounded-2xl border border-sky-100 bg-white py-3 pl-12 pr-4 text-slate-700 placeholder-slate-400 shadow-[0_4px_16px_rgba(2,132,199,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-300';
+  const inputPasswordClass =
+    'w-full rounded-2xl border border-sky-100 bg-white py-3 pl-12 pr-12 text-slate-700 placeholder-slate-400 shadow-[0_4px_16px_rgba(2,132,199,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-300';
+  const primaryBtnClass =
+    'w-full py-3 rounded-lg bg-[#193350] text-white hover:opacity-90 transition disabled:opacity-70';
 
   useEffect(() => {
     setImage('/img/ForgotPassword.png');
@@ -85,27 +95,30 @@ export default function ForgotPassword() {
             Hãy nhập địa chỉ email của bạn để khôi phục mật khẩu.
           </p>
 
-          <form onSubmit={handleRequestOtp} className="space-y-8">
-            <input
-              type="email"
-              placeholder="abc@gmail.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-lg 
-                bg-[#6e8ebd] placeholder-white/70
-                focus:outline-none focus:ring-2 focus:ring-blue-950"
-            />
+          <form onSubmit={handleRequestOtp} className="space-y-4">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                <Mail size={18} />
+              </span>
+              <input
+                type="email"
+                placeholder="Email của bạn"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className={inputClass}
+              />
+            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-lg 
-                bg-[#193350]
-                hover:opacity-90 transition"
-            >
+            <button type="submit" disabled={loading} className={`mt-4 ${primaryBtnClass}`}>
               {loading ? 'Đang gửi...' : 'Gửi Yêu Cầu'}
             </button>
+
+            <div className="text-right text-sm">
+              <Link to="/login" className="text-blue-200 hover:underline">
+                Quay lại đăng nhập
+              </Link>
+            </div>
           </form>
         </>
       )}
@@ -118,21 +131,24 @@ export default function ForgotPassword() {
             <br /> Vui lòng nhập mã để tiếp tục.
           </p>
 
-          <input
-            type="text"
-            placeholder="Mã OTP"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg bg-[#6e8ebd] placeholder-white/70
-              focus:outline-none focus:ring-2 focus:ring-blue-950"
-          />
+          <div className="space-y-4">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                <KeyRound size={18} />
+              </span>
+              <input
+                type="text"
+                placeholder="Mã OTP"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                className={inputClass}
+              />
+            </div>
 
-          <button
-            onClick={handleConfirmOtp}
-            className="w-full py-3 mt-6 rounded-lg bg-[#193350]"
-          >
-            Xác Nhận Mã
-          </button>
+            <button type="button" onClick={handleConfirmOtp} className={`mt-2 ${primaryBtnClass}`}>
+              Xác Nhận Mã
+            </button>
+          </div>
         </>
       )}
 
@@ -143,36 +159,58 @@ export default function ForgotPassword() {
             Vui lòng nhập mật khẩu mới của bạn.
           </p>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <input
-              type="password"
-              placeholder="Mật khẩu mới"
-              {...register('password', { required: 'Bắt buộc nhập mật khẩu' })}
-              className="w-full px-4 py-3 rounded-lg bg-[#6e8ebd] placeholder-white/70
-                focus:outline-none focus:ring-2 focus:ring-blue-950"
-            />
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                <Lock size={18} />
+              </span>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Mật khẩu mới"
+                {...register('password', { required: 'Bắt buộc nhập mật khẩu' })}
+                className={inputPasswordClass}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition bg-transparent border-0 p-0"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
 
-            <input
-              type="password"
-              placeholder="Xác nhận mật khẩu"
-              {...register('confirmPassword', {
-                validate: (value) =>
-                  value === password || 'Mật khẩu không khớp',
-              })}
-              className="w-full px-4 py-3 rounded-lg bg-[#6e8ebd] placeholder-white/70
-                focus:outline-none focus:ring-2 focus:ring-blue-950"
-            />
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                <Lock size={18} />
+              </span>
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Xác nhận mật khẩu"
+                {...register('confirmPassword', {
+                  validate: (value) =>
+                    value === password || 'Mật khẩu không khớp',
+                })}
+                className={inputPasswordClass}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition bg-transparent border-0 p-0"
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
 
             {errors.confirmPassword && (
-              <p className="text-red-800 text-sm -mt-4">
-                {errors.confirmPassword.message}
-              </p>
+              <p className="text-red-200 text-sm">{errors.confirmPassword.message}</p>
             )}
 
             <button
               type="submit"
               disabled={!isValid || loading}
-              className={`w-full py-3 rounded-lg transition
+              className={`mt-4 w-full py-3 rounded-lg text-white transition
                 ${
                   isValid
                     ? 'bg-[#193350] hover:opacity-90'
