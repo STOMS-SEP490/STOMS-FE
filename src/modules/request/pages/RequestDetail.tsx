@@ -460,6 +460,7 @@ export default function RequestDetail() {
                   const fullyAssigned = isSessionFullyAssigned(session);
                   const sessionTitle = getSessionDisplayTitle(session);
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
+                  const sessionStatusInfo = getSessionStatusInfo(session.status);
                   return (
                     <div
                       key={session.sessionId}
@@ -485,7 +486,16 @@ export default function RequestDetail() {
                               pendingCount > 0 ? 'text-orange-900' : 'text-sky-700'
                             }`}
                           >
+                            <span className="text-slate-600 font-medium">
+                              {dayjs(session.startAt).format('DD/MM/YYYY')}
+                            </span>
+                            <span className="text-slate-300 font-normal mx-1">·</span>
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
+                          >
+                            {sessionStatusInfo.label}
                           </span>
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
@@ -526,8 +536,6 @@ export default function RequestDetail() {
                         <span>
                           {session.teachersRequired ?? 1} GV · {session.tasRequired ?? 1} TG
                         </span>
-                        <span className="text-slate-300">•</span>
-                        <span>{dayjs(session.startAt).format('DD/MM/YYYY')}</span>
                       </div>
                     </div>
                   );
@@ -643,6 +651,7 @@ export default function RequestDetail() {
                   const sessionTitle = getSessionDisplayTitle(session);
                   const sessionSkills = session.sessionSkills ?? [];
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
+                  const sessionStatusInfo = getSessionStatusInfo(session.status);
                   return (
                     <div
                       key={session.sessionId}
@@ -664,7 +673,16 @@ export default function RequestDetail() {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                           <span className="text-xs text-sky-700 font-semibold tabular-nums">
+                            <span className="text-slate-600 font-medium">
+                              {dayjs(session.startAt).format('DD/MM/YYYY')}
+                            </span>
+                            <span className="text-slate-300 font-normal mx-1">·</span>
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
+                          >
+                            {sessionStatusInfo.label}
                           </span>
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
