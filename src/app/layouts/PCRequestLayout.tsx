@@ -1,4 +1,4 @@
-import RequestSidebar from '@/shared/components/request/RequestSideBar';
+import RequestSidebar, { type ManagerRequestStatusFilter } from '@/shared/components/request/RequestSideBar';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -7,13 +7,14 @@ import { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 
 import type { RequestLayoutOutletContext } from '@/modules/request/requestDetail.types';
+import { REQUEST_STATUS, REQUEST_STATUS_LABEL } from '@/constants/status';
 
 export default function PCRequestLayout() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
   const [typeFilter, setTypeFilter] = useState<'all' | 'event' | 'subject' | 'course'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'assigning'>('all');
+  const [statusFilter, setStatusFilter] = useState<ManagerRequestStatusFilter>('all');
 
   const viewMode: RequestLayoutOutletContext['viewMode'] = 'request';
 
@@ -66,22 +67,29 @@ export default function PCRequestLayout() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value="event">Event</SelectItem>
-                <SelectItem value="subject">Môn</SelectItem>
+                <SelectItem value="event">Sự kiện</SelectItem>
+                <SelectItem value="subject">Môn học</SelectItem>
                 <SelectItem value="course">Khóa học</SelectItem>
               </SelectContent>
             </Select>
 
             {/* Status Filter */}
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[160px]">
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as ManagerRequestStatusFilter)}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[180px]">
                 <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="pending">Chờ duyệt</SelectItem>
-                <SelectItem value="approved">Đã duyệt</SelectItem>
-                <SelectItem value="rejected">Từ chối</SelectItem>
+                <SelectItem value="pending">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PENDING]}</SelectItem>
+                <SelectItem value="rejected">{REQUEST_STATUS_LABEL[REQUEST_STATUS.REJECTED]}</SelectItem>
+                <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
+                <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
+                <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
+                <SelectItem value="completed">{REQUEST_STATUS_LABEL[REQUEST_STATUS.COMPLETED]}</SelectItem>
+                <SelectItem value="cancelled">{REQUEST_STATUS_LABEL[REQUEST_STATUS.CANCELLED]}</SelectItem>
               </SelectContent>
             </Select>
 

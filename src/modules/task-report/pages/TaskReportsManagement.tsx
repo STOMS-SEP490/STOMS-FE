@@ -363,10 +363,10 @@ export default function TaskReportsManagement() {
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
           <h2 className="text-xl font-semibold text-black">
-            Quản lý task report
+            Quản lý báo cáo công việc
           </h2>
           <p className="text-xs text-gray-500">
-            Xem danh sách task report và lọc theo yêu cầu / buổi
+            Xem danh sách báo cáo công việc và lọc theo yêu cầu / buổi
           </p>
         </div>
 
