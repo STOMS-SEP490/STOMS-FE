@@ -285,6 +285,7 @@ export const useRequestDetailManager = (params: {
   useEffect(() => {
     if (!id) return;
     setRightPanel(null);
+    setRequest(null);
     setSessions([]);
     setUiAssignedTeamIdsBySessionId({});
     setUiTeamQuantitiesBySessionId({});
@@ -293,10 +294,13 @@ export const useRequestDetailManager = (params: {
       try {
         setLoading(true);
         const detail = await requestService.getById(Number(id));
-        setRequest(detail);
         const { mappedSessions } = mapSessionsWithFlags(detail);
         const byFilter = await loadSessionsByRequestId(Number(detail.requestId ?? id));
         applySessionState(byFilter.length ? byFilter : mappedSessions);
+        setRequest(detail);
+      } catch (err) {
+        console.error(err);
+        setRequest(null);
       } finally {
         setLoading(false);
       }
@@ -457,35 +461,32 @@ export const useRequestDetailManager = (params: {
         return;
       }
 
-      setUiAssignedTeamIdsBySessionId((prev) => ({ ...prev, [sessionId]: teamIds }));
+      const keptTeamIds = teamIds.filter((teamId) => {
+        const gv = normalizeRequiredCount(teamQuantities?.[teamId]?.teachersRequired, 0);
+        const tg = normalizeRequiredCount(teamQuantities?.[teamId]?.tasRequired, 0);
+        return gv > 0 || tg > 0;
+      });
+      const nextQty = keptTeamIds.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>(
+        (m, teamId) => {
+          m[teamId] = {
+            teachersRequired: normalizeRequiredCount(teamQuantities?.[teamId]?.teachersRequired, 0),
+            tasRequired: normalizeRequiredCount(teamQuantities?.[teamId]?.tasRequired, 0),
+          };
+          return m;
+        },
+        {},
+      );
+
+      setUiAssignedTeamIdsBySessionId((prev) => ({ ...prev, [sessionId]: keptTeamIds }));
       setUiTeamQuantitiesBySessionId((prev) => ({
         ...prev,
-        [sessionId]: teamIds.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>(
-          (m, teamId) => {
-            m[teamId] = {
-              teachersRequired: normalizeRequiredCount(teamQuantities?.[teamId]?.teachersRequired, 0),
-              tasRequired: normalizeRequiredCount(teamQuantities?.[teamId]?.tasRequired, 0),
-            };
-            return m;
-          },
-          {}
-        ),
+        [sessionId]: nextQty,
       }));
       setSessions((prev) =>
-        prev.map((s) => (s.sessionId === sessionId ? { ...s, teamAssigned: teamIds.length > 0 } : s))
+        prev.map((s) => (s.sessionId === sessionId ? { ...s, teamAssigned: keptTeamIds.length > 0 } : s))
       );
     },
     [sessions]
-  );
-
-  const handleQuantitiesChange = useCallback(
-    (sessionId: number, data: Record<number, { teachersRequired: number; tasRequired: number }>) => {
-      setUiTeamQuantitiesBySessionId((prev) => ({
-        ...prev,
-        [sessionId]: data,
-      }));
-    },
-    []
   );
 
   const refreshDetail = useCallback(async () => {
@@ -493,10 +494,10 @@ export const useRequestDetailManager = (params: {
     try {
       setLoading(true);
       const detail = await requestService.getById(Number(id));
-      setRequest(detail);
       const { mappedSessions } = mapSessionsWithFlags(detail);
       const byFilter = await loadSessionsByRequestId(Number(detail.requestId ?? id));
       applySessionState(byFilter.length ? byFilter : mappedSessions);
+      setRequest(detail);
     } finally {
       setLoading(false);
     }
@@ -746,7 +747,6 @@ export const useRequestDetailManager = (params: {
   const handleEquipmentSuccess = useCallback(async () => {
     if (!request) return;
     const detail = await requestService.getById(Number(request.requestId));
-    setRequest(detail);
     const byFilter = await loadSessionsByRequestId(Number(detail.requestId));
     if (byFilter.length) {
       applySessionState(byFilter);
@@ -754,6 +754,7 @@ export const useRequestDetailManager = (params: {
       const { mappedSessions } = mapSessionsWithFlags(detail);
       applySessionState(mappedSessions);
     }
+    setRequest(detail);
   }, [request, loadSessionsByRequestId, applySessionState]);
 
   const assignedCount = useMemo(() => {
@@ -804,7 +805,6 @@ export const useRequestDetailManager = (params: {
     assignedCount,
     refreshDetail,
     handleAssignSession,
-    handleQuantitiesChange,
     handleApproveClick,
     handleToggleAssignmentSelection,
     handleToggleSelectAllReviewableAssignments,

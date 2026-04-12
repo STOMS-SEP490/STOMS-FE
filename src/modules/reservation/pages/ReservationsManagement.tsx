@@ -14,13 +14,11 @@ import {
   normalizeReservationPagedResponse,
   normalizeReservationResponse,
 } from '@/modules/reservation/utils/normalizeReservationResponse';
+import type { BorrowingsManagementOutletContext } from '@/app/layouts/BorrowingsManagementLayout';
 import ReservationDetailSidebar from './ReservationDetailSidebar';
 import EditReservationModal from './EditReservationModal';
 
-type OutletContext = {
-  position?: string;
-  hideSectionTitle?: boolean;
-};
+type OutletContext = BorrowingsManagementOutletContext;
 
 const PAGE_SIZE = 10;
 const DEFAULT_AVATAR_SRC = '/img/ava.png';
@@ -57,6 +55,15 @@ function canDeleteReservationRow(
 export default function ReservationsManagement() {
   const context = useOutletContext<OutletContext>();
 
+  const sharedFilterFromLayout = Boolean(
+    context?.setReservationCancelFilter &&
+      context?.setReservationIdSearch &&
+      context?.reservationCancelFilter !== undefined &&
+      context?.reservationIdSearch !== undefined &&
+      context?.reservationPageNumber !== undefined &&
+      context?.setReservationPageNumber,
+  );
+
   const [searchParams, setSearchParams] = useSearchParams();
 
   const openDetailFromUrl = searchParams.get('openDetail');
@@ -68,10 +75,26 @@ export default function ReservationsManagement() {
   const [detailReservation, setDetailReservation] = useState<ReservationDetail | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
-  const [reservationIdSearch, setReservationIdSearch] = useState('');
-  const [cancelFilter, setCancelFilter] = useState<'all' | 'cancelled' | 'active'>('all');
+  const [localReservationIdSearch, setLocalReservationIdSearch] = useState('');
+  const [localCancelFilter, setLocalCancelFilter] = useState<'all' | 'cancelled' | 'active'>('all');
 
-  const [pageNumber, setPageNumber] = useState(1);
+  const reservationIdSearch = sharedFilterFromLayout
+    ? (context!.reservationIdSearch as string)
+    : localReservationIdSearch;
+  const setReservationIdSearch = sharedFilterFromLayout
+    ? context!.setReservationIdSearch!
+    : setLocalReservationIdSearch;
+
+  const cancelFilter = sharedFilterFromLayout
+    ? (context!.reservationCancelFilter as 'all' | 'cancelled' | 'active')
+    : localCancelFilter;
+  const setCancelFilter = sharedFilterFromLayout
+    ? context!.setReservationCancelFilter!
+    : setLocalCancelFilter;
+
+  const [localPageNumber, setLocalPageNumber] = useState(1);
+  const pageNumber = sharedFilterFromLayout ? context!.reservationPageNumber! : localPageNumber;
+  const setPageNumber = sharedFilterFromLayout ? context!.setReservationPageNumber! : setLocalPageNumber;
   const [totalItems, setTotalItems] = useState(0);
   const [items, setItems] = useState<ReservationListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -300,16 +323,26 @@ export default function ReservationsManagement() {
         id: 'equipmentCount',
         header: 'Số thiết bị',
         cell: ({ row }) => {
-          const list = row.original.EquipmentReservations;
-          if (list == null) {
+          const r = row.original;
+          const totalRaw = r.TotalEquipments;
+          if (totalRaw != null) {
+            const totalNum = Number(totalRaw);
+            if (Number.isFinite(totalNum) && totalNum >= 0) {
+              return (
+                <span className="font-medium tabular-nums text-slate-900">{totalNum}</span>
+              );
+            }
+          }
+          const list = r.EquipmentReservations;
+          if (Array.isArray(list)) {
             return (
-              <span className="text-sm text-muted-foreground" title="Mở chi tiết để xem số lượng">
-                —
-              </span>
+              <span className="font-medium tabular-nums text-slate-900">{list.length}</span>
             );
           }
           return (
-            <span className="font-medium tabular-nums text-slate-900">{list.length}</span>
+            <span className="text-sm text-muted-foreground" title="Chưa có dữ liệu số lượng">
+              —
+            </span>
           );
         },
       },
@@ -457,14 +490,12 @@ export default function ReservationsManagement() {
           value={reservationIdSearch}
           onChange={(value) => {
             setReservationIdSearch(value);
-            setPageNumber(1);
           }}
         />
         <Select
           value={cancelFilter}
           onValueChange={(v) => {
             setCancelFilter(v as typeof cancelFilter);
-            setPageNumber(1);
           }}
         >
           <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px]">

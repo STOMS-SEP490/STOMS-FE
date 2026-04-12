@@ -11,8 +11,9 @@ import { Button } from '@/shared/components/ui/button';
 import EditReservationModal from '@/modules/reservation/pages/EditReservationModal';
 import type { RequestSessionSummary } from '../request';
 import sessionService from '../api/sessionApi';
-import type { PagedResponse, SessionResponse } from '../session.types';
+import type { SessionResponse } from '../session.types';
 import { Image } from 'antd';
+import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 
 export type SessionDetailProps = {
   session: RequestSessionSummary & {
@@ -21,6 +22,10 @@ export type SessionDetailProps = {
   };
   requestId: number;
   requestCode: string;
+  /** Đội đã gắn — dùng với TeamSessions từ GET /sessions/:id */
+  assignedTeamIds?: number[];
+  /** false: ẩn khối Đội phụ trách (vd. yêu cầu Chờ duyệt — dùng TeamPanel riêng) */
+  showTeamSummary?: boolean;
   showReservedEquipment?: boolean;
   sectionMode?: 'all' | 'info' | 'equipment';
   /** Cho phép mở UI sửa đặt trước (mặc định: true). */
@@ -31,8 +36,9 @@ export type SessionDetailProps = {
 
 export default function RequestSessionDetailPanel({
   session,
-  requestId,
   requestCode,
+  assignedTeamIds = [],
+  showTeamSummary: showTeamSummaryProp = true,
   showReservedEquipment = true,
   sectionMode = 'all',
   canEditReservation = true,
@@ -41,9 +47,10 @@ export default function RequestSessionDetailPanel({
   const renderInfoCard = sectionMode === 'all' || sectionMode === 'info';
   const renderEquipmentCard = (sectionMode === 'all' || sectionMode === 'equipment') && showReservedEquipment;
   const shouldFetchSessionDetail = renderInfoCard;
+  const showTeamBlock = renderInfoCard && showTeamSummaryProp;
 
   const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(null);
-  const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(() => shouldFetchSessionDetail);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [reservedEquipments, setReservedEquipments] = useState<EquipmentReservationItemResponse[]>([]);
   const [reservedLoading, setReservedLoading] = useState(false);
@@ -66,19 +73,9 @@ export default function RequestSessionDetailPanel({
       setSessionLoading(true);
       setSessionError(null);
       try {
-        const res = await sessionService.getFilter({
-          RequestId: requestId,
-          PageNumber: 1,
-          PageSize: 500,
-        });
-        const items = (res as PagedResponse<SessionResponse>).Items ?? [];
-        const found =
-          items.find((s) => Number(s.SessionId) === Number(session.sessionId)) ?? null;
+        const detail = await sessionService.getById(Number(session.sessionId));
         if (cancelled) return;
-        setSessionDetail(found);
-        if (!found) {
-          setSessionError('Không tìm thấy thông tin phiên từ danh sách sessions/filter.');
-        }
+        setSessionDetail(detail);
       } catch (err: unknown) {
         if (cancelled) return;
         const msg =
@@ -95,7 +92,7 @@ export default function RequestSessionDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [requestId, session.sessionId, shouldFetchSessionDetail]);
+  }, [session.sessionId, shouldFetchSessionDetail]);
 
   const mergedSession = useMemo(() => {
     return sessionDetail;
@@ -279,6 +276,24 @@ export default function RequestSessionDetailPanel({
           </div>
         </div>
       </div>
+      )}
+
+      {showTeamBlock && (
+        <div className="mt-6">
+          <RequestDetailTeamSummary
+            session={session}
+            assignedTeamIds={assignedTeamIds}
+            sessionDetailLoading={sessionLoading}
+            sessionTeamsEmbedded={
+              sessionDetail != null ? (sessionDetail.TeamSessions ?? []) : undefined
+            }
+            sessionAssignments={
+              sessionDetail != null
+                ? (sessionDetail.Assignments ?? []).filter((a) => a.AssignmentId > 0)
+                : undefined
+            }
+          />
+        </div>
       )}
 
       {renderEquipmentCard && (

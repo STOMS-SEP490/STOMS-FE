@@ -1,4 +1,4 @@
-import { ASSIGNMENT_STATUS, SESSION_STATUS } from '@/constants/status';
+import { ASSIGNMENT_STATUS, getAssignmentStatusInfo, SESSION_STATUS } from '@/constants/status';
 import type { SessionAssignmentRow } from '../requestDetail.types';
 
 const PLACEHOLDER_NAMES = new Set(['—', '-', '–', 'n/a', 'na']);
@@ -13,13 +13,11 @@ export function isAssignmentSlotFilled(row: SessionAssignmentRow): boolean {
 }
 
 export function isAssignmentApproved(row: SessionAssignmentRow): boolean {
-  const statusText = (row.status || '').toUpperCase();
-  return statusText === 'APPROVED' || statusText === String(ASSIGNMENT_STATUS.APPROVED);
+  return getAssignmentStatusInfo(row.status).code === ASSIGNMENT_STATUS.APPROVED;
 }
 
 export function isAssignmentRejected(row: SessionAssignmentRow): boolean {
-  const statusText = (row.status || '').toUpperCase();
-  return statusText === 'REJECTED' || statusText === String(ASSIGNMENT_STATUS.REJECTED);
+  return getAssignmentStatusInfo(row.status).code === ASSIGNMENT_STATUS.REJECTED;
 }
 
 /** Assignment đã hủy nhận (vd. báo bận) — không duyệt/từ chối được. */
