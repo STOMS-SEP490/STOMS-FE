@@ -183,7 +183,7 @@ export const useRequestDetailManager = (params: {
   );
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
-  /** reject = PUT /reject; cancel = PUT /cancel (Hủy yêu cầu) */
+  /** reject = PUT /reject; cancel (Hủy yêu cầu) = PUT /cancel */
   const [rejectDialogAction, setRejectDialogAction] = useState<'reject' | 'cancel'>('reject');
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
