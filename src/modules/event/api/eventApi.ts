@@ -37,7 +37,11 @@ function toEventFilterQuery(
   if (params.pageNumber != null) out.PageNumber = params.pageNumber;
   if (params.pageSize != null) out.PageSize = params.pageSize;
   const kw = params.keyword?.trim();
-  if (kw) out.EventName = kw;
+  if (kw) {
+    // Allow searching by either name or code (BE may support one/both).
+    out.EventName = kw;
+    (out as Record<string, unknown>).EventCode = kw;
+  }
   if (params.isActive !== undefined) out.IsActive = params.isActive;
   if (params.eventId != null) out.EventId = params.eventId;
   return out;
