@@ -436,6 +436,10 @@ export default function SubjectsManagement() {
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra'
       message.error(msg)
+      // Yêu cầu: nếu cập nhật lỗi thì đóng popup
+      if (!isCreating) {
+        setOpenEdit(false)
+      }
     } finally {
       setSubmitting(false)
     }
