@@ -1,7 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronRight, MapPin, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { SessionDetail } from '@/modules/request/type';
 import { Badge } from '@/shared/components/ui/badge';
 import { useSessionDetailPopover } from '@/modules/event/hooks/useSessionDetailPopover';
@@ -62,8 +62,18 @@ export default function SessionDetailPopover({
 
   const { requestCode, requestName, staff } = useSessionDetailPopover(open, session);
   const navigate = useNavigate();
+  const location = useLocation();
   const currentUser = useCurrentUser();
-  const isTeamLeader = currentUser?.role === 'Trưởng nhóm';
+  const isTeamLeader = useMemo(() => {
+    const r = (currentUser?.role ?? '').trim().toLowerCase();
+    // BE/FE có thể trả role theo nhiều dạng (VN / EN / code).
+    if (!r) return false;
+    if (r.includes('trưởng nhóm')) return true;
+    if (r.includes('team leader')) return true;
+    if (r === 'tl' || r === 'teamleader' || r === 'team_leader') return true;
+    return false;
+  }, [currentUser?.role]);
+  const isTeamLeaderRoute = location.pathname.startsWith('/tl');
   const isTeacher = (role?: string) => role === 'TE' || role === 'TEACHER';
   const isAssistant = (role?: string) => role === 'TA';
 
@@ -86,10 +96,12 @@ export default function SessionDetailPopover({
       ? `${topicTitle ? `${topicTitle} · ` : ''}Buổi ${resolvedSessionNo ?? '—'}`
       : `Buổi ${resolvedSessionNo ?? '—'}`;
 
-  // Chỉ hiển thị nút "Điểm danh" khi token user đúng là người được ủy quyền của phiên.
+  // Team leader luôn xem/mở điểm danh (theo role hoặc route); teacher/TA chỉ được thấy nút khi đúng là người điểm danh của phiên.
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
+
   const ownerIdFromSession = getAttendanceOwnerId(session?.Attendances ?? null);
-  const canSeeAttendanceButton = ownerIdFromSession != null && ownerIdFromSession === memberId;
+  const canSeeAttendanceButton =
+    isTeamLeaderRoute || isTeamLeader || (ownerIdFromSession != null && ownerIdFromSession === memberId);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
