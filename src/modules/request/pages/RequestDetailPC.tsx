@@ -1,17 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import {
-  AlertCircle,
-  AlertTriangle,
-  Calendar,
-  Hash,
-  List,
-  MapPin,
-  X,
-} from 'lucide-react';
+import { AlertTriangle, Calendar, Hash, List, MapPin, Pencil, Trash2, X } from 'lucide-react';
 import { Paperclip } from 'lucide-react';
-import { message } from 'antd';
+import { message, Modal, Spin } from 'antd';
+import { ExclamationCircleFilled } from '@ant-design/icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { getRequestType } from '@/shared/components/request/RequestCard';
 import {
@@ -30,7 +23,6 @@ import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
-import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import sessionService from '../api/sessionApi';
 import requestService from '../api/requestApi';
 
@@ -91,7 +83,11 @@ export default function RequestDetailPC() {
   }
 
   if (loading && !request) {
-    return <div className="text-sm text-black p-4">Đang tải dữ liệu yêu cầu...</div>;
+    return (
+      <div className="flex flex-1 min-h-[320px] items-center justify-center bg-slate-50 text-black p-6">
+        <Spin size="large" tip="Đang tải chi tiết yêu cầu và danh sách phiên..." />
+      </div>
+    );
   }
 
   if (!request) {
@@ -108,6 +104,8 @@ export default function RequestDetailPC() {
   const canHuyYeuCau =
     requestStatusCode === REQUEST_STATUS.APPROVED ||
     requestStatusCode === REQUEST_STATUS.ASSIGNING;
+  const isPendingRequest =
+    requestStatusCode === REQUEST_STATUS.PENDING || statusInfo.label === 'Chờ duyệt';
   const isRejected = statusInfo.label === 'Từ chối';
   const sessionCount = sessions.length || request.sessionsRequired || 0;
   const resolvedDetailSession =
@@ -126,6 +124,39 @@ export default function RequestDetailPC() {
     if (!resolvedDetailSession) return;
     setCancelSessionReason('');
     setCancelSessionOpen(true);
+  };
+
+  const handleDeleteRequest = () => {
+    Modal.confirm({
+      title: 'Xác nhận xóa yêu cầu',
+      icon: <ExclamationCircleFilled className="text-rose-500" />,
+      okText: 'Xóa',
+      cancelText: 'Hủy',
+      okButtonProps: {
+        className: 'bg-rose-500 hover:bg-rose-600 border-0 text-white font-medium rounded-lg px-4 shadow-sm',
+        style: { color: '#FFFFFF' },
+      },
+      content: 'Yêu cầu sẽ bị xóa vĩnh viễn. Bạn có chắc không?',
+      onOk: async () => {
+        try {
+          await requestService.remove(request.requestId);
+          message.success('Xóa yêu cầu thành công.');
+          refreshRequestSidebar?.();
+          navigate('/pc/requests', { replace: true });
+        } catch (err: unknown) {
+          const e = err as Record<string, unknown>;
+          const apiMessage =
+            (typeof err === 'string' && err) ||
+            (e?.message as string) ||
+            (e?.detail as string) ||
+            (e?.title as string) ||
+            (e?.error as string) ||
+            (Array.isArray(e?.errors) && (e.errors[0] as string)) ||
+            ((e?.response as Record<string, unknown>)?.data as string);
+          message.error((apiMessage as string) ?? 'Xóa yêu cầu thất bại.');
+        }
+      },
+    });
   };
 
   const handleConfirmHuyYeuCau = async () => {
@@ -177,8 +208,10 @@ export default function RequestDetailPC() {
   };
 
   return (
-    <div className="bg-slate-50" style={{ minHeight: 'calc(var(--content-height, 100vh) - 64px)' }}>
-      <div className="mx-auto max-w-6xl px-4 pb-0 mb-0 space-y-4 text-black">
+    <>
+      <div className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden text-black">
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
+          <div className="w-full min-w-0 space-y-4">
         <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
           <div className="flex flex-wrap items-center gap-3">
             <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
@@ -192,6 +225,32 @@ export default function RequestDetailPC() {
               <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}>
                 {statusInfo.label}
               </span>
+              {isPendingRequest ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/pc/requests/edit/${request.requestId}`)}
+                    className="h-8 w-8 p-0 shrink-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                    aria-label="Sửa yêu cầu"
+                    title="Sửa yêu cầu"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeleteRequest}
+                    className="h-8 w-8 p-0 shrink-0 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+                    aria-label="Xóa yêu cầu"
+                    title="Xóa yêu cầu"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              ) : null}
               {canHuyYeuCau ? (
                 <Button
                   type="button"
@@ -233,7 +292,9 @@ export default function RequestDetailPC() {
               <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
               <div>
                 <p className="text-[11px] text-slate-500 uppercase tracking-wide">Số lượng phiên</p>
-                <p className="font-semibold text-sm text-slate-900 mt-0.5">{sessionCount} phiên</p>
+                <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                  {loading ? '—' : `${sessionCount} phiên`}
+                </p>
               </div>
             </div>
           </div>
@@ -269,18 +330,21 @@ export default function RequestDetailPC() {
                 <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
               </div>
 
-              {sessions.length === 0 ? (
+              {loading ? (
+                <div className="flex flex-col items-center justify-center min-h-[240px] py-10">
+                  <Spin tip="Đang tải danh sách phiên..." />
+                </div>
+              ) : sessions.length === 0 ? (
                 <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách phiên chi tiết.</p>
               ) : (
                 <div className="space-y-2">
                   {sessions.map((session) => {
-                    const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
-                    const teamCount = teamIds.length;
-                    const sessionTitle = (session as RequestSessionSummary & { notes?: string }).notes
-                      ? `Phiên ${session.sessionNo}: ${(session as RequestSessionSummary & { notes?: string }).notes}`
-                      : `Phiên ${session.sessionNo}`;
+                    const topic = session.subjectSession ?? session.eventSession;
+                    const sessionTitle = getSessionDisplayTitle(session);
+                    const sessionSkills = session.sessionSkills ?? [];
                     const location =
                       (session as RequestSessionSummary & { location?: string }).location || '—';
+                    const sessionStatusInfo = getSessionStatusInfo(session.status);
 
                     return (
                       <div
@@ -294,45 +358,58 @@ export default function RequestDetailPC() {
                             setRightPanel({ mode: 'detail', session: session as SessionWithFlags });
                           }
                         }}
-                        className="w-full border border-slate-200 rounded-lg bg-white px-4 py-2.5 hover:border-slate-300 hover:bg-slate-50/50 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
+                        className="w-full border border-slate-200 rounded-xl bg-white px-4 py-3 hover:border-slate-300 hover:bg-slate-50/60 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-1.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-sky-600 font-medium">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <span className="text-xs text-sky-700 font-semibold tabular-nums">
+                              <span className="text-slate-600 font-medium">
+                                {dayjs(session.startAt).format('DD/MM/YYYY')}
+                              </span>
+                              <span className="text-slate-300 font-normal mx-1">·</span>
                               {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                             </span>
-                            <span className="text-xs text-slate-500">Dạy học</span>
                             <span
-                              className={`inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-semibold ${
-                                session.teamAssigned
-                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                  : 'bg-amber-50 text-amber-800 border border-amber-200'
-                              }`}
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
                             >
-                              {!session.teamAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                              {session.teamAssigned ? 'Đã gắn đội' : 'Chưa gắn đội'}
+                              {sessionStatusInfo.label}
                             </span>
                           </div>
 
                           <span
-                            className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-600 underline-offset-2 select-none"
+                            className="inline-flex items-center gap-0.5 text-xs font-semibold text-sky-700 select-none"
                             aria-hidden
                           >
                             Chi tiết
                           </span>
                         </div>
 
-                        <p className="mt-1 text-sm font-semibold text-slate-900 leading-tight">{sessionTitle}</p>
-
-                        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
+                        <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
+                          {sessionTitle}
+                        </p>
+                        {topic?.description?.trim() ? (
+                          <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{topic.description.trim()}</p>
+                        ) : null}
+                        {sessionSkills.length > 0 ? (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {sessionSkills.slice(0, 3).map((name) => (
+                              <span
+                                key={`${session.sessionId}-${name}`}
+                                className="inline-flex items-center rounded-md border-0 bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
+                              >
+                                {name}
+                              </span>
+                            ))}
+                            {sessionSkills.length > 3 ? (
+                              <span className="inline-flex items-center rounded-md border-0 bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                                +{sessionSkills.length - 3}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">
                           <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span>{location}</span>
-                          {session.teamAssigned && teamCount > 0 && (
-                            <>
-                              <span className="text-slate-300">•</span>
-                              <span className="text-slate-600">{teamCount} đội</span>
-                            </>
-                          )}
+                          <span className="truncate">{location}</span>
                         </div>
                       </div>
                     );
@@ -396,6 +473,9 @@ export default function RequestDetailPC() {
             </div>
           </TabsContent>
         </Tabs>
+          </div>
+        </div>
+      </div>
 
         {/* Popup preview file đính kèm */}
         <Dialog
@@ -482,7 +562,6 @@ export default function RequestDetailPC() {
                     <h2 className="text-lg font-bold text-slate-900">Phiên {rightPanel.session.sessionNo}</h2>
                   )}
                   <div className="flex flex-wrap items-center gap-2 mt-2">
-                    <span className="text-xs font-medium text-sky-600">Dạy học</span>
                     {(() => {
                       const info = getSessionStatusInfo((resolvedDetailSession as any)?.status);
                       return (
@@ -512,15 +591,9 @@ export default function RequestDetailPC() {
                       }
                       requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
+                      assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                       showReservedEquipment={false}
                     />
-
-                    <div className="mt-6">
-                      <RequestDetailTeamSummary
-                        session={rightPanel.session}
-                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                      />
-                    </div>
                   </>
                 )}
                 {resolvedDetailSession ? (
@@ -646,8 +719,7 @@ export default function RequestDetailPC() {
             </div>
           </div>
         </Dialog>
-      </div>
-    </div>
+    </>
   );
 }
 

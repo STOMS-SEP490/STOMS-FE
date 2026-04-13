@@ -123,6 +123,29 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   const [initialCourseSubjects, setInitialCourseSubjects] = useState<CourseSubjectRow[]>([]);
   const [pendingSubjectIdsToAdd, setPendingSubjectIdsToAdd] = useState<number[]>([]);
   const [showAddSubject, setShowAddSubject] = useState(false);
+  const commitPendingSubjects = () => {
+    const ids = Array.from(new Set(pendingSubjectIdsToAdd)).filter((id) => Number(id) > 0);
+    if (ids.length === 0) {
+      setShowAddSubject(false);
+      return;
+    }
+    setCourseSubjects((prev) => {
+      const existing = new Set(prev.map((x) => x.subjectId));
+      const next = [...prev];
+      for (const id of ids) {
+        if (existing.has(id)) continue;
+        const found = allSubjects.find((s) => s.subjectId === id);
+        next.push({
+          subjectId: id,
+          subjectName: found?.subjectName ?? `Môn #${id}`,
+          isActive: true,
+        });
+      }
+      return next;
+    });
+    setPendingSubjectIdsToAdd([]);
+    setShowAddSubject(false);
+  };
 
   const openCreateModal = useCallback(() => {
     if (!canEdit) {
@@ -209,8 +232,8 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       description: description.trim(),
     };
 
-    if (!payloadBase.courseCode || !payloadBase.courseName) {
-      message.warning('Vui lòng nhập đầy đủ mã và tên khóa học');
+    if (!payloadBase.courseCode || !payloadBase.courseName || !payloadBase.description) {
+      message.warning('Vui lòng nhập đầy đủ mã, tên và mô tả khóa học');
       return;
     }
 
@@ -218,15 +241,28 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       setSubmitting(true);
 
       if (isCreating) {
-        const created = await courseApi.create({
+        // Đảm bảo danh sách môn đã chọn được “chốt” vào form trước khi submit.
+        // (Tránh trường hợp user tick checkbox nhưng chưa đóng phần "Thêm môn học".)
+        if (showAddSubject && pendingSubjectIdsToAdd.length > 0) commitPendingSubjects();
+
+        const subjectIds = Array.from(
+          new Set([
+            ...courseSubjects.map((x) => x.subjectId),
+            ...pendingSubjectIdsToAdd,
+          ]),
+        ).filter((id) => Number(id) > 0);
+
+        if (subjectIds.length === 0) {
+          message.warning('Vui lòng chọn ít nhất một môn học cho khóa học');
+          return;
+        }
+
+        await courseApi.create({
           courseCode: payloadBase.courseCode,
           courseName: payloadBase.courseName,
+          description: payloadBase.description,
+          courseSubjects: subjectIds.map((id) => ({ subjectId: id })),
         });
-
-        const toAddIds = Array.from(new Set(pendingSubjectIdsToAdd));
-        if (toAddIds.length > 0) {
-          await courseSubjectApi.assignBulk(created.courseId, toAddIds);
-        }
 
         message.success('Tạo khóa học thành công');
         setOpenEdit(false);
@@ -346,11 +382,13 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         },
       },
       {
-        id: 'requests',
-        header: 'Số yêu cầu',
-        cell: ({ row }) => (
-          <span className="text-sm text-slate-700">{`${row.original.requests?.length ?? 0} yêu cầu`}</span>
-        ),
+        id: 'sessions',
+        header: 'Số buổi',
+        cell: ({ row }) => {
+          const n = row.original.numberOfSession ?? null;
+          const count = Number.isFinite(Number(n)) ? Math.max(0, Math.trunc(Number(n))) : 0;
+          return <span className="text-sm text-slate-700">{`${count} buổi`}</span>;
+        },
       },
       {
         accessorKey: 'updatedAt',
@@ -492,12 +530,12 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         />
       )}
       <div
-        className={`fixed top-0 right-0 h-full w-[820px] max-w-[95vw] bg-[#f3f4f6] z-50
-        transition-transform duration-300
+        className={`fixed top-0 right-0 z-50 h-full w-[820px] max-w-[95vw]
+        border-l border-slate-200 bg-white transition-transform duration-300 ease-out
         ${!readOnly && openEdit ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <div className="flex h-full flex-col overflow-y-auto text-slate-700 no-scrollbar">
-          <div className="border-b bg-[#f3f4f6] px-6 py-5">
+        <div className="flex h-full flex-col overflow-hidden text-slate-700">
+          <div className="shrink-0 border-b border-slate-100 bg-white px-5 pb-4 pt-5">
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">
@@ -511,7 +549,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
               </div>
               <button
                 onClick={closeEditModal}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="shrink-0 rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Đóng"
               >
                 <X size={20} />
@@ -519,99 +557,144 @@ export default function CoursesManagement({ readOnly = false }: Props) {
             </div>
           </div>
 
-          <div className="p-6 space-y-4">
-            <div className="space-y-2">
-              <Label>Mã khóa học</Label>
-              <Input value={courseCode} onChange={(e) => setCourseCode(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Tên khóa học</Label>
-              <Input value={courseName} onChange={(e) => setCourseName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Mô tả (tùy chọn)</Label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="Mô tả ngắn về khóa học"
-              />
-            </div>
-
-            <div className="space-y-2 border-t pt-4">
-              <div className="flex items-center justify-between">
-                <Label>Môn học</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => setShowAddSubject(true)}
-                  disabled={allSubjects.length === 0}
-                >
-                  <Plus className="w-4 h-4" />
-                  Thêm môn
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Gạt để bật/tắt môn đã gán
-              </p>
-
-              <div className="stoms-scrollbar max-h-[40vh] overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
-                {courseSubjects.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Chưa gán môn nào. Nhấn &quot;Thêm môn&quot; để chọn.</p>
-                ) : (
+          <div className="stoms-scrollbar min-h-0 flex-1 overflow-y-auto bg-slate-50/70 px-5 py-5">
+            <div className="space-y-5">
+              <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/50">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    {courseSubjects.map((cs) => {
-                      const isActive = cs.isActive ?? true;
-                      const name =
-                        cs.subjectName ??
-                        allSubjects.find((x) => x.subjectId === cs.subjectId)?.subjectName ??
-                        `Môn #${cs.subjectId}`;
-                      return (
-                        <div
-                          key={cs.subjectId}
-                          className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
-                        >
-                          <div className="flex flex-col min-w-0">
-                            <span className="truncate text-sm font-medium text-slate-900">{name}</span>
-                            <span className="text-xs text-slate-500">Mã môn: {cs.subjectId}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="hidden text-xs text-slate-500 sm:inline">
-                              {isActive ? 'Đang dùng' : 'Đang tắt'}
-                            </span>
-                            <Switch
-                              checked={isActive}
-                              onCheckedChange={(checked) => {
-                                setCourseSubjects((prev) =>
-                                  prev.map((it) =>
-                                    it.subjectId === cs.subjectId ? { ...it, isActive: checked } : it,
-                                  ),
-                                );
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <Label>
+                      Mã khóa học <span className="text-rose-600">*</span>
+                    </Label>
+                    <Input
+                      value={courseCode}
+                      onChange={(e) => setCourseCode(e.target.value)}
+                      placeholder="Ví dụ: CSY"
+                    />
                   </div>
-                )}
+                  <div className="space-y-2">
+                    <Label>
+                      Tên khóa học <span className="text-rose-600">*</span>
+                    </Label>
+                    <Input
+                      value={courseName}
+                      onChange={(e) => setCourseName(e.target.value)}
+                      placeholder="Nhập tên khóa học"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+
+              <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/50">
+                <div className="space-y-2">
+                  <Label>
+                    Mô tả <span className="text-rose-600">*</span>
+                  </Label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full min-h-28 resize-y rounded-xl border border-input bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    placeholder="Nhập mô tả khóa học"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/50">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label>Môn học</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1"
+                      onClick={() => setShowAddSubject(true)}
+                      disabled={allSubjects.length === 0}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Thêm môn
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Gạt để bật/tắt môn đã gán
+                  </p>
+
+                  <div className="stoms-scrollbar max-h-[40vh] overflow-y-auto rounded-xl bg-slate-50/60 p-3 pr-2 ring-1 ring-slate-200/50">
+                    {courseSubjects.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Chưa gán môn nào. Nhấn &quot;Thêm môn&quot; để chọn.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {courseSubjects.map((cs) => {
+                          const isActive = cs.isActive ?? true;
+                          const name =
+                            cs.subjectName ??
+                            allSubjects.find((x) => x.subjectId === cs.subjectId)?.subjectName ??
+                            `Môn #${cs.subjectId}`;
+                          return (
+                            <div
+                              key={cs.subjectId}
+                              className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/40"
+                            >
+                              <div className="flex flex-col min-w-0">
+                                <span className="truncate text-sm font-medium text-slate-900">{name}</span>
+                                <span className="text-xs text-slate-500">Mã môn: {cs.subjectId}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="hidden text-xs text-slate-500 sm:inline">
+                                  {isActive ? 'Đang dùng' : 'Đang tắt'}
+                                </span>
+                                <Switch
+                                  checked={isActive}
+                                  onCheckedChange={(checked) => {
+                                    setCourseSubjects((prev) =>
+                                      prev.map((it) =>
+                                        it.subjectId === cs.subjectId ? { ...it, isActive: checked } : it,
+                                      ),
+                                    );
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
             {showAddSubject && (
-              <div className="space-y-2 rounded-md border bg-white p-3">
+              <div className="space-y-2 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/50">
                 <div className="flex items-center justify-between">
                   <Label>Thêm môn học</Label>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddSubject(false)}>
-                    Đóng
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowAddSubject(false);
+                        setPendingSubjectIdsToAdd([]);
+                      }}
+                    >
+                      Hủy
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                      onClick={commitPendingSubjects}
+                      disabled={pendingSubjectIdsToAdd.length === 0}
+                    >
+                      Lưu
+                    </Button>
+                  </div>
                 </div>
                 <div className="mb-1 text-xs text-slate-500">
                   Chọn một hoặc nhiều môn chưa gán; bấm <strong>Lưu</strong> để gán hàng loạt.
                 </div>
-                <div className="stoms-scrollbar max-h-64 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
+                <div className="stoms-scrollbar max-h-64 overflow-y-auto rounded-xl bg-slate-50/60 p-3 pr-2 ring-1 ring-slate-200/50">
                   {allSubjects.filter((s) => !courseSubjects.some((cs) => cs.subjectId === s.subjectId)).length ===
                   0 ? (
                     <p className="text-sm text-muted-foreground">Đã gán hết môn có sẵn.</p>
@@ -624,7 +707,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                           return (
                             <label
                               key={s.subjectId}
-                              className="flex w-full cursor-pointer items-center gap-3 rounded-md border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+                              className="flex w-full cursor-pointer items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/40 hover:bg-slate-50"
                             >
                               <input
                                 type="checkbox"
@@ -650,9 +733,10 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                 </div>
               </div>
             )}
+            </div>
           </div>
 
-          <div className="mt-auto border-t bg-white p-4">
+          <div className="shrink-0 border-t bg-white p-4">
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeEditModal} disabled={submitting}>
                 Hủy

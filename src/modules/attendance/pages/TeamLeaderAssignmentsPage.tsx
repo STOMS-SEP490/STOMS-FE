@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 
 import dayjs from 'dayjs';
-import { Popover, Spin } from 'antd';
+import { Popover, Spin, message } from 'antd';
 import {
   X,
   MapPin,
@@ -13,6 +13,7 @@ import {
   GraduationCap,
   Users,
   AlertCircle,
+  AlertTriangle,
   RotateCcw,
   Plus,
   Sparkles,
@@ -32,9 +33,15 @@ import {
 } from '@/shared/components/ui/select';
 import RequestCard from '@/shared/components/request/RequestCard';
 import { Badge } from '@/shared/components/ui/badge';
+import { Dialog } from '@/shared/components/ui/dialog';
+import { Label } from '@/shared/components/ui/label';
 import {
   ASSIGNMENT_STATUS,
+  REQUEST_STATUS,
+  REQUEST_STATUS_LABEL,
+  SESSION_STATUS,
   getAssignmentStatusInfo,
+  getSessionStatusCode,
   getSessionStatusInfo,
   getTeamLeaderRequestStatusInfo,
   isSessionAssignmentRejectedStatus,
@@ -43,6 +50,8 @@ import type { RequestSessionSummary } from '@/modules/request/request';
 import {
   getSessionDisplayTitleWithDetail,
 } from '@/modules/request/utils/getSessionDisplayTitle';
+import RequestSessionDetailPanel from '@/modules/request/pages/RequestSessionDetailPanel';
+import { postSessionCannotBeAssigned } from '@/modules/notification/api/notificationApi';
 import type { AssignmentResponse, SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
 import {
@@ -51,8 +60,8 @@ import {
   isTeamLeaderAssignmentEditableStatus,
   partitionTeamLeaderAssignmentSlots,
   useTeamLeaderAssignmentsPage,
+  type TlRequestStatusFilter,
 } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
-import { SESSION_STATUS } from '@/constants/status';
 
 type AssignmentRow = AssignmentResponse;
 
@@ -67,6 +76,13 @@ function getStaffDisplayForSlot(
   assignment: AssignmentRow,
   suggested: SuggestedStaff[],
 ): { fullName: string; email: string; avatarUrl?: string | null } {
+  if (!effectiveMemberId || effectiveMemberId <= 0) {
+    return {
+      fullName: 'Chưa có nhân sự',
+      email: '',
+      avatarUrl: null,
+    };
+  }
   const sm = assignment.StaffMember;
   if (sm && sm.MemberId === effectiveMemberId) {
     return {
@@ -84,7 +100,7 @@ function getStaffDisplayForSlot(
     };
   }
   return {
-    fullName: `Thành viên #${effectiveMemberId}`,
+    fullName: 'Chưa có nhân sự',
     email: '',
     avatarUrl: null,
   };
@@ -95,111 +111,34 @@ function isAssignmentRejectedStatus(status: string | number | null | undefined):
   return getAssignmentStatusInfo(status).code === ASSIGNMENT_STATUS.REJECTED;
 }
 
-/** Đã gán người, chờ quản lý duyệt (cùng ý “Chờ duyệt” như màn manager). */
-function isAssignmentPendingManagerReview(status: string | number | null | undefined): boolean {
-  return getAssignmentStatusInfo(status).code === ASSIGNMENT_STATUS.PENDING;
-}
-
-function getAssignmentReviewBadge(status: string | number | null | undefined): {
-  label: string;
-  className: string;
-} | null {
-  const raw = String(status ?? '').trim();
-  const statusCode = Number(raw);
-
-  if (isSessionAssignmentRejectedStatus(status)) {
-    return {
-      label: 'Phân công bị từ chối',
-      className: 'bg-rose-50 text-rose-800 border-rose-200',
-    };
-  }
-
-  const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
-  if (
-    normalized === 'ASSIGNED' ||
-    (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNED)
-  ) {
-    return {
-      label: 'Phân công đã được duyệt',
-      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    };
-  }
-
-  return null;
-}
-
 /**
- * Badge danh sách phiên: ưu tiên trạng thái phiên AssignmentRejected;
- * sau đó mới theo slot (chi tiết) hoặc status từ filter.
+ * Badge phụ danh sách phiên (không lặp lại nhãn trạng thái phiên):
+ * - Cảnh báo vận hành: cần phân lại, chưa có slot
+ * - Chỉ với phiên APPROVED (Đã duyệt): thêm «Chưa gán đủ» khi đã tải chi tiết và slot chưa đủ
  */
-function getSessionListProgressBadge(
+function getSessionListSecondaryBadge(
   session: { status: string },
   detailLoaded: boolean,
   stats: { total: number; filled: number },
-  effectiveSessionStatus?: string,
   hasPendingCancelReassign?: boolean,
-): { label: string; className: string; showAlert?: boolean } {
-  const sessionStatus = (effectiveSessionStatus ?? session.status).trim();
-  if (isSessionAssignmentRejectedStatus(sessionStatus)) {
-    return {
-      label: 'Từ chối phân công',
-      className: 'bg-rose-50 text-rose-800 border-rose-200',
-    };
-  }
-
+): { label: string; className: string; showAlert?: boolean } | null {
   if (detailLoaded && hasPendingCancelReassign) {
     return {
-      label: 'Cần phân lại (có slot đã hủy nhận)',
+      label: 'Cần phân lại',
       className: 'bg-red-50 text-red-800 border-red-200',
       showAlert: true,
     };
   }
 
-  if (detailLoaded) {
-    if (stats.total === 0) {
-      return {
-        label: 'Chưa có slot',
-        className: 'bg-amber-50 text-amber-800 border-amber-200',
-        showAlert: true,
-      };
-    }
-    if (stats.filled === stats.total) {
-      return {
-        label: 'Đã gán đủ',
-        className: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-      };
-    }
-    return {
-      label: 'Chưa gán đủ',
-      className: 'bg-amber-50 text-amber-800 border-amber-200',
-    };
-  }
+  const sessionCode = getSessionStatusCode(session.status);
+  if (sessionCode !== SESSION_STATUS.APPROVED || !detailLoaded) return null;
+  if (stats.total === 0) return null;
+  if (stats.filled >= stats.total) return null;
 
-  const raw = String(session.status ?? '').trim();
-  const normalized = raw.toUpperCase().replace(/[\s-]/g, '_');
-  const statusCode = Number(raw);
-
-  if (
-    normalized === 'ASSIGNED' ||
-    (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNED)
-  ) {
-    return {
-      label: 'Đã gán đủ',
-      className: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    };
-  }
-  if (
-    normalized === 'ASSIGNING' ||
-    (!Number.isNaN(statusCode) && statusCode === SESSION_STATUS.ASSIGNING)
-  ) {
-    return {
-      label: 'Chưa gán đủ',
-      className: 'bg-amber-50 text-amber-800 border-amber-200',
-    };
-  }
-
-  const info = getSessionStatusInfo(session.status);
-  return { label: info.label, className: info.className };
+  return {
+    label: 'Chưa gán đủ',
+    className: 'bg-amber-50 text-amber-800 border-amber-200',
+  };
 }
 
 /**
@@ -257,6 +196,7 @@ type TeamLeaderAssignmentsPageProps = {
 export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignmentsPageProps) {
   const {
     loading,
+    requestSessionsLoading,
     filteredRequests,
     selectedRequestId,
     setSelectedRequestId,
@@ -267,6 +207,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     setSearch,
     onlyNeedsAction,
     setOnlyNeedsAction,
+    typeFilter,
+    setTypeFilter,
     statusFilter,
     setStatusFilter,
     activeSession,
@@ -280,7 +222,13 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     handleSelectStaff,
     getSessionStats,
     handleResetFilters,
+    refetchRequestById,
+    refreshSessionDetailById,
   } = useTeamLeaderAssignmentsPage(tab);
+
+  const [reportSessionOpen, setReportSessionOpen] = useState(false);
+  const [reportSessionReason, setReportSessionReason] = useState('');
+  const [reportSessionLoading, setReportSessionLoading] = useState(false);
 
   const [hoveredStaff, setHoveredStaff] = useState<{
     staff: SuggestedStaff;
@@ -299,13 +247,19 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
   }, [selectedRequestId]);
 
   useEffect(() => {
+    setReportSessionOpen(false);
+    setReportSessionReason('');
+  }, [activeSession?.sessionId]);
+
+  useEffect(() => {
     if (staffPickerAssignmentId != null) return;
     setHoveredStaff(null);
   }, [staffPickerAssignmentId]);
 
   useEffect(() => {
     if (staffPickerAssignmentId == null) return;
-    void ensureSuggestedStaffForAssignments([staffPickerAssignmentId]);
+    // Luôn tải lại suggest khi mở ô (tránh cache []/cũ sau khi vừa assign — trước đây Array.isArray([]) vẫn coi là đã có cache).
+    void ensureSuggestedStaffForAssignments([staffPickerAssignmentId], { forceRefetch: true });
   }, [staffPickerAssignmentId, ensureSuggestedStaffForAssignments]);
 
   useEffect(() => {
@@ -366,6 +320,40 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     hoverCloseTimerRef.current = setTimeout(() => setHoveredStaff(null), 80);
   }, []);
 
+  const openReportCannotAssignSession = useCallback(() => {
+    setReportSessionReason('');
+    setReportSessionOpen(true);
+  }, []);
+
+  const handleConfirmReportCannotAssignSession = useCallback(async () => {
+    if (!activeSession) return;
+    const trimmed = reportSessionReason.trim();
+    if (!trimmed) {
+      message.warning('Vui lòng nhập lý do.');
+      return;
+    }
+    try {
+      setReportSessionLoading(true);
+      await postSessionCannotBeAssigned({
+        sessionId: activeSession.sessionId,
+        reason: trimmed,
+      });
+      message.success('Đã gửi thông báo.');
+      setReportSessionOpen(false);
+      setReportSessionReason('');
+      await refetchRequestById(activeSession.requestId);
+      await refreshSessionDetailById(activeSession.sessionId);
+    } catch (err) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Gửi thông báo thất bại.';
+      message.error(msg);
+    } finally {
+      setReportSessionLoading(false);
+    }
+  }, [activeSession, reportSessionReason, refetchRequestById, refreshSessionDetailById]);
+
   const renderSlotPicker = (
     sessionId: number,
     slots: NonNullable<SessionDetail['Assignments']>,
@@ -393,8 +381,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             rowHover: 'hover:bg-violet-100/45',
             approvedStripe: 'border-l-[3px] border-l-violet-500 bg-violet-50/40',
             approvedLockBox: 'bg-violet-100 text-violet-800',
-            approvedDivider: 'border-violet-200/70',
-            approvedLockIcon: 'text-violet-700/90',
           }
         : {
             addText: 'text-yellow-800',
@@ -408,8 +394,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             rowHover: 'hover:bg-yellow-100/50',
             approvedStripe: 'border-l-[3px] border-l-yellow-500 bg-yellow-50/45',
             approvedLockBox: 'bg-yellow-100 text-yellow-900',
-            approvedDivider: 'border-yellow-200/80',
-            approvedLockIcon: 'text-yellow-800/90',
           };
     const placeholder = colorScheme === 'sky' ? 'Chọn giảng viên' : 'Chọn trợ giảng';
     const searchPlaceholder = colorScheme === 'sky' ? 'Tìm giảng viên...' : 'Tìm trợ giảng...';
@@ -504,7 +488,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             }`}
           >
             {slots.length === 0 && cancelledSlots.length === 0 && lockedCount <= 0 ? (
-              <p className="px-3 py-2.5 text-xs text-slate-500">Chưa có slot phân công.</p>
+              <p className="px-3 py-2.5 text-xs text-slate-500">Chưa có vị trí phân công.</p>
             ) : (
               <>
                 {slots.map((a) => {
@@ -519,11 +503,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   const filled = selectedId > 0;
                   const slotEditable = isTeamLeaderAssignmentEditableStatus(a.Status);
                   const isRejected = highlightRejectedSlots && isAssignmentRejectedStatus(a.Status);
-                  const pendingReview =
+                  const assignmentStatusUi = getAssignmentStatusInfo(a.Status);
+                  const showAssignmentStatusBadge =
+                    filled || assignmentStatusUi.code !== ASSIGNMENT_STATUS.PENDING;
+                  const isPendingReview =
                     filled &&
                     slotEditable &&
                     !isRejected &&
-                    isAssignmentPendingManagerReview(a.Status);
+                    assignmentStatusUi.code === ASSIGNMENT_STATUS.PENDING;
                   const reasonRaw = a.Reason?.trim();
                   const reasonLines =
                     reasonRaw && reasonRaw.length > 0
@@ -550,13 +537,16 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         </div>
                       </div>
                     ) : null;
+                  const rejectedSlotWrapClass = isRejected
+                    ? 'relative before:pointer-events-none before:absolute before:left-0 before:top-2.5 before:bottom-1 before:w-0.5 before:rounded-full before:bg-rose-300/50 before:content-[""]'
+                    : undefined;
 
                   let avatarCircleClass = accent.avatarBg;
                   let rowStripe = accent.rowStripe;
                   if (isRejected) {
                     rowStripe = 'border-l-[3px] border-l-rose-500 bg-rose-50/30';
                     avatarCircleClass = 'bg-rose-100 text-rose-800';
-                  } else if (pendingReview) {
+                  } else if (isPendingReview) {
                     rowStripe = 'border-l-[3px] border-l-orange-500 bg-orange-50/40';
                     avatarCircleClass = 'bg-orange-100 text-orange-900';
                   }
@@ -587,7 +577,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   if (!slotEditable) {
                     if (!filled) {
                       return (
-                        <div key={a.AssignmentId}>
+                        <div key={a.AssignmentId} className={rejectedSlotWrapClass}>
                           <div className={`px-3 py-2.5 ${accent.approvedStripe}`}>
                             <div className="flex gap-3">
                               <div
@@ -600,7 +590,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                                   Phân công đã được duyệt
                                 </p>
                                 <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
-                                  Slot này không thể chọn lại nhân sự.
+                                  Vị trí này không thể chọn lại nhân sự.
                                 </p>
                               </div>
                             </div>
@@ -610,21 +600,18 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       );
                     }
                     return (
-                      <div key={a.AssignmentId}>
-                        <div className={`px-3 py-2.5 ${accent.approvedStripe}`}>
-                          <div className="pointer-events-none">{filledStaffRow}</div>
-                          <div
-                            className={`mt-2.5 flex gap-2.5 border-t pt-2.5 ${accent.approvedDivider}`}
-                          >
-                            <Lock
-                              className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${accent.approvedLockIcon}`}
-                              strokeWidth={2}
-                            />
-                            <p className="min-w-0 text-[11px] leading-relaxed text-slate-600">
-                              <span className="font-medium text-slate-800">Đã được duyệt.</span>{' '}
-                              Không thể đổi nhân sự tại đây.
-                            </p>
-                          </div>
+                      <div key={a.AssignmentId} className={rejectedSlotWrapClass}>
+                        <div
+                          className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 ${accent.approvedStripe}`}
+                        >
+                          <div className="pointer-events-none min-w-0 flex-1">{filledStaffRow}</div>
+                          {showAssignmentStatusBadge ? (
+                            <span
+                              className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
+                            >
+                              {assignmentStatusUi.label}
+                            </span>
+                          ) : null}
                         </div>
                         {rejectionReasonBlock}
                       </div>
@@ -633,7 +620,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
                   if (!filled) {
                     return (
-                      <div key={a.AssignmentId}>
+                      <div key={a.AssignmentId} className={rejectedSlotWrapClass}>
                         <Popover
                           trigger="click"
                           open={isOpen}
@@ -648,24 +635,19 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         >
                           <button
                             type="button"
-                            className={`flex w-full min-h-[4.25rem] items-center justify-between gap-3 border-l-[3px] border-l-red-500 bg-rose-50/45 px-3 py-2.5 text-left transition-colors hover:bg-rose-50/60 ${
+                            className={`flex w-full min-h-[4.25rem] items-center gap-3 border-l-[3px] border-l-red-500 bg-rose-50/45 px-3 py-2.5 text-left transition-colors hover:bg-rose-50/60 ${
                               isRejected ? 'ring-1 ring-inset ring-rose-300' : ''
                             }`}
                           >
-                            <div className="flex min-w-0 flex-1 items-center gap-3">
-                              <span
-                                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${accent.addCircle}`}
-                              >
-                                <Plus className="h-5 w-5 stroke-[2.5]" />
-                              </span>
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-900">Chưa có nhân sự</p>
-                                <p className="text-xs text-slate-500">Slot trống — {placeholder}</p>
-                              </div>
-                            </div>
-                            <span className="shrink-0 inline-flex items-center rounded-full bg-amber-100/90 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
-                              Thiếu người
+                            <span
+                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${accent.addCircle}`}
+                            >
+                              <Plus className="h-5 w-5 stroke-[2.5]" />
                             </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-slate-900">Chưa có nhân sự</p>
+                              <p className="text-xs text-slate-500">Phân công trống — {placeholder}</p>
+                            </div>
                           </button>
                         </Popover>
                         {rejectionReasonBlock}
@@ -674,7 +656,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   }
 
                   return (
-                    <div key={a.AssignmentId}>
+                    <div key={a.AssignmentId} className={rejectedSlotWrapClass}>
                       <div
                         className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 ${rowStripe}`}
                       >
@@ -698,14 +680,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           </button>
                         </Popover>
                         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                          {pendingReview ? (
-                            <span className="inline-flex items-center rounded-full bg-orange-100/95 px-2.5 py-1 text-[11px] font-semibold text-orange-950">
-                              Chờ duyệt
-                            </span>
-                          ) : null}
-                          {isRejected ? (
-                            <span className="inline-flex items-center rounded-full bg-rose-100/90 px-2.5 py-1 text-[11px] font-semibold text-rose-800">
-                              Đã từ chối
+                          {showAssignmentStatusBadge ? (
+                            <span
+                              className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
+                            >
+                              {assignmentStatusUi.label}
                             </span>
                           ) : null}
                         </div>
@@ -718,29 +697,36 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   const memberId = Number(ca.StaffMemberId ?? 0);
                   const display = getStaffDisplayForSlot(memberId, ca, []);
                   const cancelReason = ca.Reason?.trim() ?? '';
+                  const cancelledStatusUi = getAssignmentStatusInfo(ca.Status);
                   return (
                     <div
                       key={ca.AssignmentId}
                       className="flex flex-col gap-2.5 border-l-[3px] border-l-red-500 bg-red-50/90 px-3 py-3"
                     >
-                      <p className="text-xs font-medium text-red-800">Cần phân công lại</p>
-                      <div className="flex items-center gap-3 opacity-95 pointer-events-none">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-medium text-red-800">
-                          <img
-                            src={getAvatarSrc(display.avatarUrl)}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-                            }}
-                          />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3 opacity-95 pointer-events-none">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-medium text-red-800">
+                            <img
+                              src={getAvatarSrc(display.avatarUrl)}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-slate-900 truncate">
+                              {display.fullName}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate">{display.email || '—'}</p>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-900 truncate">
-                            {display.fullName}
-                          </p>
-                          <p className="text-xs text-slate-500 truncate">{display.email || '—'}</p>
-                        </div>
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold shrink-0 ${cancelledStatusUi.className}`}
+                        >
+                          {cancelledStatusUi.label}
+                        </span>
                       </div>
                       <div className="rounded-lg border border-red-200/90 bg-white/70 px-3 py-2">
                         <p className="text-xs font-medium text-red-900 mb-1">Lý do:</p>
@@ -761,9 +747,9 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         key={`${roleLabel}-locked-${idx}`}
                         className="flex min-h-[4.25rem] flex-col justify-center border-l-[3px] border-l-slate-300 bg-slate-50/80 px-3 py-2.5"
                       >
-                        <p className="text-xs font-medium text-slate-600">Slot thuộc team khác</p>
+                        <p className="text-xs font-medium text-slate-600">Vị trí thuộc nhóm khác</p>
                         <p className="text-[11px] text-slate-500 mt-1">
-                          Không khả dụng cho team của bạn
+                          Không khả dụng cho nhóm của bạn
                         </p>
                       </div>
                     ))
@@ -774,8 +760,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
         </div>
         {lockedCount > 0 ? (
           <p className="text-[11px] text-slate-500 px-0.5">
-            {lockedCount} slot {roleLabel.toLowerCase()} thuộc {teamTextLocked} (chỉ xem, không thể
-            phân công).
+            {lockedCount} vị trí {roleLabel.toLowerCase()} thuộc {teamTextLocked} 
           </p>
         ) : null}
       </div>
@@ -788,22 +773,46 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
-          <Spin tip="Đang tải dữ liệu phân công cho team..." />
+                  <Spin tip="Đang tải dữ liệu phân công cho nhóm..." />
         </div>
       )}
 
       <div className="flex justify-start gap-3 mb-2 flex-wrap">
         <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
-        <div className="flex items-center gap-3">
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | 'assigning')}>
-            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[160px]">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="assigning">Đang phân công</SelectItem>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-3 flex-wrap">
+          {tab === 'assigning' || tab === 'rejected' ? (
+            <>
+              <Select
+                value={typeFilter}
+                onValueChange={(v) => setTypeFilter(v as 'all' | 'event' | 'subject' | 'course')}
+              >
+                <SelectTrigger className="h-9 w-[180px] max-w-[180px] shrink-0 text-gray-500 text-sm gap-2 bg-white border-slate-200">
+                  <SelectValue placeholder="Loại yêu cầu" />
+                </SelectTrigger>
+                <SelectContent className="min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
+                  <SelectItem value="all">Tất cả loại</SelectItem>
+                  <SelectItem value="event">Sự kiện</SelectItem>
+                  <SelectItem value="subject">Môn học</SelectItem>
+                  <SelectItem value="course">Khóa học</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => setStatusFilter(v as TlRequestStatusFilter)}
+              >
+                <SelectTrigger className="h-9 w-[200px] max-w-[200px] shrink-0 text-gray-500 text-sm gap-2 bg-white border-slate-200">
+                  <SelectValue placeholder="Trạng thái" />
+                </SelectTrigger>
+                <SelectContent className="min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
+                  <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
+                  <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
+          ) : null}
 
           <Button
             variant="outline"
@@ -814,14 +823,16 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             <RotateCcw size={16} />
           </Button>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              className="!rounded-[15px]"
-              checked={onlyNeedsAction}
-              onCheckedChange={setOnlyNeedsAction}
-            />
-            <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
-          </div>
+          {tab === 'assigning' ? (
+            <div className="flex items-center space-x-2">
+              <Switch
+                className="!rounded-[15px]"
+                checked={onlyNeedsAction}
+                onCheckedChange={setOnlyNeedsAction}
+              />
+              <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -832,7 +843,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             <div className="min-w-0">
               <h2 className="font-medium text-base text-black truncate">Danh sách yêu cầu</h2>
               <p className="text-[11px] text-slate-500">
-                {filteredRequests.length} yêu cầu thuộc team của bạn
+                {filteredRequests.length} yêu cầu thuộc nhóm của bạn
               </p>
             </div>
             <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1 shrink-0">
@@ -842,7 +853,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
           <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
-                Chưa có yêu cầu nào có phiên của team này.
+                Chưa có yêu cầu nào có phiên của nhóm này.
               </div>
             )}
             {filteredRequests.map((r) => (
@@ -872,12 +883,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
         <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar pr-1">
           {!selectedRequest ? (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl text-slate-400">📋</span>
-              </div>
-              <p className="text-sm font-medium text-black">Chọn một yêu cầu ở cột bên trái</p>
-              <p className="text-xs text-gray-500 mt-1">để xem danh sách phiên và phân công nhân sự.</p>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-sm text-gray-500">
+              Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
             </div>
           ) : (
             <div className="space-y-4 flex flex-col min-h-0 flex-1">
@@ -951,61 +958,69 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     <div>
                       <p className="text-[11px] text-slate-500">Số lượng phiên</p>
                       <p className="font-medium text-sm text-slate-900 mt-0.5">
-                        {selectedRequest.sessions.length} phiên
+                        {requestSessionsLoading ? '—' : `${selectedRequest.sessions.length} phiên`}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Progress uses only sessions loaded via getById (when user opens a session) */}
-              {(() => {
-                const sessions = selectedRequest.sessions;
-                let totalSlots = 0;
-                let filledSlots = 0;
-                let loadedSessionCount = 0;
-                sessions.forEach((s) => {
-                  if (!sessionDetailsById[s.sessionId]) return;
-                  loadedSessionCount += 1;
-                  const stats = getSessionStats(s);
-                  totalSlots += stats.total;
-                  filledSlots += stats.filled;
-                });
-                const progress = totalSlots === 0 ? 0 : Math.min(1, filledSlots / totalSlots);
-                if (sessions.length > 0 && loadedSessionCount === 0) {
-                  return (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-medium text-slate-700">Tiến độ phân công</span>
-                      </div>
-                      <p className="text-xs text-slate-500">
-                        Mở một phiên học bên dưới để tải chi tiết và xem tiến độ theo slot team.
-                      </p>
-                    </div>
-                  );
-                }
-                return (
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-slate-700">Tiến độ phân công</span>
-                      <span className="text-sm font-medium text-slate-800 tabular-nums">
-                        {filledSlots}/{totalSlots} slot
-                        {loadedSessionCount < sessions.length ? (
-                          <span className="text-[11px] font-normal text-slate-500 ml-1">
-                            ({loadedSessionCount}/{sessions.length} phiên đã tải)
+              {requestSessionsLoading ? (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[280px] py-12">
+                  <Spin tip="Đang tải danh sách phiên theo nhóm..." />
+                </div>
+              ) : (
+                <>
+              {/* Progress uses only sessions loaded via getById (when user opens a session) — ẩn trên tab phân công lại */}
+              {tab !== 'rejected'
+                ? (() => {
+                    const sessions = selectedRequest.sessions;
+                    let totalSlots = 0;
+                    let filledSlots = 0;
+                    let loadedSessionCount = 0;
+                    sessions.forEach((s) => {
+                      if (!sessionDetailsById[s.sessionId]) return;
+                      loadedSessionCount += 1;
+                      const stats = getSessionStats(s);
+                      totalSlots += stats.total;
+                      filledSlots += stats.filled;
+                    });
+                    const progress = totalSlots === 0 ? 0 : Math.min(1, filledSlots / totalSlots);
+                    if (sessions.length > 0 && loadedSessionCount === 0) {
+                      return (
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-sm font-medium text-slate-700">Tiến độ phân công</span>
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            Mở một phiên học bên dưới để tải chi tiết và xem tiến độ theo vị trí của nhóm.
+                          </p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium text-slate-700">Tiến độ phân công</span>
+                          <span className="text-sm font-medium text-slate-800 tabular-nums">
+                            {filledSlots}/{totalSlots} vị trí
+                            {loadedSessionCount < sessions.length ? (
+                              <span className="text-[11px] font-normal text-slate-500 ml-1">
+                                ({loadedSessionCount}/{sessions.length} phiên đã tải)
+                              </span>
+                            ) : null}
                           </span>
-                        ) : null}
-                      </span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#2197C0] to-emerald-500 transition-all duration-300"
-                        style={{ width: `${progress * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#2197C0] to-emerald-500 transition-all duration-300"
+                            style={{ width: `${progress * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()
+                : null}
 
               {/* Danh sách phiên học — layout đồng bộ RequestDetail (manager) */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
@@ -1017,15 +1032,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 </div>
                 {selectedRequest.sessions.length === 0 ? (
                   <p className="text-xs text-slate-500 py-6 text-center">
-                    Yêu cầu này chưa có phiên nào gán cho team.
+                    Yêu cầu này chưa có phiên nào gán cho nhóm.
                   </p>
                 ) : (
                   <div className="space-y-2">
                     {selectedRequest.sessions.map((session) => {
                       const detailLoaded = Boolean(sessionDetailsById[session.sessionId]);
                       const stats = getSessionStats(session);
-                      const effSessionStatus =
-                        sessionDetailsById[session.sessionId]?.Status ?? session.status;
+                      const sessionStatusInfo = getSessionStatusInfo(session.status);
                       const isActive = activeSession?.sessionId === session.sessionId;
                       const detail = sessionDetailsById[session.sessionId];
                       const title = getSessionDisplayTitleWithDetail(
@@ -1041,13 +1055,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       const teamCount = countTeamsOnSession(detail);
                       const fullyAssigned =
                         detailLoaded && stats.total > 0 && stats.filled === stats.total;
-                      const assignmentReviewBadge = getAssignmentReviewBadge(session.status);
                       const hasPendingCancelReassign = sessionHasPendingCancelReassign(detail, stats);
-                      const progressBadge = getSessionListProgressBadge(
+                      const secondaryBadge = getSessionListSecondaryBadge(
                         session,
                         detailLoaded,
                         stats,
-                        effSessionStatus,
                         hasPendingCancelReassign,
                       );
                       return (
@@ -1069,25 +1081,28 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
                               <span className="text-xs text-sky-700 font-medium tabular-nums">
+                                <span className="text-slate-600 font-medium">
+                                  {dayjs(session.startAt).format('DD/MM/YYYY')}
+                                </span>
+                                <span className="text-slate-300 font-normal mx-1">·</span>
                                 {dayjs(session.startAt).format('HH:mm')} -{' '}
                                 {dayjs(session.endAt).format('HH:mm')}
                               </span>
-                              {assignmentReviewBadge &&
-                                !isSessionAssignmentRejectedStatus(effSessionStatus) && (
-                                  <span
-                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${assignmentReviewBadge.className}`}
-                                  >
-                                    {assignmentReviewBadge.label}
-                                  </span>
-                                )}
                               <span
-                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${progressBadge.className}`}
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${sessionStatusInfo.className}`}
                               >
-                                {progressBadge.showAlert && (
-                                  <AlertCircle className="w-3 h-3 shrink-0" />
-                                )}
-                                {progressBadge.label}
+                                {sessionStatusInfo.label}
                               </span>
+                              {secondaryBadge ? (
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${secondaryBadge.className}`}
+                                >
+                                  {secondaryBadge.showAlert && (
+                                    <AlertCircle className="w-3 h-3 shrink-0" />
+                                  )}
+                                  {secondaryBadge.label}
+                                </span>
+                              ) : null}
                             </div>
                             <span
                               className="inline-flex items-center gap-0.5 text-xs font-medium text-sky-700 select-none"
@@ -1135,9 +1150,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   </div>
                 )}
               </div>
+                </>
+              )}
             </div>
           )}
-                              </div>
+          </div>
 
       </div>
           </div>
@@ -1146,7 +1163,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
       {activeSession && (
         <div className="fixed inset-0 z-40 flex justify-end">
           <div className="flex-1 bg-black/30" onClick={() => setActiveSession(null)} />
-          <div className="w-full max-w-xl h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden border-l">
+          <div className="w-full max-w-2xl h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden border-l">
             {/* Panel header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
@@ -1160,50 +1177,28 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   <span className="text-xs font-medium text-[#2197C0]">
                     {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
                   </span>
+                  <span className="text-xs text-slate-300">·</span>
+                  <span className="text-xs font-medium text-slate-700 tabular-nums">
+                    {dayjs(activeSession.startAt).format('HH:mm')} - {dayjs(activeSession.endAt).format('HH:mm')}
+                  </span>
                   {(() => {
                     const d = sessionDetailsById[activeSession.sessionId];
                     const eff = String(d?.Status ?? activeSession.status ?? '').trim();
+                    const sessionInfo = getSessionStatusInfo(eff);
                     const sessionRejected = isSessionAssignmentRejectedStatus(eff);
-                    
-                    if (tab === 'rejected' && !sessionRejected) {
-                      return (
-                        <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-800">
-                          Yêu cầu có phiên bị từ chối
-                        </span>
-                      );
-                    }
-                    return null;
-                  })()}
-                  {(() => {
-                    const d = sessionDetailsById[activeSession.sessionId];
-                    const eff = String(d?.Status ?? activeSession.status ?? '').trim();
-                    const sessionRejected = isSessionAssignmentRejectedStatus(eff);
-                    if (sessionRejected) {
-                      return (
-                        <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-800">
-                          Cần phân lại nhân sự bị từ chối
-                        </span>
-                      );
-                    }
-                    const stats = getSessionStats(activeSession);
-                    const hasPendingCancelReassign = sessionHasPendingCancelReassign(d, stats);
-                    const filledOk = stats.total > 0 && stats.filled === stats.total;
                     return (
                       <>
-                        {hasPendingCancelReassign ? (
-                          <span className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-800">
-                            Có slot đã hủy nhận — phân công ở ô thay thế phía trên
+                        {tab === 'rejected' && !sessionRejected ? (
+                          <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-800">
+                            Yêu cầu có phiên bị từ chối
                           </span>
                         ) : null}
                         <span
-                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium border ${
-                            filledOk
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}
+                          className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${sessionInfo.className}`}
                         >
-                          {filledOk ? 'Đã gán đủ' : 'Đang phân công'}
+                          {sessionInfo.label}
                         </span>
+                        
                       </>
                     );
                   })()}
@@ -1319,7 +1314,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       </div>
                       {(lockedTeacherSlots > 0 || lockedTaSlots > 0) && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                          Phiên này còn slot thuộc team khác, bạn chỉ phân công trong quota team của mình.
+                          Phiên này cần phân công nhân sự thuộc nhóm khác, bạn chỉ phân công nhân sự thuộc nhóm của mình.
                         </div>
                       )}
                     </div>
@@ -1345,6 +1340,17 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     : [];
                 const sessionRejectedUi = isSessionAssignmentRejectedStatus(detail.Status);
 
+                const sessionStatusForReport = String(detail?.Status ?? activeSession.status ?? '').trim();
+                const sessionStatusCodeForReport = getSessionStatusCode(sessionStatusForReport);
+                const blockedReportStatuses = new Set<number>([
+                  SESSION_STATUS.ONGOING,
+                  SESSION_STATUS.COMPLETED,
+                  SESSION_STATUS.CANCELLED,
+                ]);
+                const canReportCannotAssign =
+                  sessionStatusCodeForReport == null ||
+                  !blockedReportStatuses.has(sessionStatusCodeForReport);
+
                 return (
                   <>
                     {sessionInfoCard}
@@ -1357,12 +1363,12 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         <div className="px-4 py-2.5 border-b border-orange-100 bg-orange-50">
                           <h3 className="font-medium text-orange-900 text-sm">
                             {teamRejectedAssignments.length > 0
-                              ? 'Phân công cần làm lại'
+                              ? 'Phân công bị từ chối'
                               : 'Thông tin từ chối phân công'}
                           </h3>
                           <p className="text-[11px] text-orange-800/90 mt-0.5">
                             {teamRejectedAssignments.length > 0
-                              ? 'Các slot dưới đây bị quản lý từ chối; vui lòng chọn lại nhân sự rồi gửi duyệt.'
+                              ? 'Các phân công dưới đây bị quản lý từ chối; vui lòng chọn lại nhân sự.'
                               : 'Xem lý do từ quản lý và kiểm tra phân công từng vai trò bên dưới.'}
                           </p>
                         </div>
@@ -1382,7 +1388,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         )} */}
                         {teamRejectedAssignments.length === 0 && sessionRejectedUi && (
                           <p className="px-4 py-3 text-xs text-orange-800">
-                            Phiên đang ở trạng thái từ chối phân công. Nếu không thấy dòng slot cụ thể,
+                            Phiên đang ở trạng thái từ chối phân công. Nếu không thấy dòng vị trí cụ thể,
                             hãy làm mới hoặc kiểm tra phân công từng giảng viên / trợ giảng phía dưới.
                           </p>
                         )}
@@ -1393,7 +1399,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
                         <AlertCircle className="w-5 h-5 text-amber-500 mx-auto mb-2" />
                         <p className="text-xs text-amber-700 font-medium">
-                          Phiên này chưa có slot phân công (assignment).
+                          Phiên này chưa có vị trí phân công.
                         </p>
                       </div>
                     ) : (
@@ -1403,7 +1409,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           editableTeacherSlots,
                           teachersRequired,
                           'sky',
-                          tab === 'rejected',
+                          true,
                           cancelledTeacherMemberIds,
                           cancelledTeacherSlots,
                           lockedTeacherSlots,
@@ -1414,14 +1420,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           editableTaSlots,
                           tasRequired,
                           'amber',
-                          tab === 'rejected',
+                          true,
                           cancelledTaMemberIds,
                           cancelledTaSlots,
                           lockedTaSlots,
                           otherTeamNames,
                         )}
 
-                        {progressTotal > 0 && (
+                        {progressTotal > 0 && tab !== 'rejected' && (
                           <div className="pt-1 space-y-2">
                             <div className="flex items-center justify-between text-[11px] font-medium text-slate-700">
                               <span>Tiến độ phân công</span>
@@ -1440,6 +1446,61 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
                       </div>
                     )}
+
+                    <div className="mt-6">
+                      <RequestSessionDetailPanel
+                        session={{
+                          sessionId: activeSession.sessionId,
+                          sessionNo: activeSession.sessionNo,
+                          startAt: activeSession.startAt,
+                          endAt: activeSession.endAt,
+                          status: activeSession.status,
+                          location: activeSession.location,
+                          subjectSession: activeSession.subjectSession ?? undefined,
+                          eventSession: activeSession.eventSession ?? undefined,
+                          reservationId:
+                            detail.ReservationId != null && Number(detail.ReservationId) > 0
+                              ? Number(detail.ReservationId)
+                              : null,
+                        }}
+                        requestId={activeSession.requestId}
+                        requestCode={selectedRequest?.requestCode ?? ''}
+                        sectionMode="equipment"
+                        showTeamSummary={false}
+                        canEditReservation={false}
+                        onReservationUpdated={() =>
+                          void refreshSessionDetailById(activeSession.sessionId)
+                        }
+                      />
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-slate-100">
+                      <div className="relative inline-flex group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!canReportCannotAssign) {
+                              message.info('Không đủ điều kiện gửi báo cáo phiên này.');
+                              return;
+                            }
+                            openReportCannotAssignSession();
+                          }}
+                          className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 ${
+                            canReportCannotAssign
+                              ? 'text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2'
+                              : 'text-slate-400 cursor-not-allowed'
+                          }`}
+                        >
+                          <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
+                          Hủy phiên
+                        </button>
+                        {!canReportCannotAssign ? (
+                          <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
+                            Không đủ điều kiện hủy
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
                   </>
                 );
               })()}
@@ -1447,6 +1508,50 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 </div>
               </div>
             )}
+
+      <Dialog
+        open={reportSessionOpen}
+        onClose={() => !reportSessionLoading && setReportSessionOpen(false)}
+        title="Hủy phiên"
+        description="Nhập lý do để báo phiên cần bị hủy. Thao tác không thể hoàn tác."
+        className="max-w-md border-0 shadow-2xl"
+      >
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="tl-report-session-reason" className="text-black">
+              Lý do <span className="text-red-500">*</span>
+            </Label>
+            <textarea
+              id="tl-report-session-reason"
+              rows={4}
+              value={reportSessionReason}
+              onChange={(e) => setReportSessionReason(e.target.value)}
+              placeholder="Ví dụ: Không đủ nhân sự đáp ứng kỹ năng, trùng lịch..."
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-lg border-gray-200"
+              disabled={reportSessionLoading}
+              onClick={() => setReportSessionOpen(false)}
+            >
+              Đóng
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-lg border-red-200 text-red-600 hover:bg-red-50"
+              disabled={reportSessionLoading}
+              onClick={() => void handleConfirmReportCannotAssignSession()}
+            >
+              {reportSessionLoading ? 'Đang gửi...' : 'Gửi thông báo'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       {/* Floating staff detail tooltip */}
       {hoveredStaff && (() => {
@@ -1462,9 +1567,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
         const isTA = String(s.roleName ?? '').toUpperCase().includes('TA') || String(s.roleName ?? '').toUpperCase().includes('ASSIST');
         const roleChip = isTA
-          ? { label: 'TA', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
-          : { label: 'TE', cls: 'bg-sky-100 text-sky-800 border-sky-200' };
-
+          ? { label: 'Trợ giảng', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
+          : { label: 'Giảng viên', cls: 'bg-sky-100 text-sky-800 border-sky-200' };
         const frame = isTA
           ? { border: 'border-emerald-200/70', ring: 'ring-emerald-100', grad: 'from-emerald-50/70' }
           : { border: 'border-sky-200/70', ring: 'ring-sky-100', grad: 'from-sky-50/70' };

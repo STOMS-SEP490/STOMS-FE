@@ -27,7 +27,7 @@ export default function TeamLeaderAssignmentsLayout() {
         >
           <TabsList>
             <TabsTrigger value="assigning">Tất cả yêu cầu</TabsTrigger>
-            <TabsTrigger value="rejected">Yêu cầu bị từ chối</TabsTrigger>
+            <TabsTrigger value="rejected">Phân công bị từ chối</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>

@@ -14,7 +14,7 @@ export type TeamLeaderSessionDetailPanelProps = {
   session: RequestSessionSummary;
   requestCode: string;
   requestName?: string;
-  /** Cột "Ủy quyền" sau Check out; chỉ truyền khi cần (vd. team leader). */
+  /** Cột "Ủy quyền" sau giờ ra; chỉ truyền khi cần (vd. team leader). */
   delegateColumn?: {
     currentMemberId: number | null;
     /** Giá trị ban đầu từ phiên (trước khi API danh sách trả về); sau ủy quyền dùng attendanceByMemberId từ từng dòng. */
@@ -62,7 +62,7 @@ export default function TeamLeaderSessionDetailPanel({
         const msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: unknown }).message)
-            : 'Không tải được danh sách member tham dự.';
+            : 'Không tải được danh sách thành viên tham dự.';
         setAttError(msg);
       } finally {
         if (cancelled) return;
@@ -108,7 +108,7 @@ export default function TeamLeaderSessionDetailPanel({
   }, [delegateColumn, resolvedAttendanceOwnerId]);
 
   const showDelegateCol = Boolean(delegateColumn) && memberDelegateColumnVisible;
-  // Thu hẹp cột Check in/Check out để nhường chỗ cho email/fullName.
+  // Thu hẹp cột giờ vào/giờ ra để nhường chỗ cho email/fullName.
   // 1fr cho "Thông tin thành viên", các cột thời gian cố định.
   const gridClass = showDelegateCol
     ? 'grid-cols-[minmax(0,1fr)_64px_64px_112px]'
@@ -202,7 +202,7 @@ export default function TeamLeaderSessionDetailPanel({
         </div>
       </div>
 
-      {/* Danh sách member tham dự (check-in / check-out theo từng thành viên) */}
+      {/* Danh sách thành viên tham dự (giờ vào / giờ ra theo từng thành viên) */}
       <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
         <div className="px-4 py-2.5 border-b border-gray-100">
           <div className="flex items-start justify-between gap-3">
@@ -238,8 +238,8 @@ export default function TeamLeaderSessionDetailPanel({
                 className={`grid ${gridClass} gap-2 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600`}
               >
                 <div>Thông tin thành viên</div>
-                <div className="text-center">Check in</div>
-                <div className="text-center">Check out</div>
+                <div className="text-center">Giờ vào</div>
+                <div className="text-center">Giờ ra</div>
                 {showDelegateCol ? <div className="text-center">Ủy quyền</div> : null}
               </div>
 
@@ -253,7 +253,7 @@ export default function TeamLeaderSessionDetailPanel({
                       <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
                         <img
                           src={a.member?.avatarUrl || '/img/ava.png'}
-                          alt={a.member?.fullName ?? `Member ${a.memberId}`}
+                            alt={a.member?.fullName ?? `Thành viên ${a.memberId}`}
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
@@ -263,7 +263,7 @@ export default function TeamLeaderSessionDetailPanel({
 
                       <div className="min-w-0">
                         <p className="font-medium text-gray-900 truncate">
-                          {a.member?.fullName || `Member #${a.memberId}`}
+                          {a.member?.fullName || `Thành viên #${a.memberId}`}
                         </p>
                         <p className="text-[11px] text-gray-500 truncate">
                           {a.member?.email ?? '—'}
@@ -349,7 +349,7 @@ export default function TeamLeaderSessionDetailPanel({
                               className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
                               title={
                                 hasCheckedIn
-                                  ? 'Không thể ủy quyền sau khi thành viên đã check-in'
+                                  ? 'Không thể ủy quyền sau khi thành viên đã điểm danh vào'
                                   : 'Ủy quyền điểm danh cho thành viên này'
                               }
                             >

@@ -1077,7 +1077,7 @@ export default function TeacherTaskReportPage() {
                                                 Xem ảnh
                                               </button>
                                             ) : (
-                                              <span className="text-xs text-gray-400">No image</span>
+                                              <span className="text-xs text-gray-400">Không có ảnh</span>
                                             )}
                                           </div>
                                         </div>

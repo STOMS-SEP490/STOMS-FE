@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, AlertTriangle, Paperclip, ImageOff, Users, Wrench, ChevronDown, ChevronRight } from 'lucide-react';
@@ -6,29 +6,47 @@ import { message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';
-import { getAssignmentStaffRoleAccent, getRequestStatusCode, getRequestStatusInfo, getSessionStatusCode, getSessionStatusInfo, REQUEST_STATUS, SESSION_STATUS } from '@/constants/status';
+import {
+  getRequestStatusCode,
+  getRequestStatusInfo,
+  getSessionStatusCode,
+  getSessionStatusInfo,
+  REQUEST_STATUS,
+  SESSION_STATUS,
+} from '@/constants/status';
 import {
   canManagerReviewAssignmentRow,
-  isAssignmentApproved,
-  isAssignmentCancelled,
-  isAssignmentRejected,
-  isAssignmentSlotFilled,
 } from '../utils/assignmentSlotUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import type { RequestSessionSummary } from '../request';
 import RequestDetailTeamPanel from './RequestDetailTeamPanel';
-import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext } from '../requestDetail.types';
 import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
 import sessionService from '../api/sessionApi';
+import assignmentService from '@/modules/assignment/api/assignmentApi';
 import reservationService from '@/modules/reservation/api/reservationApi';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import { teamApi } from '@/modules/team/api/teamApi';
+
+const RESERVE_EQUIPMENT_ALLOWED_REQUEST_STATUS = new Set<number>([
+  REQUEST_STATUS.PENDING,
+  REQUEST_STATUS.APPROVED,
+  REQUEST_STATUS.ASSIGNING,
+  REQUEST_STATUS.PUBLISHED,
+]);
+
+const RESERVE_EQUIPMENT_SESSION_STATUS = new Set<number>([
+  SESSION_STATUS.PENDING,
+  SESSION_STATUS.APPROVED,
+  SESSION_STATUS.ASSIGNING,
+  SESSION_STATUS.ASSIGNMENT_REJECTED,
+  SESSION_STATUS.ASSIGNED,
+]);
 
 export default function RequestDetail() {
   type ApproveSessionPreview = {
@@ -59,7 +77,6 @@ export default function RequestDetail() {
     uiAssignedTeamIdsBySessionId,
     uiTeamQuantitiesBySessionId,
     assignmentsBySessionId,
-    selectedAssignmentIdsBySessionId,
     approveOpen,
     setApproveOpen,
     rejectOpen,
@@ -68,7 +85,6 @@ export default function RequestDetail() {
     rejectReason,
     setRejectReason,
     actionLoading,
-    approvingSessionId,
     rejectAssignmentState,
     setRejectAssignmentState,
     rejectAssignmentReason,
@@ -76,12 +92,9 @@ export default function RequestDetail() {
     createdByMemberId,
     assignedCount,
     refreshDetail,
+    reloadAssignmentsForSession,
     handleAssignSession,
-    handleQuantitiesChange,
     handleApproveClick,
-    handleToggleAssignmentSelection,
-    handleToggleSelectAllReviewableAssignments,
-    handleApproveSelectedAssignments,
     handleOpenRejectAssignment,
     handleConfirmRejectAssignment,
     handleConfirmApprove,
@@ -94,6 +107,26 @@ export default function RequestDetail() {
     viewMode,
     refreshRequestSidebar,
   });
+
+  const canReserveEquipment = useMemo(() => {
+    if (!request?.status) return false;
+    const code = getRequestStatusCode(request.status);
+    return code != null && RESERVE_EQUIPMENT_ALLOWED_REQUEST_STATUS.has(code);
+  }, [request?.status]);
+
+  useEffect(() => {
+    if (rightPanel?.mode !== 'equipment') return;
+    if (!canReserveEquipment) setRightPanel(null);
+  }, [rightPanel?.mode, canReserveEquipment, setRightPanel]);
+
+  const sessionsEligibleForEquipmentReserve = useMemo(() => {
+    return sessions.filter((s) => {
+      const code = getSessionStatusCode(s.status);
+      return code != null && RESERVE_EQUIPMENT_SESSION_STATUS.has(code);
+    });
+  }, [sessions]);
+
+  const hasUnreservedEquipmentSlot = sessionsEligibleForEquipmentReserve.some((s) => !s.equipmentReserved);
 
   const remainingUnassignedSessions = Math.max(0, sessions.length - assignedCount);
   const [highlightSessionId, setHighlightSessionId] = useState<number | null>(null);
@@ -151,6 +184,34 @@ export default function RequestDetail() {
   const [cancelSessionOpen, setCancelSessionOpen] = useState(false);
   const [cancelSessionReason, setCancelSessionReason] = useState('');
   const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
+  const [approvingAssignmentIds, setApprovingAssignmentIds] = useState<Record<number, boolean>>({});
+  const [sessionDetailReloadKey, setSessionDetailReloadKey] = useState(0);
+
+  const handleApproveSingleAssignment = useCallback(
+    async (assignmentId: number, sessionId: number) => {
+      if (!assignmentId || assignmentId <= 0) return;
+      try {
+        setApprovingAssignmentIds((prev) => ({ ...prev, [assignmentId]: true }));
+        await assignmentService.approve([assignmentId]);
+        message.success('Đã duyệt phân công.');
+        await reloadAssignmentsForSession(sessionId);
+        await refreshDetail();
+        setSessionDetailReloadKey((k) => k + 1);
+        refreshRequestSidebar?.();
+      } catch (err) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msg = (err as any)?.message || 'Duyệt phân công thất bại.';
+        message.error(msg);
+      } finally {
+        setApprovingAssignmentIds((prev) => {
+          const next = { ...prev };
+          delete next[assignmentId];
+          return next;
+        });
+      }
+    },
+    [refreshDetail, refreshRequestSidebar, reloadAssignmentsForSession]
+  );
 
   const loadApprovePreview = useCallback(async () => {
     if (!sessions.length) {
@@ -458,8 +519,10 @@ export default function RequestDetail() {
                   const rows = assignmentsBySessionId[session.sessionId] ?? [];
                   const pendingCount = rows.filter((r) => canManagerReviewAssignmentRow(r)).length;
                   const fullyAssigned = isSessionFullyAssigned(session);
+                  const sessionPending = getSessionStatusCode(session.status) === SESSION_STATUS.PENDING;
                   const sessionTitle = getSessionDisplayTitle(session);
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
+                  const sessionStatusInfo = getSessionStatusInfo(session.status);
                   return (
                     <div
                       key={session.sessionId}
@@ -485,27 +548,34 @@ export default function RequestDetail() {
                               pendingCount > 0 ? 'text-orange-900' : 'text-sky-700'
                             }`}
                           >
+                            <span className="text-slate-600 font-medium">
+                              {dayjs(session.startAt).format('DD/MM/YYYY')}
+                            </span>
+                            <span className="text-slate-300 font-normal mx-1">·</span>
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                           </span>
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
-                              fullyAssigned
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : 'bg-amber-50 text-amber-800 border-amber-200'
-                            }`}
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
                           >
-                            {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                            {fullyAssigned ? 'Đã gắn đủ' : 'Chưa đủ'}
+                            {sessionStatusInfo.label}
                           </span>
-                          <Badge
-                            className={
-                              pendingCount > 0
-                                ? 'bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-semibold'
-                                : 'bg-emerald-50 text-emerald-900 border-emerald-200 text-[10px] font-semibold'
-                            }
-                          >
-                            {pendingCount > 0 ? `Chờ duyệt ${pendingCount}` : 'Đã duyệt xong'}
-                          </Badge>
+                          {sessionPending ? (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                                fullyAssigned
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
+                            </span>
+                          ) : null}
+                          {pendingCount > 0 ? (
+                            <Badge className="bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-semibold">
+                              {pendingCount} phân công chờ duyệt
+                            </Badge>
+                          ) : null}
                         </div>
                         <span
                           className={`inline-flex items-center gap-0.5 text-xs font-semibold select-none ${
@@ -526,8 +596,6 @@ export default function RequestDetail() {
                         <span>
                           {session.teachersRequired ?? 1} GV · {session.tasRequired ?? 1} TG
                         </span>
-                        <span className="text-slate-300">•</span>
-                        <span>{dayjs(session.startAt).format('DD/MM/YYYY')}</span>
                       </div>
                     </div>
                   );
@@ -570,7 +638,7 @@ export default function RequestDetail() {
             )}
             <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-slate-700">Tiến độ gắn đội</span>
+                <span className="text-sm font-medium text-slate-700">Tiến độ phân đội</span>
                 <span className="text-sm font-semibold text-slate-800 tabular-nums">
                   {assignedCount}/{sessions.length || 0} phiên
                 </span>
@@ -620,16 +688,16 @@ export default function RequestDetail() {
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
-              <Button
-                onClick={() =>
-                  sessions.some((s) => !s.equipmentReserved) && setRightPanel({ mode: 'equipment' })
-                }
-                disabled={sessions.every((s) => s.equipmentReserved)}
-                className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50 text-[11px] h-8 rounded-lg px-3"
-              >
-                <Plus size={14} />
-                Đặt trước thiết bị
-              </Button>
+              {canReserveEquipment ? (
+                <Button
+                  onClick={() => hasUnreservedEquipmentSlot && setRightPanel({ mode: 'equipment' })}
+                  disabled={!hasUnreservedEquipmentSlot}
+                  className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50 text-[11px] h-8 rounded-lg px-3"
+                >
+                  <Plus size={14} />
+                  Đặt trước thiết bị
+                </Button>
+              ) : null}
             </div>
             {sessions.length === 0 ? (
               <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách phiên chi tiết.</p>
@@ -639,17 +707,19 @@ export default function RequestDetail() {
                   const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
                   const teamCount = teamIds.length;
                   const fullyAssigned = isSessionFullyAssigned(session);
+                  const sessionPending = getSessionStatusCode(session.status) === SESSION_STATUS.PENDING;
                   const topic = session.subjectSession ?? session.eventSession;
                   const sessionTitle = getSessionDisplayTitle(session);
                   const sessionSkills = session.sessionSkills ?? [];
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
+                  const sessionStatusInfo = getSessionStatusInfo(session.status);
                   return (
                     <div
                       key={session.sessionId}
                       role="button"
                       tabIndex={0}
                       data-request-session-id={session.sessionId}
-                      data-request-session-unassigned={String(!fullyAssigned)}
+                      data-request-session-unassigned={String(sessionPending && !fullyAssigned)}
                       onClick={() => setRightPanel({ mode: 'detail', session })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -664,18 +734,29 @@ export default function RequestDetail() {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                           <span className="text-xs text-sky-700 font-semibold tabular-nums">
+                            <span className="text-slate-600 font-medium">
+                              {dayjs(session.startAt).format('DD/MM/YYYY')}
+                            </span>
+                            <span className="text-slate-300 font-normal mx-1">·</span>
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                           </span>
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                              fullyAssigned
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-amber-50 text-amber-800 border border-amber-200'
-                            }`}
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
                           >
-                            {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                            {fullyAssigned ? 'Đã gắn đủ' : 'Chưa đủ'}
+                            {sessionStatusInfo.label}
                           </span>
+                          {sessionPending ? (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                fullyAssigned
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-800 border border-amber-200'
+                              }`}
+                            >
+                              {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
+                            </span>
+                          ) : null}
                         </div>
                         <span
                           className="inline-flex items-center gap-0.5 text-xs font-semibold text-sky-700 select-none"
@@ -792,18 +873,18 @@ export default function RequestDetail() {
             onClick={() => setRightPanel(null)}
           />
 
-          {/* Panel: thu hẹp khi xem chi tiết phiên để cân bằng, đồng bộ với sidebar detail khác (vd. BorrowingDetailSidebar 560px) */}
-          <div
-            className={`w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden ${
-              rightPanel.mode === 'detail' ? 'max-w-xl' : 'max-w-2xl'
-            } border-l`}
-          >
+          {/* Panel: max-w-2xl — đồng bộ TeamLeaderAssignmentsPage */}
+          <div className="w-full max-w-2xl h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden border-l">
             {/* Header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
                 {rightPanel.mode !== 'detail' && (
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                    {rightPanel.mode === 'team' ? 'Đang gán đội' : 'Đặt trước thiết bị'}
+                    {rightPanel.mode === 'team'
+                      ? 'Đang gán đội'
+                      : rightPanel.mode === 'assignment'
+                        ? 'Duyệt phân công'
+                        : 'Đặt trước thiết bị'}
                   </p>
                 )}
                 {rightPanel.mode === 'equipment' ? (
@@ -827,9 +908,32 @@ export default function RequestDetail() {
                       {dayjs(resolvedDetailSession.startAt).format('DD/MM/YYYY')}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <span className="text-xs font-medium text-sky-600">Dạy học</span>
                       {(() => {
                         const info = getSessionStatusInfo((resolvedDetailSession as any).status);
+                        return (
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
+                            {info.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </>
+                ) : rightPanel.mode === 'assignment' && resolvedPanelSession ? (
+                  <>
+                    <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                      {getSessionDisplayTitle(resolvedPanelSession)}
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                      Phiên {resolvedPanelSession.sessionNo}
+                      {' · '}
+                      {dayjs(resolvedPanelSession.startAt).format('HH:mm')} –{' '}
+                      {dayjs(resolvedPanelSession.endAt).format('HH:mm')}
+                      {' · '}
+                      {dayjs(resolvedPanelSession.startAt).format('DD/MM/YYYY')}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {(() => {
+                        const info = getSessionStatusInfo((resolvedPanelSession as any).status);
                         return (
                           <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
                             {info.label}
@@ -871,208 +975,22 @@ export default function RequestDetail() {
                     }
                     requestId={Number(request.requestId)}
                     requestCode={request.requestCode ?? ''}
+                    assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                     showReservedEquipment={false}
                     sectionMode="info"
+                    showTeamSummary={String(request.status ?? '').toLowerCase() !== 'pending'}
                   />
                   <div className="mt-6">
-                    {String(request.status ?? '').toLowerCase() !== 'pending' ? (
-                      <RequestDetailTeamSummary
-                        session={rightPanel.session}
-                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                      />
-                    ) : (
+                    {String(request.status ?? '').toLowerCase() === 'pending' ? (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
                         currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                         onClose={() => setRightPanel(null)}
                         onAssignSession={handleAssignSession}
-                        onQuantitiesChange={handleQuantitiesChange}
                       />
-                    )}
+                    ) : null}
                   </div>
-                  {(() => {
-                    const code = getRequestStatusCode(request.status);
-                    if (code == null || code < REQUEST_STATUS.PUBLISHED) return null;
-                    const sess =
-                      sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session;
-                    const rows = assignmentsBySessionId[sess.sessionId] ?? [];
-                    const teacherRows = rows.filter((row) => row.staffRole === 'TE' || row.staffRole === 'TEACHER');
-                    const taRows = rows.filter((row) => row.staffRole === 'TA');
-                    const renderReadRow = (
-                      row: (typeof rows)[number],
-                      colorScheme: 'sky' | 'amber'
-                    ) => {
-                      const filled = isAssignmentSlotFilled(row);
-                      const approved = isAssignmentApproved(row);
-                      const rejected = isAssignmentRejected(row);
-                      const cancelled = isAssignmentCancelled(row);
-                      const cancelReason = (row.reason ?? '').trim();
-                      if (cancelled) {
-                        return (
-                          <div
-                            key={row.assignmentId}
-                            className="space-y-2.5 border-l-[3px] border-l-red-500 bg-red-50/90 px-3 py-3"
-                          >
-                            <p className="text-xs font-medium text-red-800">Cần phân công lại</p>
-                            <div className="flex items-center gap-3 opacity-90 pointer-events-none">
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-semibold text-red-800">
-                                {row.avatarUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={row.avatarUrl}
-                                    alt={row.fullName}
-                                    className="h-full w-full object-cover"
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                    }}
-                                  />
-                                ) : (
-                                  (filled ? row.fullName : '?')[0]
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-slate-900">
-                                  {filled ? row.fullName : 'Chưa có nhân sự'}
-                                </p>
-                                <p className="truncate text-xs text-slate-500">
-                                  {filled ? row.email || '—' : 'Slot trống — cần Team Leader bổ sung'}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-red-200/90 bg-white/70 px-3 py-2">
-                              <p className="text-xs font-medium text-red-900 mb-1">Lý do:</p>
-                              {cancelReason ? (
-                                <p className="text-xs text-red-950 leading-relaxed whitespace-pre-wrap">
-                                  {cancelReason}
-                                </p>
-                              ) : (
-                                <p className="text-xs text-red-700/80 italic">Chưa có lý do ghi nhận.</p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }
-                      const accent = getAssignmentStaffRoleAccent(colorScheme === 'sky');
-                      const pendingManagerReview = canManagerReviewAssignmentRow(row);
-                      const rowAccent = pendingManagerReview
-                        ? {
-                            stripe: 'border-l-[3px] border-l-orange-500 bg-orange-50/40',
-                            avatar: 'bg-orange-100 text-orange-900',
-                          }
-                        : accent;
-                      return (
-                        <div
-                          key={row.assignmentId}
-                          className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 ${
-                            filled
-                              ? rejected
-                                ? 'border-l-[3px] border-l-rose-500 bg-rose-50/30'
-                                : rowAccent.stripe
-                              : 'border-l-[3px] border-l-red-500 bg-rose-50/45'
-                          }`}
-                        >
-                          <div className="flex min-w-0 flex-1 items-center gap-3">
-                            <div
-                              className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${filled ? rowAccent.avatar : 'bg-slate-100 text-slate-600'}`}
-                            >
-                              {row.avatarUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={row.avatarUrl}
-                                  alt={row.fullName}
-                                  className="h-full w-full object-cover"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                  }}
-                                />
-                              ) : (
-                                (filled ? row.fullName : '?')[0]
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-slate-900">
-                                {filled ? row.fullName : 'Chưa có nhân sự'}
-                              </p>
-                              <p className="truncate text-xs text-slate-500">
-                                {filled ? row.email || '—' : 'Slot trống — cần Team Leader bổ sung'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            {approved && (
-                              <span className="inline-flex items-center rounded-full bg-emerald-100/90 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
-                                Đã duyệt
-                              </span>
-                            )}
-                            {rejected && (
-                              <span className="inline-flex items-center rounded-full bg-rose-100/90 px-2.5 py-1 text-[11px] font-semibold text-rose-800">
-                                Đã từ chối
-                              </span>
-                            )}
-                            {pendingManagerReview && (
-                              <span className="inline-flex items-center rounded-full bg-orange-100/95 px-2.5 py-1 text-[11px] font-semibold text-orange-950">
-                                Chờ duyệt
-                              </span>
-                            )}
-                            {!filled && !approved && !rejected && (
-                              <span className="inline-flex items-center rounded-full bg-amber-100/90 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
-                                Thiếu người
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    };
-                    return (
-                      <div className="mt-6 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
-                        <div className="px-4 py-2.5 bg-slate-50/70">
-                          <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            Giảng viên tím nhẹ, trợ giảng vàng nhẹ; ô trống đỏ; chờ duyệt cam.
-                          </p>
-                        </div>
-                        <div className="space-y-4 px-4 py-3 text-sm">
-                          {!rows.length ? (
-                            <p className="text-xs text-gray-500">
-                              Chưa có dữ liệu phân công cho phiên này (đang tải hoặc chưa tạo slot).
-                            </p>
-                          ) : (
-                            <>
-                              <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Giảng viên
-                                </p>
-                                <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(true).avatar}`}>
-                                  <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(true).selectHi}`}>
-                                    {teacherRows.length ? (
-                                      teacherRows.map((r) => renderReadRow(r, 'sky'))
-                                    ) : (
-                                      <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <div>
-                                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Trợ giảng
-                                </p>
-                                <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(false).avatar}`}>
-                                  <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(false).selectHi}`}>
-                                    {taRows.length ? (
-                                      taRows.map((r) => renderReadRow(r, 'amber'))
-                                    ) : (
-                                      <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
                   <div className="mt-6">
                     <RequestSessionDetailPanel
                       session={
@@ -1122,32 +1040,44 @@ export default function RequestDetail() {
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                   onClose={() => setRightPanel(null)}
                   onAssignSession={handleAssignSession}
-                  onQuantitiesChange={handleQuantitiesChange}
                 />
               )}
               {rightPanel.mode === 'assignment' && (
                 <div className="space-y-4">
-                  {request && (
-                    <>
-                      <RequestSessionDetailPanel
-                        session={
-                          sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
-                        }
-                        requestId={Number(request.requestId)}
-                        requestCode={request.requestCode ?? ''}
-                        showReservedEquipment={false}
-                        sectionMode="info"
-                      />
-                      <RequestDetailTeamSummary
-                        session={
-                          sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
-                        }
-                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                      />
-                    </>
-                  )}
+                  {request ? (
+                    <RequestSessionDetailPanel
+                      session={sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session}
+                      reloadKey={sessionDetailReloadKey}
+                      requestId={Number(request.requestId)}
+                      requestCode={request.requestCode ?? ''}
+                      assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                      showReservedEquipment={false}
+                      showTeamSummary
+                      reviewMode
+                      onApproveAssignment={async (assignment) => {
+                        await handleApproveSingleAssignment(
+                          Number(assignment.AssignmentId ?? 0),
+                          rightPanel.session.sessionId
+                        );
+                      }}
+                      onRejectAssignment={(assignment) =>
+                        handleOpenRejectAssignment(rightPanel.session.sessionId, {
+                          assignmentId: Number(assignment.AssignmentId ?? 0),
+                          staffMemberId: Number(assignment.StaffMemberId ?? 0),
+                          staffRole: String(assignment.StaffRole ?? '').toUpperCase(),
+                          status: String(assignment.Status ?? ''),
+                          reason: String(assignment.Reason ?? '').trim() || undefined,
+                          fullName: String(assignment.StaffMember?.FullName ?? '').trim() || '—',
+                          email: String(assignment.StaffMember?.Email ?? assignment.StaffMember?.User?.Email ?? '').trim(),
+                          avatarUrl: String(assignment.StaffMember?.AvatarUrl ?? '').trim(),
+                        })
+                      }
+                      isApprovingAssignment={(assignmentId) => Boolean(approvingAssignmentIds[assignmentId])}
+                      sectionMode="info"
+                    />
+                  ) : null}
 
-                  {(() => {
+                  {/* Legacy assignment list (hidden to avoid duplicate UI)
                     const rows = assignmentsBySessionId[rightPanel.session.sessionId] ?? [];
                     const hasUnfilledSlot = rows.some((r) => !isAssignmentSlotFilled(r));
                     const hasReviewableFilled = rows.some((r) => canManagerReviewAssignmentRow(r));
@@ -1164,13 +1094,13 @@ export default function RequestDetail() {
                       !hasSelectedReviewable;
 
                     return (
-                  <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
+                  <div className="rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden">
                     <div className="px-4 py-2.5 bg-slate-50/70 flex items-center justify-between gap-2 flex-wrap">
                       <div className="min-w-0">
                         <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
                         {hasUnfilledSlot && rows.length > 0 ? (
                           <p className="text-[11px] text-red-600 mt-0.5">
-                            Còn slot trống 
+                            Chưa được phân công đủ
                           </p>
                         ) : null}
                       </div>
@@ -1260,36 +1190,49 @@ export default function RequestDetail() {
                           const canReview = canManagerReviewAssignmentRow(row);
                           const isTeacherRole =
                             row.staffRole === 'TE' || row.staffRole === 'TEACHER';
+                          const assignmentStatusUi = getAssignmentStatusInfo(row.status);
+                          const rejectedReasonRaw = (row.reason ?? '').trim();
+                          const rejectedReasonLines =
+                            rejectedReasonRaw.length > 0
+                              ? rejectedReasonRaw.split('\n').filter((line) => line.trim().length > 0)
+                              : [];
                           if (isCancelled) {
                             return (
                               <div
                                 key={row.assignmentId}
                                 className="flex flex-col gap-2.5 border-l-[3px] border-l-red-500 bg-red-50/90 px-3 py-3"
                               >
-                                <div className="flex items-center gap-3 opacity-90 pointer-events-none">
-                                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-semibold text-red-800">
-                                    {row.avatarUrl ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={row.avatarUrl}
-                                        alt={row.fullName}
-                                        className="h-full w-full object-cover"
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                        }}
-                                      />
-                                    ) : (
-                                      (filled ? row.fullName : '?')[0]
-                                    )}
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex min-w-0 items-center gap-3 opacity-90 pointer-events-none">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-semibold text-red-800">
+                                      {row.avatarUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={row.avatarUrl}
+                                          alt={row.fullName}
+                                          className="h-full w-full object-cover"
+                                          onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
+                                          }}
+                                        />
+                                      ) : (
+                                        (filled ? row.fullName : '?')[0]
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-semibold text-slate-900">
+                                        {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
+                                      </p>
+                                      <p className="truncate text-xs text-slate-500">
+                                        {filled ? row.email || '—' : 'Phân công trống — chờ Trưởng nhóm xử lý'}
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-slate-900">
-                                      {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
-                                    </p>
-                                    <p className="truncate text-xs text-slate-500">
-                                      {filled ? row.email || '—' : 'Slot trống — chờ Team Leader xử lý'}
-                                    </p>
-                                  </div>
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold shrink-0 ${assignmentStatusUi.className}`}
+                                  >
+                                    {assignmentStatusUi.label}
+                                  </span>
                                 </div>
                                 <div className="rounded-lg border border-red-200/90 bg-white/70 px-3 py-2">
                                   <p className="text-xs font-medium text-red-900 mb-1">Lý do:</p>
@@ -1305,103 +1248,147 @@ export default function RequestDetail() {
                             );
                           }
                           const accent = getAssignmentStaffRoleAccent(isTeacherRole);
-                          const pendingOrange = {
-                            stripe: 'border-l-[3px] border-l-orange-500 bg-orange-50/40',
-                            avatar: 'bg-orange-100 text-orange-900',
-                            selectHi: 'ring-1 ring-inset ring-orange-400/60 bg-orange-50/65',
-                          };
-                          const rowAccent = canReview ? pendingOrange : accent;
+                          const rowStripeClass = (() => {
+                            if (!filled) {
+                              return isTeacherRole
+                                ? 'border-l-[3px] border-l-violet-400 bg-violet-50/65'
+                                : 'border-l-[3px] border-l-yellow-400 bg-yellow-50/65';
+                            }
+                            if (isRejected) return 'border-l-[3px] border-l-rose-500 bg-rose-50/30';
+                            if (canReview) {
+                              if (isTeacherRole) {
+                                return checked
+                                  ? 'border-l-[3px] border-l-violet-600 bg-violet-100/95'
+                                  : 'border-l-[3px] border-l-violet-400 bg-violet-50/70';
+                              }
+                              return checked
+                                ? 'border-l-[3px] border-l-amber-500 bg-amber-50/90'
+                                : 'border-l-[3px] border-l-yellow-400 bg-yellow-50/60';
+                            }
+                            return accent.stripe;
+                          })();
+                          const filledAvatarClass = (() => {
+                            if (!filled) return '';
+                            if (canReview) {
+                              if (isTeacherRole) {
+                                return checked
+                                  ? 'bg-violet-200/90 text-violet-950'
+                                  : 'bg-violet-100 text-violet-800';
+                              }
+                              return checked
+                                ? 'bg-amber-100 text-amber-950'
+                                : 'bg-yellow-100 text-yellow-900';
+                            }
+                            return accent.avatar;
+                          })();
                           return (
-                            <div
-                              key={row.assignmentId}
-                              className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 transition-[box-shadow,background-color] ${
-                                !filled
-                                  ? 'border-l-[3px] border-l-red-500 bg-rose-50/45'
-                                  : isRejected
-                                    ? 'border-l-[3px] border-l-rose-500 bg-rose-50/30'
-                                    : checked && canReview
-                                      ? `${rowAccent.stripe} ${rowAccent.selectHi}`
-                                      : rowAccent.stripe
-                              }`}
-                            >
-                              <div className="flex min-w-0 flex-1 items-center gap-3">
-                                <div
-                                  className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${filled ? rowAccent.avatar : 'bg-slate-100 text-slate-600'}`}
-                                >
-                                  {row.avatarUrl ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={row.avatarUrl}
-                                      alt={row.fullName}
-                                      className="h-full w-full object-cover"
-                                      onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                      }}
-                                    />
-                                  ) : (
-                                    (filled ? row.fullName : '?')[0]
+                            <div key={row.assignmentId}>
+                              <div
+                                className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 transition-[background-color,border-color] ${rowStripeClass}`}
+                              >
+                                <div className="flex min-w-0 flex-1 items-center gap-3">
+                                  <div
+                                    className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${
+                                      filled
+                                        ? filledAvatarClass
+                                        : isTeacherRole
+                                          ? 'bg-violet-100 text-violet-700'
+                                          : 'bg-yellow-100 text-yellow-800'
+                                    }`}
+                                  >
+                                    {filled ? (
+                                      row.avatarUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={row.avatarUrl}
+                                          alt={row.fullName}
+                                          className="h-full w-full object-cover"
+                                          onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
+                                          }}
+                                        />
+                                      ) : (
+                                        (row.fullName || '—')[0]
+                                      )
+                                    ) : (
+                                      <span className="text-base font-semibold leading-none">?</span>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-slate-900">
+                                      {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
+                                    </p>
+                                    <p className="truncate text-xs text-slate-500">
+                                      {filled ? row.email || '—' : 'Phân công trống — chờ Trưởng nhóm xử lý'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                  {isApproved && (
+                                    <span
+                                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
+                                    >
+                                      {assignmentStatusUi.label}
+                                    </span>
+                                  )}
+                                  {isRejected && (
+                                    <span
+                                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
+                                    >
+                                      {assignmentStatusUi.label}
+                                    </span>
+                                  )}
+                                  {canReview && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="text-xs font-medium text-red-600 hover:text-red-700 underline-offset-2 hover:underline bg-transparent border-0 p-0 shadow-none cursor-pointer"
+                                        onClick={() =>
+                                          handleOpenRejectAssignment(rightPanel.session.sessionId, row)
+                                        }
+                                      >
+                                        Từ chối
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleToggleAssignmentSelection(
+                                            rightPanel.session.sessionId,
+                                            row.assignmentId
+                                          )
+                                        }
+                                        className={`text-xs font-medium bg-transparent border-0 p-0 shadow-none cursor-pointer underline-offset-2 ${
+                                          checked
+                                            ? 'text-emerald-600 hover:text-emerald-700'
+                                            : 'text-slate-600 hover:text-slate-900 hover:underline'
+                                        }`}
+                                      >
+                                        {checked ? 'Đã chọn' : 'Chọn duyệt'}
+                                      </button>
+                                    </>
                                   )}
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-sm font-semibold text-slate-900">
-                                    {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
-                                  </p>
-                                  <p className="truncate text-xs text-slate-500">
-                                    {filled ? row.email || '—' : 'Slot trống — chờ Team Leader xử lý'}
-                                  </p>
+                              </div>
+                              {isRejected ? (
+                                <div className="border-t border-slate-200/45 bg-rose-50/25 px-3 py-2.5">
+                                  <div className="rounded-lg border border-rose-200 bg-rose-50/80 px-3 py-2.5">
+                                    <p className="text-xs font-medium text-rose-900 mb-1.5">Lý do từ chối</p>
+                                    {rejectedReasonLines.length > 0 ? (
+                                      <ul className="space-y-1 text-xs text-rose-950 leading-relaxed list-none pl-0">
+                                        {rejectedReasonLines.map((line, idx) => (
+                                          <li key={idx} className="pl-3 border-l-2 border-rose-300">
+                                            {line}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="text-xs text-rose-700/85 italic">
+                                        Chưa có lý do ghi nhận từ quản lý.
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                                {isApproved && (
-                                  <span className="inline-flex items-center rounded-full bg-emerald-100/90 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
-                                    Đã duyệt
-                                  </span>
-                                )}
-                                {isRejected && (
-                                  <span className="inline-flex items-center rounded-full bg-rose-100/90 px-2.5 py-1 text-[11px] font-semibold text-rose-800">
-                                    Đã từ chối
-                                  </span>
-                                )}
-                                {!filled && !isApproved && !isRejected && (
-                                  <span className="inline-flex items-center rounded-full bg-amber-100/90 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
-                                    Thiếu người
-                                  </span>
-                                )}
-                                {canReview && (
-                                  <span className="inline-flex items-center rounded-full bg-orange-100/95 px-2.5 py-1 text-[11px] font-semibold text-orange-950">
-                                    Chờ duyệt
-                                  </span>
-                                )}
-                                {canReview && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"
-                                      onClick={() =>
-                                        handleOpenRejectAssignment(rightPanel.session.sessionId, row)
-                                      }
-                                    >
-                                      Từ chối
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleToggleAssignmentSelection(
-                                          rightPanel.session.sessionId,
-                                          row.assignmentId
-                                        )
-                                      }
-                                      className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${
-                                        checked
-                                          ? 'border-orange-600 bg-orange-100 text-orange-950'
-                                          : 'border-slate-300 text-slate-700 hover:bg-slate-50'
-                                      }`}
-                                    >
-                                      {checked ? 'Bỏ chọn' : 'Chọn duyệt'}
-                                    </button>
-                                  </>
-                                )}
-                              </div>
+                              ) : null}
                             </div>
                           );
                         };
@@ -1412,28 +1399,24 @@ export default function RequestDetail() {
                               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Giảng viên
                               </p>
-                              <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(true).avatar}`}>
-                                <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(true).selectHi}`}>
-                                  {teacherRows.length ? (
-                                    teacherRows.map(renderAssignmentRow)
-                                  ) : (
-                                    <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                  )}
-                                </div>
+                              <div className="divide-y divide-slate-200/45 overflow-hidden rounded-xl bg-violet-50/40">
+                                {teacherRows.length ? (
+                                  teacherRows.map(renderAssignmentRow)
+                                ) : (
+                                  <p className="px-3 py-2 text-xs text-gray-500">—</p>
+                                )}
                               </div>
                             </div>
                             <div>
                               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Trợ giảng
                               </p>
-                              <div className={`rounded-xl p-[3px] ${getAssignmentStaffRoleAccent(false).avatar}`}>
-                                <div className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${getAssignmentStaffRoleAccent(false).selectHi}`}>
-                                  {taRows.length ? (
-                                    taRows.map(renderAssignmentRow)
-                                  ) : (
-                                    <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                  )}
-                                </div>
+                              <div className="divide-y divide-slate-200/45 overflow-hidden rounded-xl bg-yellow-50/45">
+                                {taRows.length ? (
+                                  taRows.map(renderAssignmentRow)
+                                ) : (
+                                  <p className="px-3 py-2 text-xs text-gray-500">—</p>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1442,7 +1425,7 @@ export default function RequestDetail() {
                     </div>
                   </div>
                     );
-                  })()}
+                  */}
 
                   {request && (
                     <RequestSessionDetailPanel
@@ -1489,7 +1472,7 @@ export default function RequestDetail() {
               )}
               {rightPanel.mode === 'equipment' && (
                 <RequestDetailEquipmentPanel
-                  sessions={sessions
+                  sessions={sessionsEligibleForEquipmentReserve
                     .filter((s) => !s.equipmentReserved)
                     .map((s) => ({
                       sessionId: s.sessionId,
@@ -1623,7 +1606,7 @@ export default function RequestDetail() {
         title="Từ chối phân công"
         description={
           rejectAssignmentState.displayName
-            ? `Assignment của: ${rejectAssignmentState.displayName}`
+            ? `Phân công của: ${rejectAssignmentState.displayName}`
             : undefined
         }
       >
@@ -1653,8 +1636,11 @@ export default function RequestDetail() {
           </Button>
           <Button
             type="button"
-            className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs px-4"
-            onClick={handleConfirmRejectAssignment}
+            className="rounded-lg bg-red-600 text-white text-xs px-4 hover:bg-red-700 focus-visible:ring-red-600/40"
+            onClick={async () => {
+              await handleConfirmRejectAssignment();
+              setSessionDetailReloadKey((k) => k + 1);
+            }}
           >
             Xác nhận từ chối
           </Button>
@@ -1721,6 +1707,12 @@ export default function RequestDetail() {
                 {approveSessionPreviews.map((preview) => {
                   const teamIds = uiAssignedTeamIdsBySessionId[preview.sessionId] ?? [];
                   const qtyMap = uiTeamQuantitiesBySessionId[preview.sessionId] ?? {};
+                  const teamIdsWithStaff = teamIds.filter((teamId) => {
+                    const q = qtyMap[teamId];
+                    const gv = q?.teachersRequired ?? 0;
+                    const tg = q?.tasRequired ?? 0;
+                    return gv > 0 || tg > 0;
+                  });
                   return (
                     <div
                       key={preview.sessionId}
@@ -1752,11 +1744,12 @@ export default function RequestDetail() {
                           <List className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                           <span className="font-medium text-slate-600">Đội đã gán:</span>
                           <span className="font-semibold text-slate-800">
-                            {teamIds.length > 0
-                              ? teamIds
+                            {teamIdsWithStaff.length > 0
+                              ? teamIdsWithStaff
                                   .map((teamId, idx) => {
                                     const teamName =
-                                      preview.teams.find((t) => t.teamId === teamId)?.teamName ?? `Đội phụ trách ${idx + 1}`;
+                                      preview.teams.find((t) => t.teamId === teamId)?.teamName ??
+                                      `Đội phụ trách ${idx + 1}`;
                                     const q = qtyMap[teamId];
                                     const teacherQty = q?.teachersRequired ?? 0;
                                     const taQty = q?.tasRequired ?? 0;

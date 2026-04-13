@@ -16,10 +16,17 @@ const courseApi = {
   },
 
   // CREATE
-  create: (data: { courseCode: string; courseName: string }): Promise<CourseListItem> => {
+  create: (data: {
+    courseCode: string;
+    courseName: string;
+    description: string;
+    courseSubjects: { subjectId: number }[];
+  }): Promise<CourseListItem> => {
     return axiosClient.post('/courses', {
       courseCode: data.courseCode,
       courseName: data.courseName,
+      description: data.description ?? '',
+      courseSubjects: data.courseSubjects ?? [],
     });
   },
 

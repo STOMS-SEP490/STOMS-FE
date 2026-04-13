@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message } from 'antd';
 import { getRequestType } from '@/shared/components/request/RequestCard';
-import { getRequestStatusLabel, getTeamLeaderRequestStatusInfo, isSessionAssignmentRejectedStatus } from '@/constants/status';
+import {
+  getRequestStatusCode,
+  getRequestStatusLabel,
+  getTeamLeaderRequestStatusInfo,
+  isSessionAssignmentRejectedStatus,
+  REQUEST_STATUS,
+  SESSION_STATUS,
+} from '@/constants/status';
 import { teamApi } from '@/modules/team/api/teamApi';
 import type { AssignmentResponse } from '@/modules/request/session.types';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
@@ -9,16 +16,13 @@ import requestApi from '@/modules/request/api/requestApi';
 import sessionApi from '@/modules/request/api/sessionApi';
 import assignmentApi from '@/modules/assignment/api/assignmentApi';
 import memberApi from '@/modules/request/api/memberApi';
-import type { SessionTopicInfo } from '@/modules/request/request';
+import type { RequestFilterParams, RequestListItem, SessionTopicInfo } from '@/modules/request/request';
 import type {
   AssignMemberPayload,
-  RoleKey,
-  SessionMap,
   TeamLeaderAssignmentsTab,
   TeamRequestItem,
   TeamSessionLite,
 } from '@/modules/contract/hooks/type';
-import { SESSION_STATUS } from '@/constants/status';
 
 const ASSIGNABLE_STATUSES = ['PENDING', 'REJECTED'];
 
@@ -157,9 +161,6 @@ export function computeTeamLeaderAssignableSlotStats(
   return { total, filled };
 }
 
-const getRoleKey = (staffRole?: string | null): RoleKey =>
-  String(staffRole ?? '').toUpperCase().includes('TA') ? 'TA' : 'TE';
-
 /** Chuẩn hóa SubjectSession/EventSession (Pascal hoặc camel) → SessionTopicInfo giống getSessionDisplayTitle. */
 function mapTopicToSessionTopicInfo(raw: unknown): SessionTopicInfo | null {
   if (raw == null || typeof raw !== 'object') return null;
@@ -235,6 +236,36 @@ const isRejectedTabRequest = (status?: string) => {
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
 
+/** Bộ lọc trạng thái yêu cầu (tab Phân công TL — tương tự manager / tab assignment). */
+export type TlRequestStatusFilter = 'all' | 'approved' | 'assigning' | 'published';
+
+const TL_STATUS_FILTER_TO_API: Record<Exclude<TlRequestStatusFilter, 'all'>, string> = {
+  approved: 'APPROVED',
+  assigning: 'ASSIGNING',
+  published: 'PUBLISHED',
+};
+
+function buildAssigningListParams(
+  teamId: number,
+  onlyPendingAssignments: boolean,
+  requestStatus: TlRequestStatusFilter,
+): RequestFilterParams {
+  const params: RequestFilterParams = {
+    teamId,
+    pageNumber: 1,
+    pageSize: 200,
+  };
+  if (onlyPendingAssignments) {
+    params.assignmentStatuses = ['1'];
+    if (requestStatus !== 'all') {
+      params.statuses = [TL_STATUS_FILTER_TO_API[requestStatus]];
+    }
+  } else if (requestStatus !== 'all') {
+    params.statuses = [TL_STATUS_FILTER_TO_API[requestStatus]];
+  }
+  return params;
+}
+
 const fetchTeamId = async (memberId: number) => {
   try {
     const me = await memberApi.getById(memberId);
@@ -250,26 +281,28 @@ const fetchTeamId = async (memberId: number) => {
   return firstTeam?.teamId != null ? Number(firstTeam.teamId) : undefined;
 };
 
-const buildAssigningRequests = async (teamId: number): Promise<TeamRequestItem[]> => {
-  const response = await requestApi.getRequests({
-    teamId,
-    assignmentStatuses: ['1'],
-    pageNumber: 1,
-    pageSize: 200,
-  });
+const mapRequestListItemToTeamRequest = (request: RequestListItem): TeamRequestItem => ({
+  requestId: request.requestId,
+  requestCode: request.requestCode,
+  requestName: request.requestName,
+  customerName: request.customerName,
+  subjectId: request.subjectId,
+  courseId: request.courseId,
+  eventId: request.eventId,
+  status: request.status,
+  startDate: request.startDate,
+  sessions: (request.sessions ?? []).map((session) => mapSessionLite(session, request.requestId)),
+});
 
-  return (response.items ?? []).map((request) => ({
-    requestId: request.requestId,
-    requestCode: request.requestCode,
-    requestName: request.requestName,
-    customerName: request.customerName,
-    subjectId: request.subjectId,
-    courseId: request.courseId,
-    eventId: request.eventId,
-    status: request.status,
-    startDate: request.startDate,
-    sessions: (request.sessions ?? []).map((session) => mapSessionLite(session, request.requestId)),
-  }));
+const fetchAssigningRequestsForTeam = async (
+  teamId: number,
+  onlyPendingAssignments: boolean,
+  requestStatus: TlRequestStatusFilter,
+): Promise<TeamRequestItem[]> => {
+  const response = await requestApi.getRequests(
+    buildAssigningListParams(teamId, onlyPendingAssignments, requestStatus),
+  );
+  return (response.items ?? []).map(mapRequestListItemToTeamRequest);
 };
 
 const buildRejectedRequests = async (teamId: number): Promise<TeamRequestItem[]> => {
@@ -301,7 +334,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   const [loading, setLoading] = useState(true);
   const [sendingAssignments, setSendingAssignments] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
-  const [applyingToOtherSessions, setApplyingToOtherSessions] = useState(false);
   const [requests, setRequests] = useState<TeamRequestItem[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [currentTeamId, setCurrentTeamId] = useState<number | null>(null);
@@ -314,9 +346,8 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
   const [search, setSearch] = useState('');
   const [onlyNeedsAction, setOnlyNeedsAction] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'assigning'>(
-    activeTab === 'assigning' ? 'assigning' : 'all',
-  );
+  const [typeFilter, setTypeFilter] = useState<'all' | 'event' | 'subject' | 'course'>('all');
+  const [statusFilter, setStatusFilter] = useState<TlRequestStatusFilter>('all');
   const [assignSelections, setAssignSelections] = useState<Record<number, number>>({});
   const [searchByAssignmentId, setSearchByAssignmentId] = useState<Record<number, string>>({});
 
@@ -324,13 +355,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   useEffect(() => {
     assignSelectionsRef.current = assignSelections;
   }, [assignSelections]);
-
-  /**
-   * Optimistic selection rollback map.
-   * - value = previous override staffMemberId
-   * - null = previously had no override (fallback to server value)
-   */
-  const rollbackOverrideByAssignmentIdRef = useRef<Record<number, number | null>>({});
 
   const sessionDetailsByIdRef = useRef(sessionDetailsById);
   useEffect(() => {
@@ -343,8 +367,10 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     {},
   );
   const autoAssignCounterRef = useRef(0);
-  const isApplyingRef = useRef(false);
   const completionEdgeByRequestIdRef = useRef<Record<number, boolean>>({});
+  const requestSessionsInFlightRef = useRef<
+    Record<string, Promise<Awaited<ReturnType<typeof sessionApi.getFilter>>>>
+  >({});
 
   useEffect(() => {
     return () => {
@@ -355,6 +381,8 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   }, []);
 
   const [activeSession, setActiveSession] = useState<TeamSessionLite | null>(null);
+  /** Đang gọi getFilter theo request + team để đồng bộ danh sách phiên (tránh flash dữ liệu cũ/sai). */
+  const [requestSessionsLoading, setRequestSessionsLoading] = useState(false);
 
   const loadInitial = useCallback(async (tab: TeamLeaderAssignmentsTab) => {
     try {
@@ -363,6 +391,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       const memberId = Number(rawUser?.memberId || 0) || undefined;
       if (!memberId) {
         setRequests([]);
+        setCurrentTeamId(null);
         return;
       }
 
@@ -375,17 +404,22 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       }
       setCurrentTeamId(teamId);
 
-      const validRequests =
-        tab === 'assigning'
-          ? await buildAssigningRequests(teamId)
-          : await buildRejectedRequests(teamId);
-
-      setRequests(validRequests);
-      if (validRequests.length) setSelectedRequestId(validRequests[0].requestId);
+      if (tab === 'rejected') {
+        const validRequests = await buildRejectedRequests(teamId);
+        setRequests(validRequests);
+        if (validRequests.length) setSelectedRequestId(validRequests[0].requestId);
+      } else {
+        /** Tab assigning: giữ dữ liệu hiện có, effect fetch bên dưới sẽ đồng bộ lại theo filter API. */
+      }
     } catch (err) {
       console.error(err);
       message.error('Không tải được dữ liệu phân công cho team.');
     } finally {
+      /**
+       * Luôn hạ loading ở bước khởi tạo để tránh kẹt spinner vô hạn
+       * khi effect fetch danh sách assigning bị skip/cancel do timing.
+       * Effect phía dưới vẫn có thể tự bật loading lại khi gọi API lấy danh sách.
+       */
       setLoading(false);
     }
   }, []);
@@ -395,9 +429,38 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   }, [loadInitial, activeTab]);
 
   useEffect(() => {
-    setStatusFilter(activeTab === 'assigning' ? 'assigning' : 'all');
+    if (activeTab !== 'assigning' || currentTeamId == null) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        setLoading(true);
+        const validRequests = await fetchAssigningRequestsForTeam(
+          currentTeamId,
+          onlyNeedsAction,
+          statusFilter,
+        );
+        if (cancelled) return;
+        setRequests(validRequests);
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) message.error('Không tải được dữ liệu phân công cho team.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, currentTeamId, onlyNeedsAction, statusFilter]);
+
+  useEffect(() => {
     setOnlyNeedsAction(false);
     setActiveSession(null);
+    setTypeFilter('all');
+    setStatusFilter('all');
   }, [activeTab]);
 
   const getSessionStats = useCallback(
@@ -445,12 +508,22 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
   const filteredRequests = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = !q
+    let base = !q
       ? requests
       : requests.filter(
           (r) =>
             r.requestCode.toLowerCase().includes(q) || (r.requestName ?? '').toLowerCase().includes(q),
         );
+
+    if (activeTab === 'assigning' || activeTab === 'rejected') {
+      base = base.filter((r) => {
+        if (typeFilter === 'all') return true;
+        if (typeFilter === 'event') return !!r.eventId;
+        if (typeFilter === 'subject') return !!r.subjectId;
+        if (typeFilter === 'course') return !!r.courseId;
+        return true;
+      });
+    }
 
     const hasAssignmentRejectedSession = (r: TeamRequestItem) => {
       if (r.sessions?.length) {
@@ -460,25 +533,23 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       return isRejectedTabRequest(r.status);
     };
 
-    // Tab assigning: dữ liệu đã lọc bởi BE (`assignmentStatuses: ['1']`). Không lọc thêm theo
-    // `request.status` — ví dụ BE có thể trả Published (5) khi vẫn còn slot pending, trùng 12 vs 11.
-    const tabFiltered =
+    let tabFiltered =
       activeTab === 'rejected'
         ? base.filter((r) => hasAssignmentRejectedSession(r))
         : base;
 
-    if (activeTab === 'assigning' && onlyNeedsAction) {
-      return tabFiltered.filter((r) => !isRequestTeamSlotsFullyAssigned(r));
+    if (activeTab === 'rejected' && statusFilter !== 'all') {
+      const targetCode =
+        statusFilter === 'approved'
+          ? REQUEST_STATUS.APPROVED
+          : statusFilter === 'assigning'
+            ? REQUEST_STATUS.ASSIGNING
+            : REQUEST_STATUS.PUBLISHED;
+      tabFiltered = tabFiltered.filter((r) => getRequestStatusCode(r.status) === targetCode);
     }
 
     return tabFiltered;
-  }, [
-    requests,
-    search,
-    onlyNeedsAction,
-    activeTab,
-    isRequestTeamSlotsFullyAssigned,
-  ]);
+  }, [requests, search, activeTab, typeFilter, statusFilter]);
 
   const selectedRequest = useMemo(
     () => requests.find((r) => r.requestId === selectedRequestId) ?? null,
@@ -609,45 +680,19 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     );
   }, []);
 
-  const ensureSessionDetails = useCallback(
-    async (sessionIds: number[]) => {
-      const missing = sessionIds.filter((id) => !sessionDetailsById[id]);
-      if (!missing.length) return;
+  const refreshSessionDetailById = useCallback(
+    async (sessionId: number) => {
+      if (!sessionId || sessionId <= 0) return;
       try {
-        const details = await Promise.all(
-          missing.map(async (id) => {
-            try {
-              const s = await sessionApi.getById(id);
-              return [id, s] as const;
-            } catch {
-              return null;
-            }
-          }),
-        );
-
-        const next: SessionMap = {};
-        details.forEach((p) => {
-          if (!p) return;
-          next[p[0]] = p[1];
-        });
-
-        if (Object.keys(next).length) {
-          setSessionDetailsById((prev) => ({ ...prev, ...next }));
-        }
+        const d = await sessionApi.getById(sessionId);
+        setSessionDetailsById((prev) => ({ ...prev, [sessionId]: d }));
+        refreshSessionInRequestState(d);
       } catch (err) {
-        console.error(err);
-        message.error('Không tải được chi tiết phiên.');
+        message.error(getErrorMessage(err, 'Không tải được chi tiết phiên.'));
       }
     },
-    [sessionDetailsById],
+    [refreshSessionInRequestState],
   );
-
-  useEffect(() => {
-    if (!selectedRequest?.sessions?.length) return;
-    const ids = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
-    if (!ids.length) return;
-    void ensureSessionDetails(ids);
-  }, [selectedRequest, ensureSessionDetails]);
 
   const ensureSuggestedStaffForAssignments = useCallback(
     async (
@@ -664,7 +709,8 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
       for (const aid of unique) {
         const cached = suggestedByAssignmentId[aid];
-        if (!options.forceRefetch && Array.isArray(cached)) {
+        // [] hợp lệ từ API nhưng không coi là “đã cache xong” để tránh không bao giờ gọi lại suggest.
+        if (!options.forceRefetch && Array.isArray(cached) && cached.length > 0) {
           result[aid] = cached;
           continue;
         }
@@ -710,14 +756,25 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   );
 
   useEffect(() => {
-    if (!selectedRequestId) return;
-    if (activeTab === 'assigning' && currentTeamId == null) return;
+    if (!selectedRequestId) {
+      setRequestSessionsLoading(false);
+      return;
+    }
+    if (activeTab === 'assigning' && currentTeamId == null) {
+      setRequestSessionsLoading(false);
+      return;
+    }
 
     let cancelled = false;
+    setRequestSessionsLoading(true);
+    const requestSessionsKey =
+      activeTab === 'assigning'
+        ? `assigning:${selectedRequestId}:${currentTeamId ?? 0}`
+        : `rejected:${selectedRequestId}`;
 
     const syncRequestSessionsByTeam = async () => {
       try {
-        const response = await sessionApi.getFilter(
+        const params =
           activeTab === 'assigning'
             ? {
                 RequestId: selectedRequestId,
@@ -729,8 +786,12 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
                 RequestId: selectedRequestId,
                 PageNumber: 1,
                 PageSize: 500,
-              },
-        );
+              };
+        const responsePromise =
+          requestSessionsInFlightRef.current[requestSessionsKey] ??
+          sessionApi.getFilter(params);
+        requestSessionsInFlightRef.current[requestSessionsKey] = responsePromise;
+        const response = await responsePromise;
         const rawItems = response.Items ?? [];
         const mapped = rawItems
           .map((session) => mapFilteredSessionLite(session, selectedRequestId))
@@ -764,6 +825,11 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         );
       } catch (err) {
         console.error(err);
+      } finally {
+        delete requestSessionsInFlightRef.current[requestSessionsKey];
+        if (!cancelled) {
+          setRequestSessionsLoading(false);
+        }
       }
     };
 
@@ -774,11 +840,28 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     };
   }, [selectedRequestId, currentTeamId, activeTab]);
 
+  /** Mỗi lần mở phiên: luôn gọi GET /sessions/:id để đồng bộ chi tiết drawer (không dùng cache từ filter). */
   useEffect(() => {
     if (!activeSession) return;
     const id = activeSession.sessionId;
-    if (id > 0) void ensureSessionDetails([id]);
-  }, [activeSession, ensureSessionDetails]);
+    if (id <= 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const d = await sessionApi.getById(id);
+        if (cancelled) return;
+        setSessionDetailsById((prev) => ({ ...prev, [id]: d }));
+        refreshSessionInRequestState(d);
+      } catch (err) {
+        if (!cancelled) {
+          message.error(getErrorMessage(err, 'Không tải được chi tiết phiên.'));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSession?.sessionId, refreshSessionInRequestState]);
 
   const flushAutoAssignSession = useCallback(
     async (sessionId: number) => {
@@ -831,38 +914,43 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
           itemsForSession.forEach((it) => {
             lastAutoAssignedStaffByAssignmentRef.current[it.assignmentId] = it.staffMemberId;
           });
-          // Clear rollback markers for succeeded assignments
-          itemsForSession.forEach((it: AssignMemberPayload) => {
-            delete rollbackOverrideByAssignmentIdRef.current[it.assignmentId];
-          });
 
           const refreshed = await sessionApi.getById(sessionId);
           setSessionDetailsById((prev) => ({ ...prev, [sessionId]: refreshed }));
           refreshSessionInRequestState(refreshed);
+
+          const assignedIds = itemsForSession.map((it) => it.assignmentId);
+          setSuggestedByAssignmentId((prev) => {
+            if (!assignedIds.length) return prev;
+            const next = { ...prev };
+            for (const id of assignedIds) delete next[id];
+            return next;
+          });
+
+          message.success(
+            'Phân công thành công.'
+             
+          );
         } catch (err) {
-          // Rollback optimistic selections for assignments we tried to persist
-          const rollbackEntries = rollbackOverrideByAssignmentIdRef.current;
-          const toRollback = itemsForSession
-            .map((it) => it.assignmentId)
-            .filter((aid) => Object.prototype.hasOwnProperty.call(rollbackEntries, aid));
-          if (toRollback.length) {
+          const failedIds = itemsForSession.map((it) => it.assignmentId).filter((id) => id > 0);
+          if (failedIds.length) {
+            try {
+              const refreshed = await sessionApi.getById(sessionId);
+              setSessionDetailsById((prev) => ({ ...prev, [sessionId]: refreshed }));
+              refreshSessionInRequestState(refreshed);
+            } catch {
+              /* giữ state cũ nếu refetch lỗi */
+            }
             setAssignSelections((prev) => {
               const next = { ...prev };
-              for (const aid of toRollback) {
-                const prevOverride = rollbackEntries[aid];
-                if (prevOverride == null) delete next[aid];
-                else next[aid] = prevOverride;
-                delete rollbackEntries[aid];
-              }
+              for (const aid of failedIds) delete next[aid];
               return next;
             });
           }
 
-          // Auto-assign chạy theo debounce khi chọn staff; nếu lỗi mà không toast sẽ rất khó nhận ra.
-          // Khi đang "Apply to other sessions", caller đã có toast riêng, tránh báo trùng.
-          if (!isApplyingRef.current) {
-            message.error(getErrorMessage(err, 'Phân công thất bại.'));
-          }
+          message.error(
+            getErrorMessage(err, 'Phân công thất bại — không gán được nhân sự, vui lòng thử lại.'),
+          );
           throw err;
         } finally {
           autoAssignCounterRef.current -= 1;
@@ -888,12 +976,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       const row = detail?.Assignments?.find((x) => x.AssignmentId === assignmentId);
       if (row != null && !isTeamLeaderAssignmentEditableStatus(row.Status)) return;
 
-      // Store previous override for rollback (optimistic UI)
-      const prevOverride = assignSelectionsRef.current[assignmentId];
-      rollbackOverrideByAssignmentIdRef.current[assignmentId] = prevOverride === undefined ? null : prevOverride;
       setAssignSelections((prev) => ({ ...prev, [assignmentId]: memberId }));
-
-      if (isApplyingRef.current) return;
 
       if (memberId <= 0) return;
 
@@ -907,129 +990,11 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     [flushAutoAssignSession],
   );
 
-  const handleApplyToOtherSessions = useCallback(
-    async (sessionId: number) => {
-      if (!selectedRequest) return;
-
-      setApplyingToOtherSessions(true);
-      isApplyingRef.current = true;
-
-      try {
-        await flushAutoAssignSession(sessionId);
-
-        const baseDetail =
-          sessionDetailsByIdRef.current[sessionId] ?? (await sessionApi.getById(sessionId));
-        if (!baseDetail?.Assignments?.length) {
-          message.warning('Phiên hiện tại chưa có slot phân công.');
-          return;
-        }
-
-        const baseSelectedByRole: Record<RoleKey, number[]> = { TE: [], TA: [] };
-        for (const a of baseDetail.Assignments ?? []) {
-          const mid = getEffectiveStaffMemberId(
-            a.AssignmentId,
-            assignSelectionsRef.current,
-            a.StaffMemberId,
-          );
-          if (mid <= 0) continue;
-
-          const roleKey = getRoleKey(a.StaffRole);
-          if (!baseSelectedByRole[roleKey].includes(mid)) baseSelectedByRole[roleKey].push(mid);
-        }
-
-        if (!Object.keys(baseSelectedByRole).length) {
-          message.warning('Vui lòng chọn ít nhất một nhân sự trong phiên hiện tại trước.');
-          return;
-        }
-
-        const otherSessions = selectedRequest.sessions
-          .filter((s) => s.sessionId !== sessionId)
-          .sort((a, b) => (a.sessionNo ?? 0) - (b.sessionNo ?? 0));
-
-        for (const s of otherSessions) {
-          const otherSessionId = s.sessionId;
-          if (!otherSessionId) continue;
-
-          const existingDetail = sessionDetailsByIdRef.current[otherSessionId];
-          const detail = existingDetail ?? (await sessionApi.getById(otherSessionId));
-          if (!existingDetail) {
-            setSessionDetailsById((prev) => ({ ...prev, [otherSessionId]: detail }));
-            refreshSessionInRequestState(detail);
-          }
-
-          const assignments = detail?.Assignments ?? [];
-          if (!assignments.length) continue;
-
-          const assignmentIds = assignments
-            .filter((a) => a?.AssignmentId && isTeamLeaderAssignmentEditableStatus(a.Status))
-            .map((a) => a?.AssignmentId)
-            .filter((x): x is number => typeof x === 'number' && x > 0);
-          if (!assignmentIds.length) continue;
-
-          const fetchedSuggestions = await ensureSuggestedStaffForAssignments(assignmentIds, { forceRefetch: true });
-
-          const usedPerRole: Record<RoleKey, number[]> = { TE: [], TA: [] };
-          const sessionNextSelections: Record<number, number> = {};
-          const itemsForSession: AssignMemberPayload[] = [];
-
-          for (const a of assignments) {
-            if (!a?.AssignmentId) continue;
-            if (!isTeamLeaderAssignmentEditableStatus(a.Status)) continue;
-
-            const roleKey = getRoleKey(a.StaffRole);
-            const candidates = baseSelectedByRole[roleKey] ?? [];
-            if (!candidates.length) continue;
-
-            const suggestionList = fetchedSuggestions[a.AssignmentId] ?? [];
-            const usedForRole = usedPerRole[roleKey] ?? [];
-
-            const memberToApply = candidates.find(
-              (id) =>
-                !usedForRole.includes(id) && suggestionList.some((m) => m.memberId === id),
-            );
-
-            if (!memberToApply) continue;
-
-            sessionNextSelections[a.AssignmentId] = memberToApply;
-            itemsForSession.push({ assignmentId: a.AssignmentId, staffMemberId: memberToApply });
-            usedPerRole[roleKey] = [...usedForRole, memberToApply];
-          }
-
-          if (!itemsForSession.length) continue;
-
-          setAssignSelections((prev) => ({ ...prev, ...sessionNextSelections }));
-          await assignmentApi.assignMembers(itemsForSession);
-          itemsForSession.forEach((it) => {
-            lastAutoAssignedStaffByAssignmentRef.current[it.assignmentId] = it.staffMemberId;
-          });
-
-          const refreshed = await sessionApi.getById(otherSessionId);
-          setSessionDetailsById((prev) => ({ ...prev, [otherSessionId]: refreshed }));
-          refreshSessionInRequestState(refreshed);
-        }
-
-        message.success('Đã áp dụng phân công từ phiên hiện tại cho các phiên khác.');
-      } catch (err) {
-        message.error(getErrorMessage(err, 'Áp dụng phân công thất bại.'));
-      } finally {
-        isApplyingRef.current = false;
-        setApplyingToOtherSessions(false);
-      }
-    },
-    [
-      ensureSuggestedStaffForAssignments,
-      flushAutoAssignSession,
-      assignmentApi,
-      refreshSessionInRequestState,
-      sessionApi,
-      selectedRequest,
-    ],
-  );
-
   const handleResetFilters = () => {
     setSearch('');
     setOnlyNeedsAction(false);
-    setStatusFilter(activeTab === 'assigning' ? 'assigning' : 'all');
+    setTypeFilter('all');
+    setStatusFilter('all');
   };
 
   const refetchRequestById = useCallback(async (requestId: number) => {
@@ -1078,9 +1043,9 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
   return {
     loading,
+    requestSessionsLoading,
     sendingAssignments,
     autoAssigning,
-    applyingToOtherSessions,
     requests,
     filteredRequests,
     selectedRequestId,
@@ -1094,6 +1059,8 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     activeTab,
     onlyNeedsAction,
     setOnlyNeedsAction,
+    typeFilter,
+    setTypeFilter,
     statusFilter,
     setStatusFilter,
     activeSession,
@@ -1105,9 +1072,9 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     searchByAssignmentId,
     setSearchByAssignmentId,
     handleSelectStaff,
-    handleApplyToOtherSessions,
     handleSendAssignments,
     refetchRequestById,
+    refreshSessionDetailById,
     getSessionStats,
     handleResetFilters,
   };

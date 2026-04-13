@@ -261,7 +261,7 @@ export default function UserManagement() {
                 />
               </span>
             )}
-            <span title="Reset mật khẩu về stoms123">
+            <span title="Đặt lại mật khẩu về stoms123">
               <Key
                 size={16}
                 className="text-yellow-600 cursor-pointer"

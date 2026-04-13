@@ -162,6 +162,7 @@ export function useCalendarEvents(
   const [loading, setLoading] = useState(false);
   const location = useLocation();
   const isTeacherTimetable = location.pathname.startsWith('/teacher/timetable');
+  const isPCTimetable = location.pathname.startsWith('/pc/timetable');
   const isTeamLeaderTimetable = location.pathname.startsWith('/tl/timetable');
   const isManagerTimetable = location.pathname.startsWith('/manager/timetable');
 
@@ -169,8 +170,8 @@ export function useCalendarEvents(
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        // 1) Thời khóa biểu TEACHER: GET /members/{memberId}/teaching-schedule
-        if (isTeacherTimetable) {
+        // 1) Thời khóa biểu TEACHER / PC: GET /api/members/teaching-schedule
+        if (isTeacherTimetable || isPCTimetable) {
           const memberId =
             Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) ||
             undefined;
@@ -246,6 +247,7 @@ export function useCalendarEvents(
     fetchEvents();
   }, [
     isTeacherTimetable,
+    isPCTimetable,
     isTeamLeaderTimetable,
     isManagerTimetable,
     teamLeaderScope,

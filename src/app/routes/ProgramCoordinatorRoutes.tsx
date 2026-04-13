@@ -1,8 +1,9 @@
 import { Navigate } from 'react-router-dom';
+import EventCalendar from '@/modules/timetable/pages/EventCalendar';
 import PCDashboard from '@/modules/dashboard/pages/PCDashboard';
 import CreateRequestPage from '@/modules/request/pages/CreateRequestPage';
-import RequestsManagement from '@/modules/request/pages/RequestsManagement';
 import RequestDetailPC from '@/modules/request/pages/RequestDetailPC';
+import PCRequestsIndex from '@/modules/request/pages/PCRequestsIndex';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage';
@@ -16,20 +17,19 @@ import PCRequestLayout from '@/app/layouts/PCRequestLayout';
 const ProgramCoordinatorRoutes = [
   { index: true, element: <Navigate to="dashboard" replace /> },
   { path: 'dashboard', element: <PCDashboard /> },
+  { path: 'requests/create', element: <CreateRequestPage /> },
+  { path: 'requests/edit/:id', element: <CreateRequestPage /> },
   {
     path: 'requests',
+    element: <PCRequestLayout />,
     children: [
-      { index: true, element: <RequestsManagement /> },
-      { path: 'create', element: <CreateRequestPage /> },
-      { path: 'edit/:id', element: <CreateRequestPage /> },
-      {
-        path: ':id',
-        element: <PCRequestLayout />,
-        children: [{ index: true, element: <RequestDetailPC /> }],
-      },
+      { index: true, element: <PCRequestsIndex /> },
+      { path: ':id', element: <RequestDetailPC /> },
     ],
   },
   { path: 'events', element: <EventsManagement /> },
+  { path: 'timetable', element: <EventCalendar /> },
+  { path: 'timetable/assignments', element: <Navigate to="/pc/timetable" replace /> },
   {
     path: 'courses',
     element: <CoursesReadonlyLayout />,

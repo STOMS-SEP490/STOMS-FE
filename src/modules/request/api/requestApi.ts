@@ -15,6 +15,7 @@ const requestApi = {
       '/requests/filter',
       {
         params: {
+          ProgramCoordinatorId: params?.programCoordinatorId,
           RequestId: params?.requestId,
           Statuses: params?.statuses,
           SessionStatuses: params?.sessionStatuses,

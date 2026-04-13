@@ -36,6 +36,8 @@ export function DataTable<TData, TValue>({
   tableGap = 'default',
 }: DataTableProps<TData, TValue>) {
   const totalPages = Math.ceil(totalItems / pageSize);
+  const fromItem = totalItems === 0 ? 0 : (pageNumber - 1) * pageSize + 1;
+  const toItem = totalItems === 0 ? 0 : Math.min(pageNumber * pageSize, totalItems);
 
   const table = useReactTable({
     data,
@@ -56,16 +58,14 @@ export function DataTable<TData, TValue>({
     <div
       className={cn(
         'w-full min-w-0',
-        fillHeight
-          ? cn('flex min-h-0 flex-1 flex-col', tableGap === 'tight' ? 'gap-2' : 'gap-4')
-          : 'space-y-4',
+        fillHeight && tableGap === 'tight' ? 'space-y-2' : 'space-y-4',
       )}
     >
       {/* TABLE */}
       <div
         className={cn(
           'w-full min-w-0',
-          fillHeight ? 'rounded-md bg-white flex-1 min-h-0 overflow-auto' : 'rounded-md bg-white',
+          'rounded-md bg-white overflow-x-auto',
         )}
       >
         <Table className={comfortable ? 'table-fixed' : undefined}>
@@ -124,11 +124,11 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* PAGINATION */}
-      <div className={fillHeight ? 'mt-auto flex items-center justify-between' : 'flex items-center justify-between'}>
+      <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Hiển thị {(pageNumber - 1) * pageSize + 1}
+          Hiển thị {fromItem}
           {' - '}
-          {Math.min(pageNumber * pageSize, totalItems)} trên {totalItems} bản ghi
+          {toItem} trên {totalItems} bản ghi
         </div>
 
         <div className="flex gap-2">

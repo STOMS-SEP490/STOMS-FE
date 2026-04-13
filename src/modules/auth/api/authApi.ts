@@ -29,13 +29,21 @@ const authService = {
     });
   },
 
-  confirmForgotPassword: async (data: {
-    email: string;
-    otp: string;
+  /** Bước 2: xác thực OTP — BE trả về resetToken dùng cho bước completions. */
+  verifyForgotPasswordOtp: async (data: { email: string; otp: string }) => {
+    return axiosClient.post<
+      | { resetToken?: string; ResetToken?: string }
+      | Record<string, unknown>
+    >('/auth/forgot-password/otp-verifications', data);
+  },
+
+  /** Bước 3: đặt lại mật khẩu (resetToken từ bước verify OTP). */
+  completeForgotPassword: async (data: {
+    resetToken: string;
     newPassword: string;
     confirmPassword: string;
   }) => {
-    return axiosClient.post('/auth/forgot-password/confirm', data);
+    return axiosClient.post('/auth/forgot-password/completions', data);
   },
 };
 
