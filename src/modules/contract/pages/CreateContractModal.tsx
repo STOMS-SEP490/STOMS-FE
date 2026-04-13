@@ -7,6 +7,7 @@ import { Label } from '@/shared/components/ui/label';
 import sessionApi from '@/modules/request/api/sessionApi';
 import type { SessionResponse } from '@/modules/request/session.types';
 import contractApi from '../api/contractApi';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 type Props = {
   open: boolean;
@@ -64,7 +65,10 @@ export default function CreateContractModal({
         }
       } catch (err) {
         console.error('fetch sessions for contract error', err);
-        message.error('Không tải được danh sách buổi học phù hợp');
+        const apiMsg = getErrorMessage(err);
+        message.error(
+          apiMsg === 'Có lỗi xảy ra' ? 'Không tải được danh sách buổi học phù hợp' : apiMsg,
+        );
       } finally {
         setSessionsLoading(false);
       }
@@ -112,11 +116,10 @@ export default function CreateContractModal({
       onClose();
       onCreated?.();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : null;
-      message.error(msg || 'Tạo hợp đồng thất bại');
+      const apiMsg = getErrorMessage(err);
+      const display = apiMsg === 'Có lỗi xảy ra' ? 'Tạo hợp đồng thất bại' : apiMsg;
+      setError(display);
+      message.error(display);
     } finally {
       setLoading(false);
     }
