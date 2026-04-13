@@ -25,7 +25,7 @@ export default function SubjectsReadonlyPage() {
     totalItems,
     setPageNumber,
   } = useSubjects({
-    pageSize: 6,
+    pageSize: 10,
     search: subjectSearch,
     setSearch: setSubjectSearch,
     activeOnly,

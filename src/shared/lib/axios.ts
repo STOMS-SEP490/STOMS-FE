@@ -9,6 +9,8 @@ const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
 });
 
+let refreshPromise: Promise<string> | null = null;
+
 axiosClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('accessToken');
@@ -41,23 +43,31 @@ axiosClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        const rawUser = localStorage.getItem('user');
-        const deviceUid = rawUser ? JSON.parse(rawUser).deviceUid : null;
+        if (!refreshPromise) {
+          refreshPromise = (async () => {
+            const refreshToken = localStorage.getItem('refreshToken');
+            const rawUser = localStorage.getItem('user');
+            const deviceUid = rawUser ? JSON.parse(rawUser).deviceUid : null;
 
-        if (!refreshToken || !deviceUid) {
-          throw new Error('Missing refresh token or deviceUid');
+            if (!refreshToken || !deviceUid) {
+              throw new Error('Missing refresh token or deviceUid');
+            }
+
+            const tokens = await authService.refresh({
+              refreshToken,
+              deviceUid,
+            });
+            updateTokensInStorage(tokens);
+            return tokens.accessToken;
+          })().finally(() => {
+            refreshPromise = null;
+          });
         }
 
-        const tokens = await authService.refresh({
-          refreshToken,
-          deviceUid,
-        });
-
-        updateTokensInStorage(tokens);
+        const nextAccessToken = await refreshPromise;
 
         if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
+          originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`;
         }
 
         return axiosClient(originalRequest);

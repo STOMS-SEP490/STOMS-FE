@@ -50,7 +50,7 @@ export default function TeacherAssignments() {
   const columns: ColumnDef<TeachingScheduleItem>[] = [
     {
       id: 'sessionName',
-      header: 'Phiên dạy / Request',
+      header: 'Phiên dạy / Yêu cầu',
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-semibold text-gray-900">{sessionDisplayName(row.original)}</span>

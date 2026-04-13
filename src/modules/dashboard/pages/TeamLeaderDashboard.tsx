@@ -178,7 +178,7 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
   const it = props.item;
   const missingCheckin = !it.checkinAt;
   const missingCheckout = !!it.checkinAt && !it.checkoutAt;
-  const badgeLabel = missingCheckin ? 'Thiếu check-in' : missingCheckout ? 'Thiếu check-out' : '—';
+  const badgeLabel = missingCheckin ? 'Thiếu giờ vào' : missingCheckout ? 'Thiếu giờ ra' : '—';
   const badgeTone =
     missingCheckin || missingCheckout
       ? 'border-amber-200 bg-amber-50 text-amber-700'
@@ -463,7 +463,7 @@ export default function TeamLeaderDashboard() {
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Cần chú ý</p>
                   <p className="text-xs text-slate-500">
-                    Thiếu check-out: <span className="font-semibold text-amber-700">{missingCheckoutTotal}</span>
+                    Thiếu giờ ra: <span className="font-semibold text-amber-700">{missingCheckoutTotal}</span>
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2 text-amber-600">
@@ -472,7 +472,7 @@ export default function TeamLeaderDashboard() {
               </div>
               <div className="space-y-3">
                 {attendanceItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Không có phiên thiếu check-out.</p>
+                  <p className="py-8 text-center text-xs text-slate-500">Không có phiên thiếu giờ ra.</p>
                 ) : (
                   attendanceItems.map((it) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
                 )}

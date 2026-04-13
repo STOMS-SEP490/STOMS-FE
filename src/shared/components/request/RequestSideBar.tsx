@@ -68,6 +68,7 @@ export type RequestSidebarProps = {
    * Tab Duyệt phân công: luôn AssignmentStatuses=1 (Pending); thêm Statuses khi statusFilter khác all.
    */
   filterByPendingAssignments?: boolean;
+  programCoordinatorId?: number;
 };
 
 export default function RequestSidebar({
@@ -80,37 +81,46 @@ export default function RequestSidebar({
   requestStatusesScope = 'approval',
   autoNavigateWhenEmpty = true,
   filterByPendingAssignments = false,
+  programCoordinatorId,
 }: RequestSidebarProps) {
   const navigate = useNavigate();
   const { id } = useParams();
+  const REQUEST_SIDEBAR_PAGE_SIZE = 500;
 
   /** Tab Tất cả + trạng thái “Tất cả”: không gửi Statuses, BE trả về mọi yêu cầu (đỡ lặp list đủ enum). */
   const requestQueryOptions = (() => {
     if (filterByPendingAssignments) {
       if (statusFilter !== 'all') {
         return {
+          programCoordinatorId,
           assignmentStatuses: ['1'],
           statuses: [STATUS_FILTER_TO_API[statusFilter]],
         };
       }
       return {
+        programCoordinatorId,
         assignmentStatuses: ['1'],
         statuses: [...ASSIGNMENT_TAB_REQUEST_STATUSES_API],
       };
     }
     if (onlyPending) {
-      return { statuses: ['PENDING'] };
+      return { programCoordinatorId, statuses: ['PENDING'] };
     }
     if (statusFilter !== 'all') {
-      return { statuses: [STATUS_FILTER_TO_API[statusFilter]] };
+      return { programCoordinatorId, statuses: [STATUS_FILTER_TO_API[statusFilter]] };
     }
     if (requestStatusesScope === 'all') {
-      return {};
+      return { programCoordinatorId };
     }
-    return { statuses: [...REQUEST_APPROVAL_STATUSES] };
+    return { programCoordinatorId, statuses: [...REQUEST_APPROVAL_STATUSES] };
   })();
 
-  const { data: requestList, totalItems, loading } = useRequests(1, 50, refreshKey, requestQueryOptions);
+  const { data: requestList, totalItems, loading } = useRequests(
+    1,
+    REQUEST_SIDEBAR_PAGE_SIZE,
+    refreshKey,
+    requestQueryOptions
+  );
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   // Manager assignment view should still display the same request status UI as PC.

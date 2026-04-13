@@ -74,6 +74,18 @@ export default function CreateRequestPage() {
   const [defaultLocation, setDefaultLocation] = useState('')
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const disablePastDate = (current: Dayjs) => current.startOf('day').isBefore(dayjs().startOf('day'))
+  const disablePastTimeOfToday = (current: Dayjs | null) => {
+    const now = dayjs()
+    if (!current || !current.isSame(now, 'day')) return {}
+    const currentHour = now.hour()
+    const currentMinute = now.minute()
+    return {
+      disabledHours: () => Array.from({ length: currentHour }, (_, i) => i),
+      disabledMinutes: (selectedHour: number) =>
+        selectedHour === currentHour ? Array.from({ length: currentMinute }, (_, i) => i) : [],
+    }
+  }
 
   // Tô màu theo type request: subject (xanh), course (tím), event (cam)
   const accentSolidBgClass =
@@ -348,6 +360,10 @@ export default function CreateRequestPage() {
       message.error('Vui lòng chọn ngày bắt đầu.')
       return
     }
+    if (startDate.isBefore(dayjs())) {
+      message.error('Ngày giờ bắt đầu không được ở quá khứ.')
+      return
+    }
 
     const finalSubjectId = sourceType === 'subject' ? subjectId ?? null : null
     const finalCourseId = sourceType === 'course' ? courseId ?? null : null
@@ -373,6 +389,20 @@ export default function CreateRequestPage() {
     }
     if (sessions.length > 0 && missingSessionTime) {
       message.error('Vui lòng chọn ngày giờ bắt đầu cho tất cả các buổi học.')
+      return
+    }
+    const hasPastSessionDate = sessions.some(
+      (s) =>
+        (s.startAt && s.startAt.isBefore(dayjs())) ||
+        (s.endAt && s.endAt.isBefore(dayjs()))
+    )
+    if (hasPastSessionDate) {
+      message.error('Ngày giờ của các buổi học không được ở quá khứ.')
+      return
+    }
+    const hasInvalidSessionRange = sessions.some((s) => s.startAt && s.endAt && s.endAt.isBefore(s.startAt))
+    if (hasInvalidSessionRange) {
+      message.error('Giờ kết thúc của buổi học không được nhỏ hơn giờ bắt đầu.')
       return
     }
 
@@ -492,7 +522,7 @@ export default function CreateRequestPage() {
                   </div>
                   <div>
                     <span className="text-gray-500">Ngày bắt đầu:</span>{' '}
-                    <span className="text-gray-900 font-medium">{startDate.format('DD/MM/YYYY')}</span>
+                    <span className="text-gray-900 font-medium">{startDate.format('DD/MM/YYYY HH:mm')}</span>
                   </div>
                 </div>
 
@@ -878,10 +908,17 @@ export default function CreateRequestPage() {
                   </Label>
                   <DatePicker
                     style={{ width: '100%' }}
-                    format="DD/MM/YYYY"
-                    placeholder="Chọn ngày"
+                    showTime
+                    format="DD/MM/YYYY HH:mm"
+                    placeholder="Chọn ngày giờ"
                     value={startDate}
+                    disabledDate={disablePastDate}
+                    disabledTime={disablePastTimeOfToday}
                     onChange={(value) => {
+                      if (value && value.isBefore(dayjs())) {
+                        message.error('Ngày giờ bắt đầu không được ở quá khứ.')
+                        return
+                      }
                       setStartDate(value ?? undefined)
                       if (value && sessions.length > 0) {
                         setSessions(applyAutoSchedule(value, sessions))
@@ -1091,9 +1128,15 @@ export default function CreateRequestPage() {
                           placeholder="Chọn ngày giờ"
                           className="w-full"
                           value={s.startAt}
+                          disabledDate={disablePastDate}
+                          disabledTime={disablePastTimeOfToday}
                           onChange={(value) => {
                             // Khi đổi startAt -> tự điền endAt dự tính theo duration.
                             if (!value) return
+                            if (value.isBefore(dayjs())) {
+                              message.error('Giờ bắt đầu của buổi học không được ở quá khứ.')
+                              return
+                            }
                             const end = calculateEndTime(value, s.duration)
                             updateSession(index, { startAt: value, endAt: end })
                           }}
@@ -1107,6 +1150,7 @@ export default function CreateRequestPage() {
                           placeholder="Chọn ngày giờ"
                           className="w-full"
                           value={s.endAt}
+                          disabledDate={disablePastDate}
                           onChange={(value) => {
                             // Chặn endAt < startAt để tránh dữ liệu sai.
                             if (!value) {

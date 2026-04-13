@@ -7,8 +7,6 @@ import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { getRequestType } from '@/shared/components/request/RequestCard';
 import {
-  getAssignmentStaffRoleAccent,
-  getAssignmentStatusInfo,
   getRequestStatusCode,
   getRequestStatusInfo,
   getSessionStatusCode,
@@ -18,10 +16,6 @@ import {
 } from '@/constants/status';
 import {
   canManagerReviewAssignmentRow,
-  isAssignmentApproved,
-  isAssignmentCancelled,
-  isAssignmentRejected,
-  isAssignmentSlotFilled,
 } from '../utils/assignmentSlotUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Badge } from '@/shared/components/ui/badge';
@@ -34,6 +28,7 @@ import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext } from '../requestDetail.types';
 import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
 import sessionService from '../api/sessionApi';
+import assignmentService from '@/modules/assignment/api/assignmentApi';
 import reservationService from '@/modules/reservation/api/reservationApi';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import { teamApi } from '@/modules/team/api/teamApi';
@@ -82,7 +77,6 @@ export default function RequestDetail() {
     uiAssignedTeamIdsBySessionId,
     uiTeamQuantitiesBySessionId,
     assignmentsBySessionId,
-    selectedAssignmentIdsBySessionId,
     approveOpen,
     setApproveOpen,
     rejectOpen,
@@ -91,7 +85,6 @@ export default function RequestDetail() {
     rejectReason,
     setRejectReason,
     actionLoading,
-    approvingSessionId,
     rejectAssignmentState,
     setRejectAssignmentState,
     rejectAssignmentReason,
@@ -99,11 +92,9 @@ export default function RequestDetail() {
     createdByMemberId,
     assignedCount,
     refreshDetail,
+    reloadAssignmentsForSession,
     handleAssignSession,
     handleApproveClick,
-    handleToggleAssignmentSelection,
-    handleToggleSelectAllReviewableAssignments,
-    handleApproveSelectedAssignments,
     handleOpenRejectAssignment,
     handleConfirmRejectAssignment,
     handleConfirmApprove,
@@ -193,6 +184,34 @@ export default function RequestDetail() {
   const [cancelSessionOpen, setCancelSessionOpen] = useState(false);
   const [cancelSessionReason, setCancelSessionReason] = useState('');
   const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
+  const [approvingAssignmentIds, setApprovingAssignmentIds] = useState<Record<number, boolean>>({});
+  const [sessionDetailReloadKey, setSessionDetailReloadKey] = useState(0);
+
+  const handleApproveSingleAssignment = useCallback(
+    async (assignmentId: number, sessionId: number) => {
+      if (!assignmentId || assignmentId <= 0) return;
+      try {
+        setApprovingAssignmentIds((prev) => ({ ...prev, [assignmentId]: true }));
+        await assignmentService.approve([assignmentId]);
+        message.success('Đã duyệt phân công.');
+        await reloadAssignmentsForSession(sessionId);
+        await refreshDetail();
+        setSessionDetailReloadKey((k) => k + 1);
+        refreshRequestSidebar?.();
+      } catch (err) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msg = (err as any)?.message || 'Duyệt phân công thất bại.';
+        message.error(msg);
+      } finally {
+        setApprovingAssignmentIds((prev) => {
+          const next = { ...prev };
+          delete next[assignmentId];
+          return next;
+        });
+      }
+    },
+    [refreshDetail, refreshRequestSidebar, reloadAssignmentsForSession]
+  );
 
   const loadApprovePreview = useCallback(async () => {
     if (!sessions.length) {
@@ -1025,23 +1044,40 @@ export default function RequestDetail() {
               )}
               {rightPanel.mode === 'assignment' && (
                 <div className="space-y-4">
-                  {request && (
-                    <>
-                      <RequestSessionDetailPanel
-                        session={
-                          sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
-                        }
-                        requestId={Number(request.requestId)}
-                        requestCode={request.requestCode ?? ''}
-                        assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                        showReservedEquipment={false}
-                        showTeamSummary={false}
-                        sectionMode="info"
-                      />
-                    </>
-                  )}
+                  {request ? (
+                    <RequestSessionDetailPanel
+                      session={sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session}
+                      reloadKey={sessionDetailReloadKey}
+                      requestId={Number(request.requestId)}
+                      requestCode={request.requestCode ?? ''}
+                      assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
+                      showReservedEquipment={false}
+                      showTeamSummary
+                      reviewMode
+                      onApproveAssignment={async (assignment) => {
+                        await handleApproveSingleAssignment(
+                          Number(assignment.AssignmentId ?? 0),
+                          rightPanel.session.sessionId
+                        );
+                      }}
+                      onRejectAssignment={(assignment) =>
+                        handleOpenRejectAssignment(rightPanel.session.sessionId, {
+                          assignmentId: Number(assignment.AssignmentId ?? 0),
+                          staffMemberId: Number(assignment.StaffMemberId ?? 0),
+                          staffRole: String(assignment.StaffRole ?? '').toUpperCase(),
+                          status: String(assignment.Status ?? ''),
+                          reason: String(assignment.Reason ?? '').trim() || undefined,
+                          fullName: String(assignment.StaffMember?.FullName ?? '').trim() || '—',
+                          email: String(assignment.StaffMember?.Email ?? assignment.StaffMember?.User?.Email ?? '').trim(),
+                          avatarUrl: String(assignment.StaffMember?.AvatarUrl ?? '').trim(),
+                        })
+                      }
+                      isApprovingAssignment={(assignmentId) => Boolean(approvingAssignmentIds[assignmentId])}
+                      sectionMode="info"
+                    />
+                  ) : null}
 
-                  {(() => {
+                  {/* Legacy assignment list (hidden to avoid duplicate UI)
                     const rows = assignmentsBySessionId[rightPanel.session.sessionId] ?? [];
                     const hasUnfilledSlot = rows.some((r) => !isAssignmentSlotFilled(r));
                     const hasReviewableFilled = rows.some((r) => canManagerReviewAssignmentRow(r));
@@ -1155,36 +1191,48 @@ export default function RequestDetail() {
                           const isTeacherRole =
                             row.staffRole === 'TE' || row.staffRole === 'TEACHER';
                           const assignmentStatusUi = getAssignmentStatusInfo(row.status);
+                          const rejectedReasonRaw = (row.reason ?? '').trim();
+                          const rejectedReasonLines =
+                            rejectedReasonRaw.length > 0
+                              ? rejectedReasonRaw.split('\n').filter((line) => line.trim().length > 0)
+                              : [];
                           if (isCancelled) {
                             return (
                               <div
                                 key={row.assignmentId}
                                 className="flex flex-col gap-2.5 border-l-[3px] border-l-red-500 bg-red-50/90 px-3 py-3"
                               >
-                                <div className="flex items-center gap-3 opacity-90 pointer-events-none">
-                                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-semibold text-red-800">
-                                    {row.avatarUrl ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={row.avatarUrl}
-                                        alt={row.fullName}
-                                        className="h-full w-full object-cover"
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                        }}
-                                      />
-                                    ) : (
-                                      (filled ? row.fullName : '?')[0]
-                                    )}
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex min-w-0 items-center gap-3 opacity-90 pointer-events-none">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-semibold text-red-800">
+                                      {row.avatarUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={row.avatarUrl}
+                                          alt={row.fullName}
+                                          className="h-full w-full object-cover"
+                                          onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
+                                          }}
+                                        />
+                                      ) : (
+                                        (filled ? row.fullName : '?')[0]
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-semibold text-slate-900">
+                                        {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
+                                      </p>
+                                      <p className="truncate text-xs text-slate-500">
+                                        {filled ? row.email || '—' : 'Phân công trống — chờ Trưởng nhóm xử lý'}
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-slate-900">
-                                      {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
-                                    </p>
-                                    <p className="truncate text-xs text-slate-500">
-                                      {filled ? row.email || '—' : 'Slot trống — chờ Team Leader xử lý'}
-                                    </p>
-                                  </div>
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold shrink-0 ${assignmentStatusUi.className}`}
+                                  >
+                                    {assignmentStatusUi.label}
+                                  </span>
                                 </div>
                                 <div className="rounded-lg border border-red-200/90 bg-white/70 px-3 py-2">
                                   <p className="text-xs font-medium text-red-900 mb-1">Lý do:</p>
@@ -1234,92 +1282,113 @@ export default function RequestDetail() {
                             return accent.avatar;
                           })();
                           return (
-                            <div
-                              key={row.assignmentId}
-                              className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 transition-[background-color,border-color] ${rowStripeClass}`}
-                            >
-                              <div className="flex min-w-0 flex-1 items-center gap-3">
-                                <div
-                                  className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${
-                                    filled
-                                      ? filledAvatarClass
-                                      : isTeacherRole
-                                        ? 'bg-violet-100 text-violet-700'
-                                        : 'bg-yellow-100 text-yellow-800'
-                                  }`}
-                                >
-                                  {filled ? (
-                                    row.avatarUrl ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={row.avatarUrl}
-                                        alt={row.fullName}
-                                        className="h-full w-full object-cover"
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                        }}
-                                      />
+                            <div key={row.assignmentId}>
+                              <div
+                                className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 transition-[background-color,border-color] ${rowStripeClass}`}
+                              >
+                                <div className="flex min-w-0 flex-1 items-center gap-3">
+                                  <div
+                                    className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${
+                                      filled
+                                        ? filledAvatarClass
+                                        : isTeacherRole
+                                          ? 'bg-violet-100 text-violet-700'
+                                          : 'bg-yellow-100 text-yellow-800'
+                                    }`}
+                                  >
+                                    {filled ? (
+                                      row.avatarUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={row.avatarUrl}
+                                          alt={row.fullName}
+                                          className="h-full w-full object-cover"
+                                          onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
+                                          }}
+                                        />
+                                      ) : (
+                                        (row.fullName || '—')[0]
+                                      )
                                     ) : (
-                                      (row.fullName || '—')[0]
-                                    )
-                                  ) : (
-                                    <span className="text-base font-semibold leading-none">?</span>
+                                      <span className="text-base font-semibold leading-none">?</span>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-slate-900">
+                                      {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
+                                    </p>
+                                    <p className="truncate text-xs text-slate-500">
+                                      {filled ? row.email || '—' : 'Phân công trống — chờ Trưởng nhóm xử lý'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                  {isApproved && (
+                                    <span
+                                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
+                                    >
+                                      {assignmentStatusUi.label}
+                                    </span>
+                                  )}
+                                  {isRejected && (
+                                    <span
+                                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
+                                    >
+                                      {assignmentStatusUi.label}
+                                    </span>
+                                  )}
+                                  {canReview && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="text-xs font-medium text-red-600 hover:text-red-700 underline-offset-2 hover:underline bg-transparent border-0 p-0 shadow-none cursor-pointer"
+                                        onClick={() =>
+                                          handleOpenRejectAssignment(rightPanel.session.sessionId, row)
+                                        }
+                                      >
+                                        Từ chối
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleToggleAssignmentSelection(
+                                            rightPanel.session.sessionId,
+                                            row.assignmentId
+                                          )
+                                        }
+                                        className={`text-xs font-medium bg-transparent border-0 p-0 shadow-none cursor-pointer underline-offset-2 ${
+                                          checked
+                                            ? 'text-emerald-600 hover:text-emerald-700'
+                                            : 'text-slate-600 hover:text-slate-900 hover:underline'
+                                        }`}
+                                      >
+                                        {checked ? 'Đã chọn' : 'Chọn duyệt'}
+                                      </button>
+                                    </>
                                   )}
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-sm font-semibold text-slate-900">
-                                    {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
-                                  </p>
-                                  <p className="truncate text-xs text-slate-500">
-                                    {filled ? row.email || '—' : 'Slot trống — chờ Team Leader xử lý'}
-                                  </p>
+                              </div>
+                              {isRejected ? (
+                                <div className="border-t border-slate-200/45 bg-rose-50/25 px-3 py-2.5">
+                                  <div className="rounded-lg border border-rose-200 bg-rose-50/80 px-3 py-2.5">
+                                    <p className="text-xs font-medium text-rose-900 mb-1.5">Lý do từ chối</p>
+                                    {rejectedReasonLines.length > 0 ? (
+                                      <ul className="space-y-1 text-xs text-rose-950 leading-relaxed list-none pl-0">
+                                        {rejectedReasonLines.map((line, idx) => (
+                                          <li key={idx} className="pl-3 border-l-2 border-rose-300">
+                                            {line}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="text-xs text-rose-700/85 italic">
+                                        Chưa có lý do ghi nhận từ quản lý.
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                                {isApproved && (
-                                  <span
-                                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
-                                  >
-                                    {assignmentStatusUi.label}
-                                  </span>
-                                )}
-                                {isRejected && (
-                                  <span
-                                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
-                                  >
-                                    {assignmentStatusUi.label}
-                                  </span>
-                                )}
-                                {canReview && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="text-xs font-medium text-red-600 hover:text-red-700 underline-offset-2 hover:underline bg-transparent border-0 p-0 shadow-none cursor-pointer"
-                                      onClick={() =>
-                                        handleOpenRejectAssignment(rightPanel.session.sessionId, row)
-                                      }
-                                    >
-                                      Từ chối 
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleToggleAssignmentSelection(
-                                          rightPanel.session.sessionId,
-                                          row.assignmentId
-                                        )
-                                      }
-                                      className={`text-xs font-medium bg-transparent border-0 p-0 shadow-none cursor-pointer underline-offset-2 ${
-                                        checked
-                                          ? 'text-emerald-600 hover:text-emerald-700'
-                                          : 'text-slate-600 hover:text-slate-900 hover:underline'
-                                      }`}
-                                    >
-                                      {checked ? 'Đã chọn' : 'Chọn duyệt'}
-                                    </button>
-                                  </>
-                                )}
-                              </div>
+                              ) : null}
                             </div>
                           );
                         };
@@ -1356,7 +1425,7 @@ export default function RequestDetail() {
                     </div>
                   </div>
                     );
-                  })()}
+                  */}
 
                   {request && (
                     <RequestSessionDetailPanel
@@ -1537,7 +1606,7 @@ export default function RequestDetail() {
         title="Từ chối phân công"
         description={
           rejectAssignmentState.displayName
-            ? `Assignment của: ${rejectAssignmentState.displayName}`
+            ? `Phân công của: ${rejectAssignmentState.displayName}`
             : undefined
         }
       >
@@ -1567,8 +1636,11 @@ export default function RequestDetail() {
           </Button>
           <Button
             type="button"
-            className="rounded-lg bg-red-900 text-white text-xs px-4 hover:bg-red-950 focus-visible:ring-red-900/40"
-            onClick={handleConfirmRejectAssignment}
+            className="rounded-lg bg-red-600 text-white text-xs px-4 hover:bg-red-700 focus-visible:ring-red-600/40"
+            onClick={async () => {
+              await handleConfirmRejectAssignment();
+              setSessionDetailReloadKey((k) => k + 1);
+            }}
           >
             Xác nhận từ chối
           </Button>
