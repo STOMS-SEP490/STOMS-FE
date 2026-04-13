@@ -245,9 +245,9 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
                     iconClassName="text-emerald-600"
                     className="sm:col-span-2"
                   />
-                  <MetaRow variant="grid" icon={Hash} label="CMND/CCCD" value={dash(member.cin)} iconClassName="text-emerald-600" />
+                  <MetaRow variant="grid" icon={Hash} label="CCCD" value={dash(member.cin)} iconClassName="text-emerald-600" />
                   <MetaRow variant="grid" icon={Hash} label="Mã số thuế" value={dash(member.taxNumber)} iconClassName="text-emerald-600" />
-                  <MetaRow variant="grid" icon={CreditCard} label="Mã ngân hàng" value={dash(member.bankCode)} iconClassName="text-emerald-600" />
+                  <MetaRow variant="grid" icon={CreditCard} label="Số tài khoản" value={dash(member.bankCode)} iconClassName="text-emerald-600" />
                   <MetaRow variant="grid" icon={CreditCard} label="Tên ngân hàng" value={dash(member.bankName)} iconClassName="text-emerald-600" />
                 </MetaPanel>
               </Section>

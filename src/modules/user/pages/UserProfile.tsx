@@ -336,11 +336,11 @@ export default function UserProfile() {
       return;
     }
     if (!submitted.cin) {
-      message.warning('Vui lòng nhập CCCD/CMND');
+      message.warning('Vui lòng nhập CCCD');
       return;
     }
     if (!submitted.bankCode) {
-      message.warning('Vui lòng nhập mã ngân hàng');
+      message.warning('Vui lòng nhập số tài khoản');
       return;
     }
     if (!submitted.bankName) {
@@ -713,7 +713,7 @@ export default function UserProfile() {
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500 mb-1">CMND/CCCD</Label>
+                  <Label className="text-xs text-slate-500 mb-1">CCCD</Label>
                   {editingMember ? (
                     <Input
                       className="bg-white border-slate-200 focus-visible:ring-sky-400"
@@ -741,7 +741,7 @@ export default function UserProfile() {
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500 mb-1">Mã ngân hàng</Label>
+                  <Label className="text-xs text-slate-500 mb-1">Số tài khoản</Label>
                   {editingMember ? (
                     <Input
                       className="bg-white border-slate-200 focus-visible:ring-sky-400"

@@ -192,7 +192,7 @@ export default function ContractDetailSidebar({ open, onClose, contract, loading
                     <MetaRow icon={Mail} label="Email" value={contract.createdByUser?.email ?? '—'} />
                     <MetaRow icon={Phone} label="Số điện thoại" value={lecturer?.phone ?? '—'} />
                     <MetaRow icon={Home} label="Địa chỉ" value={lecturer?.address ?? '—'} />
-                    <MetaRow icon={CreditCard} label="CMND/CCCD" value={lecturer?.cin ?? '—'} />
+                    <MetaRow icon={CreditCard} label="CCCD" value={lecturer?.cin ?? '—'} />
                     <MetaRow
                       icon={Landmark}
                       label="Ngân hàng"
