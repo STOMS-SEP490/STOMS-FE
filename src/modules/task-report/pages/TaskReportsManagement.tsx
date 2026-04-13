@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, RotateCcw } from 'lucide-react';
 import { Drawer, Input, Modal, message, Spin } from 'antd';
@@ -152,16 +152,83 @@ export default function TaskReportsManagement() {
     setPageNumber(1);
   };
 
+  const REQUEST_PAGE_SIZE = 10;
+  const requestScrollRef = useRef<HTMLDivElement | null>(null);
+  const requestLoadMoreRef = useRef<HTMLDivElement | null>(null);
+  const requestCardRef = useRef<HTMLDivElement | null>(null);
+  const REQUEST_CARD_HEIGHT_PX = 635;
+  const filterRowRef = useRef<HTMLDivElement | null>(null);
+  const [requestCardOffsetTop, setRequestCardOffsetTop] = useState<number>(0);
+
   const {
-    data: requestsPaged,
+    data: requestsInfinite,
     isLoading: requestsLoading,
+    isFetchingNextPage: requestsFetchingMore,
+    fetchNextPage: fetchNextRequestsPage,
+    hasNextPage: hasMoreRequests,
     error: requestsError,
-  } = useQuery({
-    queryKey: ['requests', 'task-reports-management'],
-    queryFn: () => requestApi.getRequests({ pageNumber: 1, pageSize: 500 }),
+  } = useInfiniteQuery({
+    queryKey: ['requests', 'task-reports-management', REQUEST_PAGE_SIZE],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      requestApi.getRequests({ pageNumber: Number(pageParam), pageSize: REQUEST_PAGE_SIZE }),
+    getNextPageParam: (lastPage) => {
+      const cur = Number(lastPage.pageNumber ?? 1);
+      const total = Number(lastPage.totalPages ?? 1);
+      if (!Number.isFinite(cur) || !Number.isFinite(total)) return undefined;
+      return cur < total ? cur + 1 : undefined;
+    },
   });
 
-  const requests = useMemo(() => requestsPaged?.items ?? [], [requestsPaged]);
+  const requests = useMemo(() => {
+    const pages = requestsInfinite?.pages ?? [];
+    return pages.flatMap((p) => p.items ?? []);
+  }, [requestsInfinite]);
+
+  useEffect(() => {
+    const root = requestScrollRef.current;
+    const target = requestLoadMoreRef.current;
+    if (!root || !target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (!first?.isIntersecting) return;
+        if (!hasMoreRequests) return;
+        if (requestsFetchingMore) return;
+        void fetchNextRequestsPage();
+      },
+      { root, rootMargin: '120px', threshold: 0.01 },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [fetchNextRequestsPage, hasMoreRequests, requestsFetchingMore]);
+
+  // Canh top của khung "Danh sách yêu cầu" ngang với bảng (không ngang với hàng filter).
+  useEffect(() => {
+    const filterEl = filterRowRef.current;
+    if (!filterEl) return;
+
+    // Tinh chỉnh vị trí card bên trái so với bảng bên phải (px).
+    // Giảm số này nếu card đang bị thấp; tăng nếu card đang bị cao.
+    const OFFSET_ADJUST_PX = 12;
+
+    const apply = () => {
+      const h = filterEl.getBoundingClientRect().height;
+      const next = Math.max(0, Math.floor(h + OFFSET_ADJUST_PX));
+      setRequestCardOffsetTop(next);
+    };
+
+    apply();
+    const ro = new ResizeObserver(() => apply());
+    ro.observe(filterEl);
+    window.addEventListener('resize', apply);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', apply);
+    };
+  }, []);
   const requestNameById = useMemo(() => {
     const map = new Map<number, string>();
     for (const r of requests) map.set(r.requestId, r.requestName);
@@ -207,6 +274,20 @@ export default function TaskReportsManagement() {
 
   const sessionsForSelectedRequest: RequestSessionSummary[] =
     selectedRequestDetail?.sessions ?? [];
+
+  const viewRequestIdNum = viewTaskReport?.requestId ?? null;
+  const { data: viewRequestDetail } = useQuery({
+    queryKey: ['request-detail', 'task-report-view', viewRequestIdNum],
+    enabled: typeof viewRequestIdNum === 'number' && viewRequestIdNum > 0 && openView,
+    queryFn: () => requestApi.getById(viewRequestIdNum as number),
+  });
+  const viewSessionNo = useMemo(() => {
+    const sid = viewTaskReport?.sessionId;
+    if (!sid) return null;
+    const raw = (viewRequestDetail?.sessions ?? []).find((s) => Number(s.sessionId) === Number(sid));
+    const no = raw?.sessionNo != null ? Number(raw.sessionNo) : null;
+    return no != null && Number.isFinite(no) && no > 0 ? no : null;
+  }, [viewRequestDetail?.sessions, viewTaskReport?.sessionId]);
 
   const sessionLabelById = useMemo(() => {
     const map = new Map<number, string>();
@@ -358,6 +439,13 @@ export default function TaskReportsManagement() {
 
   const canPickSession = filterRequestId !== 'all';
 
+  const formatDateTime = (value: string | null | undefined) => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('vi-VN');
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
@@ -375,8 +463,14 @@ export default function TaskReportsManagement() {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4">
-        <div className="bg-white rounded-xl border shadow-sm p-4 space-y-3">
+      <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
+        <div>
+          <div style={{ height: requestCardOffsetTop }} aria-hidden />
+          <div
+            ref={requestCardRef}
+            className="bg-white rounded-xl border shadow-sm p-4 space-y-3 flex flex-col"
+            style={{ height: REQUEST_CARD_HEIGHT_PX }}
+          >
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">Danh sách yêu cầu</h3>
             <Badge className="bg-slate-100 text-slate-700 border border-slate-200">
@@ -413,7 +507,10 @@ export default function TaskReportsManagement() {
             />
           </div>
 
-          <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+          <div
+            ref={requestScrollRef}
+            className="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0"
+          >
             <button
               type="button"
               onClick={() => {
@@ -456,11 +553,19 @@ export default function TaskReportsManagement() {
             {!requestsLoading && requestListFiltered.length === 0 && (
               <div className="text-xs text-gray-500 px-1">Không có yêu cầu phù hợp.</div>
             )}
+
+            <div ref={requestLoadMoreRef} className="h-8" aria-hidden />
+            {requestsFetchingMore ? (
+              <div className="text-xs text-gray-500 px-1">Đang tải thêm...</div>
+            ) : hasMoreRequests ? (
+              <div className="text-[11px] text-gray-400 px-1">Cuộn xuống để tải thêm</div>
+            ) : null}
+          </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="flex justify-end gap-3 mb-2">
+          <div ref={filterRowRef} className="flex justify-end gap-3 mb-2">
             <HoverSearch
               placeholder="Tìm theo tên..."
               value={filterTitle}
@@ -563,7 +668,7 @@ export default function TaskReportsManagement() {
         }}
         placement="right"
         width={540}
-        title="Chi tiết task report"
+        title="Chi tiết báo cáo công việc"
       >
         {viewLoading ? (
           <div className="flex items-center justify-center py-16">
@@ -583,6 +688,10 @@ export default function TaskReportsManagement() {
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
+                <div className="text-xs text-gray-500">Thời gian tạo</div>
+                <div>{formatDateTime(viewTaskReport.createdAt)}</div>
+              </div>
+              <div>
                 <div className="text-xs text-gray-500">Yêu cầu</div>
                 <div>
                   {requestNameById.get(viewTaskReport.requestId) ??
@@ -593,25 +702,20 @@ export default function TaskReportsManagement() {
                 <div className="text-xs text-gray-500">Buổi</div>
                 <div>
                   {viewTaskReport.sessionId
-                    ? sessionLabelById.get(viewTaskReport.sessionId) ??
-                      `Buổi ${viewTaskReport.sessionId}`
+                    ? `Buổi ${viewSessionNo ?? viewTaskReport.sessionId}`
                     : '—'}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-gray-500">Thời gian bắt đầu</div>
                 <div>
-                  {viewTaskReport.startAt
-                    ? new Date(viewTaskReport.startAt).toLocaleString()
-                    : '—'}
+                  {formatDateTime(viewTaskReport.startAt)}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-gray-500">Thời gian kết thúc</div>
                 <div>
-                  {viewTaskReport.endAt
-                    ? new Date(viewTaskReport.endAt).toLocaleString()
-                    : '—'}
+                  {formatDateTime(viewTaskReport.endAt)}
                 </div>
               </div>
               <div>
@@ -629,65 +733,129 @@ export default function TaskReportsManagement() {
                   {(viewTaskReport.expenses ?? []).map((e) => (
                     <div
                       key={e.expenseId}
-                      className="rounded-xl border bg-white px-4 py-3 shadow-sm"
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
                     >
-                      <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 items-start">
-                        <div className="min-w-0">
-                          <div className="text-xs text-gray-500 mb-0.5">
-                            Khoản chi #{e.expenseId}
-                          </div>
-                          <div className="text-sm text-gray-800 whitespace-pre-wrap break-words leading-5">
-                            {e.description || '—'}
-                          </div>
-                        </div>
+                      {(() => {
+                        const info = getExpenseStatusInfo(e.status);
+                        const code = info.code;
+                        const approvedByName =
+                          (e as unknown as { approvedByName?: string | null }).approvedByName ?? null;
+                        const approvedByMember =
+                          (e as unknown as { approvedByMember?: { fullName?: string | null } | null }).approvedByMember ??
+                          (e as unknown as { ApprovedByMember?: { FullName?: string | null } | null }).ApprovedByMember ??
+                          null;
+                        const approvedByFullName =
+                          (approvedByMember as { fullName?: string | null; FullName?: string | null } | null)
+                            ? String(
+                                (approvedByMember as any).fullName ??
+                                  (approvedByMember as any).FullName ??
+                                  '',
+                              ).trim() || null
+                            : null;
+                        const isApproved = code === EXPENSE_STATUS.APPROVED;
+                        const paymentImg = String(e.paymentImg ?? '').trim();
 
-                        <div className="text-right">
-                          <div className="text-[11px] text-gray-500 mb-0.5">Số tiền</div>
-                          <div className="text-sm font-semibold tabular-nums whitespace-nowrap text-red-600">
-                            {e.amount != null ? e.amount.toLocaleString('vi-VN') : '—'}
-                          </div>
-                        </div>
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="text-xs font-semibold text-slate-700">Khoản chi #{e.expenseId}</div>
+                                  <Badge className={info.className}>{info.label}</Badge>
+                                </div>
+                                <div className="mt-1 text-sm text-slate-800 whitespace-pre-wrap break-words leading-5">
+                                  {e.description || '—'}
+                                </div>
+                              </div>
 
-                        <div className="col-span-2 flex items-center justify-between gap-3 pt-1">
-                          <div>
-                            {(() => {
-                              const info = getExpenseStatusInfo(e.status);
-                              return <Badge className={info.className}>{info.label}</Badge>;
-                            })()}
-                          </div>
-
-                          {getExpenseStatusInfo(e.status).code === EXPENSE_STATUS.PENDING ? (
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-                                disabled={actionLoading}
-                                onClick={() => {
-                                  setApproveExpenseId(e.expenseId);
-                                  setSelectedWalletId('');
-                                  setApproveModalOpen(true);
-                                }}
-                              >
-                                Duyệt
-                              </Button>
-
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-red-200 text-red-600 hover:bg-red-50"
-                                disabled={actionLoading}
-                                onClick={() => {
-                                  setRejectExpenseId(e.expenseId);
-                                  setRejectReason('');
-                                  setRejectModalOpen(true);
-                                }}
-                              >
-                                Từ chối
-                              </Button>
+                              <div className="text-right shrink-0">
+                                <div className="text-[11px] text-slate-500 mb-0.5">Số tiền</div>
+                                <div className="text-sm font-semibold tabular-nums whitespace-nowrap text-red-600">
+                                  {e.amount != null ? e.amount.toLocaleString('vi-VN') : '—'} đ
+                                </div>
+                              </div>
                             </div>
-                          ) : null}
-                        </div>
-                      </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-[12px] text-slate-600 pt-1">
+                              <div>
+                                <div className="text-[11px] text-slate-500">Thời gian tạo</div>
+                                <div className="font-medium text-slate-700">{formatDateTime(e.createdAt)}</div>
+                              </div>
+                              <div>
+                                <div className="text-[11px] text-slate-500">Thời gian duyệt</div>
+                                <div className="font-medium text-slate-700">{formatDateTime(e.approvedAt)}</div>
+                              </div>
+                              {isApproved ? (
+                                <div className="col-span-2">
+                                  <div className="text-[11px] text-slate-500">Người duyệt</div>
+                                  <div className="font-medium text-slate-700">
+                                    {approvedByFullName ??
+                                      approvedByName ??
+                                      (e.approvedByMemberId ? `Member #${e.approvedByMemberId}` : '—')}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+
+                            {paymentImg ? (
+                              <div className="pt-1">
+                                <div className="text-[11px] text-slate-500 mb-1">Minh chứng</div>
+                                <a
+                                  href={paymentImg}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="group block overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                                  title="Mở ảnh minh chứng"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={paymentImg}
+                                    alt={`Minh chứng khoản chi #${e.expenseId}`}
+                                    className="w-full max-h-48 object-cover transition group-hover:scale-[1.01]"
+                                    onError={(ev) => {
+                                      (ev.currentTarget as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                  <div className="px-3 py-2 text-[11px] text-slate-600 bg-white border-t border-slate-200">
+                                    Bấm để mở ảnh
+                                  </div>
+                                </a>
+                              </div>
+                            ) : null}
+
+                            {code === EXPENSE_STATUS.PENDING ? (
+                              <div className="flex items-center justify-end gap-2 pt-1">
+                                <Button
+                                  size="sm"
+                                  className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                                  disabled={actionLoading}
+                                  onClick={() => {
+                                    setApproveExpenseId(e.expenseId);
+                                    setSelectedWalletId('');
+                                    setApproveModalOpen(true);
+                                  }}
+                                >
+                                  Duyệt
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-200 text-red-600 hover:bg-red-50"
+                                  disabled={actionLoading}
+                                  onClick={() => {
+                                    setRejectExpenseId(e.expenseId);
+                                    setRejectReason('');
+                                    setRejectModalOpen(true);
+                                  }}
+                                >
+                                  Từ chối
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
