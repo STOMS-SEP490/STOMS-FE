@@ -2,15 +2,17 @@ import RequestSidebar, { type ManagerRequestStatusFilter } from '@/shared/compon
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { ArrowLeft, RotateCcw } from 'lucide-react';
+import { Plus, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 
 import type { RequestLayoutOutletContext } from '@/modules/request/requestDetail.types';
 import { REQUEST_STATUS, REQUEST_STATUS_LABEL } from '@/constants/status';
+import { useProgramCoordinatorId } from '@/modules/request/hooks/useProgramCoordinatorId';
 
 export default function PCRequestLayout() {
   const navigate = useNavigate();
+  const programCoordinatorId = useProgramCoordinatorId();
   const [search, setSearch] = useState('');
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
   const [typeFilter, setTypeFilter] = useState<'all' | 'event' | 'subject' | 'course'>('all');
@@ -42,16 +44,16 @@ export default function PCRequestLayout() {
     >
       {/* HEADER */}
       <div className="bg-white px-6 py-4 mb-0 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-2">
-        <button
-              type="button"
-              onClick={() => navigate('/pc/requests')}
-              className="!p-0 w-8 h-8 rounded-lg border border-gray-300 flex items-center justify-center text-black bg-white hover:bg-gray-100 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-         <div> <h2 className="text-xl font-semibold text-black">Chi tiết yêu cầu</h2>
+        <div className="flex items-center justify-between gap-3">
+         <div> <h2 className="text-xl font-semibold text-black">Tất cả yêu cầu</h2>
          <p className="text-xs text-gray-500">Xem chi tiết các yêu cầu và các phiên</p></div>
+         <Button
+           onClick={() => navigate('/pc/requests/create')}
+           className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
+         >
+           <Plus size={16} />
+           Tạo yêu cầu mới
+         </Button>
         </div>
        
       </div>
@@ -110,6 +112,7 @@ export default function PCRequestLayout() {
         <div className="w-[360px] shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
           <RequestSidebar
             basePath="/pc/requests"
+            programCoordinatorId={programCoordinatorId > 0 ? programCoordinatorId : undefined}
             search={search}
             typeFilter={typeFilter}
             statusFilter={statusFilter}

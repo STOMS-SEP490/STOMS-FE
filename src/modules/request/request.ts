@@ -84,6 +84,7 @@ export type RequestListItem = {
 export type RequestFilterParams = {
   pageNumber?: number;
   pageSize?: number;
+  programCoordinatorId?: number;
   requestId?: number;
   statuses?: string[];
   sessionStatuses?: string[];

@@ -67,7 +67,7 @@ const columns: ColumnDef<ContractListItem>[] = [
 
   {
     id: 'requestCode',
-    header: 'Mã request',
+    header: 'Mã yêu cầu',
     cell: ({ row }) => {
       const code = row.original.request?.requestCode;
       return code ? (

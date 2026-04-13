@@ -81,6 +81,14 @@ const columns: (onViewDetail: (item: AuditLogItem) => void) => ColumnDef<AuditLo
       header: 'Hành động',
       cell: ({ row }) => {
         const action = row.original.action;
+        const actionLabelMap: Record<string, string> = {
+          Create: 'Tạo',
+          Update: 'Cập nhật',
+          Approve: 'Duyệt',
+          Delete: 'Xóa',
+          View: 'Xem',
+          Reject: 'Từ chối',
+        };
         const colorMap: Record<string, string> = {
           Create: 'bg-green-100 text-green-700',
           Update: 'bg-blue-100 text-blue-700',
@@ -91,10 +99,11 @@ const columns: (onViewDetail: (item: AuditLogItem) => void) => ColumnDef<AuditLo
         };
 
         const cls = colorMap[action] ?? 'bg-gray-100 text-gray-700';
+        const label = actionLabelMap[action] ?? action;
 
         return (
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${cls}`}>
-            {action}
+            {label}
           </span>
         );
       },

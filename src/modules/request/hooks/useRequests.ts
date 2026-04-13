@@ -9,6 +9,7 @@ export const useRequests = (
   options?: {
     statuses?: string[];
     assignmentStatuses?: string[];
+    programCoordinatorId?: number;
   }
 ) => {
   const [data, setData] = useState<RequestListItem[]>([]);
@@ -16,6 +17,7 @@ export const useRequests = (
   const [loading, setLoading] = useState(false);
   const statusesKey = options?.statuses?.join('|') ?? '';
   const assignmentStatusesKey = options?.assignmentStatuses?.join('|') ?? '';
+  const programCoordinatorIdKey = String(options?.programCoordinatorId ?? '');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,6 +27,7 @@ export const useRequests = (
         const res = await requestApi.getRequests({
           pageNumber,
           pageSize,
+          programCoordinatorId: options?.programCoordinatorId,
           statuses: options?.statuses,
           assignmentStatuses: options?.assignmentStatuses,
         });
@@ -39,7 +42,7 @@ export const useRequests = (
     };
 
     fetchData();
-  }, [statusesKey, assignmentStatusesKey, pageNumber, pageSize, refreshKey]);
+  }, [statusesKey, assignmentStatusesKey, programCoordinatorIdKey, pageNumber, pageSize, refreshKey]);
 
   return { data, totalItems, loading };
 };

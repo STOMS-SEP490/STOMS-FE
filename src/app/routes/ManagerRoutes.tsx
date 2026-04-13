@@ -25,8 +25,6 @@ import UserManagement from '@/modules/user/pages/UsersManagement';
 import RolesManagement from '@/modules/role/pages/RolesManagement';
 import RequestLayout from '../layouts/RequestLayout';
 import RequestDetail from '@/modules/request/pages/RequestDetail';
-import ManagerRequestReadonlyLayout from '@/app/layouts/ManagerRequestReadonlyLayout';
-import RequestDetailManagerReadonly from '@/modules/request/pages/RequestDetailManagerReadonly';
 import MembersManagement from '@/modules/member/pages/MembersManagement';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import TaskReportsManagement from '@/modules/task-report/pages/TaskReportsManagement';
@@ -40,6 +38,12 @@ const RequestPlaceholder = () => (
 
 /** Cũ: /manager/requests/all/:id → /manager/requests/:id */
 const RedirectOldRequestsAllId = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/manager/requests/${id ?? ''}`} replace />;
+};
+
+/** Cũ: /manager/requests-view/:id (readonly) → /manager/requests/:id */
+const RedirectOldRequestsViewId = () => {
   const { id } = useParams<{ id: string }>();
   return <Navigate to={`/manager/requests/${id ?? ''}`} replace />;
 };
@@ -71,8 +75,7 @@ const ManagerRoutes = [
   { path: 'requests-all', element: <Navigate to="/manager/requests" replace /> },
   {
     path: 'requests-view/:id',
-    element: <ManagerRequestReadonlyLayout />,
-    children: [{ index: true, element: <RequestDetailManagerReadonly /> }],
+    element: <RedirectOldRequestsViewId />,
   },
   {
     path: 'requests',
