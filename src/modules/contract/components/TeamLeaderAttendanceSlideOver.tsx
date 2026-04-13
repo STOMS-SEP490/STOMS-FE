@@ -70,6 +70,46 @@ export default function TeamLeaderAttendanceSlideOver({
   /** Cùng mức z với panel Chi tiết phiên (tl/timetable) để lớp mờ nhất quán */
   overlayZClass = 'z-[80]',
 }: TeamLeaderAttendanceSlideOverProps) {
+  const currentMemberId = useMemo(() => {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as { memberId?: number | string };
+      const id = Number(parsed.memberId ?? 0);
+      return Number.isFinite(id) && id > 0 ? id : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const canSaveAttendance = useMemo(() => {
+    if (actionMode !== 'checkin' && actionMode !== 'checkout') return false;
+    const ownerId = attendanceByMemberIdForSession;
+    const uid = currentMemberId;
+    if (uid == null || uid <= 0) return false;
+    if (ownerId == null || ownerId <= 0) return false;
+    return ownerId === uid;
+  }, [actionMode, attendanceByMemberIdForSession, currentMemberId]);
+
+  const defaultSelectedIds = useMemo(() => {
+    if (actionMode === 'checkin') {
+      return (attendanceItems ?? []).filter((x) => x.CheckinAt != null).map((x) => x.MemberId);
+    }
+    if (actionMode === 'checkout') {
+      return (attendanceItems ?? []).filter((x) => x.CheckoutAt != null).map((x) => x.MemberId);
+    }
+    return [];
+  }, [attendanceItems, actionMode]);
+
+  const hasAttendanceSelectionChanged = useMemo(() => {
+    if (actionMode !== 'checkin' && actionMode !== 'checkout') return false;
+    const a = new Set(defaultSelectedIds);
+    const b = new Set(selectedMemberIds ?? []);
+    if (a.size !== b.size) return true;
+    for (const id of a) if (!b.has(id)) return true;
+    return false;
+  }, [actionMode, defaultSelectedIds, selectedMemberIds]);
+
   const filteredAttendanceItems = useMemo(() => {
     const keyword = memberSearch.trim().toLowerCase();
     if (!keyword) return attendanceItems;
@@ -190,7 +230,7 @@ export default function TeamLeaderAttendanceSlideOver({
                     type="button"
                     onClick={saveAttendance}
                     className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#2197C0] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#208AAE] disabled:opacity-50"
-                    disabled={isSubmitting || selectedMemberIds.length === 0}
+                    disabled={isSubmitting || !canSaveAttendance || !hasAttendanceSelectionChanged}
                   >
                     Lưu điểm danh
                   </button>
