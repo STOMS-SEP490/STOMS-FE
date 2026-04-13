@@ -31,7 +31,7 @@ export default function TopicsReadonlyPage() {
   const [data, setData] = useState<TopicListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
-  const pageSize = 6;
+  const pageSize = 10;
   const [totalItems, setTotalItems] = useState(0);
 
   const [searchParams, setSearchParams] = useSearchParams();

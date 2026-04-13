@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { AlertTriangle, Calendar, Hash, List, MapPin, X } from 'lucide-react';
+import { AlertTriangle, Calendar, Hash, List, MapPin, Pencil, Trash2, X } from 'lucide-react';
 import { Paperclip } from 'lucide-react';
-import { message, Spin } from 'antd';
+import { message, Modal, Spin } from 'antd';
+import { ExclamationCircleFilled } from '@ant-design/icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { getRequestType } from '@/shared/components/request/RequestCard';
 import {
@@ -103,6 +104,8 @@ export default function RequestDetailPC() {
   const canHuyYeuCau =
     requestStatusCode === REQUEST_STATUS.APPROVED ||
     requestStatusCode === REQUEST_STATUS.ASSIGNING;
+  const isPendingRequest =
+    requestStatusCode === REQUEST_STATUS.PENDING || statusInfo.label === 'Chờ duyệt';
   const isRejected = statusInfo.label === 'Từ chối';
   const sessionCount = sessions.length || request.sessionsRequired || 0;
   const resolvedDetailSession =
@@ -121,6 +124,39 @@ export default function RequestDetailPC() {
     if (!resolvedDetailSession) return;
     setCancelSessionReason('');
     setCancelSessionOpen(true);
+  };
+
+  const handleDeleteRequest = () => {
+    Modal.confirm({
+      title: 'Xác nhận xóa yêu cầu',
+      icon: <ExclamationCircleFilled className="text-rose-500" />,
+      okText: 'Xóa',
+      cancelText: 'Hủy',
+      okButtonProps: {
+        className: 'bg-rose-500 hover:bg-rose-600 border-0 text-white font-medium rounded-lg px-4 shadow-sm',
+        style: { color: '#FFFFFF' },
+      },
+      content: 'Yêu cầu sẽ bị xóa vĩnh viễn. Bạn có chắc không?',
+      onOk: async () => {
+        try {
+          await requestService.remove(request.requestId);
+          message.success('Xóa yêu cầu thành công.');
+          refreshRequestSidebar?.();
+          navigate('/pc/requests', { replace: true });
+        } catch (err: unknown) {
+          const e = err as Record<string, unknown>;
+          const apiMessage =
+            (typeof err === 'string' && err) ||
+            (e?.message as string) ||
+            (e?.detail as string) ||
+            (e?.title as string) ||
+            (e?.error as string) ||
+            (Array.isArray(e?.errors) && (e.errors[0] as string)) ||
+            ((e?.response as Record<string, unknown>)?.data as string);
+          message.error((apiMessage as string) ?? 'Xóa yêu cầu thất bại.');
+        }
+      },
+    });
   };
 
   const handleConfirmHuyYeuCau = async () => {
@@ -189,6 +225,32 @@ export default function RequestDetailPC() {
               <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}>
                 {statusInfo.label}
               </span>
+              {isPendingRequest ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/pc/requests/edit/${request.requestId}`)}
+                    className="h-8 w-8 p-0 shrink-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                    aria-label="Sửa yêu cầu"
+                    title="Sửa yêu cầu"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeleteRequest}
+                    className="h-8 w-8 p-0 shrink-0 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+                    aria-label="Xóa yêu cầu"
+                    title="Xóa yêu cầu"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              ) : null}
               {canHuyYeuCau ? (
                 <Button
                   type="button"

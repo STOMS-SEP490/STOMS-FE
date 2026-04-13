@@ -1347,7 +1347,7 @@ export default function ManagerDashboard() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu team statistics.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu thống kê nhóm.</p>
             )}
           </div>
         </div>

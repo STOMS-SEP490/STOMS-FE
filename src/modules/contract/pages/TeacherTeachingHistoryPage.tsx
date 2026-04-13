@@ -210,7 +210,7 @@ export default function TeacherTeachingHistoryPage() {
                   {row.original.location || '—'}
                 </div>
                 <div className="text-[11px] text-slate-500 truncate">
-                  {isOnline ? 'Online' : 'Offline'}
+                  {isOnline ? 'Trực tuyến' : 'Trực tiếp'}
                 </div>
               </div>
             </div>

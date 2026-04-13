@@ -168,6 +168,8 @@ export default function EventCalendar() {
   }, [detailSession, openPanel]);
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [currentView, setCurrentView] = useState<'timeGridDay' | 'timeGridWeek' | 'dayGridMonth'>('timeGridWeek');
+  const initialScrollTime = useMemo(() => dayjs().format('HH:mm:ss'), []);
+  const didInitialScrollRef = useRef(false);
   // Cột "Lịch sắp tới" mặc định đóng lại.
   const [isUpcomingCollapsed, setIsUpcomingCollapsed] = useState(true);
 
@@ -420,8 +422,9 @@ export default function EventCalendar() {
         headerToolbar={false}
         locales={[viLocale]}
         locale="vi"
-        slotMinTime="06:00:00"
-        slotMaxTime="23:00:00"
+        slotMinTime="00:00:00"
+        slotMaxTime="24:00:00"
+        scrollTime={initialScrollTime}
         slotDuration="00:30:00"
         slotLabelInterval="01:00:00"
         slotLabelFormat={{
@@ -437,6 +440,22 @@ export default function EventCalendar() {
           const nextView = arg.view.type as 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth';
           setCurrentDate((prev) => (prev.getTime() === nextDate.getTime() ? prev : nextDate));
           setCurrentView((prev) => (prev === nextView ? prev : nextView));
+
+          // Mở lịch ở mốc giờ hiện tại (giống Google Calendar).
+          if (!didInitialScrollRef.current && (nextView === 'timeGridDay' || nextView === 'timeGridWeek')) {
+            didInitialScrollRef.current = true;
+            const api = calendarRef.current?.getApi();
+            if (api) {
+              const now = dayjs().format('HH:mm:ss');
+              requestAnimationFrame(() => {
+                try {
+                  api.scrollToTime(now);
+                } catch {
+                  /* ignore */
+                }
+              });
+            }
+          }
         }}
         eventContent={renderEventContent}
         eventClick={handleEventClick}

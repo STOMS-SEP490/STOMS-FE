@@ -503,6 +503,26 @@ export const useRequestDetailManager = (params: {
     }
   }, [id, applySessionState, loadSessionsByRequestId]);
 
+  const reloadAssignmentsForSession = useCallback(async (sessionId: number) => {
+    if (!sessionId || sessionId <= 0) return;
+    try {
+      const detail = await sessionService.getById(sessionId);
+      const rowsReload = mapSessionAssignments(detail);
+      setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
+      setSelectedAssignmentIdsBySessionId((prev) => {
+        const selected = prev[sessionId] ?? [];
+        if (!selected.length) return prev;
+        const valid = new Set(rowsReload.filter((r) => canManagerReviewAssignmentRow(r)).map((r) => r.assignmentId));
+        return {
+          ...prev,
+          [sessionId]: selected.filter((id) => valid.has(id)),
+        };
+      });
+    } catch {
+      // keep current cached rows if reload fails
+    }
+  }, []);
+
   const handleApproveClick = useCallback(() => {
     if (!request || !id) return;
     setApproveOpen(true);
@@ -536,7 +556,7 @@ export const useRequestDetailManager = (params: {
     async (sessionId: number) => {
       const rows = assignmentsBySessionId[sessionId] ?? [];
       if (!rows.length) {
-        message.warning('Phiên này chưa có assignment nào để duyệt.');
+        message.warning('Phiên này chưa có phân công nào để duyệt.');
         return;
       }
       const selected = selectedAssignmentIdsBySessionId[sessionId] ?? [];
@@ -584,7 +604,7 @@ export const useRequestDetailManager = (params: {
         open: true,
         assignmentId: row.assignmentId,
         sessionId,
-        displayName: row.fullName || `Assignment #${row.assignmentId}`,
+        displayName: row.fullName || `Phân công #${row.assignmentId}`,
       });
       setRejectAssignmentReason('');
     },
@@ -597,13 +617,13 @@ export const useRequestDetailManager = (params: {
     }
     const trimmed = rejectAssignmentReason.trim();
     if (!trimmed) {
-      message.warning('Vui lòng nhập lý do từ chối assignment.');
+      message.warning('Vui lòng nhập lý do từ chối phân công.');
       return;
     }
     try {
       setRejectAssignmentLoading(true);
       await assignmentService.reject(rejectAssignmentState.assignmentId, trimmed);
-      message.success('Đã từ chối assignment.');
+      message.success('Đã từ chối phân công.');
       const detail = await sessionService.getById(rejectAssignmentState.sessionId);
       const rowsReload = mapSessionAssignments(detail);
       setAssignmentsBySessionId((prev) => ({ ...prev, [rejectAssignmentState.sessionId!]: rowsReload }));
@@ -619,7 +639,7 @@ export const useRequestDetailManager = (params: {
       await refreshDetail();
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Từ chối assignment thất bại.';
+      const msg = (err as any)?.message || 'Từ chối phân công thất bại.';
       message.error(msg);
     } finally {
       setRejectAssignmentLoading(false);
@@ -816,5 +836,6 @@ export const useRequestDetailManager = (params: {
     handleCancelRequestClick,
     handleConfirmReject,
     handleEquipmentSuccess,
+    reloadAssignmentsForSession,
   };
 };

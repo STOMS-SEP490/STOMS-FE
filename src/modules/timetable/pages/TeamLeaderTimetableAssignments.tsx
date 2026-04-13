@@ -269,7 +269,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                     <div className="text-[13px] font-semibold text-slate-900 truncate">
                       {row.original.location || '—'}
                     </div>
-                    <div className="text-[11px] text-slate-500 truncate">{online ? 'Online' : 'Offline'}</div>
+                    <div className="text-[11px] text-slate-500 truncate">{online ? 'Trực tuyến' : 'Trực tiếp'}</div>
                   </div>
                 </div>
               );
@@ -294,7 +294,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
         ];
       }
 
-      // Attendance tab: giữ nguyên layout cũ (có cột Check-in/Check-out).
+      // Attendance tab: giữ nguyên layout cũ (có cột giờ vào/giờ ra).
       return [
         {
           id: 'date',
@@ -338,7 +338,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
               <span className="font-medium text-slate-900">{row.original.location || '—'}</span>
               <span className="text-xs text-gray-500">
                 {' '}
-                • {(row.original.location ?? '').toLowerCase().includes('online') ? 'Online' : 'Offline'}
+                • {(row.original.location ?? '').toLowerCase().includes('online') ? 'Trực tuyến' : 'Trực tiếp'}
               </span>
             </div>
           ),
@@ -403,7 +403,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                 title="Bạn không còn là người điểm danh phiên này"
                               >
                                 <LogIn className="h-3 w-3" />
-                                Check-in: {formatDateTime(checkinAt ?? undefined)}
+                                Giờ vào: {formatDateTime(checkinAt ?? undefined)}
                               </button>
                             );
                           }
@@ -415,7 +415,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               title="Bạn không còn là người điểm danh phiên này"
                             >
                               <LogIn className="h-3 w-3" />
-                              Check-in
+                              Điểm danh vào
                             </button>
                           );
                         }
@@ -426,10 +426,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               onClick={() => void openPanel(row.original, 'checkin')}
                               className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
-                              title="Check-in member cho phiên này"
+                              title="Điểm danh vào cho phiên này"
                             >
                               <LogIn className="h-3 w-3" />
-                              Check-in
+                              Điểm danh vào
                             </button>
                           );
                         }
@@ -438,14 +438,14 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                           return (
                             <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 whitespace-nowrap">
                               <LogIn className="h-3 w-3" />
-                              Check-in: {formatDateTime(checkinAt ?? undefined)}
+                              Giờ vào: {formatDateTime(checkinAt ?? undefined)}
                             </span>
                           );
                         }
                         return (
-                          <button type="button" disabled className={checkinDisabledCls} title="Chưa có dữ liệu check-in">
+                          <button type="button" disabled className={checkinDisabledCls} title="Chưa có dữ liệu giờ vào">
                             <LogIn className="h-3 w-3" />
-                            Check-in
+                            Điểm danh vào
                           </button>
                         );
                       }
@@ -454,7 +454,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                       if (isOngoing || isCompletedSession) {
                         return checkinAt != null ? (
                           <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 whitespace-nowrap">
-                            Check-in: {formatDateTime(checkinAt ?? undefined)}
+                            Giờ vào: {formatDateTime(checkinAt ?? undefined)}
                           </span>
                         ) : (
                           dashNode
@@ -479,7 +479,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                 title="Bạn không còn là người điểm danh phiên này"
                               >
                                 <LogOut className="h-3 w-3" />
-                                Check-out: {formatDateTime(checkoutAt ?? undefined)}
+                                Giờ ra: {formatDateTime(checkoutAt ?? undefined)}
                               </button>
                             );
                           }
@@ -491,7 +491,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               title="Bạn không còn là người điểm danh phiên này"
                             >
                               <LogOut className="h-3 w-3" />
-                              Check-out
+                              Điểm danh ra
                             </button>
                           );
                         }
@@ -502,10 +502,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               onClick={() => void openPanel(row.original, 'checkout')}
                               className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
-                              title="Check-out member cho phiên này"
+                              title="Điểm danh ra cho phiên này"
                             >
                               <LogOut className="h-3 w-3" />
-                              Check-out
+                              Điểm danh ra
                             </button>
                           );
                         }
@@ -514,14 +514,14 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                           return (
                             <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 whitespace-nowrap">
                               <LogOut className="h-3 w-3" />
-                              Check-out: {formatDateTime(checkoutAt ?? undefined)}
+                              Giờ ra: {formatDateTime(checkoutAt ?? undefined)}
                             </span>
                           );
                         }
                         return (
-                          <button type="button" disabled className={checkoutDisabledCls} title="Chưa có dữ liệu check-out">
+                          <button type="button" disabled className={checkoutDisabledCls} title="Chưa có dữ liệu giờ ra">
                             <LogOut className="h-3 w-3" />
-                            Check-out
+                            Điểm danh ra
                           </button>
                         );
                       }
@@ -529,7 +529,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                       if (isOngoing || isCompletedSession) {
                         return checkoutAt != null ? (
                           <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 whitespace-nowrap">
-                            Check-out: {formatDateTime(checkoutAt ?? undefined)}
+                            Giờ ra: {formatDateTime(checkoutAt ?? undefined)}
                           </span>
                         ) : (
                           dashNode
@@ -651,7 +651,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                     )}
                     title="Xem lịch theo team"
                   >
-                    Team
+                    Nhóm
                   </button>
                   <button
                     type="button"

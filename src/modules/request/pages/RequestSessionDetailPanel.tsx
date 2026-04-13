@@ -11,7 +11,7 @@ import { Button } from '@/shared/components/ui/button';
 import EditReservationModal from '@/modules/reservation/pages/EditReservationModal';
 import type { RequestSessionSummary } from '../request';
 import sessionService from '../api/sessionApi';
-import type { SessionResponse } from '../session.types';
+import type { AssignmentResponse, SessionResponse } from '../session.types';
 import { Image } from 'antd';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 
@@ -20,6 +20,8 @@ export type SessionDetailProps = {
     reservationId?: number | null;
     teamAssigned?: boolean;
   };
+  /** Tăng giá trị để ép refetch GET /sessions/:id (vd sau khi duyệt/từ chối phân công) */
+  reloadKey?: number;
   requestId: number;
   requestCode: string;
   /** Đội đã gắn — dùng với TeamSessions từ GET /sessions/:id */
@@ -32,10 +34,15 @@ export type SessionDetailProps = {
   canEditReservation?: boolean;
   /** Gọi sau khi sửa đặt trước thành công (vd. đồng bộ lại session / yêu cầu). */
   onReservationUpdated?: () => void | Promise<void>;
+  reviewMode?: boolean;
+  onApproveAssignment?: (assignment: AssignmentResponse) => void | Promise<void>;
+  onRejectAssignment?: (assignment: AssignmentResponse) => void | Promise<void>;
+  isApprovingAssignment?: (assignmentId: number) => boolean;
 };
 
 export default function RequestSessionDetailPanel({
   session,
+  reloadKey = 0,
   requestCode,
   assignedTeamIds = [],
   showTeamSummary: showTeamSummaryProp = true,
@@ -43,6 +50,10 @@ export default function RequestSessionDetailPanel({
   sectionMode = 'all',
   canEditReservation = true,
   onReservationUpdated,
+  reviewMode = false,
+  onApproveAssignment,
+  onRejectAssignment,
+  isApprovingAssignment,
 }: SessionDetailProps) {
   const renderInfoCard = sectionMode === 'all' || sectionMode === 'info';
   const renderEquipmentCard = (sectionMode === 'all' || sectionMode === 'equipment') && showReservedEquipment;
@@ -92,7 +103,7 @@ export default function RequestSessionDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [session.sessionId, shouldFetchSessionDetail]);
+  }, [session.sessionId, shouldFetchSessionDetail, reloadKey]);
 
   const mergedSession = useMemo(() => {
     return sessionDetail;
@@ -292,6 +303,10 @@ export default function RequestSessionDetailPanel({
                 ? (sessionDetail.Assignments ?? []).filter((a) => a.AssignmentId > 0)
                 : undefined
             }
+            reviewMode={reviewMode}
+            onApproveAssignment={onApproveAssignment}
+            onRejectAssignment={onRejectAssignment}
+            isApprovingAssignment={isApprovingAssignment}
           />
         </div>
       )}

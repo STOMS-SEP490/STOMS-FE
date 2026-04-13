@@ -26,7 +26,7 @@ export default function ResetPasswordModal({ open, onClose, user, onSuccess }: P
         email: user.email,
         newPassword: DEFAULT_RESET_PASSWORD,
       });
-      message.success('Đã reset mật khẩu thành công');
+      message.success('Đã đặt lại mật khẩu thành công');
       onClose();
       onSuccess?.();
     } catch (err) {
@@ -46,7 +46,7 @@ export default function ResetPasswordModal({ open, onClose, user, onSuccess }: P
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Reset mật khẩu"
+      title="Đặt lại mật khẩu"
       description={`Tài khoản: ${user.email}`}
       className="max-w-md"
     >
@@ -65,7 +65,7 @@ export default function ResetPasswordModal({ open, onClose, user, onSuccess }: P
             onClick={() => void handleConfirm()}
             disabled={loading}
           >
-            {loading ? 'Đang xử lý...' : 'Xác nhận reset'}
+            {loading ? 'Đang xử lý...' : 'Xác nhận đặt lại'}
           </Button>
         </div>
       </div>

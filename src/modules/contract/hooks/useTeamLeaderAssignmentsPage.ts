@@ -368,6 +368,9 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   );
   const autoAssignCounterRef = useRef(0);
   const completionEdgeByRequestIdRef = useRef<Record<number, boolean>>({});
+  const requestSessionsInFlightRef = useRef<
+    Record<string, Promise<Awaited<ReturnType<typeof sessionApi.getFilter>>>>
+  >({});
 
   useEffect(() => {
     return () => {
@@ -382,7 +385,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   const [requestSessionsLoading, setRequestSessionsLoading] = useState(false);
 
   const loadInitial = useCallback(async (tab: TeamLeaderAssignmentsTab) => {
-    let assigningTeamId: number | null = null;
     try {
       setLoading(true);
       const rawUser = JSON.parse(localStorage.getItem('user') || '{}') as { memberId?: number };
@@ -407,17 +409,18 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         setRequests(validRequests);
         if (validRequests.length) setSelectedRequestId(validRequests[0].requestId);
       } else {
-        /** Tab assigning: danh sách do effect `fetchAssigningRequestsForTeam` tải theo filter API. */
-        assigningTeamId = teamId;
-        setRequests([]);
+        /** Tab assigning: giữ dữ liệu hiện có, effect fetch bên dưới sẽ đồng bộ lại theo filter API. */
       }
     } catch (err) {
       console.error(err);
       message.error('Không tải được dữ liệu phân công cho team.');
     } finally {
-      if (tab !== 'assigning' || assigningTeamId == null) {
-        setLoading(false);
-      }
+      /**
+       * Luôn hạ loading ở bước khởi tạo để tránh kẹt spinner vô hạn
+       * khi effect fetch danh sách assigning bị skip/cancel do timing.
+       * Effect phía dưới vẫn có thể tự bật loading lại khi gọi API lấy danh sách.
+       */
+      setLoading(false);
     }
   }, []);
 
@@ -764,10 +767,14 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
     let cancelled = false;
     setRequestSessionsLoading(true);
+    const requestSessionsKey =
+      activeTab === 'assigning'
+        ? `assigning:${selectedRequestId}:${currentTeamId ?? 0}`
+        : `rejected:${selectedRequestId}`;
 
     const syncRequestSessionsByTeam = async () => {
       try {
-        const response = await sessionApi.getFilter(
+        const params =
           activeTab === 'assigning'
             ? {
                 RequestId: selectedRequestId,
@@ -779,8 +786,12 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
                 RequestId: selectedRequestId,
                 PageNumber: 1,
                 PageSize: 500,
-              },
-        );
+              };
+        const responsePromise =
+          requestSessionsInFlightRef.current[requestSessionsKey] ??
+          sessionApi.getFilter(params);
+        requestSessionsInFlightRef.current[requestSessionsKey] = responsePromise;
+        const response = await responsePromise;
         const rawItems = response.Items ?? [];
         const mapped = rawItems
           .map((session) => mapFilteredSessionLite(session, selectedRequestId))
@@ -815,6 +826,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       } catch (err) {
         console.error(err);
       } finally {
+        delete requestSessionsInFlightRef.current[requestSessionsKey];
         if (!cancelled) {
           setRequestSessionsLoading(false);
         }
