@@ -99,7 +99,9 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
 
   const refreshAttendanceItems = useCallback(async () => {
     if (!activeSession) return;
-    const attendanceByMemberId = attendanceByMemberIdForSession ?? null;
+    // Team leader luôn cần thấy toàn bộ member để có thể ủy quyền lại.
+    // Chỉ lọc theo attendanceByMemberId ở chế độ check-in / check-out.
+    const attendanceByMemberId = actionMode === 'delegate' ? null : (attendanceByMemberIdForSession ?? null);
     const res = await attendanceApi.getFilter({
       sessionId: activeSession.sessionId,
       attendanceByMemberId: attendanceByMemberId ?? undefined,
@@ -112,7 +114,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
     setAttendanceItems(nextItems);
     setMembersById(nextMembers);
     return { items: nextItems, membersById: nextMembers };
-  }, [activeSession, attendanceByMemberIdForSession]);
+  }, [activeSession, actionMode, attendanceByMemberIdForSession]);
 
   const openPanel = useCallback(
     async (row: TeamLeaderTimetableAssignmentRow, mode: Exclude<AttendanceActionMode, null>) => {
@@ -146,7 +148,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
       }
 
       const attendanceByMemberId = await resolveAttendanceOwner(detail);
-      const loaded = await loadAttendanceItems(row.sessionId, attendanceByMemberId);
+      const loaded = await loadAttendanceItems(row.sessionId, mode === 'delegate' ? null : attendanceByMemberId);
       setAttendanceItems(loaded.items);
       setMembersById(loaded.membersById);
 
