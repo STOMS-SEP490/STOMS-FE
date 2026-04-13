@@ -613,7 +613,7 @@ export default function TeacherTaskReportPage() {
     if (!editingId) return false;
     const amountNum = Number((newExpense.amount || '').replace(/\D/g, ''));
     if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return false; }
-    if (!newExpense.description.trim()) { message.warning('Vui lòng nhập mô tả cho chi phí.'); return false; }
+    if (!newExpense.description.trim()) { message.warning('Vui lòng nhập mô tả cho khoản chi.'); return false; }
     if (!newExpenseFile) { message.warning('Vui lòng chọn ảnh chứng từ chuyển khoản.'); return false; }
     setSavingExpense(true);
     try {
