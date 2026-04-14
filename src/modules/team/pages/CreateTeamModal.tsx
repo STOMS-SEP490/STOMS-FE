@@ -9,6 +9,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 type Props = {
   open: boolean;
@@ -82,11 +83,7 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
       onClose();
       onCreated?.();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : null;
-      message.error(msg || 'Tạo nhóm thất bại');
+      message.error(getErrorMessage(err) || 'Tạo nhóm thất bại');
     } finally {
       setLoading(false);
     }
