@@ -6,7 +6,8 @@ import { taskReportApi } from '../api/taskReportApi';
 import type { TaskReport } from '../taskReport';
 import teachingHistoryApi from '@/modules/contract/api/teachingHistoryApi';
 import type { TeachingHistoryItem } from '@/modules/contract/teachingHistory';
-import { useRequests } from '@/modules/request/hooks/useRequests';
+import requestApi from '@/modules/request/api/requestApi';
+import type { RequestListItem } from '@/modules/request/request';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { DatePicker, message, Spin } from 'antd';
@@ -30,13 +31,6 @@ import HoverSearch from '@/shared/components/ui/search';
 import RequestCard from '@/shared/components/request/RequestCard';
 import { expenseApi } from '@/modules/transaction/api/expenseApi';
 import { getExpenseStatusInfo, EXPENSE_STATUS } from '@/constants/status';
-
-const COMPLETED_STATUSES = ['completed', 'hoàn thành', 'done', 'finished'];
-
-function isSessionCompleted(item: TeachingHistoryItem): boolean {
-  const s = (item.status || '').toLowerCase().trim();
-  return COMPLETED_STATUSES.some((k) => s.includes(k));
-}
 
 function getApiErrorMessage(err: unknown): string | null {
   if (!err) return null;
@@ -129,12 +123,12 @@ export default function TeacherTaskReportPage() {
   const [taskReports, setTaskReports] = useState<TaskReport[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { data: requestList } = useRequests(1, 500, 0);
+  const [requestById, setRequestById] = useState<Record<number, RequestListItem>>({});
   const requestMap = useMemo(() => {
-    const m = new Map<number, (typeof requestList)[0]>();
-    for (const r of requestList) m.set(r.requestId, r);
+    const m = new Map<number, RequestListItem>();
+    for (const [k, v] of Object.entries(requestById)) m.set(Number(k), v);
     return m;
-  }, [requestList]);
+  }, [requestById]);
 
   const [filterFrom, setFilterFrom] = useState<Dayjs | null>(null);
   const [filterTo, setFilterTo] = useState<Dayjs | null>(null);
@@ -183,9 +177,8 @@ export default function TeacherTaskReportPage() {
   // ─── Derived data ───
 
   const requestGroupsRaw: RequestGroup[] = useMemo(() => {
-    const completed = sessions.filter(isSessionCompleted);
     const byRequest = new Map<number, TeachingHistoryItem[]>();
-    for (const s of completed) {
+    for (const s of sessions) {
       const rid = s.request?.requestId ?? 0;
       if (!rid) continue;
       if (!byRequest.has(rid)) byRequest.set(rid, []);
@@ -276,6 +269,56 @@ export default function TeacherTaskReportPage() {
     };
     load();
   }, [memberId]);
+
+  // Fetch request details on-demand for requestIds appearing in sessions.
+  useEffect(() => {
+    if (!sessions.length) return;
+
+    const requestIds = Array.from(
+      new Set(
+        sessions
+          .map((s) => s.request?.requestId ?? 0)
+          .filter((id): id is number => Number(id) > 0),
+      ),
+    );
+    if (!requestIds.length) return;
+
+    const missingIds = requestIds.filter((id) => requestById[id] == null);
+    if (!missingIds.length) return;
+
+    let cancelled = false;
+
+    const fetchMissing = async () => {
+      try {
+        const results = await Promise.all(
+          missingIds.map(async (id) => {
+            try {
+              const r = await requestApi.getById(id); // GET /api/requests/{id}
+              return { id, r } as const;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        if (cancelled) return;
+
+        const patch: Record<number, RequestListItem> = {};
+        for (const row of results) {
+          if (!row) continue;
+          patch[row.id] = row.r;
+        }
+        if (Object.keys(patch).length) {
+          setRequestById((prev) => ({ ...prev, ...patch }));
+        }
+      } catch {
+        // ignore: UI can still fall back to request info from sessions
+      }
+    };
+
+    fetchMissing();
+
+    return () => { cancelled = true; };
+  }, [sessions, requestById]);
 
   const qRequestId = searchParams.get('requestId');
   const qSessionId = searchParams.get('sessionId');
@@ -721,7 +764,7 @@ export default function TeacherTaskReportPage() {
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>
           <p className="text-xs text-gray-500">
-            Ghi báo cáo cho các phiên đã hoàn thành. Chọn yêu cầu bên trái rồi bấm vào phiên để xem chi tiết.
+            Ghi báo cáo cho các phiên. Chọn yêu cầu bên trái rồi bấm vào phiên để xem chi tiết.
           </p>
         </div>
         <div className="flex min-w-0 flex-col items-stretch gap-2 min-[900px]:items-end">
@@ -769,7 +812,7 @@ export default function TeacherTaskReportPage() {
             <div className="flex justify-between items-center p-4 border-b border-slate-200">
               <div className="min-w-0">
                 <h3 className="font-semibold text-base text-black truncate">Danh sách yêu cầu</h3>
-                <p className="text-[11px] text-slate-500">{requestGroups.length} yêu cầu có phiên đã hoàn thành</p>
+                <p className="text-[11px] text-slate-500">{requestGroups.length} yêu cầu</p>
               </div>
               <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1 shrink-0">
                 {requestGroups.length}
@@ -782,7 +825,7 @@ export default function TeacherTaskReportPage() {
                 <div className="py-8 text-center text-xs text-gray-500">
                   {filterFrom || filterTo || search
                     ? 'Không có yêu cầu nào khớp bộ lọc.'
-                    : 'Chưa có phiên nào đã hoàn thành để ghi báo cáo.'}
+                    : 'Chưa có phiên nào để ghi báo cáo.'}
                 </div>
               ) : (
                 requestGroups.map((g) => {
@@ -802,7 +845,7 @@ export default function TeacherTaskReportPage() {
                         setSelectedRequestId(g.requestId);
                         setActiveTarget(null);
                       }}
-                      hintText={`${g.sessions.length} phiên hoàn thành`}
+                      hintText={`${g.sessions.length} phiên`}
                     />
                   );
                 })
@@ -830,14 +873,9 @@ export default function TeacherTaskReportPage() {
               <>
                 {/* Request header */}
                 <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-200">
-                  <div className="flex justify-between items-start">
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-semibold text-black truncate">{selectedGroup.requestName}</h3>
-                      <p className="text-xs text-slate-500 mt-1">{selectedGroup.requestCode} · {selectedGroup.sessions.length} phiên hoàn thành</p>
-                    </div>
-                    <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] shrink-0">
-                      Đã hoàn thành
-                    </Badge>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold text-black truncate">{selectedGroup.requestName}</h3>
+                    <p className="text-xs text-slate-500 mt-1">{selectedGroup.requestCode} · {selectedGroup.sessions.length} phiên</p>
                   </div>
                 </div>
 

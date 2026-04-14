@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, RotateCcw } from 'lucide-react';
-import { Drawer, Input, Modal, message, Spin } from 'antd';
+import { CalendarDays, ChevronDown, ChevronUp, Clock, Eye, FileText, ReceiptText, RotateCcw } from 'lucide-react';
+import { Drawer, Image, Input, Modal, message, Spin, DatePicker } from 'antd';
 import { useSearchParams } from 'react-router-dom';
+import dayjs from 'dayjs';
 
-import { DataTable } from '@/shared/components/common/DataTable';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
+import RequestCard from '@/shared/components/request/RequestCard';
 import {
   Select,
   SelectContent,
@@ -29,25 +29,23 @@ import { EXPENSE_STATUS, getExpenseStatusInfo } from '@/constants/status';
 
 type RequestSessionSummary = NonNullable<RequestListItem['sessions']>[number];
 
-export default function TaskReportsManagement() {
-  const [pageNumber, setPageNumber] = useState(1);
-  const pageSize = 10;
+/** Chỉ hiện yêu cầu Đã công bố (5) và Hoàn thành (6) — khớp API filter. */
+const MANAGER_TASKS_REQUEST_LIST_STATUSES = ['PUBLISHED', 'COMPLETED'] as const;
 
+const TASK_REPORTS_PAGE_SIZE = 10;
+
+export default function TaskReportsManagement() {
   const [filterRequestId, setFilterRequestId] = useState<string>('all');
-  const [filterSessionId, setFilterSessionId] = useState<string>('all');
   const [filterTitle, setFilterTitle] = useState<string>('');
-  const [requestKeyword, setRequestKeyword] = useState<string>('');
-  const [requestStartAt, setRequestStartAt] = useState<string>('');
-  const [requestEndAt, setRequestEndAt] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
   const [onlyPendingExpense, setOnlyPendingExpense] = useState(false);
+  const [activeTarget, setActiveTarget] = useState<'request' | number | null>(null);
 
   const [openView, setOpenView] = useState(false);
   const [viewTaskReport, setViewTaskReport] = useState<TaskReport | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
 
-  // Duyệt khoản chi (khi expense đang ở trạng thái Đang chờ)
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [approveExpenseId, setApproveExpenseId] = useState<number | null>(null);
   const [selectedWalletId, setSelectedWalletId] = useState<string>('');
@@ -136,29 +134,23 @@ export default function TaskReportsManagement() {
 
   const selectedRequestIdNum =
     filterRequestId !== 'all' ? Number(filterRequestId) : null;
-  const selectedSessionIdNum =
-    filterSessionId !== 'all' ? Number(filterSessionId) : null;
+  const selectedSessionIdNum = typeof activeTarget === 'number' ? activeTarget : null;
+  const isRequestLevelTarget = activeTarget === 'request';
 
   const resetFilters = () => {
     setFilterRequestId('all');
-    setFilterSessionId('all');
+    setActiveTarget(null);
     setFilterTitle('');
-    setRequestKeyword('');
-    setRequestStartAt('');
-    setRequestEndAt('');
     setFilterStartDate('');
     setFilterEndDate('');
     setOnlyPendingExpense(false);
-    setPageNumber(1);
   };
 
   const REQUEST_PAGE_SIZE = 10;
   const requestScrollRef = useRef<HTMLDivElement | null>(null);
   const requestLoadMoreRef = useRef<HTMLDivElement | null>(null);
-  const requestCardRef = useRef<HTMLDivElement | null>(null);
-  const REQUEST_CARD_HEIGHT_PX = 635;
-  const filterRowRef = useRef<HTMLDivElement | null>(null);
-  const [requestCardOffsetTop, setRequestCardOffsetTop] = useState<number>(0);
+  const taskReportsScrollRef = useRef<HTMLDivElement | null>(null);
+  const taskReportsLoadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const {
     data: requestsInfinite,
@@ -168,10 +160,19 @@ export default function TaskReportsManagement() {
     hasNextPage: hasMoreRequests,
     error: requestsError,
   } = useInfiniteQuery({
-    queryKey: ['requests', 'task-reports-management', REQUEST_PAGE_SIZE],
+    queryKey: [
+      'requests',
+      'task-reports-management',
+      REQUEST_PAGE_SIZE,
+      ...MANAGER_TASKS_REQUEST_LIST_STATUSES,
+    ],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
-      requestApi.getRequests({ pageNumber: Number(pageParam), pageSize: REQUEST_PAGE_SIZE }),
+      requestApi.getRequests({
+        pageNumber: Number(pageParam),
+        pageSize: REQUEST_PAGE_SIZE,
+        statuses: [...MANAGER_TASKS_REQUEST_LIST_STATUSES],
+      }),
     getNextPageParam: (lastPage) => {
       const cur = Number(lastPage.pageNumber ?? 1);
       const total = Number(lastPage.totalPages ?? 1);
@@ -205,65 +206,14 @@ export default function TaskReportsManagement() {
     return () => observer.disconnect();
   }, [fetchNextRequestsPage, hasMoreRequests, requestsFetchingMore]);
 
-  // Canh top của khung "Danh sách yêu cầu" ngang với bảng (không ngang với hàng filter).
-  useEffect(() => {
-    const filterEl = filterRowRef.current;
-    if (!filterEl) return;
-
-    // Tinh chỉnh vị trí card bên trái so với bảng bên phải (px).
-    // Giảm số này nếu card đang bị thấp; tăng nếu card đang bị cao.
-    const OFFSET_ADJUST_PX = 12;
-
-    const apply = () => {
-      const h = filterEl.getBoundingClientRect().height;
-      const next = Math.max(0, Math.floor(h + OFFSET_ADJUST_PX));
-      setRequestCardOffsetTop(next);
-    };
-
-    apply();
-    const ro = new ResizeObserver(() => apply());
-    ro.observe(filterEl);
-    window.addEventListener('resize', apply);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', apply);
-    };
-  }, []);
   const requestNameById = useMemo(() => {
     const map = new Map<number, string>();
     for (const r of requests) map.set(r.requestId, r.requestName);
     return map;
   }, [requests]);
 
-  const requestListFiltered = useMemo(() => {
-    const q = requestKeyword.trim().toLowerCase();
-    const startBound = requestStartAt
-      ? new Date(`${requestStartAt}T00:00:00`)
-      : null;
-    const endBound = requestEndAt
-      ? new Date(`${requestEndAt}T23:59:59.999`)
-      : null;
-
-    return requests.filter((r) => {
-      const name = String(r.requestName ?? '').toLowerCase();
-      const code = String(r.requestCode ?? '').toLowerCase();
-      if (q && !name.includes(q) && !code.includes(q)) return false;
-
-      if (startBound || endBound) {
-        const requestStart = r.startDate ? new Date(r.startDate) : null;
-        if (!requestStart || Number.isNaN(requestStart.getTime())) return false;
-
-        if (startBound && requestStart < startBound) return false;
-        if (endBound && requestStart > endBound) return false;
-      }
-
-      return true;
-    });
-  }, [requests, requestKeyword, requestStartAt, requestEndAt]);
-
   const {
     data: selectedRequestDetail,
-    isLoading: requestDetailLoading,
     error: requestDetailError,
   } = useQuery({
     queryKey: ['request-detail', selectedRequestIdNum],
@@ -289,59 +239,113 @@ export default function TaskReportsManagement() {
     return no != null && Number.isFinite(no) && no > 0 ? no : null;
   }, [viewRequestDetail?.sessions, viewTaskReport?.sessionId]);
 
-  const sessionLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const s of sessionsForSelectedRequest) {
-      map.set(
-        s.sessionId,
-        `Buổi ${s.sessionNo}${s.status ? ` (${s.status})` : ''}`
-      );
-    }
-    return map;
-  }, [sessionsForSelectedRequest]);
-
   const {
-    data: taskReportsPaged,
+    data: taskReportsInfinite,
     isLoading: taskReportsLoading,
+    isFetchingNextPage: taskReportsFetchingMore,
+    fetchNextPage: fetchNextTaskReportsPage,
+    hasNextPage: hasMoreTaskReports,
     error: taskReportsError,
-  } = useQuery({
+  } = useInfiniteQuery({
     queryKey: [
       'task-reports',
-      pageNumber,
-      pageSize,
+      'task-reports-management',
+      TASK_REPORTS_PAGE_SIZE,
       selectedRequestIdNum ?? 'all',
       selectedSessionIdNum ?? 'all',
       filterTitle.trim() || 'all',
       filterStartDate || 'all',
       filterEndDate || 'all',
     ],
-    queryFn: () =>
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
       taskReportApi.getAll({
-        pageNumber,
-        pageSize,
+        pageNumber: Number(pageParam),
+        pageSize: TASK_REPORTS_PAGE_SIZE,
         requestId: selectedRequestIdNum ?? undefined,
         sessionId: selectedSessionIdNum ?? undefined,
         title: filterTitle.trim() || undefined,
         start: filterStartDate ? `${filterStartDate}T00:00:00` : undefined,
         end: filterEndDate ? `${filterEndDate}T23:59:59.999` : undefined,
       }),
+    getNextPageParam: (lastPage) => {
+      const cur = Number(lastPage.pageNumber ?? 1);
+      const total = Number(lastPage.totalPages ?? 1);
+      if (!Number.isFinite(cur) || !Number.isFinite(total)) return undefined;
+      return cur < total ? cur + 1 : undefined;
+    },
   });
 
-  const taskReports = useMemo(
-    () => taskReportsPaged?.items ?? [],
-    [taskReportsPaged]
-  );
+  const taskReports = useMemo(() => {
+    const pages = taskReportsInfinite?.pages ?? [];
+    return pages.flatMap((p) => p.items ?? []);
+  }, [taskReportsInfinite]);
+
+  const taskReportsTotalItems = taskReportsInfinite?.pages?.[0]?.totalItems ?? 0;
 
   const filteredTaskReports = useMemo(() => {
     if (!onlyPendingExpense) return taskReports;
     return taskReports.filter((report) =>
       (report.expenses ?? []).some(
         (e) => getExpenseStatusInfo(e.status).code === EXPENSE_STATUS.PENDING,
-      )
+      ),
     );
   }, [taskReports, onlyPendingExpense]);
 
-  const totalItems = taskReportsPaged?.totalItems ?? 0;
+  const reportsForActiveTarget = useMemo(() => {
+    if (!selectedRequestIdNum || !activeTarget) return [];
+    return filteredTaskReports.filter((r) => {
+      if (r.requestId !== selectedRequestIdNum) return false;
+      if (isRequestLevelTarget) return r.sessionId == null || r.sessionId === 0;
+      return r.sessionId === selectedSessionIdNum;
+    });
+  }, [
+    activeTarget,
+    filteredTaskReports,
+    isRequestLevelTarget,
+    selectedRequestIdNum,
+    selectedSessionIdNum,
+  ]);
+
+  const reportCardsForActiveTarget = useMemo(
+    () =>
+      [...reportsForActiveTarget].sort((a, b) => {
+        const t1 = a.startAt ? new Date(a.startAt).getTime() : 0;
+        const t2 = b.startAt ? new Date(b.startAt).getTime() : 0;
+        return t1 - t2;
+      }),
+    [reportsForActiveTarget],
+  );
+
+  const reportCardsForAllRequests = useMemo(
+    () =>
+      [...filteredTaskReports].sort((a, b) => {
+        const t1 = a.startAt ? new Date(a.startAt).getTime() : 0;
+        const t2 = b.startAt ? new Date(b.startAt).getTime() : 0;
+        return t1 - t2;
+      }),
+    [filteredTaskReports],
+  );
+
+  useEffect(() => {
+    const root = taskReportsScrollRef.current;
+    const target = taskReportsLoadMoreRef.current;
+    if (!root || !target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (!first?.isIntersecting) return;
+        if (!hasMoreTaskReports) return;
+        if (taskReportsFetchingMore) return;
+        void fetchNextTaskReportsPage();
+      },
+      { root, rootMargin: '120px', threshold: 0.01 },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [fetchNextTaskReportsPage, hasMoreTaskReports, taskReportsFetchingMore]);
 
   const lastErrorRef = useRef<string | null>(null);
   useEffect(() => {
@@ -353,92 +357,6 @@ export default function TaskReportsManagement() {
     message.error(msg);
   }, [requestsError, requestDetailError, taskReportsError]);
 
-  const columns: ColumnDef<TaskReport>[] = [
-    { accessorKey: 'taskReportId', header: 'Mã task' },
-    {
-      accessorKey: 'title',
-      header: 'Tiêu đề',
-      cell: ({ row }) => (
-        <div className="max-w-[360px] truncate font-semibold text-gray-900" title={row.original.title}>
-          {row.original.title}
-        </div>
-      ),
-    },
-    {
-      id: 'request',
-      header: 'Yêu cầu',
-      cell: ({ row }) => {
-        const name = requestNameById.get(row.original.requestId);
-        return (
-          <div
-            className="max-w-[320px] truncate"
-            title={name ?? String(row.original.requestId)}
-          >
-            {name ?? `Request #${row.original.requestId}`}
-          </div>
-        );
-      },
-    },
-    {
-      id: 'session',
-      header: 'Buổi',
-      cell: ({ row }) => {
-        const sid = row.original.sessionId;
-        if (!sid) return '—';
-        return sessionLabelById.get(sid) ?? `Buổi ${sid}`;
-      },
-    },
-    {
-      id: 'time',
-      header: 'Thời gian',
-      cell: ({ row }) => (
-        <div className="text-xs text-gray-600">
-          <div>
-            {row.original.startAt
-              ? new Date(row.original.startAt).toLocaleString()
-              : '—'}
-          </div>
-          <div>
-            {row.original.endAt
-              ? new Date(row.original.endAt).toLocaleString()
-              : '—'}
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'Thao tác',
-      enableSorting: false,
-      cell: ({ row }) => (
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={async () => {
-              setOpenView(true);
-              setViewTaskReport(null);
-              setViewLoading(true);
-              try {
-                const detail = await taskReportApi.getById(row.original.taskReportId);
-                setViewTaskReport(detail);
-              } catch {
-                message.error('Không tải được chi tiết báo cáo');
-                setOpenView(false);
-              } finally {
-                setViewLoading(false);
-              }
-            }}
-            title="Xem chi tiết"
-          >
-            <Eye size={16} className="text-gray-800 cursor-pointer" />
-          </button>
-        </div>
-      ),
-    },
-  ];
-
-  const canPickSession = filterRequestId !== 'all';
-
   const formatDateTime = (value: string | null | undefined) => {
     if (!value) return '—';
     const d = new Date(value);
@@ -446,217 +364,468 @@ export default function TaskReportsManagement() {
     return d.toLocaleString('vi-VN');
   };
 
+  const openTaskDetail = useCallback(async (taskReportId: number) => {
+    setOpenView(true);
+    setViewTaskReport(null);
+    setViewLoading(true);
+    try {
+      const detail = await taskReportApi.getById(taskReportId);
+      setViewTaskReport(detail);
+    } catch {
+      message.error('Không tải được chi tiết báo cáo');
+      setOpenView(false);
+    } finally {
+      setViewLoading(false);
+    }
+  }, []);
+
+  const pendingCountForReport = (r: TaskReport) =>
+    (r.expenses ?? []).filter(
+      (e) => getExpenseStatusInfo(e.status).code === EXPENSE_STATUS.PENDING,
+    ).length;
+
+  const renderReportCards = (reports: TaskReport[], options?: { showRequestName?: boolean }) => (
+    <div className="overflow-hidden rounded-xl bg-slate-100/70 shadow-inner">
+      {reports.map((r) => {
+        const pendingN = pendingCountForReport(r);
+        const expenses = r.expenses ?? [];
+        const totalExpenseAmount = expenses.reduce(
+          (sum, expense) => sum + Number(expense.amount ?? 0),
+          0,
+        );
+        const reporterName = r.member?.fullName?.trim() || 'Chưa rõ người báo cáo';
+        const requestName =
+          requestNameById.get(r.requestId) ?? `Request #${r.requestId}`;
+
+        return (
+          <button
+            key={r.taskReportId}
+            type="button"
+            onClick={() => void openTaskDetail(r.taskReportId)}
+            className="w-full border-b border-slate-200/80 bg-white p-3.5 text-left transition hover:bg-slate-50 last:border-b-0"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-slate-900" title={r.title}>
+                    {r.title || 'Báo cáo công việc'}
+                  </div>
+                  <div className="truncate text-[11px] text-slate-500">{reporterName}</div>
+                  {options?.showRequestName ? (
+                    <div className="mt-0.5 truncate text-[11px] font-medium text-sky-700">
+                      {requestName}
+                    </div>
+                  ) : null}
+                </div>
+
+                {r.description?.trim() ? (
+                  <div className="mt-1 line-clamp-1 text-[12px] leading-5 text-slate-600">
+                    <span className="text-slate-500">Mô tả: </span>
+                    {r.description.trim()}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                {pendingN > 0 ? (
+                  <Badge className="bg-amber-100 text-[10px] font-medium text-amber-800">
+                    {pendingN} chờ duyệt
+                  </Badge>
+                ) : null}
+                <Eye className="text-slate-400" size={18} />
+              </div>
+            </div>
+
+            <div className="mt-2.5 grid grid-cols-1 gap-2 text-[11px] min-[980px]:grid-cols-3">
+              <div className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1.5 text-sky-800">
+                <CalendarDays size={12} className="text-sky-600" />
+                <span>
+                  {r.startAt && r.endAt
+                    ? `${dayjs(r.startAt).format('DD/MM HH:mm')} - ${dayjs(r.endAt).format('DD/MM HH:mm')}`
+                    : 'Chưa có thời gian làm việc'}
+                </span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 py-1.5 text-violet-800">
+                <ReceiptText size={12} className="text-violet-600" />
+                <span>{expenses.length} khoản chi</span>
+              </div>
+              <div className="inline-flex items-center justify-between gap-2 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-emerald-900">
+                <span className="text-[11px] font-medium text-emerald-700">Tổng chi</span>
+                <span className="text-base font-bold leading-none tracking-tight">
+                  {totalExpenseAmount.toLocaleString('vi-VN')} đ
+                </span>
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const toggleTarget = (target: 'request' | number) => {
+    setActiveTarget((prev) => (prev === target ? null : target));
+  };
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
-        <div>
-          <h2 className="text-xl font-semibold text-black">
-            Quản lý báo cáo công việc
-          </h2>
+    <div
+      className="flex flex-col gap-4 overflow-hidden bg-slate-50 p-6"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
+      <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-black">Quản lý báo cáo công việc</h2>
           <p className="text-xs text-gray-500">
-            Xem danh sách báo cáo công việc và lọc theo yêu cầu / buổi
+            Duyệt chi phí, xem chi tiết báo cáo — lọc theo yêu cầu, buổi và thời gian. Giao diện đồng bộ với trang giáo viên.
           </p>
         </div>
-
-        <Badge className="bg-blue-50 text-blue-700">
-          {taskReportsLoading ? 'Đang tải...' : `${totalItems} task`}
-        </Badge>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
-        <div>
-          <div style={{ height: requestCardOffsetTop }} aria-hidden />
-          <div
-            ref={requestCardRef}
-            className="bg-white rounded-xl border shadow-sm p-4 space-y-3 flex flex-col"
-            style={{ height: REQUEST_CARD_HEIGHT_PX }}
-          >
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Danh sách yêu cầu</h3>
-            <Badge className="bg-slate-100 text-slate-700 border border-slate-200">
-              {requestsLoading ? '...' : `${requests.length}`}
-            </Badge>
-          </div>
-
-          <HoverSearch
-            placeholder="Tìm yêu cầu..."
-            value={requestKeyword}
-            onChange={setRequestKeyword}
-          />
-
-          <div className="grid grid-cols-1 gap-2">
-            <input
-              type="date"
-              value={requestStartAt}
-              onChange={(e) => {
-                setRequestStartAt(e.target.value);
-                setPageNumber(1);
-              }}
-              className="h-9 rounded-md border border-input bg-white px-3 text-sm text-gray-700"
-              title="Lọc startAt của yêu cầu"
-            />
-            <input
-              type="date"
-              value={requestEndAt}
-              onChange={(e) => {
-                setRequestEndAt(e.target.value);
-                setPageNumber(1);
-              }}
-              className="h-9 rounded-md border border-input bg-white px-3 text-sm text-gray-700"
-              title="Lọc endAt của yêu cầu"
-            />
-          </div>
-
-          <div
-            ref={requestScrollRef}
-            className="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0"
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setFilterRequestId('all');
-                setFilterSessionId('all');
-                setPageNumber(1);
-              }}
-              className={`w-full text-left rounded-lg border px-3 py-2 text-sm transition-colors ${
-                filterRequestId === 'all'
-                  ? 'border-blue-200 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              Tất cả yêu cầu
-            </button>
-
-            {requestListFiltered.map((r) => (
-              <button
-                key={r.requestId}
-                type="button"
-                onClick={() => {
-                  setFilterRequestId(String(r.requestId));
-                  setFilterSessionId('all');
-                  setPageNumber(1);
-                }}
-                className={`w-full text-left rounded-lg border px-3 py-2 text-sm transition-colors ${
-                  filterRequestId === String(r.requestId)
-                    ? 'border-blue-200 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                }`}
-                title={r.requestName}
-              >
-                <div className="font-medium truncate">
-                  {r.requestCode ? `[${r.requestCode}] ` : ''}
-                  {r.requestName}
-                </div>
-              </button>
-            ))}
-
-            {!requestsLoading && requestListFiltered.length === 0 && (
-              <div className="text-xs text-gray-500 px-1">Không có yêu cầu phù hợp.</div>
-            )}
-
-            <div ref={requestLoadMoreRef} className="h-8" aria-hidden />
-            {requestsFetchingMore ? (
-              <div className="text-xs text-gray-500 px-1">Đang tải thêm...</div>
-            ) : hasMoreRequests ? (
-              <div className="text-[11px] text-gray-400 px-1">Cuộn xuống để tải thêm</div>
-            ) : null}
-          </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div ref={filterRowRef} className="flex justify-end gap-3 mb-2">
+        <div className="flex min-w-0 flex-col items-stretch gap-2 min-[900px]:items-end">
+          <div className="flex flex-wrap items-center justify-end gap-2 min-[900px]:gap-3">
             <HoverSearch
-              placeholder="Tìm theo tên..."
+              placeholder="Tìm theo tiêu đề báo cáo..."
               value={filterTitle}
               onChange={(v) => {
                 setFilterTitle(v);
-                setPageNumber(1);
               }}
             />
-
-            <input
-              type="date"
-              value={filterStartDate}
-              onChange={(e) => {
-                setFilterStartDate(e.target.value);
-                setPageNumber(1);
+            <DatePicker
+              format="DD/MM/YYYY"
+              placeholder="Từ ngày"
+              value={filterStartDate ? dayjs(filterStartDate) : null}
+              onChange={(d) => {
+                setFilterStartDate(d ? d.format('YYYY-MM-DD') : '');
               }}
-              className="h-9 rounded-md border border-input bg-white px-3 text-sm text-gray-700"
-              title="Lọc theo ngày bắt đầu"
+              className="w-[140px] [&_.ant-picker-input>input]:text-black"
             />
-
-            <input
-              type="date"
-              value={filterEndDate}
-              onChange={(e) => {
-                setFilterEndDate(e.target.value);
-                setPageNumber(1);
+            <span className="text-gray-400">→</span>
+            <DatePicker
+              format="DD/MM/YYYY"
+              placeholder="Đến ngày"
+              value={filterEndDate ? dayjs(filterEndDate) : null}
+              onChange={(d) => {
+                setFilterEndDate(d ? d.format('YYYY-MM-DD') : '');
               }}
-              className="h-9 rounded-md border border-input bg-white px-3 text-sm text-gray-700"
-              title="Lọc theo ngày kết thúc"
+              className="w-[140px] [&_.ant-picker-input>input]:text-black"
             />
-
-            <Select
-              value={filterSessionId}
-              onValueChange={(v) => {
-                setFilterSessionId(v);
-                setPageNumber(1);
-              }}
-              disabled={!canPickSession || requestDetailLoading}
-            >
-              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[240px]">
-                <SelectValue
-                  placeholder={
-                    !canPickSession
-                      ? 'Chọn yêu cầu bên trái'
-                      : requestDetailLoading
-                        ? 'Đang tải buổi...'
-                        : 'Chọn buổi'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả buổi</SelectItem>
-                {sessionsForSelectedRequest.map((s) => (
-                  <SelectItem key={s.sessionId} value={String(s.sessionId)}>
-                    Buổi {s.sessionNo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <Button
-              variant="secondary"
-              className="bg-white"
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0 border-slate-200 bg-white text-gray-600 hover:bg-gray-50"
               onClick={resetFilters}
               title="Đặt lại bộ lọc"
             >
-              <RotateCcw />
+              <RotateCcw size={16} />
             </Button>
-
             <Button
-              variant={onlyPendingExpense ? 'default' : 'secondary'}
-              className={onlyPendingExpense ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-white'}
+              type="button"
+              variant={onlyPendingExpense ? 'default' : 'outline'}
+              size="sm"
+              className={
+                onlyPendingExpense
+                  ? 'border-0 bg-amber-500 text-white hover:bg-amber-600'
+                  : 'border-slate-200 bg-white'
+              }
               onClick={() => {
                 setOnlyPendingExpense((prev) => !prev);
-                setPageNumber(1);
               }}
-              title="Chỉ hiện task có expense đang chờ duyệt"
+              title="Chỉ hiện báo cáo có chi phí chờ duyệt"
             >
               Chờ duyệt
             </Button>
           </div>
+          <span className="text-right text-xs text-slate-500">
+            {taskReportsLoading
+              ? 'Đang tải…'
+              : `${Math.min(taskReports.length, taskReportsTotalItems)} / ${taskReportsTotalItems} báo cáo`}
+          </span>
+        </div>
+      </div>
 
-          <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
-            <DataTable
-              columns={columns}
-              data={filteredTaskReports}
-              pageNumber={pageNumber}
-              pageSize={pageSize}
-              totalItems={totalItems}
-              onPageChange={(page) => setPageNumber(page)}
-            />
+      <div className="flex min-h-0 flex-1 gap-4">
+        <div className="flex w-[360px] shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="flex items-start justify-between gap-2 border-b border-slate-200 p-4">
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-semibold text-black">Danh sách yêu cầu</h3>
+              <p className="text-[11px] text-slate-500">
+                {requestsLoading ? 'Đang tải…' : `${requests.length} hiển thị`}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={`h-8 shrink-0 px-2.5 text-xs font-medium ${
+                filterRequestId === 'all'
+                  ? 'border-sky-400 bg-sky-50 text-sky-800 hover:bg-sky-100'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              onClick={() => {
+                setFilterRequestId('all');
+                setActiveTarget(null);
+              }}
+              title="Xem báo cáo trên mọi yêu cầu"
+            >
+              Tất cả yêu cầu
+            </Button>
+          </div>
+          <div
+            ref={requestScrollRef}
+            className="no-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50 p-3"
+          >
+            {requests.map((r) => (
+              <RequestCard
+                key={r.requestId}
+                requestName={r.requestName}
+                requestCode={r.requestCode}
+                customerName={r.customerName}
+                subjectId={r.subjectId}
+                courseId={r.courseId}
+                eventId={r.eventId}
+                status={r.status}
+                isActive={filterRequestId === String(r.requestId)}
+                onClick={() => {
+                  setFilterRequestId(String(r.requestId));
+                  setActiveTarget('request');
+                }}
+              />
+            ))}
+
+            {!requestsLoading && requests.length === 0 && (
+              <div className="py-6 text-center text-xs text-gray-500">Không có yêu cầu nào.</div>
+            )}
+
+            <div ref={requestLoadMoreRef} className="h-8" aria-hidden />
+            {requestsFetchingMore ? (
+              <div className="text-xs text-gray-500">Đang tải thêm...</div>
+            ) : hasMoreRequests ? (
+              <div className="text-[11px] text-gray-400">Cuộn xuống để tải thêm</div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+          <div ref={taskReportsScrollRef} className="no-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+            {filterRequestId === 'all' ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-900">Tất cả báo cáo</h3>
+                  <span className="text-[11px] text-slate-500">
+                    {taskReportsLoading ? 'Đang tải…' : `${reportCardsForAllRequests.length} báo cáo`}
+                  </span>
+                </div>
+
+                {taskReportsLoading && taskReports.length === 0 ? (
+                  <div className="flex justify-center py-8">
+                    <Spin />
+                  </div>
+                ) : reportCardsForAllRequests.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                    <FileText className="text-slate-300" size={28} />
+                    <p className="text-sm text-gray-500">Chưa có báo cáo nào.</p>
+                  </div>
+                ) : (
+                  renderReportCards(reportCardsForAllRequests, { showRequestName: true })
+                )}
+
+                <div ref={taskReportsLoadMoreRef} className="h-8" aria-hidden />
+                {taskReportsFetchingMore ? (
+                  <div className="text-center text-xs text-gray-500">Đang tải thêm...</div>
+                ) : hasMoreTaskReports ? (
+                  <div className="text-center text-[11px] text-gray-400">Cuộn xuống để tải thêm</div>
+                ) : null}
+              </div>
+            ) : selectedRequestDetail ? (
+              <>
+                <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                  <h3 className="truncate text-lg font-semibold text-black">{selectedRequestDetail.requestName}</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {selectedRequestDetail.requestCode || '—'} · {sessionsForSelectedRequest.length} buổi
+                  </p>
+                </div>
+
+                <div
+                  className={`w-full overflow-hidden rounded-2xl border bg-white transition ${
+                    isRequestLevelTarget ? 'border-sky-300 shadow-md' : 'border-slate-200 shadow-sm'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleTarget('request')}
+                    className={`block w-full p-4 text-left transition ${
+                      isRequestLevelTarget ? 'bg-sky-50/60' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100">
+                          <FileText className="text-violet-600" size={18} />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">Báo cáo chung</div>
+                          <div className="mt-0.5 text-[11px] text-slate-500">Nhấn để mở danh sách báo cáo tổng thể</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isRequestLevelTarget ? (
+                          <ChevronUp className="shrink-0 text-slate-500" size={18} />
+                        ) : (
+                          <ChevronDown className="shrink-0 text-slate-500" size={18} />
+                        )}
+                        <Badge
+                          className={
+                            filteredTaskReports.some(
+                              (r) =>
+                                r.requestId === selectedRequestIdNum &&
+                                (r.sessionId == null || r.sessionId === 0),
+                            )
+                              ? 'border border-emerald-100 bg-emerald-50 text-emerald-700'
+                              : 'border border-gray-200 bg-gray-100 text-gray-500'
+                          }
+                        >
+                          {filteredTaskReports.some(
+                            (r) =>
+                              r.requestId === selectedRequestIdNum &&
+                              (r.sessionId == null || r.sessionId === 0),
+                          )
+                            ? 'Đã ghi'
+                            : 'Chưa ghi'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </button>
+
+                  {isRequestLevelTarget ? (
+                    <div className="border-t border-slate-200 bg-slate-50/40 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-sm font-semibold text-slate-900">Danh sách báo cáo</div>
+                      <div className="text-[11px] text-slate-500">Báo cáo chung</div>
+                    </div>
+
+                    {taskReportsLoading && taskReports.length === 0 ? (
+                      <div className="flex justify-center py-8">
+                        <Spin />
+                      </div>
+                    ) : reportCardsForActiveTarget.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                        <FileText className="text-slate-300" size={28} />
+                        <p className="text-sm text-gray-500">Chưa có báo cáo nào.</p>
+                      </div>
+                    ) : renderReportCards(reportCardsForActiveTarget)}
+
+                    <div ref={taskReportsLoadMoreRef} className="h-8" aria-hidden />
+                    {activeTarget && taskReportsFetchingMore ? (
+                      <div className="text-center text-xs text-gray-500">Đang tải thêm...</div>
+                    ) : activeTarget && hasMoreTaskReports ? (
+                      <div className="text-center text-[11px] text-gray-400">Cuộn xuống để tải thêm</div>
+                    ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                {sessionsForSelectedRequest.map((s) => {
+                  const isActive = activeTarget === s.sessionId;
+                  const hasReport = filteredTaskReports.some(
+                    (r) =>
+                      r.requestId === selectedRequestIdNum &&
+                      Number(r.sessionId) === Number(s.sessionId),
+                  );
+
+                  return (
+                    <div
+                      key={s.sessionId}
+                      className={`w-full overflow-hidden rounded-2xl border text-left shadow-sm transition ${
+                        isActive
+                          ? 'border-sky-300 bg-white shadow-md'
+                          : 'border-slate-200 bg-white hover:shadow-md'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleTarget(s.sessionId)}
+                        className="block w-full text-left"
+                      >
+                        <div className={`flex items-center justify-between border-b border-slate-100 px-4 py-3 ${
+                          isActive ? 'bg-sky-50/60' : 'bg-slate-50/70'
+                        }`}>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100">
+                              <span className="text-sm font-bold text-sky-700">{s.sessionNo ?? '?'}</span>
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-slate-900">Buổi {s.sessionNo ?? s.sessionId}</div>
+                              <div className="mt-0.5 text-[11px] text-slate-500">Nhấn để xem danh sách báo cáo</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isActive ? (
+                              <ChevronUp className="shrink-0 text-slate-500" size={18} />
+                            ) : (
+                              <ChevronDown className="shrink-0 text-slate-500" size={18} />
+                            )}
+                            <Badge
+                              className={
+                                hasReport
+                                  ? 'border border-emerald-100 bg-emerald-50 text-emerald-700'
+                                  : 'border border-gray-200 bg-gray-100 text-gray-500'
+                              }
+                            >
+                              {hasReport ? 'Đã ghi' : 'Chưa ghi'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 px-4 py-2.5 text-[11px] text-slate-500">
+                          <span className="inline-flex items-center gap-1">
+                            <CalendarDays size={12} />
+                            {s.startAt ? dayjs(s.startAt).format('DD/MM/YYYY') : '—'}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <Clock size={12} />
+                            {s.startAt && s.endAt
+                              ? `${dayjs(s.startAt).format('HH:mm')} – ${dayjs(s.endAt).format('HH:mm')}`
+                              : '—'}
+                          </span>
+                        </div>
+                      </button>
+
+                      {isActive ? (
+                        <div className="border-t border-slate-200 bg-slate-50/40 px-4 pb-4 pt-3">
+                          <div className="mb-2 flex items-center justify-between">
+                            <div className="text-sm font-semibold text-slate-900">Danh sách báo cáo</div>
+                            <div className="text-[11px] text-slate-500">
+                              {s.startAt && s.endAt
+                                ? `${dayjs(s.startAt).format('DD/MM/YYYY HH:mm')} - ${dayjs(s.endAt).format('HH:mm')}`
+                                : '—'}
+                            </div>
+                          </div>
+
+                          {taskReportsLoading && taskReports.length === 0 ? (
+                            <div className="flex justify-center py-8">
+                              <Spin />
+                            </div>
+                          ) : reportCardsForActiveTarget.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                              <FileText className="text-slate-300" size={28} />
+                              <p className="text-sm text-gray-500">Chưa có báo cáo nào.</p>
+                            </div>
+                          ) : renderReportCards(reportCardsForActiveTarget)}
+
+                          <div ref={taskReportsLoadMoreRef} className="h-8" aria-hidden />
+                          {activeTarget && taskReportsFetchingMore ? (
+                            <div className="text-center text-xs text-gray-500">Đang tải thêm...</div>
+                          ) : activeTarget && hasMoreTaskReports ? (
+                            <div className="text-center text-[11px] text-gray-400">Cuộn xuống để tải thêm</div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              <div className="flex justify-center py-16">
+                <Spin />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -712,7 +881,7 @@ export default function TaskReportsManagement() {
                   {formatDateTime(viewTaskReport.startAt)}
                 </div>
               </div>
-              <div>
+              <div> 
                 <div className="text-xs text-gray-500">Thời gian kết thúc</div>
                 <div>
                   {formatDateTime(viewTaskReport.endAt)}
@@ -797,60 +966,57 @@ export default function TaskReportsManagement() {
                               ) : null}
                             </div>
 
-                            {paymentImg ? (
-                              <div className="pt-1">
-                                <div className="text-[11px] text-slate-500 mb-1">Minh chứng</div>
-                                <a
-                                  href={paymentImg}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="group block overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
-                                  title="Mở ảnh minh chứng"
-                                >
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={paymentImg}
-                                    alt={`Minh chứng khoản chi #${e.expenseId}`}
-                                    className="w-full max-h-48 object-cover transition group-hover:scale-[1.01]"
-                                    onError={(ev) => {
-                                      (ev.currentTarget as HTMLImageElement).style.display = 'none';
-                                    }}
-                                  />
-                                  <div className="px-3 py-2 text-[11px] text-slate-600 bg-white border-t border-slate-200">
-                                    Bấm để mở ảnh
+                            {paymentImg || code === EXPENSE_STATUS.PENDING ? (
+                              <div className="flex items-start justify-between gap-3 pt-1">
+                                {paymentImg ? (
+                                  <div>
+                                    <div className="mb-1 text-[11px] text-slate-500">Minh chứng</div>
+                                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                                      <Image
+                                        src={paymentImg}
+                                        alt={`Minh chứng khoản chi #${e.expenseId}`}
+                                        className="!block !h-[96px] !w-[140px] object-cover"
+                                        fallback=""
+                                        preview={{
+                                          mask: <span className="text-xs">Xem ảnh</span>,
+                                        }}
+                                      />
+                                    </div>
                                   </div>
-                                </a>
-                              </div>
-                            ) : null}
+                                ) : (
+                                  <div />
+                                )}
 
-                            {code === EXPENSE_STATUS.PENDING ? (
-                              <div className="flex items-center justify-end gap-2 pt-1">
-                                <Button
-                                  size="sm"
-                                  className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-                                  disabled={actionLoading}
-                                  onClick={() => {
-                                    setApproveExpenseId(e.expenseId);
-                                    setSelectedWalletId('');
-                                    setApproveModalOpen(true);
-                                  }}
-                                >
-                                  Duyệt
-                                </Button>
+                                {code === EXPENSE_STATUS.PENDING ? (
+                                  <div className="flex items-center gap-2 self-end">
+                                    <Button
+                                      size="sm"
+                                      className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                                      disabled={actionLoading}
+                                      onClick={() => {
+                                        setApproveExpenseId(e.expenseId);
+                                        setSelectedWalletId('');
+                                        setApproveModalOpen(true);
+                                      }}
+                                    >
+                                      Duyệt
+                                    </Button>
 
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-red-200 text-red-600 hover:bg-red-50"
-                                  disabled={actionLoading}
-                                  onClick={() => {
-                                    setRejectExpenseId(e.expenseId);
-                                    setRejectReason('');
-                                    setRejectModalOpen(true);
-                                  }}
-                                >
-                                  Từ chối
-                                </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-red-200 text-red-600 hover:bg-red-50"
+                                      disabled={actionLoading}
+                                      onClick={() => {
+                                        setRejectExpenseId(e.expenseId);
+                                        setRejectReason('');
+                                        setRejectModalOpen(true);
+                                      }}
+                                    >
+                                      Từ chối
+                                    </Button>
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
                           </div>
@@ -900,7 +1066,6 @@ export default function TaskReportsManagement() {
             setApproveExpenseId(null);
             setSelectedWalletId('');
 
-            // Refresh detail to update expense status
             if (viewTaskReport?.taskReportId) {
               const updated = await taskReportApi.getById(viewTaskReport.taskReportId);
               setViewTaskReport(updated);
@@ -955,7 +1120,7 @@ export default function TaskReportsManagement() {
             setRejectReason('');
           }
         }}
-        okText="Đồng ý từ chối"
+        okText="Xác nhận từ chối"
         cancelText="Hủy"
         confirmLoading={actionLoading}
         onOk={async () => {
@@ -1006,4 +1171,3 @@ export default function TaskReportsManagement() {
     </div>
   );
 }
-
