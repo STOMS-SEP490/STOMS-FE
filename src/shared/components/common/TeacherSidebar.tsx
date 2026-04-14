@@ -114,12 +114,12 @@ export default function TeacherSidebar() {
     <aside
       ref={sidebarRef}
       className={`
-        h-screen bg-[#F6F8FB]
+        h-screen
         transition-all duration-300
-        ${collapsed ? 'w-[72px] px-1.5' : 'w-72 px-5'}
-        py-5 flex flex-col
+        ${collapsed ? 'w-[76px] px-2 py-3' : 'w-[300px] px-3 py-4'}
       `}
     >
+      <div className="h-full rounded-2xl bg-[#f4f5f7] px-3 py-4 flex flex-col">
       {!collapsed && (
         <div className="w-full flex items-center justify-between mb-4 gap-2 min-w-0">
           <div className="flex items-center gap-1 min-w-0 flex-1">
@@ -185,12 +185,7 @@ export default function TeacherSidebar() {
       )}
 
       <div className="overflow-y-auto no-scrollbar relative">
-        <div
-          className={`
-            grid gap-px bg-gray-200
-            ${collapsed ? 'grid-cols-1' : 'grid-cols-2'}
-          `}
-        >
+        <div className={`flex flex-col ${collapsed ? 'gap-1.5' : 'gap-2.5'}`}>
           {menus.map((m) => {
             const Icon = m.icon;
             const isTimetable = m.matchPrefixPath === '/teacher/timetable';
@@ -206,38 +201,20 @@ export default function TeacherSidebar() {
                   // vẫn nên coi là active để hiển thị tooltip/hiệu ứng.
                   const active = isActive || window.location.pathname.startsWith(`${m.path}/`);
                   return (
-                    <div className={`relative group ${collapsed ? 'h-[54px]' : 'aspect-square min-h-[64px]'}`}>
+                    <div className={`relative group ${collapsed ? 'h-[46px]' : ''}`}>
                     <div
                       className={`
-                        h-full
-                        flex flex-col items-center justify-center
-                        transition-all
-                        bg-[#F6F8FB]
-                        ${active ? 'opacity-0' : 'group-hover:opacity-0'}
-                      `}
-                    >
-                      <Icon size={18} className="text-gray-400" />
-                      {!collapsed && (
-                        <div className="text-xs mt-1 text-center text-gray-400">{m.label}</div>
-                      )}
-                    </div>
-
-                    <div
-                      className={`
-                        absolute inset-0
-                        flex flex-col items-center justify-center
-                        transition-all duration-300
+                        w-full rounded-xl transition-all duration-200
+                        ${collapsed ? 'h-[46px] flex items-center justify-center' : 'px-3 py-2.5 flex items-center gap-3'}
                         ${
                           active
-                            ? 'bg-white text-[#208aae] scale-100 shadow-md z-10'
-                            : 'bg-white text-[#208aae] opacity-0 scale-100 group-hover:opacity-100'
+                            ? 'bg-white text-slate-900'
+                            : 'text-slate-500 hover:bg-white/70 hover:text-slate-800'
                         }
                       `}
                     >
-                      <Icon size={20} />
-                      {!collapsed && (
-                        <div className="text-xs mt-1 font-medium text-center px-1">{m.label}</div>
-                      )}
+                      <Icon size={18} className={active ? 'text-slate-900' : 'text-slate-400'} />
+                      {!collapsed && <div className="text-sm font-medium leading-5">{m.label}</div>}
                     </div>
 
                     {collapsed && (
@@ -276,6 +253,7 @@ export default function TeacherSidebar() {
           <LogOut size={18} />
           {!collapsed && <span>Đăng xuất</span>}
         </button>
+      </div>
       </div>
     </aside>
   );

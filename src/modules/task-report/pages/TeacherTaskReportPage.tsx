@@ -933,7 +933,7 @@ export default function TeacherTaskReportPage() {
                             <span className="text-sm font-bold text-sky-700">{s.sessionNo ?? '?'}</span>
                           </div>
                           <div>
-                            <div className="text-sm font-semibold text-slate-900">Phiên {s.sessionNo ?? s.sessionId}</div>
+                            <div className="text-sm font-semibold text-slate-900">Buổi {s.sessionNo ?? s.sessionId}</div>
                             <div className="text-[11px] text-slate-500 mt-0.5">
                               {s.sessionTitle || `ID: ${s.sessionId}`}
                             </div>
@@ -980,7 +980,7 @@ export default function TeacherTaskReportPage() {
                       {isRequestLevelReport
                         ? 'Báo cáo chung'
                         : selectedSession
-                          ? `Phiên ${selectedSession.sessionNo ?? selectedSession.sessionId}`
+                          ? `Buổi ${selectedSession.sessionNo ?? selectedSession.sessionId}`
                           : '—'}
                     </h4>
                     {selectedSession && (

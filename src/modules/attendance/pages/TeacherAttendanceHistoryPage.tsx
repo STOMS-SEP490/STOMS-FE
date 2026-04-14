@@ -722,7 +722,7 @@ export default function TeacherAttendanceHistoryPage() {
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
                       <h2 className="text-lg font-bold text-slate-900">
-                        Phiên{' '}
+                        Buổi{' '}
                         {(
                           detailSession?.sessionNo ??
                           (rows.find(
@@ -742,8 +742,8 @@ export default function TeacherAttendanceHistoryPage() {
                           }`}
                         >
                           {detailSession?.teamAssigned ?? detailAssignedTeamIds.length > 0
-                            ? 'Đã gắn đội'
-                            : 'Chưa gắn đội'}
+                            ? 'Đã gắn nhóm'
+                            : 'Chưa gắn nhóm'}
                         </span>
                       </div>
                     </div>
@@ -836,7 +836,7 @@ export default function TeacherAttendanceHistoryPage() {
               <div>
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
                 <h2 className="text-lg font-bold text-slate-900">
-                  Phiên {detailSession?.sessionNo ?? '—'}
+                  Buổi {detailSession?.sessionNo ?? '—'}
                   {(detailSession as any)?.notes ? `: ${(detailSession as any).notes}` : ''}
                 </h2>
               </div>

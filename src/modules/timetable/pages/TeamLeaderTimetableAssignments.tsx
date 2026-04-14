@@ -42,11 +42,11 @@ function formatTimeRange(startAt?: string, endAt?: string) {
 }
 
 function getSessionDisplayName(row: TeamLeaderTimetableAssignmentRow) {
-  if (row.sessionNo != null) return `Phiên ${row.sessionNo}`;
-  return 'Phiên dạy';
+  if (row.sessionNo != null) return `Buổi ${row.sessionNo}`;
+  return 'Buổi dạy';
 }
 
-/** Tiêu đề panel — ưu tiên tên phiên/khóa từ API, không chỉ "Phiên 2". */
+/** Tiêu đề panel — ưu tiên tên phiên/khóa từ API, không chỉ "Buổi 2". */
 function getSessionPanelTitle(
   session: RequestSessionSummary | null,
   requestName?: string | null,
@@ -57,7 +57,7 @@ function getSessionPanelTitle(
   if (title) return title;
   const rn = requestName?.trim();
   if (rn) return rn;
-  if (session.sessionNo != null) return `Phiên ${session.sessionNo}`;
+  if (session.sessionNo != null) return `Buổi ${session.sessionNo}`;
   return 'Chi tiết phiên';
 }
 

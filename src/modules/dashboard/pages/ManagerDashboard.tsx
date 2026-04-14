@@ -404,7 +404,7 @@ export default function ManagerDashboard() {
             tone="indigo"
           />
           <KpiCard
-            title="Phiên hôm nay"
+            title="Buổi hôm nay"
             value={sessionSummaryToday?.totalSessions ?? '—'}
             sub={`Đang diễn ra: ${sessionSummaryToday?.ongoingSessions ?? '—'}`}
             icon={<Calendar className="h-4 w-4 text-blue-700" />}

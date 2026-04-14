@@ -550,7 +550,7 @@ export default function RequestDetailPC() {
                         {getSessionDisplayTitle(resolvedDetailSession)}
                       </h2>
                       <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                        Phiên {resolvedDetailSession.sessionNo}
+                        Buổi {resolvedDetailSession.sessionNo}
                         {' · '}
                         {dayjs(resolvedDetailSession.startAt).format('HH:mm')} –{' '}
                         {dayjs(resolvedDetailSession.endAt).format('HH:mm')}
@@ -559,7 +559,7 @@ export default function RequestDetailPC() {
                       </p>
                     </>
                   ) : (
-                    <h2 className="text-lg font-bold text-slate-900">Phiên {rightPanel.session.sessionNo}</h2>
+                    <h2 className="text-lg font-bold text-slate-900">Buổi {rightPanel.session.sessionNo}</h2>
                   )}
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     {(() => {

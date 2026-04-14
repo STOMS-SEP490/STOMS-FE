@@ -861,13 +861,13 @@ export default function UserProfile() {
                       tone="blue"
                     />
                     <WorkloadItem
-                      label="Phiên hoàn thành"
+                      label="Buổi hoàn thành"
                       value={workload.completedSessions ?? 0}
                       changePercent={workload.completedSessionsChangePercent ?? 0}
                       tone="green"
                     />
                     <WorkloadItem
-                      label="Phiên bị hủy"
+                      label="Buổi bị hủy"
                       value={workload.canceledSessions ?? 0}
                       changePercent={workload.canceledSessionsChangePercent ?? 0}
                       tone="rose"

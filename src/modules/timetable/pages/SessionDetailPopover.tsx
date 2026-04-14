@@ -90,7 +90,7 @@ export default function SessionDetailPopover({
     (eventMeta?.sessionTitle ?? '').trim() ||
     topicTitle ||
     (session?.Notes ?? '').trim() ||
-    'Phiên học';
+    'Buổi học';
   const secondarySubtitle =
     resolvedRequestName || resolvedRequestCode
       ? `${topicTitle ? `${topicTitle} · ` : ''}Buổi ${resolvedSessionNo ?? '—'}`
@@ -116,7 +116,7 @@ export default function SessionDetailPopover({
     resolveSessionTopicTitleFromSessionLike(session) ||
     ((detailSession as { eventSession?: { title?: string | null } | null } | null)?.eventSession?.title ?? '').trim() ||
     ((detailSession as { subjectSession?: { title?: string | null } | null } | null)?.subjectSession?.title ?? '').trim() ||
-    `Phiên ${detailSession?.sessionNo ?? resolvedSessionNo ?? '—'}`;
+    `Buổi ${detailSession?.sessionNo ?? resolvedSessionNo ?? '—'}`;
   const detailSessionNotes = String((detailSession as { notes?: string | null } | null)?.notes ?? '').trim();
   const detailIsOnline =
     ((detailSession as { isOnline?: boolean | null } | null)?.isOnline ?? null) ??
@@ -450,7 +450,7 @@ export default function SessionDetailPopover({
             {(staff.length === 0 || staff.every((s) => !s.name || s.name === '—')) && (
               <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 flex items-center justify-between gap-3">
                 <div className="text-xs text-amber-800">
-                  Phiên này hiện <span className="font-semibold">chưa có phân công</span> giảng viên/trợ giảng.
+                  Buổi này hiện <span className="font-semibold">chưa có phân công</span> giảng viên/trợ giảng.
                 </div>
                 {isTeamLeader && (
                   <button

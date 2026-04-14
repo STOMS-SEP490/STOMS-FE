@@ -385,7 +385,7 @@ export default function RequestDetailTeamSummary({
           (ts) =>
             ({
               teamId: Number(ts.TeamId),
-              teamName: (ts.TeamName && String(ts.TeamName).trim()) || `Đội #${ts.TeamId}`,
+              teamName: (ts.TeamName && String(ts.TeamName).trim()) || `Nhóm #${ts.TeamId}`,
               embedTeachers: ts.TeachersRequired ?? null,
               embedTas: ts.TasRequired ?? null,
             }) as TeamRow,
@@ -409,7 +409,7 @@ export default function RequestDetailTeamSummary({
         const msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: unknown }).message)
-            : 'Không tải được thông tin đội.';
+            : 'Không tải được thông tin nhóm.';
         setError(msg);
         setTeams([]);
       } finally {
@@ -521,7 +521,7 @@ export default function RequestDetailTeamSummary({
   return (
     <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
       <div className="px-4 py-2.5 bg-slate-50/70 flex items-center justify-between gap-3 flex-wrap">
-        <h3 className="font-semibold text-gray-900 text-sm">Đội phụ trách</h3>
+        <h3 className="font-semibold text-gray-900 text-sm">Nhóm phụ trách</h3>
         {reviewMode ? (
           <div className="flex items-center gap-3">
             <label className="inline-flex items-center gap-2 cursor-pointer select-none text-[11px] text-slate-600">
@@ -552,11 +552,11 @@ export default function RequestDetailTeamSummary({
       </div>
       <div className="px-4 py-3 space-y-3">
         {loading ? (
-          <p className="text-xs text-gray-500">Đang tải thông tin đội...</p>
+          <p className="text-xs text-gray-500">Đang tải thông tin nhóm...</p>
         ) : error ? (
           <p className="text-xs text-red-600">{error}</p>
         ) : teams.length === 0 ? (
-          <p className="text-xs text-gray-500">Chưa có thông tin đội.</p>
+          <p className="text-xs text-gray-500">Chưa có thông tin nhóm.</p>
         ) : (
           <>
             {teams.map((team) => {
@@ -573,7 +573,7 @@ export default function RequestDetailTeamSummary({
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-black truncate">{team.teamName}</p>
-                        <p className="text-xs text-gray-500">Đội đã gắn</p>
+                        <p className="text-xs text-gray-500">Nhóm đã gắn</p>
                       </div>
                     </div>
                     <div className="text-right text-xs text-gray-600 shrink-0">

@@ -228,7 +228,7 @@ export default function RequestDetail() {
             const teams = teamSessions
               .map((ts) => ({
                 teamId: Number(ts.TeamId ?? 0),
-                teamName: String(ts.TeamName ?? '').trim() || `Đội #${ts.TeamId ?? '—'}`,
+                teamName: String(ts.TeamName ?? '').trim() || `Nhóm #${ts.TeamId ?? '—'}`,
               }))
               .filter((t) => t.teamId > 0);
             const selectedTeamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
@@ -238,9 +238,9 @@ export default function RequestDetail() {
                 missingTeamIds.map(async (teamId) => {
                   try {
                     const t = await teamApi.getById(teamId);
-                    return { teamId, teamName: String(t.teamName ?? '').trim() || `Đội phụ trách ${teamId}` };
+                    return { teamId, teamName: String(t.teamName ?? '').trim() || `Nhóm phụ trách ${teamId}` };
                   } catch {
-                    return { teamId, teamName: `Đội phụ trách ${teamId}` };
+                    return { teamId, teamName: `Nhóm phụ trách ${teamId}` };
                   }
                 })
               );
@@ -614,7 +614,7 @@ export default function RequestDetail() {
           </div>
 
           <TabsContent value="overview" className="space-y-4 mb-0">
-          {/* WARNING BOX + PROGRESS — Figma: cam, tiến độ gắn đội, nút Từ chối */}
+          {/* WARNING BOX + PROGRESS — Figma: cam, tiến độ gắn nhóm, nút Từ chối */}
           <div className="space-y-3">
             {remainingUnassignedSessions > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -622,8 +622,8 @@ export default function RequestDetail() {
                   <span className="text-amber-600 shrink-0 mt-0.5">⚠</span>
                   <div>
                     <p className="text-sm text-amber-800">
-                      Vui lòng gắn đội cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn{' '}
-                      {remainingUnassignedSessions} phiên chưa được gắn đội phụ trách.
+                      Vui lòng gắn nhóm cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn{' '}
+                      {remainingUnassignedSessions} phiên chưa được gắn nhóm phụ trách.
                     </p>
                     <button
                       type="button"
@@ -638,7 +638,7 @@ export default function RequestDetail() {
             )}
             <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-slate-700">Tiến độ phân đội</span>
+                <span className="text-sm font-medium text-slate-700">Tiến độ phân nhóm</span>
                 <span className="text-sm font-semibold text-slate-800 tabular-nums">
                   {assignedCount}/{sessions.length || 0} phiên
                 </span>
@@ -678,7 +678,7 @@ export default function RequestDetail() {
               </Button>
               <span className="text-xs text-slate-500">
                 {assignedCount !== sessions.length || sessions.length === 0
-                  ? 'Cần gắn đội cho tất cả các phiên trước khi duyệt.'
+                  ? 'Cần gắn nhóm cho tất cả các phiên trước khi duyệt.'
                   : ''}
               </span>
             </div>
@@ -792,7 +792,7 @@ export default function RequestDetail() {
                         {fullyAssigned && teamCount > 0 && (
                           <>
                             <span className="text-slate-300">•</span>
-                            <span className="text-slate-700 font-medium">{teamCount} đội</span>
+                            <span className="text-slate-700 font-medium">{teamCount} nhóm</span>
                           </>
                         )}
                       </div>
@@ -881,7 +881,7 @@ export default function RequestDetail() {
                 {rightPanel.mode !== 'detail' && (
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
                     {rightPanel.mode === 'team'
-                      ? 'Đang gán đội'
+                      ? 'Đang gán nhóm'
                       : rightPanel.mode === 'assignment'
                         ? 'Duyệt phân công'
                         : 'Đặt trước thiết bị'}
@@ -900,7 +900,7 @@ export default function RequestDetail() {
                       {getSessionDisplayTitle(resolvedDetailSession)}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                      Phiên {resolvedDetailSession.sessionNo}
+                      Buổi {resolvedDetailSession.sessionNo}
                       {' · '}
                       {dayjs(resolvedDetailSession.startAt).format('HH:mm')} –{' '}
                       {dayjs(resolvedDetailSession.endAt).format('HH:mm')}
@@ -924,7 +924,7 @@ export default function RequestDetail() {
                       {getSessionDisplayTitle(resolvedPanelSession)}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                      Phiên {resolvedPanelSession.sessionNo}
+                      Buổi {resolvedPanelSession.sessionNo}
                       {' · '}
                       {dayjs(resolvedPanelSession.startAt).format('HH:mm')} –{' '}
                       {dayjs(resolvedPanelSession.endAt).format('HH:mm')}
@@ -945,7 +945,7 @@ export default function RequestDetail() {
                 ) : (
                   <>
                     <h2 className="text-base font-semibold text-black">
-                      Phiên {rightPanel.session.sessionNo}
+                      Buổi {rightPanel.session.sessionNo}
                     </h2>
                     <p className="text-xs text-gray-500 mt-1">
                       {dayjs(rightPanel.session.startAt).format('DD/MM/YYYY HH:mm')} -{' '}
@@ -1721,7 +1721,7 @@ export default function RequestDetail() {
                       <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-xl bg-[#2197C0]/45" />
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="inline-flex items-center rounded-full border border-[#2197C0]/20 bg-[#2197C0]/10 px-3 py-1 text-xs font-semibold text-[#1C7FA1] sm:text-sm">
-                          Phiên {preview.sessionNo}
+                          Buổi {preview.sessionNo}
                         </span>
                         <span className="text-xs font-medium text-slate-600 sm:text-sm">
                           {dayjs(preview.startAt).format('DD/MM HH:mm')} - {dayjs(preview.endAt).format('HH:mm')}
@@ -1742,14 +1742,14 @@ export default function RequestDetail() {
                         </p>
                         <p className="flex items-start gap-2">
                           <List className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                          <span className="font-medium text-slate-600">Đội đã gán:</span>
+                          <span className="font-medium text-slate-600">Nhóm đã gán:</span>
                           <span className="font-semibold text-slate-800">
                             {teamIdsWithStaff.length > 0
                               ? teamIdsWithStaff
                                   .map((teamId, idx) => {
                                     const teamName =
                                       preview.teams.find((t) => t.teamId === teamId)?.teamName ??
-                                      `Đội phụ trách ${idx + 1}`;
+                                      `Nhóm phụ trách ${idx + 1}`;
                                     const q = qtyMap[teamId];
                                     const teacherQty = q?.teachersRequired ?? 0;
                                     const taQty = q?.tasRequired ?? 0;

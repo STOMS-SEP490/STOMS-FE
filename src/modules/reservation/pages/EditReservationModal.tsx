@@ -286,7 +286,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
 
             {(reservation.Sessions ?? []).length > 0 ? (
               <div>
-                <span className="block text-[11px] font-medium text-gray-500 mb-2">Phiên liên quan</span>
+                <span className="block text-[11px] font-medium text-gray-500 mb-2">Buổi liên quan</span>
                 <div className="space-y-2 rounded-md border border-gray-100 bg-gray-50/50 px-3 py-2">
                   {(reservation.Sessions ?? []).map((s) => (
                     <label key={s.SessionId} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -297,7 +297,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
                         onChange={(e) => toggleSession(s.SessionId, e.target.checked)}
                       />
                       <span>
-                        Phiên {s.SessionNo} (#{s.SessionId}) ·{' '}
+                        Buổi {s.SessionNo} (#{s.SessionId}) ·{' '}
                         {dayjs(s.StartAt).format('DD/MM HH:mm')}–{dayjs(s.EndAt).format('HH:mm')}
                       </span>
                     </label>
