@@ -9,6 +9,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 type Props = {
   open: boolean;
@@ -25,6 +26,8 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const TEAM_LEADER_ROLE_ID = 2;
+
   const handleSearch = async () => {
     if (!searchValue.trim()) return;
     try {
@@ -34,7 +37,12 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
         MemberId: isNumber ? Number(searchValue) : undefined,
         FullName: !isNumber ? searchValue : undefined,
       });
-      setMembers(res.items ?? []);
+      const all = res.items ?? [];
+      const onlyTeamLeaders = all.filter((m) => m.roleId === TEAM_LEADER_ROLE_ID);
+      setMembers(onlyTeamLeaders);
+      if (all.length > 0 && onlyTeamLeaders.length === 0) {
+        message.warning('Không tìm thấy thành viên có vai trò Trưởng nhóm.');
+      }
     } catch {
       message.error('Tìm kiếm thất bại');
       setMembers([]);
@@ -44,6 +52,10 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
   };
 
   const handleSelect = (member: Member) => {
+    if (member.roleId !== TEAM_LEADER_ROLE_ID) {
+      message.warning('Chỉ được chọn thành viên có vai trò Trưởng nhóm.');
+      return;
+    }
     setLeaderMemberId(member.memberId);
     message.success('Đã chọn trưởng nhóm');
   };
@@ -71,11 +83,7 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
       onClose();
       onCreated?.();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : null;
-      message.error(msg || 'Tạo nhóm thất bại');
+      message.error(getErrorMessage(err) || 'Tạo nhóm thất bại');
     } finally {
       setLoading(false);
     }
