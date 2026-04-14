@@ -475,6 +475,10 @@ export default function TeacherTaskReportPage() {
           message.warning(`Vui lòng nhập số tiền chi phí hợp lệ (khoản #${i + 1}).`);
           return;
         }
+        if (!String(exp.description ?? '').trim()) {
+          message.warning(`Vui lòng nhập mô tả cho khoản chi phí (khoản #${i + 1}).`);
+          return;
+        }
         if (!exp.file) {
           message.warning(`Mỗi khoản chi phí bắt buộc có ảnh chứng từ chuyển khoản (khoản #${i + 1}).`);
           return;
@@ -523,7 +527,7 @@ export default function TeacherTaskReportPage() {
                 const amountNum = Number((exp.amount || '').replace(/\D/g, ''));
                 return {
                   amount: amountNum,
-                  description: exp.description.trim() || 'Không ghi chú',
+                  description: exp.description.trim(),
                   paymentImgIndex: idx,
                 };
               })
@@ -1426,7 +1430,9 @@ export default function TeacherTaskReportPage() {
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Mô tả (Tùy chọn)</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Mô tả <span className="text-red-500">*</span>
+                            </label>
                             <textarea
                               className="w-full min-h-[50px] rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-y bg-white"
                               placeholder="Mô tả khoản chi phí..."
