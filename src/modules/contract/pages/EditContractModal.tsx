@@ -4,8 +4,10 @@ import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 import contractApi from '../api/contractApi';
 import type { ContractListItem } from '../contract';
+import { hasExplicitNegativeAmountSign } from '../utils/amountInput';
 
 type Props = {
   open: boolean;
@@ -39,9 +41,15 @@ export default function EditContractModal({ open, onClose, contract, onUpdated }
       return;
     }
 
-    const amountNumber = amount ? Number(amount.replace(/\D/g, '')) : undefined;
-    if (amount && (Number.isNaN(amountNumber) || amountNumber! <= 0)) {
-      setError('Số tiền không hợp lệ');
+    if (hasExplicitNegativeAmountSign(amount)) {
+      setError('Vui lòng nhập số tiền (>0)');
+      return;
+    }
+
+    const digitsOnly = amount.replace(/\D/g, '');
+    const amountNumber = digitsOnly ? Number(digitsOnly) : NaN;
+    if (digitsOnly === '' || Number.isNaN(amountNumber) || amountNumber < 0) {
+      setError('Vui lòng nhập số tiền (>0)');
       return;
     }
 
@@ -55,11 +63,10 @@ export default function EditContractModal({ open, onClose, contract, onUpdated }
       onClose();
       onUpdated?.();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : null;
-      message.error(msg || 'Cập nhật hợp đồng thất bại');
+      const apiMsg = getErrorMessage(err);
+      const display = apiMsg === 'Có lỗi xảy ra' ? 'Cập nhật hợp đồng thất bại' : apiMsg;
+      setError(display);
+      message.error(display);
     } finally {
       setLoading(false);
     }
