@@ -23,12 +23,22 @@ export const taskReportApi = {
 
   /** GET /api/task-reports/filter */
   getAll: (params?: TaskReportFilterParams): Promise<PaginationResponse<TaskReport>> => {
+    const requestIdNormalized =
+      (params as unknown as { RequestId?: number | undefined })?.RequestId ?? params?.requestId;
+    const sessionIdNormalized =
+      (params as unknown as { SessionId?: number | undefined })?.SessionId ?? params?.sessionId;
+
     const queryParams = {
       ...params,
+      // Always send PascalCase to match BE filter contract.
+      RequestId: requestIdNormalized,
+      SessionId: sessionIdNormalized,
       // BE filter model uses Start/End for date range
       start: params?.start ?? params?.startAt,
       end: params?.end ?? params?.endAt,
     };
+    delete (queryParams as { requestId?: number }).requestId;
+    delete (queryParams as { sessionId?: number }).sessionId;
     return axiosClient.get('/task-reports/filter', { params: queryParams });
   },
 

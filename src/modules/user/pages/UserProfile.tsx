@@ -378,9 +378,7 @@ export default function UserProfile() {
         return;
       }
 
-      // Dùng PUT /members cho cả 2 trường hợp:
-      // - avatar-only: gửi đủ các field text (không đổi) + avatarFile
-      // - text+avatar: gửi đủ các field text + avatarFile
+      
       await memberApi.updateMyMember({
         fullName: submitted.fullName,
         phone: submitted.phone,
