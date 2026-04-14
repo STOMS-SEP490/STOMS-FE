@@ -7,6 +7,7 @@ import { Label } from '@/shared/components/ui/label';
 import sessionApi from '@/modules/request/api/sessionApi';
 import type { SessionResponse } from '@/modules/request/session.types';
 import contractApi from '../api/contractApi';
+import { hasExplicitNegativeAmountSign } from '../utils/amountInput';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 type Props = {
@@ -84,6 +85,11 @@ export default function CreateContractModal({
     const code = contractCode.trim();
     if (!code) {
       setError('Vui lòng nhập mã hợp đồng');
+      return;
+    }
+
+    if (hasExplicitNegativeAmountSign(amount)) {
+      setError('Số tiền không hợp lệ (phải > 0)');
       return;
     }
 
