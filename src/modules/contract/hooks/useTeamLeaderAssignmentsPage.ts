@@ -381,7 +381,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   }, []);
 
   const [activeSession, setActiveSession] = useState<TeamSessionLite | null>(null);
-  /** Đang gọi getFilter theo request + team để đồng bộ danh sách phiên (tránh flash dữ liệu cũ/sai). */
   const [requestSessionsLoading, setRequestSessionsLoading] = useState(false);
 
   const loadInitial = useCallback(async (tab: TeamLeaderAssignmentsTab) => {
@@ -409,7 +408,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         setRequests(validRequests);
         if (validRequests.length) setSelectedRequestId(validRequests[0].requestId);
       } else {
-        /** Tab assigning: giữ dữ liệu hiện có, effect fetch bên dưới sẽ đồng bộ lại theo filter API. */
       }
     } catch (err) {
       console.error(err);
@@ -477,7 +475,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     [sessionDetailsById, assignSelections, currentTeamId],
   );
 
-  /** Mọi slot thuộc quota team đã có nhân sự (theo chi tiết phiên + lựa chọn local). */
+  /** Mọi slot thuộc quota team đã có nhân sự (theo chi tiết buổi + lựa chọn local). */
   const isRequestTeamSlotsFullyAssigned = useCallback(
     (request: TeamRequestItem) => {
       const sessions = request.sessions ?? [];
@@ -587,7 +585,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
     const sessionIds = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
     if (!sessionIds.length) {
-      message.warning('Không có phiên để gửi phân công.');
+      message.warning('Không có buổi để gửi phân công.');
       return;
     }
 
@@ -688,7 +686,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         setSessionDetailsById((prev) => ({ ...prev, [sessionId]: d }));
         refreshSessionInRequestState(d);
       } catch (err) {
-        message.error(getErrorMessage(err, 'Không tải được chi tiết phiên.'));
+        message.error(getErrorMessage(err, 'Không tải được chi tiết buổi.'));
       }
     },
     [refreshSessionInRequestState],
@@ -840,7 +838,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     };
   }, [selectedRequestId, currentTeamId, activeTab]);
 
-  /** Mỗi lần mở phiên: luôn gọi GET /sessions/:id để đồng bộ chi tiết drawer (không dùng cache từ filter). */
+  /** Mỗi lần mở buổi: luôn gọi GET /sessions/:id để đồng bộ chi tiết drawer (không dùng cache từ filter). */
   useEffect(() => {
     if (!activeSession) return;
     const id = activeSession.sessionId;
@@ -854,7 +852,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         refreshSessionInRequestState(d);
       } catch (err) {
         if (!cancelled) {
-          message.error(getErrorMessage(err, 'Không tải được chi tiết phiên.'));
+          message.error(getErrorMessage(err, 'Không tải được chi tiết buổi.'));
         }
       }
     })();

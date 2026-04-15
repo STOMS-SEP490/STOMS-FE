@@ -200,7 +200,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
       return;
     }
     if ((reservation.Sessions ?? []).length > 0 && sessionIds.length === 0) {
-      message.error('Chọn ít nhất một phiên.');
+      message.error('Chọn ít nhất một buổi.');
       return;
     }
 
@@ -249,8 +249,8 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
         hasEnded
           ? 'Đặt trước đã kết thúc, không thể chỉnh sửa.'
           : hasStarted
-            ? 'Đặt trước đã bắt đầu — chỉ có thể đổi danh sách thiết bị / phiên, không đổi khung giờ.'
-            : 'Điều chỉnh thời gian, phiên và thiết bị. Thiết bị đang gán cho đặt trước này vẫn hiển thị trong danh sách.'
+            ? 'Đặt trước đã bắt đầu — chỉ có thể đổi danh sách thiết bị / buổi, không đổi khung giờ.'
+            : 'Điều chỉnh thời gian, buổi và thiết bị. Thiết bị đang gán cho đặt trước này vẫn hiển thị trong danh sách.'
       }
       className="max-w-2xl w-[96vw]"
     >

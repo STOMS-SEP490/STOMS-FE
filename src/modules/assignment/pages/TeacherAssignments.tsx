@@ -70,7 +70,7 @@ export default function TeacherAssignments() {
       header: 'Ngày · Giờ',
       cell: ({ row }) => (
         <div className="text-sm text-gray-700">
-          <div className="font-medium text-gray-900">{formatDate(row.original.startAt)}</div>
+          <div className="font-medium text-teal-600">{formatDate(row.original.startAt)}</div>
           <div className="text-xs text-gray-500">
             {formatDateTime(row.original.startAt)} - {formatDateTime(row.original.endAt)}
           </div>
@@ -155,7 +155,7 @@ export default function TeacherAssignments() {
         <HoverSearch
           value={search}
           onChange={setSearch}
-          placeholder="Tìm theo tên phiên dạy..."
+          placeholder="Tìm theo tên buổi dạy..."
         />
       </div>
 

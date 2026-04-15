@@ -1,63 +1,61 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import dayjs from 'dayjs';
+import { RotateCcw } from 'lucide-react';
 import { message } from 'antd';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { MANAGER_ROLE_ID } from '@/constants/role';
 import { DataTable } from '@/shared/components/common/DataTable';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
-import subjectApi from '@/modules/subject/api/subjectApi';
+import { Button } from '@/shared/components/ui/button';
+import HoverSearch from '@/shared/components/ui/search';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
 import { useSubjects } from '@/modules/subject/hooks/useSubjects';
 import type { SubjectListItem } from '@/modules/subject/subject';
-import type { CoursesReadonlyOutletContext } from '@/modules/course/pages/coursesReadonlyOutletContext';
+import topicApi from '@/modules/topic/api/topicApi';
+import type { TopicListItem } from '@/modules/topic/topic';
+import subjectApi from '@/modules/subject/api/subjectApi';
 import { SubjectDetailDrawer } from '@/modules/subject/components/SubjectDetailDrawer';
 
 export default function SubjectsReadonlyPage() {
   const { user } = useAuth();
   const activeOnly = Number(user?.role ?? 0) !== MANAGER_ROLE_ID;
-  const { subjectSearch, setSubjectSearch } = useOutletContext<CoursesReadonlyOutletContext>();
   const {
     data,
     isListBlocking,
+    search,
+    setSearch,
+    topicId: topicFilterId,
+    setTopicId: setTopicFilterId,
     pageNumber,
     pageSize,
     totalItems,
     setPageNumber,
   } = useSubjects({
     pageSize: 10,
-    search: subjectSearch,
-    setSearch: setSubjectSearch,
     activeOnly,
   });
-
-  useLayoutEffect(() => {
-    setPageNumber(1);
-  }, [subjectSearch, setPageNumber]);
-
-  const [searchParams, setSearchParams] = useSearchParams();
-  const openDetailFromUrl = searchParams.get('openDetail');
-  const subjectIdFromUrl = searchParams.get('subjectId');
-  const skipNextAutoOpenRef = useRef(false);
-
+  const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailSubject, setDetailSubject] = useState<SubjectListItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const lastOpenedSubjectIdRef = useRef<number | null>(null);
 
-  const closeDetailFromUrl = () => {
-    if (openDetailFromUrl === '1') {
-      skipNextAutoOpenRef.current = true;
-    }
+  useEffect(() => {
+    topicApi
+      .getTopics({ pageNumber: 1, pageSize: 500 })
+      .then((res) => setAllTopics(res.items ?? []))
+      .catch(() => setAllTopics([]));
+  }, []);
+
+  const closeDetail = () => {
     setDetailOpen(false);
     setDetailSubject(null);
     setDetailLoading(false);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete('openDetail');
-      next.delete('subjectId');
-      return next;
-    });
   };
 
   const openDetailById = async (id: number) => {
@@ -65,35 +63,13 @@ export default function SubjectsReadonlyPage() {
       setDetailLoading(true);
       const full = await subjectApi.getById(id);
       setDetailSubject(full);
-      lastOpenedSubjectIdRef.current = id;
       setDetailOpen(true);
-    } catch (e: unknown) {
-      const msg =
-        e && typeof e === 'object' && 'response' in e
-          ? ((e as { response?: { data?: { message?: string } } }).response?.data?.message ?? null)
-          : null;
-      message.error(msg ?? 'Không tải được chi tiết môn học');
+    } catch {
+      message.error('Không tải được chi tiết môn học');
     } finally {
       setDetailLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (openDetailFromUrl !== '1') return;
-    if (!subjectIdFromUrl) return;
-    if (skipNextAutoOpenRef.current) {
-      skipNextAutoOpenRef.current = false;
-      return;
-    }
-
-    const id = Number(subjectIdFromUrl);
-    if (!id || Number.isNaN(id)) return;
-
-    if (detailOpen && lastOpenedSubjectIdRef.current === id) return;
-
-    void openDetailById(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openDetailFromUrl, subjectIdFromUrl]);
 
   const columns = useMemo<ColumnDef<SubjectListItem>[]>(
     () => [
@@ -117,38 +93,83 @@ export default function SubjectsReadonlyPage() {
         header: 'Ngày tạo',
         cell: ({ row }) => (row.original.createdAt ? dayjs(row.original.createdAt).format('DD/MM/YYYY') : '—'),
       },
-      {
-        id: 'actions',
-        header: 'Thao tác',
-        cell: ({ row }) => (
-          <TableTextAction onClick={() => void openDetailById(row.original.subjectId)} />
-        ),
-      },
     ],
     [],
   );
 
   return (
-    <div className="relative flex w-full min-w-0 flex-1 min-h-0 flex-col">
-      {isListBlocking ? (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/70 backdrop-blur-[1px]">
-          <span className="text-sm text-slate-500">Đang tải...</span>
+    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+      <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+        <h2 className="text-xl font-semibold text-black">Danh sách môn học</h2>
+        <p className="text-xs text-gray-500">Xem thông tin các môn học trong hệ thống</p>
+      </div>
+
+      <div className="shrink-0 px-2 py-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <HoverSearch
+            placeholder="Tìm môn học..."
+            value={search}
+            onChange={(value) => setSearch(value)}
+          />
+          <Select
+            value={topicFilterId == null ? 'all' : String(topicFilterId)}
+            onValueChange={(v) => {
+              if (v === 'all') setTopicFilterId(null);
+              else setTopicFilterId(Number(v));
+            }}
+          >
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px] border-slate-200">
+              <SelectValue placeholder="Chủ đề" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả chủ đề</SelectItem>
+              {allTopics.map((t) => (
+                <SelectItem key={t.topicId} value={String(t.topicId)}>
+                  {t.topicName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="secondary"
+            className="bg-white h-9 border-slate-200"
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setTopicFilterId(null);
+              setPageNumber(1);
+            }}
+            title="Đặt lại bộ lọc"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </Button>
         </div>
-      ) : null}
-      <DataTable
-        columns={columns}
-        data={data}
-        pageNumber={pageNumber}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={(page) => setPageNumber(page)}
-        fillHeight
-        comfortable
-      />
+      </div>
+
+      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {isListBlocking ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/70 backdrop-blur-[1px]">
+            <span className="text-sm text-slate-500">Đang tải...</span>
+          </div>
+        ) : null}
+        <DataTable
+          columns={columns}
+          data={data}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={(page) => setPageNumber(page)}
+          onRowClick={(row) => {
+            void openDetailById(row.subjectId);
+          }}
+          fillHeight
+          comfortable
+        />
+      </div>
 
       <SubjectDetailDrawer
         open={detailOpen}
-        onClose={closeDetailFromUrl}
+        onClose={closeDetail}
         detailSubject={detailSubject}
         detailLoading={detailLoading}
       />

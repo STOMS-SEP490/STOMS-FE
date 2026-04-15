@@ -326,7 +326,7 @@ export default function TeamLeaderDashboard() {
           <div className="min-w-0">
             <h2 className="text-xl font-semibold text-slate-900">Dashboard trưởng nhóm</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Tổng quan team của bạn, tiến độ phiên dạy và các mục cần theo dõi.
+              Tổng quan team của bạn, tiến độ buổi dạy và các mục cần theo dõi.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -369,7 +369,7 @@ export default function TeamLeaderDashboard() {
             />
             <KpiCard
               tone="indigo"
-              title="Tổng phiên của team"
+              title="Tổng buổi của team"
               value={teamStats?.totalSessions ?? '—'}
               sub={rangeLabelMap[effectiveRange]}
               icon={<CalendarDays className="h-5 w-5" />}
@@ -396,7 +396,7 @@ export default function TeamLeaderDashboard() {
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-indigo-600" />
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Tiến độ phiên team</p>
+                    <p className="text-sm font-semibold text-slate-900">Tiến độ buổi team</p>
                     <p className="text-xs text-slate-500">Theo {rangeLabelMap[effectiveRange]}</p>
                   </div>
                 </div>
@@ -423,7 +423,7 @@ export default function TeamLeaderDashboard() {
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-sky-600" />
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Yêu cầu & phiên</p>
+                    <p className="text-sm font-semibold text-slate-900">Yêu cầu & buổi</p>
                     <p className="text-xs text-slate-500">Tổng quan hệ thống theo kỳ</p>
                   </div>
                 </div>
@@ -472,7 +472,7 @@ export default function TeamLeaderDashboard() {
               </div>
               <div className="space-y-3">
                 {attendanceItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Không có phiên thiếu giờ ra.</p>
+                  <p className="py-8 text-center text-xs text-slate-500">Không có buổi thiếu giờ ra.</p>
                 ) : (
                   attendanceItems.map((it) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
                 )}

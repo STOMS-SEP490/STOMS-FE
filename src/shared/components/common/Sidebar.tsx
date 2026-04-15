@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
   Bookmark,
-  Bell,
   CalendarClock,
   CalendarDays,
   CheckCircle2,
@@ -31,11 +30,11 @@ import memberApi from '@/modules/member/api/memberApi';
 import { Button } from '@/shared/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
+import NotificationBell from '@/shared/components/common/NotificationBell';
 
 const TOP_ROW = 'grid w-full grid-cols-[18px_1fr] items-center gap-3 px-3 py-2.5';
 const TOP_ROW_WITH_CHEVRON = 'grid w-full grid-cols-[18px_1fr_18px] items-center gap-3 px-3 py-2.5';
-const SUB_ROW =
-  'grid w-full grid-cols-[18px_1fr] items-center gap-3 py-2 pl-1 pr-2';
+const SUB_ROW ='grid w-full grid-cols-[18px_1fr] items-center gap-3 py-2 pl-1 pr-2';
 const ICON_SLOT = 'flex size-[18px] shrink-0 items-center justify-center';
 const SUBTREE_WRAPPER = 'mt-0.5 ml-[calc(0.75rem+9px)] flex flex-col gap-0.5 border-l border-slate-200 pl-3';
 
@@ -130,7 +129,7 @@ export default function Sidebar() {
   }, [location.pathname]);
 
   const GROUP_TEMPLATE = 'Quản lý mẫu';
-  const GROUP_EQUIPMENT = 'Thiết bị';
+  const GROUP_EQUIPMENT = 'Thiết bị và Phiếu mượn';
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     [GROUP_TEMPLATE]: true,
@@ -182,7 +181,7 @@ export default function Sidebar() {
           { label: 'Thiết bị', icon: Package, path: '/manager/equipments', end: true },
           { label: 'Danh mục', icon: Layers, path: '/manager/equipments/categories', end: true },
           { label: 'Phiếu mượn', icon: ClipboardCheck, path: '/manager/borrowings', end: true },
-          { label: 'Đặt trước', icon: CalendarClock, path: '/manager/borrowings/reservations', end: true },
+          { label: 'Đơn yêu cầu thiết bị', icon: CalendarClock, path: '/manager/borrowings/reservations', end: true },
         ],
       },
       { kind: 'link', label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
@@ -225,15 +224,7 @@ export default function Sidebar() {
             >
               <LayoutGrid className="h-[18px] w-[18px]" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-slate-700 shadow-none hover:bg-transparent"
-              aria-label="Thông báo"
-              title="Thông báo"
-            >
-              <Bell className="h-[18px] w-[18px]" />
-            </Button>
+            <NotificationBell variant="sidebarCollapsed" />
           </div>
 
           <Button
@@ -264,6 +255,9 @@ export default function Sidebar() {
           </Button>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-900">STOMS</p>
+          </div>
+          <div className="ml-auto">
+            <NotificationBell />
           </div>
         </div>
 
@@ -443,13 +437,10 @@ export default function Sidebar() {
 
               <div className="my-1 h-px bg-slate-200" />
 
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100"
-              >
-                <Bell className="h-4 w-4" />
-                Thông báo
-              </button>
+              <div className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                <span>Thông báo</span>
+                <NotificationBell />
+              </div>
 
               <div className="my-1 h-px bg-slate-200" />
 

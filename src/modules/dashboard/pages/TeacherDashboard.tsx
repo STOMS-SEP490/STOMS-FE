@@ -309,7 +309,7 @@ export default function TeacherDashboard() {
           <div className="min-w-0">
             <h2 className="text-xl font-semibold text-slate-900">Dashboard giảng viên</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Tổng quan khối lượng giảng dạy, thu nhập ước tính và các phiên cần bạn chú ý.
+              Tổng quan khối lượng giảng dạy, thu nhập ước tính và các buổi cần bạn chú ý.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -425,7 +425,7 @@ export default function TeacherDashboard() {
               </div>
               <div className="space-y-3">
                 {attendanceItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Không có phiên thiếu giờ ra.</p>
+                  <p className="py-8 text-center text-xs text-slate-500">Không có buổi thiếu giờ ra.</p>
                 ) : (
                   attendanceItems.map((it) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
                 )}

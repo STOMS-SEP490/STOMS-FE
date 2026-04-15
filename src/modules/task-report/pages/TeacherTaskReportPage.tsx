@@ -262,7 +262,7 @@ export default function TeacherTaskReportPage() {
         setTaskReports(reportRes.items ?? []);
       } catch (err) {
         console.error(err);
-      message.error(getApiErrorMessage(err) || 'Không tải được danh sách phiên hoặc báo cáo công việc');
+      message.error(getApiErrorMessage(err) || 'Không tải được danh sách buổi hoặc báo cáo công việc');
       } finally {
         setLoading(false);
       }
@@ -771,7 +771,7 @@ export default function TeacherTaskReportPage() {
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>
           <p className="text-xs text-gray-500">
-            Ghi báo cáo cho các phiên. Chọn yêu cầu bên trái rồi bấm vào phiên để xem chi tiết.
+            Ghi báo cáo cho các buổi. Chọn yêu cầu bên trái rồi bấm vào buổi để xem chi tiết.
           </p>
         </div>
         <div className="flex min-w-0 flex-col items-stretch gap-2 min-[900px]:items-end">
@@ -807,7 +807,7 @@ export default function TeacherTaskReportPage() {
             </Button>
           </div>
           {(filterFrom || filterTo) && (
-            <span className="text-right text-xs text-gray-500">Chỉ hiển thị phiên trong khoảng đã chọn</span>
+            <span className="text-right text-xs text-gray-500">Chỉ hiển thị buổi trong khoảng đã chọn</span>
           )}
         </div>
       </div>
@@ -832,7 +832,7 @@ export default function TeacherTaskReportPage() {
                 <div className="py-8 text-center text-xs text-gray-500">
                   {filterFrom || filterTo || search
                     ? 'Không có yêu cầu nào khớp bộ lọc.'
-                    : 'Chưa có phiên nào để ghi báo cáo.'}
+                    : 'Chưa có buổi nào để ghi báo cáo.'}
                 </div>
               ) : (
                 requestGroups.map((g) => {
@@ -852,7 +852,7 @@ export default function TeacherTaskReportPage() {
                         setSelectedRequestId(g.requestId);
                         setActiveTarget(null);
                       }}
-                      hintText={`${g.sessions.length} phiên`}
+                      hintText={`${g.sessions.length} buổi`}
                     />
                   );
                 })
@@ -874,7 +874,7 @@ export default function TeacherTaskReportPage() {
                   <FileText className="text-slate-400" size={28} />
                 </div>
                 <p className="text-sm font-medium text-black">Chọn một yêu cầu ở cột bên trái</p>
-                <p className="text-xs text-gray-500 mt-1">để xem danh sách phiên và ghi báo cáo.</p>
+                <p className="text-xs text-gray-500 mt-1">để xem danh sách buổi và ghi báo cáo.</p>
               </div>
             ) : (
               <>
@@ -882,7 +882,7 @@ export default function TeacherTaskReportPage() {
                 <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-200">
                   <div className="min-w-0">
                     <h3 className="text-lg font-semibold text-black truncate">{selectedGroup.requestName}</h3>
-                    <p className="text-xs text-slate-500 mt-1">{selectedGroup.requestCode} · {selectedGroup.sessions.length} phiên</p>
+                    <p className="text-xs text-slate-500 mt-1">{selectedGroup.requestCode} · {selectedGroup.sessions.length} buổi</p>
                   </div>
                 </div>
 

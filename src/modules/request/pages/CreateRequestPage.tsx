@@ -74,6 +74,7 @@ export default function CreateRequestPage() {
   const [defaultLocation, setDefaultLocation] = useState('')
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const courseSectionRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const disablePastDate = (current: Dayjs) => current.startOf('day').isBefore(dayjs().startOf('day'))
   const disablePastTimeOfToday = (current: Dayjs | null) => {
     const now = dayjs()
@@ -212,7 +213,11 @@ export default function CreateRequestPage() {
             await Promise.all(
               list.map(async (s) => {
                 const subjectSessions = await loadSubjectSessions(s.subjectId, defaultLoc)
-                return subjectSessions
+                return subjectSessions.map((ss) => ({
+                  ...ss,
+                  courseSubjectId: s.subjectId,
+                  courseSubjectName: s.subjectName ?? null,
+                }))
               }),
             )
           ).flat()
@@ -289,6 +294,12 @@ export default function CreateRequestPage() {
     )
   }
 
+  const scrollToCourseSubjectSessions = (subjectIdToScroll: number) => {
+    const target = courseSectionRefs.current[subjectIdToScroll]
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const handleSubjectChange = async (value: number | undefined) => {
     setSubjectId(value)
     if (sourceType === 'subject') setCourseId(undefined)
@@ -318,7 +329,11 @@ export default function CreateRequestPage() {
       await Promise.all(
         list.map(async (s) => {
           const subjectSessions = await loadSubjectSessions(s.subjectId, defaultLocation)
-          return subjectSessions
+          return subjectSessions.map((ss) => ({
+            ...ss,
+            courseSubjectId: s.subjectId,
+            courseSubjectName: s.subjectName ?? null,
+          }))
         }),
       )
     ).flat()
@@ -360,11 +375,6 @@ export default function CreateRequestPage() {
       message.error('Vui lòng chọn ngày bắt đầu.')
       return
     }
-    if (startDate.isBefore(dayjs())) {
-      message.error('Ngày giờ bắt đầu không được ở quá khứ.')
-      return
-    }
-
     const finalSubjectId = sourceType === 'subject' ? subjectId ?? null : null
     const finalCourseId = sourceType === 'course' ? courseId ?? null : null
     const finalEventId = sourceType === 'event' ? eventId ?? null : null
@@ -393,8 +403,8 @@ export default function CreateRequestPage() {
     }
     const hasPastSessionDate = sessions.some(
       (s) =>
-        (s.startAt && s.startAt.isBefore(dayjs())) ||
-        (s.endAt && s.endAt.isBefore(dayjs()))
+        (s.startAt && s.startAt.isBefore(dayjs(), 'minute')) ||
+        (s.endAt && s.endAt.isBefore(dayjs(), 'minute'))
     )
     if (hasPastSessionDate) {
       message.error('Ngày giờ của các buổi học không được ở quá khứ.')
@@ -453,6 +463,7 @@ export default function CreateRequestPage() {
       icon: <ExclamationCircleFilled className="text-[#F59E0B]" />,
       width: 920,
       centered: true,
+      maskClosable: true,
       bodyStyle: {
         maxHeight: 'calc(100vh - 220px)',
         overflowY: 'auto',
@@ -479,31 +490,14 @@ export default function CreateRequestPage() {
       },
       content: (
         <div className="w-full">
-          <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-            <div
-              className="px-4 py-3 flex items-center gap-3"
-              style={{ background: `linear-gradient(90deg, ${accentColor}22, rgba(255,255,255,1) 70%)` }}
-            >
-              
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-gray-900">Xác nhận tạo yêu cầu</div>
-                <div className="text-[11px] text-gray-500 truncate">Vui lòng kiểm tra lần cuối trước khi tạo.</div>
-              </div>
-            </div>
-
-            <div className="p-4">
+          <div className="bg-white">
+            <div className="p-4 pt-2">
               <div className="grid grid-cols-1 md:grid-cols-[1fr,1.2fr] gap-4">
             {/* Bill summary */}
             <div className="space-y-3">
-              <div className="rounded-xl border border-gray-200 bg-white p-4 relative overflow-hidden">
+              <div className="bg-white p-2">
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <div className="text-sm text-gray-900 font-medium">Thông tin yêu cầu</div>
-                  <div
-                    className="text-[11px] border rounded-full px-2 py-0.5"
-                    style={{ borderColor: `${accentColor}33`, backgroundColor: `${accentColor}10`, color: accentColor }}
-                  >
-                    {sourceType === 'subject' ? 'Môn học' : sourceType === 'course' ? 'Khóa học' : 'Sự kiện'}
-                  </div>
                 </div>
                 <div className="space-y-2 text-[13px]">
                   <div>
@@ -514,11 +508,27 @@ export default function CreateRequestPage() {
                   </div>
                   <div>
                     <span className="text-gray-500">Loại:</span>{' '}
-                    <span className="text-gray-900 font-medium">
+                    <span
+                      className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                      style={{ borderColor: `${accentColor}33`, backgroundColor: `${accentColor}10`, color: accentColor }}
+                    >
                       {sourceType === 'subject' ? 'Môn học' : sourceType === 'course' ? 'Khóa học' : 'Sự kiện'}
-                      {sourceName ? ` - ${sourceName}` : ''}
-                      {sourceType === 'course' && courseSubjectName ? ` (Môn trong khóa: ${courseSubjectName})` : ''}
                     </span>
+                    {sourceType === 'course' && sourceName ? (
+                      <span className="ml-1 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                        Tên khóa học: {sourceName}
+                      </span>
+                    ) : null}
+                    {sourceType !== 'course' && sourceName ? (
+                      <span className="ml-1 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                        Tên: {sourceName}
+                      </span>
+                    ) : null}
+                    {sourceType === 'course' && courseSubjectName ? (
+                      <span className="ml-1 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                        Môn trong khóa: {courseSubjectName}
+                      </span>
+                    ) : null}
                   </div>
                   <div>
                     <span className="text-gray-500">Ngày bắt đầu:</span>{' '}
@@ -527,15 +537,15 @@ export default function CreateRequestPage() {
                 </div>
 
                 {note?.trim() ? (
-                  <div className="mt-3 rounded-lg bg-gray-50 border border-gray-200 p-3 text-[13px]">
-                    <div className="text-gray-500 font-medium">Ghi chú</div>
-                    <div className="text-gray-900">{note.trim()}</div>
+                  <div className="mt-3 text-[13px]">
+                    <span className="text-gray-500">Ghi chú:</span>{' '}
+                    <span className="text-gray-900">{note.trim()}</span>
                   </div>
                 ) : null}
               </div>
 
-              <div className="rounded-xl bg-[#2197C0]/5 border border-[#2197C0]/15 p-3 text-[11px] text-gray-600">
-                Hệ thống sẽ kiểm tra số phiên và thời lượng theo cấu hình môn/khóa/sự kiện trước khi tạo.
+              <div className="rounded-lg bg-[#2197C0]/5 p-3 text-[11px] text-gray-600">
+                Hệ thống sẽ kiểm tra số buổi và thời lượng theo cấu hình môn/khóa/sự kiện trước khi tạo.
               </div>
             </div>
 
@@ -550,23 +560,24 @@ export default function CreateRequestPage() {
                 ) : null}
               </div>
 
-              <div className="space-y-2">
-                {sessions.map((s) => (
+              <div className="divide-y divide-gray-200/60">
+                {sessions.map((s) => {
+                  const normalizedTitle = String(s.title ?? '').trim()
+                  const duplicatedSessionTitle =
+                    normalizedTitle.toLowerCase() === `buổi ${s.sessionNo}`.toLowerCase()
+                  return (
                   <div
                     key={`${s.subjectSessionId ?? s.eventSessionId}-${s.sessionNo}`}
-                    className="relative rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+                    className="relative bg-white px-3 py-3.5"
                   >
-                    <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: `${accentColor}55` }} />
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ backgroundColor: `${accentColor}55` }} />
 
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-xs font-semibold text-gray-900 truncate">
-                          Buổi {s.sessionNo}: {s.title}
+                          {duplicatedSessionTitle ? `Buổi ${s.sessionNo}` : `Buổi ${s.sessionNo}: ${s.title}`}
                         </div>
-                        <div className="text-[13px] text-gray-700 mt-1 flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                          {formatDateTime(s.startAt)} - {formatDateTime(s.endAt)}
-                        </div>
+                       
                       </div>
                       {s.isOnline ? (
                         <div
@@ -577,31 +588,41 @@ export default function CreateRequestPage() {
                             accentBorderSoftClass
                           )}
                         >
-                          Online
+                          Trực tuyến
                         </div>
                       ) : (
                         <div className="shrink-0 text-[11px] text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
-                          Offline
+                          Trực tiếp
                         </div>
                       )}
                     </div>
 
-                    <div className="mt-2 text-[13px] text-gray-700 space-y-1">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
-                        <span className="text-gray-500 shrink-0">Địa điểm:</span>
-                        <span className="min-w-0 break-words">{s.location?.trim() ? s.location.trim() : '—'}</span>
+                    <div className="mt-2 space-y-1 text-[13px] text-gray-700">
+                      <div className="text-[13px] text-gray-700 flex items-center">
+                          <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                          {formatDateTime(s.startAt)} - {formatDateTime(s.endAt)}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-gray-500 shrink-0">GV/TG:</span>
-                        <span>{s.teachersRequired} / {s.tasRequired}</span>
+                      <div className="inline-flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0">
+                        <span className="inline-flex items-center gap-1 min-w-0">
+                          <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="text-gray-500">Địa điểm:</span>
+                          <span className="min-w-0 break-words">{s.location?.trim() ? s.location.trim() : '—'}</span>
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <span><span className="text-gray-500">Giảng viên:</span> {s.teachersRequired}</span>
+                        <span><span className="text-gray-500">Trợ giảng:</span> {s.tasRequired}</span>
                       </div>
                       {s.notes?.trim() ? (
-                        <div className="text-gray-600 italic">Ghi chú: {s.notes.trim()}</div>
+                        <div className="min-w-0">
+                          <span className="text-gray-500">Ghi chú:</span>{' '}
+                          <span className="text-gray-600 italic">{s.notes.trim()}</span>
+                        </div>
                       ) : null}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
               </div>
@@ -912,13 +933,7 @@ export default function CreateRequestPage() {
                     format="DD/MM/YYYY HH:mm"
                     placeholder="Chọn ngày giờ"
                     value={startDate}
-                    disabledDate={disablePastDate}
-                    disabledTime={disablePastTimeOfToday}
                     onChange={(value) => {
-                      if (value && value.isBefore(dayjs())) {
-                        message.error('Ngày giờ bắt đầu không được ở quá khứ.')
-                        return
-                      }
                       setStartDate(value ?? undefined)
                       if (value && sessions.length > 0) {
                         setSessions(applyAutoSchedule(value, sessions))
@@ -1021,7 +1036,7 @@ export default function CreateRequestPage() {
                 <textarea
                   className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-black shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
                   rows={3}
-                  placeholder="Ghi chú chung cho yêu cầu"
+                  placeholder="Ghi chú chung "
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
@@ -1060,7 +1075,7 @@ export default function CreateRequestPage() {
                           ? cn(accentSolidBgClass, 'text-white', accentBorderSolidClass)
                           : cn('bg-white text-gray-600 border-gray-200', accentHoverBorderTextClass)
                       )}
-                      disabled
+                      onClick={() => scrollToCourseSubjectSessions(s.subjectId)}
                       title="Trong chế độ Khóa học, hệ thống tự tạo đủ sessions của tất cả môn trong khóa."
                     >
                       {s.subjectName}
@@ -1074,7 +1089,7 @@ export default function CreateRequestPage() {
               {loadingSessions && (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
                   <Loader2 className={cn('w-8 h-8 animate-spin mb-2', accentTextClass)} />
-                  <span className="text-xs">Đang tải danh sách buổi học...</span>
+                  <span className="text-xs">Đang tải danh sách các buổi...</span>
                 </div>
               )}
 
@@ -1091,18 +1106,36 @@ export default function CreateRequestPage() {
               )}
 
               <div className="space-y-3">
-                {sessions.map((s, index) => (
-                  <div
-                    key={`${s.subjectSessionId ?? s.eventSessionId}-${s.sessionNo}`}
-                    className="rounded-lg border bg-gray-50/80 p-4 space-y-3 hover:border-gray-300 transition-colors"
-                  >
+                {sessions.map((s, index) => {
+                  const prev = index > 0 ? sessions[index - 1] : null
+                  const groupName = String(s.courseSubjectName ?? '').trim()
+                  const prevGroupName = String(prev?.courseSubjectName ?? '').trim()
+                  const showCourseGroupHeader =
+                    sourceType === 'course' &&
+                    Boolean(groupName) &&
+                    groupName.toLowerCase() !== prevGroupName.toLowerCase()
+
+                  return (
+                    <div key={`${s.subjectSessionId ?? s.eventSessionId}-${s.sessionNo}`}>
+                      {showCourseGroupHeader ? (
+                        <div
+                          ref={(el) => {
+                            if (!s.courseSubjectId) return
+                            courseSectionRefs.current[s.courseSubjectId] = el
+                          }}
+                          className="mb-2 px-1 text-sm font-semibold text-[#6D28D9]"
+                        >
+                          {groupName}
+                        </div>
+                      ) : null}
+                      <div className="rounded-lg border bg-gray-50/80 p-4 space-y-3 hover:border-gray-300 transition-colors">
                     {/* Session header */}
                     <div className="flex items-center gap-3">
                       <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0', accentSoftBgClass)}>
                         <span className={cn('text-xs font-bold', accentTextClass)}>{s.sessionNo}</span>
                       </div>
                       <span className="text-sm font-medium text-black truncate flex-1">
-                        {s.title}
+                        {`Buổi ${s.sessionNo}`}
                       </span>
                       {s.isOnline && (
                         <Badge
@@ -1133,7 +1166,7 @@ export default function CreateRequestPage() {
                           onChange={(value) => {
                             // Khi đổi startAt -> tự điền endAt dự tính theo duration.
                             if (!value) return
-                            if (value.isBefore(dayjs())) {
+                            if (value.isBefore(dayjs(), 'minute')) {
                               message.error('Giờ bắt đầu của buổi học không được ở quá khứ.')
                               return
                             }
@@ -1183,7 +1216,7 @@ export default function CreateRequestPage() {
                         <Label className="text-xs text-gray-500">Số Giảng Viên</Label>
                       </div>
                       <div className="col-span-1">
-                        <Label className="text-xs text-gray-500">Số Trợ Giảng</Label>
+                        <Label className="text-xs text-gray-500">Số Sinh Viên</Label>
                       </div>
                       <div className="col-span-2">
                         <Label className="text-xs text-gray-500">Địa điểm</Label>
@@ -1227,7 +1260,7 @@ export default function CreateRequestPage() {
                     {/* Notes */}
                     <textarea
                       className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm text-black shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-                      placeholder="Ghi chú buổi học"
+                      placeholder="Ghi chú"
                       value={s.notes}
                       rows={2}
                       onChange={(e) => updateSession(index, { notes: e.target.value })}
@@ -1263,8 +1296,10 @@ export default function CreateRequestPage() {
                         </button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>

@@ -503,7 +503,7 @@ export default function TeacherAttendanceHistoryPage() {
 
         const requestId = reqId != null ? Number(reqId) : NaN;
         if (!requestId || Number.isNaN(requestId)) {
-          throw new Error('Không tìm thấy mã request để tải chi tiết phiên.');
+          throw new Error('Không tìm thấy mã request để tải chi tiết buổi.');
         }
 
         const requestDetail = await requestApi.getById(requestId);
@@ -514,7 +514,7 @@ export default function TeacherAttendanceHistoryPage() {
         ) as (RequestSessionSummary & Record<string, unknown>) | undefined;
 
         if (!rawSession) {
-          throw new Error('Không tìm thấy phiên trong yêu cầu.');
+          throw new Error('Không tìm thấy buổi trong yêu cầu.');
         }
 
         const anySession = rawSession as Record<string, unknown> & {
@@ -568,7 +568,7 @@ export default function TeacherAttendanceHistoryPage() {
         const msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: unknown }).message)
-            : 'Không tải được chi tiết phiên.';
+            : 'Không tải được chi tiết buổi.';
         setDetailError(msg);
       } finally {
         if (cancelled) return;
@@ -610,7 +610,7 @@ export default function TeacherAttendanceHistoryPage() {
 
         const parsed = requestId != null ? Number(requestId) : NaN;
         if (Number.isNaN(parsed) || parsed <= 0) {
-          throw new Error('Không tìm thấy mã request để tải chi tiết phiên.');
+          throw new Error('Không tìm thấy mã request để tải chi tiết buổi.');
         }
 
         const requestDetail = await requestApi.getById(parsed);
@@ -621,7 +621,7 @@ export default function TeacherAttendanceHistoryPage() {
         ) as RequestSessionSummary | undefined;
 
         if (!rawSession) {
-          throw new Error('Không tìm thấy phiên trong yêu cầu.');
+          throw new Error('Không tìm thấy buổi trong yêu cầu.');
         }
 
         setDetailRequest(requestDetail);
@@ -631,7 +631,7 @@ export default function TeacherAttendanceHistoryPage() {
         const msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: unknown }).message)
-            : 'Không tải được chi tiết phiên.';
+            : 'Không tải được chi tiết buổi.';
         setDetailError(msg);
       } finally {
         if (cancelled) return;
@@ -655,8 +655,8 @@ export default function TeacherAttendanceHistoryPage() {
             </h2>
             <p className="text-xs text-gray-500">
               {activeTab === 'attendance'
-                ? 'Theo dõi phiên diễn ra hôm nay và thực hiện điểm danh vào/ra.'
-                : 'Các phiên bạn đã được điểm danh, cùng trạng thái giờ vào/giờ ra.'}
+                ? 'Theo dõi buổi diễn ra hôm nay và thực hiện điểm danh vào/ra.'
+                : 'Các buổi bạn đã được điểm danh, cùng trạng thái giờ vào/giờ ra.'}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -670,7 +670,7 @@ export default function TeacherAttendanceHistoryPage() {
                 setPageNumber(1);
                 setSearch(v);
               }}
-              placeholder={activeTab === 'attendance' ? 'Tìm theo phiên/địa điểm/trạng thái...' : 'Tìm theo phiên/địa điểm...'}
+              placeholder={activeTab === 'attendance' ? 'Tìm theo buổi/địa điểm/trạng thái...' : 'Tìm theo buổi/địa điểm...'}
             />
           </div>
         </div>
@@ -720,7 +720,7 @@ export default function TeacherAttendanceHistoryPage() {
                 <div className="w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden max-w-xl border-l">
                   <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
                     <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết buổi</p>
                       <h2 className="text-lg font-bold text-slate-900">
                         Buổi{' '}
                         {(
@@ -752,14 +752,14 @@ export default function TeacherAttendanceHistoryPage() {
                       type="button"
                       onClick={closeDetail}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-                      aria-label="Đóng chi tiết phiên"
+                      aria-label="Đóng chi tiết buổi"
                     >
                       <X size={18} />
                     </button>
                   </div>
 
                   <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
-                    {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết phiên...</p>}
+                    {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết buổi...</p>}
 
                     {detailError && (
                       <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">
@@ -799,7 +799,7 @@ export default function TeacherAttendanceHistoryPage() {
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-black">Lịch sử điểm danh</h2>
           <p className="text-xs text-gray-500">
-            Các phiên bạn đã được điểm danh, cùng trạng thái giờ vào/giờ ra.
+            Các buổi bạn đã được điểm danh, cùng trạng thái giờ vào/giờ ra.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -809,7 +809,7 @@ export default function TeacherAttendanceHistoryPage() {
               setPageNumber(1);
               setSearch(v);
             }}
-            placeholder="Tìm theo tên phiên..."
+            placeholder="Tìm theo tên buổi..."
           />
         </div>
       </div>
@@ -834,7 +834,7 @@ export default function TeacherAttendanceHistoryPage() {
           <div className="w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden max-w-xl border-l">
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết buổi</p>
                 <h2 className="text-lg font-bold text-slate-900">
                   Buổi {detailSession?.sessionNo ?? '—'}
                   {(detailSession as any)?.notes ? `: ${(detailSession as any).notes}` : ''}
@@ -845,14 +845,14 @@ export default function TeacherAttendanceHistoryPage() {
                 type="button"
                 onClick={closeDetail}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-                aria-label="Đóng chi tiết phiên"
+                aria-label="Đóng chi tiết buổi"
               >
                 <X size={18} />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
-              {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết phiên...</p>}
+              {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết buổi...</p>}
 
               {detailError && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">

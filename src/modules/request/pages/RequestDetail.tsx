@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useOutletContext, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, AlertTriangle, Paperclip, ImageOff, Users, Wrench, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, X, CheckCircle2, List, MapPin, AlertCircle, AlertTriangle, Paperclip, ArrowLeft } from 'lucide-react';
 import { message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
-import { getRequestType } from '@/shared/components/request/RequestCard';
 import {
   getRequestStatusCode,
   getRequestStatusInfo,
@@ -67,6 +66,7 @@ export default function RequestDetail() {
     }[];
   };
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
   const isApprovalView = viewMode === 'approval';
   const isTeamAssignView = viewMode === 'team_assign';
@@ -210,7 +210,6 @@ export default function RequestDetail() {
   );
   const [approvePreviewLoading, setApprovePreviewLoading] = useState(false);
   const [approveSessionPreviews, setApproveSessionPreviews] = useState<ApproveSessionPreview[]>([]);
-  const [expandedEquipmentsBySessionId, setExpandedEquipmentsBySessionId] = useState<Record<number, boolean>>({});
   const [cancelSessionOpen, setCancelSessionOpen] = useState(false);
   const [cancelSessionReason, setCancelSessionReason] = useState('');
   const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
@@ -359,6 +358,17 @@ export default function RequestDetail() {
     };
   };
 
+  const requestStatusCode = getRequestStatusCode(request?.status);
+  const isPendingRequest = requestStatusCode === REQUEST_STATUS.PENDING;
+  const isApprovedRequest = requestStatusCode === REQUEST_STATUS.APPROVED;
+
+  useEffect(() => {
+    if (!isPendingRequest) return;
+    if (rightPanel?.mode === 'team' || rightPanel?.mode === 'assignment') {
+      setRightPanel(null);
+    }
+  }, [isPendingRequest, rightPanel?.mode, setRightPanel]);
+
   if (!id) {
     return <div className="text-sm text-black">Không tìm thấy mã yêu cầu.</div>;
   }
@@ -371,15 +381,70 @@ export default function RequestDetail() {
     return <div className="text-sm text-black p-4">Không tìm thấy yêu cầu.</div>;
   }
 
-  const typeInfo = getRequestType({
-    subjectId: request.subjectId,
-    courseId: request.courseId,
-    eventId: request.eventId,
-  });
   const statusInfo = getRequestStatusInfo(request.status);
-  const requestStatusCode = getRequestStatusCode(request.status);
   const isRequestCancelled = requestStatusCode === REQUEST_STATUS.CANCELLED;
   const sessionCount = sessions.length || request.sessionsRequired || 0;
+  const requestTypeLabel = request.courseId
+    ? 'Khóa học'
+    : request.eventId
+      ? 'Sự kiện'
+      : request.subjectId
+        ? 'Môn học'
+        : 'Khác';
+  const dotClass = 'mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#2197C0] align-middle';
+  const metaLabelClass = 'text-[11px] uppercase tracking-wide text-[#2197C0] font-semibold';
+  const backPath =
+    viewMode === 'assignment'
+      ? '/manager/requests/assignments'
+      : viewMode === 'approval'
+        ? '/manager/requests/approval'
+        : viewMode === 'team_assign'
+          ? '/manager/requests/team-assign'
+          : '/manager/requests';
+  const requestRaw = request as Record<string, unknown>;
+  const courseRaw =
+    (requestRaw.course as Record<string, unknown> | undefined) ??
+    (requestRaw.Course as Record<string, unknown> | undefined) ??
+    undefined;
+  const subjectRaw =
+    (requestRaw.subject as Record<string, unknown> | undefined) ??
+    (requestRaw.Subject as Record<string, unknown> | undefined) ??
+    undefined;
+  const eventRaw =
+    (requestRaw.event as Record<string, unknown> | undefined) ??
+    (requestRaw.Event as Record<string, unknown> | undefined) ??
+    undefined;
+
+  const sourceRaw = eventRaw ?? courseRaw ?? subjectRaw;
+  const sourceName = request.courseId
+    ? String(courseRaw?.courseName ?? courseRaw?.CourseName ?? '').trim()
+    : request.eventId
+      ? String(eventRaw?.eventName ?? eventRaw?.EventName ?? '').trim()
+      : request.subjectId
+        ? String(subjectRaw?.subjectName ?? subjectRaw?.SubjectName ?? '').trim()
+        : '';
+  const sourceNameLabel = request.courseId
+    ? 'Tên khóa học'
+    : request.eventId
+      ? 'Tên sự kiện'
+      : request.subjectId
+        ? 'Tên môn học'
+        : 'Tên';
+  const sourceDescription = String(
+    sourceRaw?.description ??
+      sourceRaw?.Description ??
+      ''
+  ).trim();
+  const sourceDuration = String(
+    sourceRaw?.duration ??
+      sourceRaw?.Duration ??
+      ''
+  ).trim();
+  const hasSourceName = Boolean(sourceName);
+  const hasSourceDescription = Boolean(sourceDescription);
+  const hasSourceDuration = Boolean(sourceDuration);
+  const hasStartAt = Boolean(requestDateRange.startAt);
+  const hasEndAt = Boolean(requestDateRange.endAt);
   const resolvedDetailSession =
     rightPanel?.mode === 'detail'
       ? (sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session)
@@ -415,20 +480,20 @@ export default function RequestDetail() {
     if (!sess) return;
     const trimmed = cancelSessionReason.trim();
     if (!trimmed) {
-      message.warning('Vui lòng nhập lý do hủy phiên.');
+      message.warning('Vui lòng nhập lý do hủy buổi.');
       return;
     }
     try {
       setCancelSessionLoading(true);
       await sessionService.cancel({ sessionId: sess.sessionId, reason: trimmed });
-      message.success('Đã hủy phiên.');
+      message.success('Đã hủy buổi.');
       setCancelSessionOpen(false);
       setCancelSessionReason('');
       await refreshDetail();
       refreshRequestSidebar?.();
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Hủy phiên thất bại.';
+      const msg = (err as any)?.message || 'Hủy buổi thất bại.';
       message.error(msg);
     } finally {
       setCancelSessionLoading(false);
@@ -437,103 +502,128 @@ export default function RequestDetail() {
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden text-black">
+      <div className="flex h-full min-h-0 flex-col  overflow-hidden text-black">
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
           <div className="w-full min-w-0 space-y-4">
-        <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
+        <div className="bg-white rounded-xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
           <div className="flex flex-wrap items-center gap-3">
-            <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
-              {request.requestName ?? request.requestCode}
-            </h5>
-            {/* <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                title="Sao chép mã"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                title="Chia sẻ"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 hover:border-slate-300"
-                title="Xem trong lịch"
-              >
-                <Calendar className="w-4 h-4" />
-              </button>
-            </div> */}
-            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-              <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
-                {typeInfo.label}
-              </span>
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}
-              >
-                {statusInfo.label}
-              </span>
-              {!isRequestCancelled && !isApprovalView && !isDefaultRequestView ? (
-                <button
-                  type="button"
-                  onClick={handleCancelRequestClick}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 rounded-sm py-0.5"
-                >
-                  <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
-                  Hủy yêu cầu
-                </button>
-              ) : null}
+            <button
+              type="button"
+              onClick={() => navigate(backPath)}
+              className="!p-0 w-8 h-8 rounded-lg border border-gray-300 flex items-center justify-center text-black bg-white hover:bg-gray-100 transition-colors"
+              aria-label="Quay lại danh sách yêu cầu"
+              title="Quay lại"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <h5 className="truncate text-xl font-bold text-slate-900">
+                  Chi tiết {request.requestName || request.requestCode}
+                </h5>
+                <p className="text-xs text-slate-700">
+                  <span className="text-slate-500">Mã yêu cầu: </span>
+                  <span className="font-semibold text-slate-900">{request.requestCode}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex min-w-[220px] shrink-0 flex-col items-end gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500">Trạng thái:</span>
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}>
+                  {statusInfo.label}
+                </span>
+                {!isRequestCancelled && !isApprovalView && !isDefaultRequestView ? (
+                  <button
+                    type="button"
+                    onClick={handleCancelRequestClick}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 rounded-sm py-0.5"
+                  >
+                    <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
+                    Hủy yêu cầu
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
-          {/* Info: Mã yêu cầu, Ngày gửi, Ngày bắt đầu, Ngày kết thúc, Số lượng phiên */}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4 pt-4 border-t border-slate-100">
-            <div className="flex items-start gap-3">
-              {/* <Hash className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Mã yêu cầu</p>
-                <p className="font-semibold text-sm text-slate-900 mt-0.5">{request.requestCode}</p>
-              </div>
+          <div className="flex flex-col gap-1 px-5 pt-3">
+            {hasSourceName ? (
+              <p className="mt-1 text-sm font-semibold">
+                <span className="text-[#2197C0]">
+                  <span className={dotClass} aria-hidden />
+                  {sourceNameLabel}:{' '}
+                </span>
+                <span className="text-slate-900">{sourceName || '—'}</span>
+              </p>
+            ) : null}
+            {hasSourceDescription ? (
+              <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                {sourceDescription}
+              </p>
+            ) : null}
+          </div>
+          <div
+            className={`mt-4 grid gap-x-6 gap-y-3 border-t border-slate-100 px-5 py-4 ${
+              hasSourceDuration || hasStartAt || hasEndAt
+                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-6'
+                : 'grid-cols-1 sm:grid-cols-3'
+            }`}
+          >
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Loại yêu cầu
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{requestTypeLabel}</p>
             </div>
-            <div className="flex items-start gap-3">
-              {/* <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày gửi</p>
-                <p className="font-semibold text-sm text-slate-900 mt-0.5">
-                  {request.createdAt
-                    ? dayjs(request.createdAt).format('DD/MM/YYYY')
-                    : dayjs(request.startDate).format('DD/MM/YYYY')}
-                </p>
-              </div>
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Ngày gửi
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                {request.createdAt
+                  ? dayjs(request.createdAt).format('DD/MM/YYYY')
+                  : dayjs(request.startDate).format('DD/MM/YYYY')}
+              </p>
             </div>
-            <div className="flex items-start gap-3">
-              {/* <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày bắt đầu</p>
-                <p className="font-semibold text-sm text-slate-900 mt-0.5">
-                  {requestDateRange.startAt ? dayjs(requestDateRange.startAt).format('DD/MM/YYYY') : '—'}
-                </p>
-              </div>
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Số lượng buổi
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{sessionCount} buổi</p>
             </div>
-            <div className="flex items-start gap-3">
-              {/* <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày kết thúc</p>
-                <p className="font-semibold text-sm text-slate-900 mt-0.5">
-                  {requestDateRange.endAt ? dayjs(requestDateRange.endAt).format('DD/MM/YYYY') : '—'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              {/* <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Số lượng phiên</p>
-                <p className="font-semibold text-sm text-slate-900 mt-0.5">{sessionCount} phiên</p>
-              </div>
-            </div>
+            {hasSourceDuration || hasStartAt || hasEndAt ? (
+              <>
+                <div className="min-w-0">
+                  <p className={metaLabelClass}>
+                    <span className={dotClass} aria-hidden />
+                    Thời lượng
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">{sourceDuration || '—'}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className={metaLabelClass}>
+                    <span className={dotClass} aria-hidden />
+                    Ngày bắt đầu
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {requestDateRange.startAt ? dayjs(requestDateRange.startAt).format('DD/MM/YYYY HH:mm') : '—'}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className={metaLabelClass}>
+                    <span className={dotClass} aria-hidden />
+                    Ngày kết thúc
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {requestDateRange.endAt ? dayjs(requestDateRange.endAt).format('DD/MM/YYYY HH:mm') : '—'}
+                  </p>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -546,7 +636,7 @@ export default function RequestDetail() {
                 Duyệt phân công
               </Badge>
               <span className="text-gray-800">
-                Xem các phiên thuộc yêu cầu này và duyệt phân công cho từng phiên sau khi Team
+                Xem các buổi thuộc yêu cầu này và duyệt phân công cho từng buổi sau khi Team
                 Leader đã gán đủ nhân sự.
               </span>
             </div>
@@ -554,15 +644,15 @@ export default function RequestDetail() {
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div className="mb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">{sessions.length} phiên trong yêu cầu này</p>
+              <h3 className="text-sm font-semibold text-slate-900">Danh sách buổi học</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">{sessions.length} buổi trong yêu cầu này</p>
             </div>
             {sessions.length === 0 ? (
               <p className="text-xs text-gray-500">
-                Yêu cầu này chưa có phiên để phân công. Vui lòng kiểm tra lại danh sách phiên.
+                Yêu cầu này chưa có buổi để phân công. Vui lòng kiểm tra lại danh sách buổi.
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {sessions.map((session) => {
                   const rows = assignmentsBySessionId[session.sessionId] ?? [];
                   const pendingCount = rows.filter((r) => canManagerReviewAssignmentRow(r)).length;
@@ -571,43 +661,48 @@ export default function RequestDetail() {
                   const sessionTitle = getSessionDisplayTitle(session);
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
                   const sessionStatusInfo = getSessionStatusInfo(session.status);
+                  const sessionDate = dayjs(session.startAt).format('DD/MM/YYYY');
+                  const isHighlightDate = sessionDate === '16/04/2026';
                   return (
                     <div
                       key={session.sessionId}
                       role="button"
                       tabIndex={0}
-                      onClick={() => setRightPanel({ mode: 'assignment', session })}
+                      onClick={() => setRightPanel({ mode: isPendingRequest ? 'detail' : 'assignment', session })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          setRightPanel({ mode: 'assignment', session });
+                          setRightPanel({ mode: isPendingRequest ? 'detail' : 'assignment', session });
                         }
                       }}
                       className={`w-full rounded-xl border px-4 py-3 transition cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                         pendingCount > 0
                           ? 'border-orange-200/90 bg-orange-50/30 hover:border-orange-300 hover:bg-orange-50/50 focus:ring-orange-200/80'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60 focus:ring-sky-200/70'
+                          : 'border-slate-200 bg-slate-50/40 hover:border-slate-300 hover:bg-slate-100/60 focus:ring-sky-200/70'
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                           <span
                             className={`text-xs font-semibold tabular-nums ${
-                              pendingCount > 0 ? 'text-orange-900' : 'text-sky-700'
+                              pendingCount > 0 ? 'text-orange-900' : 'text-[#2197C0]'
                             }`}
                           >
-                            <span className="text-slate-600 font-medium">
-                              {dayjs(session.startAt).format('DD/MM/YYYY')}
+                            <span className={isHighlightDate ? 'text-emerald-600 font-semibold' : 'text-slate-600 font-medium'}>
+                              {sessionDate}
                             </span>
                             <span className="text-slate-300 font-normal mx-1">·</span>
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                           </span>
+                          <span className="text-[10px] font-medium text-slate-500">Trạng thái:</span>
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
                           >
                             {sessionStatusInfo.label}
                           </span>
-                          {sessionPending && !isApprovalView ? (
+                          {sessionPending &&
+                          !isApprovalView &&
+                          requestStatusCode !== REQUEST_STATUS.PENDING ? (
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
                                 fullyAssigned
@@ -654,45 +749,79 @@ export default function RequestDetail() {
         </div>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4 text-black">
-          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 pl-2">
             <TabsList className="bg-transparent border-0 shadow-none p-0 mb-0 min-w-0">
               <TabsTrigger value="overview">Tổng quan</TabsTrigger>
               <TabsTrigger value="attachments">Tệp đính kèm</TabsTrigger>
             </TabsList>
+            {isTeamAssignView || isApprovalView ? null : (
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {isPendingRequest ? (
+                  <>
+                    <Button
+                      type="button"
+                      className="h-8 rounded-md px-3 bg-red-600 hover:bg-rose-700 text-white text-xs"
+                      onClick={handleRejectClick}
+                    >
+                      <X className="w-3.5 h-3.5 mr-1" />
+                      Từ chối yêu cầu
+                    </Button>
+                    <Button
+                      type="button"
+                      className="h-8 rounded-md px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                      onClick={handleApproveClick}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                      Duyệt yêu cầu
+                    </Button>
+                  </>
+                ) : null}
+                {isApprovedRequest ? (
+                  <button
+                    type="button"
+                    onClick={handleCancelRequestClick}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 rounded-sm py-0.5"
+                  >
+                    <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
+                    Hủy yêu cầu
+                  </button>
+                ) : null}
+              </div>
+            )}
           </div>
 
           <TabsContent value="overview" className="space-y-4 mb-0">
           {/* WARNING BOX + PROGRESS + ACTIONS
               - Ẩn hoàn toàn ở /manager/requests/:id (chỉ xem thông tin)
               - Approval: render action ở cuối (bên dưới) */}
-          {!isDefaultRequestView ? (
+          {!isDefaultRequestView || isPendingRequest ? (
             <div className="space-y-3">
-              {!isApprovalView && remainingUnassignedSessions > 0 && (
+              {!isApprovalView && !isPendingRequest && remainingUnassignedSessions > 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex items-start gap-2 min-w-0">
                     <span className="text-amber-600 shrink-0 mt-0.5">⚠</span>
                     <div>
                       <p className="text-sm text-amber-800">
-                        Vui lòng gắn nhóm cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn{' '}
-                        {remainingUnassignedSessions} phiên chưa được gắn nhóm phụ trách.
+                        Vui lòng gắn nhóm cho tất cả các buổi để có thể duyệt yêu cầu. Hiện tại còn{' '}
+                        {remainingUnassignedSessions} buổi chưa được gắn nhóm phụ trách.
                       </p>
                       <button
                         type="button"
                         onClick={scrollToNearestUnassignedSession}
                         className="text-xs font-medium text-amber-700 mt-1 underline underline-offset-2 hover:text-amber-800"
                       >
-                        Xem phiên chưa gắn
+                        Xem buổi chưa gắn
                       </button>
                     </div>
                   </div>
                 </div>
               )}
-              {!isApprovalView && !isTeamAssignView ? (
+              {!isApprovalView && !isTeamAssignView && !isPendingRequest ? (
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-slate-700">Tiến độ phân nhóm</span>
                     <span className="text-sm font-semibold text-slate-800 tabular-nums">
-                      {assignedCount}/{sessions.length || 0} phiên
+                      {assignedCount}/{sessions.length || 0} buổi
                     </span>
                   </div>
                   <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
@@ -705,63 +834,28 @@ export default function RequestDetail() {
                   </div>
                 </div>
               ) : null}
-              <div className="flex flex-wrap items-center gap-3">
-                {isTeamAssignView || isApprovalView ? null : (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 bg-white"
-                      disabled={String(request.status ?? '').toLowerCase() !== 'pending'}
-                      onClick={handleRejectClick}
-                    >
-                      <X className="w-4 h-4 mr-1.5" />
-                      Từ chối yêu cầu
-                    </Button>
-                    <Button
-                      type="button"
-                      className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                      disabled={
-                        String(request.status ?? '').toLowerCase() !== 'pending' ||
-                        (!isApprovalView && (sessions.length === 0 || assignedCount !== sessions.length))
-                      }
-                      onClick={handleApproveClick}
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                      Duyệt yêu cầu
-                    </Button>
-                    {!isApprovalView ? (
-                      <span className="text-xs text-slate-500">
-                        {assignedCount !== sessions.length || sessions.length === 0
-                          ? 'Cần gắn nhóm cho tất cả các phiên trước khi duyệt.'
-                          : ''}
-                      </span>
-                    ) : null}
-                  </>
-                )}
-              </div>
             </div>
           ) : null}
 
-          {/* DANH SÁCH PHIÊN HỌC — kích thước gọn, cân với header request */}
+          {/* DANH SÁCH BUỔI HỌC — kích thước gọn, cân với header request */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
-              {!isApprovalView && canReserveEquipment ? (
+              <h3 className="text-sm font-semibold text-slate-900">Danh sách buổi học</h3>
+              {!isApprovalView && !isPendingRequest && canReserveEquipment ? (
                 <Button
                   onClick={() => hasUnreservedEquipmentSlot && setRightPanel({ mode: 'equipment' })}
                   disabled={!hasUnreservedEquipmentSlot}
                   className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50 text-[11px] h-8 rounded-lg px-3"
                 >
                   <Plus size={14} />
-                  Đặt trước thiết bị
+                  Đơn yêu cầu thiết bị
                 </Button>
               ) : null}
             </div>
             {sessions.length === 0 ? (
-              <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách phiên chi tiết.</p>
+              <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách buổi chi tiết.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {sessions.map((session) => {
                   const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
                   const teamCount = teamIds.length;
@@ -772,6 +866,8 @@ export default function RequestDetail() {
                   const sessionSkills = session.sessionSkills ?? [];
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
                   const sessionStatusInfo = getSessionStatusInfo(session.status);
+                  const sessionDate = dayjs(session.startAt).format('DD/MM/YYYY');
+                  const isHighlightDate = sessionDate === '16/04/2026';
                   return (
                     <div
                       key={session.sessionId}
@@ -779,32 +875,35 @@ export default function RequestDetail() {
                       tabIndex={0}
                       data-request-session-id={session.sessionId}
                       data-request-session-unassigned={String(sessionPending && !fullyAssigned)}
-                      onClick={() => setRightPanel({ mode: isTeamAssignView ? 'team' : 'detail', session })}
+                      onClick={() => setRightPanel({ mode: isTeamAssignView && !isPendingRequest ? 'team' : 'detail', session })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          setRightPanel({ mode: isTeamAssignView ? 'team' : 'detail', session });
+                          setRightPanel({ mode: isTeamAssignView && !isPendingRequest ? 'team' : 'detail', session });
                         }
                       }}
-                      className={`w-full border border-slate-200 rounded-xl bg-white px-4 py-3 hover:border-slate-300 hover:bg-slate-50/60 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2 ${
+                      className={`w-full border border-slate-200 rounded-xl bg-slate-50/40 px-4 py-3 hover:border-slate-300 hover:bg-slate-100/60 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2 ${
                         highlightSessionId === session.sessionId ? 'ring-2 ring-amber-300 border-amber-200 bg-amber-50/30' : ''
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
-                          <span className="text-xs text-sky-700 font-semibold tabular-nums">
-                            <span className="text-slate-600 font-medium">
-                              {dayjs(session.startAt).format('DD/MM/YYYY')}
+                          <span className="text-xs text-[#2197C0] font-semibold tabular-nums">
+                            <span className={isHighlightDate ? 'text-emerald-600 font-semibold' : 'text-slate-600 font-medium'}>
+                              {sessionDate}
                             </span>
                             <span className="text-slate-300 font-normal mx-1">·</span>
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                           </span>
+                          <span className="text-[10px] font-medium text-slate-500">Trạng thái:</span>
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
                           >
                             {sessionStatusInfo.label}
                           </span>
-                          {sessionPending && !isApprovalView ? (
+                          {sessionPending &&
+                          !isApprovalView &&
+                          requestStatusCode !== REQUEST_STATUS.PENDING ? (
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                                 fullyAssigned
@@ -862,7 +961,7 @@ export default function RequestDetail() {
             )}
           </div>
 
-          {isTeamAssignView ? (
+          {isTeamAssignView && !isPendingRequest ? (
             <div className="flex justify-end gap-3 pt-1">
               <Button
                 type="button"
@@ -871,7 +970,7 @@ export default function RequestDetail() {
                 onClick={handleSaveTeamAssignments}
               >
                 <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                Lưu gán đội
+                Lưu gán nhóm
               </Button>
             </div>
           ) : null}
@@ -881,20 +980,20 @@ export default function RequestDetail() {
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 bg-white"
+                className="h-8 rounded-md px-3 border-rose-200 text-rose-700 hover:bg-rose-50 bg-white text-xs"
                 disabled={String(request.status ?? '').toLowerCase() !== 'pending'}
                 onClick={handleRejectClick}
               >
-                <X className="w-4 h-4 mr-1.5" />
+                <X className="w-3.5 h-3.5 mr-1" />
                 Từ chối yêu cầu
               </Button>
               <Button
                 type="button"
-                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                className="h-8 rounded-md px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs disabled:opacity-60 disabled:cursor-not-allowed"
                 disabled={String(request.status ?? '').toLowerCase() !== 'pending'}
                 onClick={handleApproveClick}
               >
-                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                 Duyệt yêu cầu
               </Button>
             </div>
@@ -981,14 +1080,14 @@ export default function RequestDetail() {
                       ? 'Đang gán nhóm'
                       : rightPanel.mode === 'assignment'
                         ? 'Duyệt phân công'
-                        : 'Đặt trước thiết bị'}
+                        : 'Đơn yêu cầu thiết bị'}
                   </p>
                 )}
                 {rightPanel.mode === 'equipment' ? (
                   <>
-                    <h2 className="text-base font-semibold text-black">Chọn phiên & thiết bị</h2>
+                    <h2 className="text-base font-semibold text-black">Chọn buổi & thiết bị</h2>
                     <p className="text-xs text-gray-500 mt-1">
-                      Đặt thiết bị cho một hoặc nhiều phiên
+                      Yêu cầu thiết bị cho một hoặc nhiều buổi
                     </p>
                   </>
                 ) : rightPanel.mode === 'detail' && resolvedDetailSession ? (
@@ -997,20 +1096,24 @@ export default function RequestDetail() {
                       {getSessionDisplayTitle(resolvedDetailSession)}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                      Buổi {resolvedDetailSession.sessionNo}
-                      {' · '}
-                      {dayjs(resolvedDetailSession.startAt).format('HH:mm')} –{' '}
-                      {dayjs(resolvedDetailSession.endAt).format('HH:mm')}
-                      {' · '}
-                      {dayjs(resolvedDetailSession.startAt).format('DD/MM/YYYY')}
+                      <span>Buổi {resolvedDetailSession.sessionNo}</span>
+                      <span className="text-slate-300">{' · '}</span>
+                      <span className="font-semibold text-[#2197C0]">
+                        {dayjs(resolvedDetailSession.startAt).format('HH:mm')} – {dayjs(resolvedDetailSession.endAt).format('HH:mm')}
+                      </span>
+                      <span className="text-slate-300">{' · '}</span>
+                      <span className="font-semibold text-[#2197C0]">{dayjs(resolvedDetailSession.startAt).format('DD/MM/YYYY')}</span>
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       {(() => {
                         const info = getSessionStatusInfo((resolvedDetailSession as any).status);
                         return (
-                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
-                            {info.label}
-                          </span>
+                          <>
+                            <span className="text-[11px] font-medium text-slate-500">Trạng thái:</span>
+                            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
+                              {info.label}
+                            </span>
+                          </>
                         );
                       })()}
                     </div>
@@ -1021,20 +1124,24 @@ export default function RequestDetail() {
                       {getSessionDisplayTitle(resolvedPanelSession)}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                      Buổi {resolvedPanelSession.sessionNo}
-                      {' · '}
-                      {dayjs(resolvedPanelSession.startAt).format('HH:mm')} –{' '}
-                      {dayjs(resolvedPanelSession.endAt).format('HH:mm')}
-                      {' · '}
-                      {dayjs(resolvedPanelSession.startAt).format('DD/MM/YYYY')}
+                      <span>Buổi {resolvedPanelSession.sessionNo}</span>
+                      <span className="text-slate-300">{' · '}</span>
+                      <span className="font-semibold text-[#2197C0]">
+                        {dayjs(resolvedPanelSession.startAt).format('HH:mm')} – {dayjs(resolvedPanelSession.endAt).format('HH:mm')}
+                      </span>
+                      <span className="text-slate-300">{' · '}</span>
+                      <span className="font-semibold text-[#2197C0]">{dayjs(resolvedPanelSession.startAt).format('DD/MM/YYYY')}</span>
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       {(() => {
                         const info = getSessionStatusInfo((resolvedPanelSession as any).status);
                         return (
-                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
-                            {info.label}
-                          </span>
+                          <>
+                            <span className="text-[11px] font-medium text-slate-500">Trạng thái:</span>
+                            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
+                              {info.label}
+                            </span>
+                          </>
                         );
                       })()}
                     </div>
@@ -1063,7 +1170,7 @@ export default function RequestDetail() {
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
                 <>
-                  {/* Thông tin phiên luôn ở trên cùng */}
+                  {/* Thông tin buổi luôn ở trên cùng */}
                   <RequestSessionDetailPanel
                     // Tránh trường hợp rightPanel.session bị "chụp" lúc chưa có reservationId.
                     // Luôn ưu tiên session mới nhất từ state `sessions`.
@@ -1078,7 +1185,7 @@ export default function RequestDetail() {
                     showTeamSummary={String(request.status ?? '').toLowerCase() !== 'pending'}
                   />
                   <div className="mt-6">
-                    {!isApprovalView && String(request.status ?? '').toLowerCase() === 'pending' ? (
+                    {!isApprovalView && !isPendingRequest ? (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
                         currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
@@ -1088,7 +1195,7 @@ export default function RequestDetail() {
                       />
                     ) : null}
                   </div>
-                  {!isApprovalView ? (
+                  {!isApprovalView && !isPendingRequest ? (
                     <div className="mt-6">
                       <RequestSessionDetailPanel
                         session={
@@ -1097,7 +1204,8 @@ export default function RequestDetail() {
                         requestId={Number(request.requestId)}
                         requestCode={request.requestCode ?? ''}
                         sectionMode="equipment"
-                        onReservationUpdated={handleEquipmentSuccess}
+                        canEditReservation={!isPendingRequest}
+                        onReservationUpdated={isPendingRequest ? undefined : handleEquipmentSuccess}
                       />
                     </div>
                   ) : null}
@@ -1108,7 +1216,7 @@ export default function RequestDetail() {
                           type="button"
                           onClick={() => {
                             if (!canCancelDetailSession) {
-                              message.info('Không đủ điều kiện hủy phiên.');
+                              message.info('Không đủ điều kiện hủy buổi.');
                               return;
                             }
                             openCancelSessionDialog();
@@ -1120,7 +1228,7 @@ export default function RequestDetail() {
                           }`}
                         >
                           <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
-                          Hủy phiên
+                          Hủy buổi
                         </button>
                         {!canCancelDetailSession ? (
                           <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
@@ -1132,7 +1240,7 @@ export default function RequestDetail() {
                   ) : null}
                 </>
               )}
-              {rightPanel.mode === 'team' && (
+              {rightPanel.mode === 'team' && !isPendingRequest && (
                 <RequestDetailTeamPanel
                   session={rightPanel.session}
                   currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
@@ -1141,7 +1249,7 @@ export default function RequestDetail() {
                   onAssignSession={handleAssignSession}
                 />
               )}
-              {rightPanel.mode === 'assignment' && (
+              {rightPanel.mode === 'assignment' && !isPendingRequest && (
                 <div className="space-y-4">
                   {request ? (
                     <RequestSessionDetailPanel
@@ -1269,7 +1377,7 @@ export default function RequestDetail() {
                     <div className="px-4 py-3 space-y-4 text-sm">
                       {!rows.length ? (
                             <p className="text-xs text-gray-500">
-                              Chưa có phân công cho phiên
+                              Chưa có phân công cho buổi
                             </p>
                       ) : (() => {
                         const selectedIds =
@@ -1526,7 +1634,7 @@ export default function RequestDetail() {
                     );
                   */}
 
-                  {request && (
+                  {request && !isPendingRequest && (
                     <RequestSessionDetailPanel
                       session={
                         sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
@@ -1534,7 +1642,8 @@ export default function RequestDetail() {
                       requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
                       sectionMode="equipment"
-                      onReservationUpdated={handleEquipmentSuccess}
+                      canEditReservation={!isPendingRequest}
+                      onReservationUpdated={isPendingRequest ? undefined : handleEquipmentSuccess}
                     />
                   )}
 
@@ -1545,7 +1654,7 @@ export default function RequestDetail() {
                           type="button"
                           onClick={() => {
                             if (!canCancelPanelSession) {
-                              message.info('Không đủ điều kiện hủy phiên.');
+                              message.info('Không đủ điều kiện hủy buổi.');
                               return;
                             }
                             openCancelSessionDialog();
@@ -1557,7 +1666,7 @@ export default function RequestDetail() {
                           }`}
                         >
                           <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
-                          Hủy phiên
+                          Hủy buổi
                         </button>
                         {!canCancelPanelSession ? (
                           <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
@@ -1650,11 +1759,11 @@ export default function RequestDetail() {
         )}
       </Dialog>
 
-      {/* Hủy phiên (PUT /sessions/cancel) — cần lý do */}
+      {/* Hủy buổi (PUT /sessions/cancel) — cần lý do */}
       <Dialog
         open={cancelSessionOpen}
         onClose={() => !cancelSessionLoading && setCancelSessionOpen(false)}
-        title="Hủy phiên"
+        title="Hủy buổi"
         description="Nhập lý do hủy. Thao tác không thể hoàn tác."
         className="max-w-md border-0 shadow-2xl"
       >
@@ -1762,6 +1871,15 @@ export default function RequestDetail() {
               <h4 className="text-xl font-bold text-slate-900 sm:text-2xl">
                 {request.requestName ?? request.requestCode}
               </h4>
+              <div className="mt-2 space-y-1">
+                <p className="text-sm text-slate-700">
+                  <span className="font-medium text-slate-500">{sourceNameLabel}: </span>
+                  <span className="font-semibold text-slate-900">{sourceName || '—'}</span>
+                </p>
+                {hasSourceDescription ? (
+                  <p className="text-xs text-slate-500 line-clamp-2">{sourceDescription}</p>
+                ) : null}
+              </div>
               <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-5">
                 <div className="flex items-center gap-3">
                   {/* <Hash className="h-5 w-5 shrink-0 text-sky-500" /> */}
@@ -1802,8 +1920,20 @@ export default function RequestDetail() {
                 <div className="flex items-center gap-3">
                   {/* <List className="h-5 w-5 shrink-0 text-sky-500" /> */}
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Số lượng phiên</p>
-                    <p className="text-base font-semibold text-slate-900">{sessions.length || 0} phiên</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Số lượng buổi</p>
+                    <p className="text-base font-semibold text-slate-900">{sessions.length || 0} buổi</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Loại yêu cầu</p>
+                    <p className="text-base font-semibold text-slate-900">{requestTypeLabel}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Thời lượng</p>
+                    <p className="text-base font-semibold text-slate-900">{sourceDuration || '—'}</p>
                   </div>
                 </div>
               </div>
@@ -1811,9 +1941,7 @@ export default function RequestDetail() {
 
             <div className="rounded-2xl border border-slate-200 bg-white">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 sm:px-5">
-                <span className="text-base font-semibold text-slate-900 sm:text-lg">
-                  Chi tiết phân công và thiết bị theo phiên
-                </span>
+                <span className="text-base font-semibold text-slate-900 sm:text-lg">Thông tin các buổi</span>
                 {approvePreviewLoading ? (
                   <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
                     Đang tải...
@@ -1822,14 +1950,9 @@ export default function RequestDetail() {
               </div>
               <div className="max-h-[min(65vh,720px)] space-y-3 overflow-y-auto p-3 sm:p-4">
                 {approveSessionPreviews.map((preview) => {
-                  const teamIds = uiAssignedTeamIdsBySessionId[preview.sessionId] ?? [];
-                  const qtyMap = uiTeamQuantitiesBySessionId[preview.sessionId] ?? {};
-                  const teamIdsWithStaff = teamIds.filter((teamId) => {
-                    const q = qtyMap[teamId];
-                    const gv = q?.teachersRequired ?? 0;
-                    const tg = q?.tasRequired ?? 0;
-                    return gv > 0 || tg > 0;
-                  });
+                  const rawSession = sessions.find((s) => s.sessionId === preview.sessionId);
+                  const sessionTitle = rawSession ? getSessionDisplayTitle(rawSession) : `Buổi ${preview.sessionNo}`;
+                  const sessionStatusInfo = rawSession ? getSessionStatusInfo(rawSession.status) : null;
                   return (
                     <div
                       key={preview.sessionId}
@@ -1837,103 +1960,43 @@ export default function RequestDetail() {
                     >
                       <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-xl bg-[#2197C0]/45" />
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="inline-flex items-center rounded-full border border-[#2197C0]/20 bg-[#2197C0]/10 px-3 py-1 text-xs font-semibold text-[#1C7FA1] sm:text-sm">
-                          Buổi {preview.sessionNo}
-                        </span>
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center rounded-full border border-[#2197C0]/20 bg-[#2197C0]/10 px-3 py-1 text-xs font-semibold text-[#1C7FA1] sm:text-sm">
+                            Buổi {preview.sessionNo}
+                          </span>
+                          {sessionStatusInfo ? (
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}>
+                              {sessionStatusInfo.label}
+                            </span>
+                          ) : null}
+                        </div>
                         <span className="text-xs font-medium text-slate-600 sm:text-sm">
-                          {dayjs(preview.startAt).format('DD/MM HH:mm')} - {dayjs(preview.endAt).format('HH:mm')}
+                          {dayjs(preview.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(preview.endAt).format('HH:mm')}
                         </span>
                       </div>
                       <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p className="flex items-start gap-2">
+                          <span className="font-medium text-slate-600">Tên buổi:</span>
+                          <span className="font-semibold text-slate-800">{sessionTitle}</span>
+                        </p>
                         <p className="flex items-center gap-2">
                           <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
                           <span className="font-medium text-slate-600">Địa điểm:</span>
                           <span className="font-semibold text-slate-800">{preview.location || '—'}</span>
                         </p>
                         <p className="flex items-center gap-2">
-                          <Users className="h-4 w-4 shrink-0 text-slate-400" />
+                          <List className="h-4 w-4 shrink-0 text-slate-400" />
                           <span className="font-medium text-slate-600">Nhu cầu:</span>
                           <span className="font-semibold text-slate-800">
                             {preview.teachersRequired ?? 0} GV / {preview.tasRequired ?? 0} TG
                           </span>
                         </p>
-                        <p className="flex items-start gap-2">
-                          <List className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                          <span className="font-medium text-slate-600">Nhóm đã gán:</span>
-                          <span className="font-semibold text-slate-800">
-                            {teamIdsWithStaff.length > 0
-                              ? teamIdsWithStaff
-                                  .map((teamId, idx) => {
-                                    const teamName =
-                                      preview.teams.find((t) => t.teamId === teamId)?.teamName ??
-                                      `Nhóm phụ trách ${idx + 1}`;
-                                    const q = qtyMap[teamId];
-                                    const teacherQty = q?.teachersRequired ?? 0;
-                                    const taQty = q?.tasRequired ?? 0;
-                                    return `${teamName} (${teacherQty} GV / ${taQty} TG)`;
-                                  })
-                                  .join(', ')
-                              : 'Chưa có'}
-                          </span>
-                        </p>
-                        <div>
-                          <button
-                            type="button"
-                            className="mb-1 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm"
-                            onClick={() =>
-                              setExpandedEquipmentsBySessionId((prev) => ({
-                                ...prev,
-                                [preview.sessionId]: !prev[preview.sessionId],
-                              }))
-                            }
-                          >
-                            <Wrench className="h-4 w-4 text-slate-500" />
-                            Thiết bị đặt trước ({preview.equipments.length})
-                            {expandedEquipmentsBySessionId[preview.sessionId] ? (
-                              <ChevronDown className="h-4 w-4 text-slate-500" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-slate-500" />
-                            )}
-                          </button>
-                          {expandedEquipmentsBySessionId[preview.sessionId] && preview.equipments.length > 0 ? (
-                            <ul className="space-y-0 overflow-hidden rounded-lg bg-gray-50/70">
-                              {preview.equipments.map((eq) => (
-                                <li
-                                  key={`${preview.sessionId}-${eq.equipmentId}`}
-                                  className="flex items-center gap-3 px-3 py-2.5 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-gray-200/70"
-                                >
-                                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-md bg-white/90 flex items-center justify-center sm:h-12 sm:w-12">
-                                    {eq.imgLink ? (
-                                      <img
-                                        src={eq.imgLink}
-                                        alt={eq.equipmentName}
-                                        className="h-full w-full object-cover"
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                        }}
-                                      />
-                                    ) : (
-                                      <ImageOff className="h-4 w-4 text-gray-400" />
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold text-slate-800">{eq.equipmentName}</p>
-                                    <p className="text-xs text-slate-500">Mã: {eq.equipmentCode || eq.equipmentId}</p>
-                                    <p className="text-xs text-slate-500">Danh mục: {eq.categoryName || '—'}</p>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : expandedEquipmentsBySessionId[preview.sessionId] ? (
-                            <p className="text-xs text-slate-500">Chưa có</p>
-                          ) : null}
-                        </div>
                       </div>
                     </div>
                   );
                 })}
                 {approvePreviewLoading && approveSessionPreviews.length === 0 ? (
-                  <div className="px-1 py-2 text-xs text-slate-500">Đang tải chi tiết các phiên...</div>
+                  <div className="px-1 py-2 text-xs text-slate-500">Đang tải chi tiết các buổi...</div>
                 ) : null}
               </div>
             </div>
@@ -1992,7 +2055,7 @@ export default function RequestDetail() {
               placeholder={
                 rejectDialogAction === 'cancel'
                   ? 'Ví dụ: Khách hàng không còn nhu cầu...'
-                  : 'Ví dụ: Lịch trình trùng với phiên khác...'
+                  : 'Ví dụ: Lịch trình trùng với buổi khác...'
               }
               className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
             />

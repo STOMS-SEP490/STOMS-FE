@@ -500,9 +500,9 @@ export default function ReservationsManagement() {
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
       <div className="mb-2 rounded-xl border bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Đặt trước thiết bị</h2>
+        <h2 className="text-xl font-semibold text-black">Đơn yêu cầu thiết bị</h2>
         <p className="text-xs text-gray-500">
-          Quản lý lịch đặt trước thiết bị trong hệ thống
+          Quản lý đơn yêu cầu thiết bị trong hệ thống
         </p>
       </div>
 
