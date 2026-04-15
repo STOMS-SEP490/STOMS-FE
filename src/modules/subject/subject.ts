@@ -67,6 +67,10 @@ export type SubjectListItem = {
     courseId: number;
     subjectId: number;
     createdAt: string | null;
+    /** Một số endpoint trả thêm tên khóa học */
+    courseName?: string | null;
+    /** Fallback nếu BE trả object lồng */
+    course?: { courseId?: number; courseName?: string | null } | null;
   }[] | null;
 
   subjectSkills?: {

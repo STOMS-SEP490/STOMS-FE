@@ -184,7 +184,7 @@ export default function RequestSidebar({
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide no-scrollbar p-3 space-y-2 bg-slate-50">
+        <div className="flex-1 overflow-y-auto scrollbar-hide no-scrollbar p-3 space-y-2 app-page-bg">
           {loading && (
             <div className="p-4 text-sm text-gray-500">Đang tải danh sách...</div>
           )}

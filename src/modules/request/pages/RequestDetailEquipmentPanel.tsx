@@ -361,7 +361,7 @@ export default function RequestDetailEquipmentPanel({
           ? String((err as { message: unknown }).message)
           : '';
       const friendly = raw.includes('StartAt phải >= thời điểm hiện tại')
-        ? 'Phiên này đã quá hạn để đặt trước thiết bị.'
+        ? 'Buổi này đã quá hạn để đặt trước thiết bị.'
         : raw || 'Đặt trước thiết bị thất bại.';
       setReserveSubmitError(friendly);
     } finally {
@@ -383,7 +383,7 @@ export default function RequestDetailEquipmentPanel({
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <label className="block text-[11px] font-medium text-gray-500">Phiên học (chọn nhiều)</label>
+                  <label className="block text-[11px] font-medium text-gray-500">Buổi học (chọn nhiều)</label>
                   {row.sessionIds.length > 0 && (
                     <span className="text-[11px] font-medium text-sky-800 bg-sky-100/80 rounded-full px-2.5 py-0.5">
                       {row.sessionIds.length} phiên
@@ -403,7 +403,7 @@ export default function RequestDetailEquipmentPanel({
                           className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-sky-800 shadow-sm ring-1 ring-sky-200/60 hover:bg-sky-50/90 hover:ring-sky-300/70"
                           title="Bỏ phiên"
                         >
-                          <span className="font-semibold">Phiên {s.sessionNo}</span>
+                          <span className="font-semibold">Buổi {s.sessionNo}</span>
                           <span className="text-sky-600">×</span>
                         </button>
                       );
@@ -436,7 +436,7 @@ export default function RequestDetailEquipmentPanel({
                     }}
                     options={sessions.map((s) => ({
                       value: String(s.sessionId),
-                      label: `Phiên ${s.sessionNo} · ${dayjs(s.startAt).format('DD/MM HH:mm')}–${dayjs(s.endAt).format('HH:mm')}`,
+                      label: `Buổi ${s.sessionNo} · ${dayjs(s.startAt).format('DD/MM HH:mm')}–${dayjs(s.endAt).format('HH:mm')}`,
                     }))}
                   />
                 ) : (

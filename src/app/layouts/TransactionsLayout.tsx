@@ -51,7 +51,7 @@ export default function TransactionLayout() {
   const statValue = (loading: boolean, value: number) => (loading ? '—' : value.toLocaleString('vi-VN'));
 
   return (
-    <div className="overflow-y-auto p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="overflow-y-auto p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
       <div className="bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <h2 className="text-xl font-semibold text-black">Quản lý giao dịch</h2>

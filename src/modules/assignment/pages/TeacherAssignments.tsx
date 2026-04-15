@@ -50,7 +50,7 @@ export default function TeacherAssignments() {
   const columns: ColumnDef<TeachingScheduleItem>[] = [
     {
       id: 'sessionName',
-      header: 'Phiên dạy / Yêu cầu',
+      header: 'Buổi dạy / Yêu cầu',
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-semibold text-gray-900">{sessionDisplayName(row.original)}</span>
@@ -124,7 +124,7 @@ export default function TeacherAssignments() {
   }, [search, pageNumber, pageSize]);
 
   return (
-    <div className="relative p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="relative p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
           <span className="text-sm text-muted-foreground">Đang tải phân công...</span>

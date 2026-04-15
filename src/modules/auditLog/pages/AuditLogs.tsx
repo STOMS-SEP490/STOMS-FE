@@ -24,7 +24,7 @@ import { auditLogApi } from '../api/auditLogApi';
 const entityTypeLabelMap: Record<string, string> = {
   '1': 'Phân công',
   '2': 'Điểm danh',
-  '3': 'Phiên đăng nhập',
+  '3': 'Buổi đăng nhập',
   '4': 'Phiếu mượn',
   '5': 'Danh mục',
   '6': 'Khóa học',
@@ -253,12 +253,12 @@ export default function AuditLogs() {
         normalizedEntityType === '15' ||
         normalizedEntityType === 'subjectsession'
       ) {
-        navigate(`/manager/courses/subjects?openDetail=1&subjectId=${entityId}`);
+        navigate(`/manager/subjects?openDetail=1&subjectId=${entityId}`);
         return;
       }
 
       if (normalizedEntityType === '16' || normalizedEntityType === 'subject') {
-        navigate(`/manager/courses/subjects?openDetail=1&subjectId=${entityId}`);
+        navigate(`/manager/subjects?openDetail=1&subjectId=${entityId}`);
         return;
       }
 
@@ -430,7 +430,7 @@ export default function AuditLogs() {
               <SelectItem value="all">Tất cả loại</SelectItem>
               <SelectItem value="1">Phân công</SelectItem>
               <SelectItem value="2">Điểm danh</SelectItem>
-              <SelectItem value="3">Phiên đăng nhập</SelectItem>
+              <SelectItem value="3">Buổi đăng nhập</SelectItem>
               <SelectItem value="4">Phiếu mượn</SelectItem>
               <SelectItem value="5">Danh mục</SelectItem>
               <SelectItem value="6">Khóa học</SelectItem>

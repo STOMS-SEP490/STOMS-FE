@@ -762,7 +762,10 @@ export default function TeacherTaskReportPage() {
   // ─── Render ───
 
   return (
-    <div className="flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
+    <div
+      className="flex flex-col p-6 gap-4 app-page-bg overflow-hidden"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
       {/* Header + bộ lọc cùng một thẻ (đồng bộ teacher/events, teaching-history…) */}
       <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
         <div className="min-w-0">
@@ -822,7 +825,7 @@ export default function TeacherTaskReportPage() {
                 {requestGroups.length}
               </span>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
+            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 app-page-bg">
               {loading ? (
                 <div className="flex items-center justify-center py-8"><Spin size="small" /></div>
               ) : requestGroups.length === 0 ? (
@@ -933,7 +936,7 @@ export default function TeacherTaskReportPage() {
                             <span className="text-sm font-bold text-sky-700">{s.sessionNo ?? '?'}</span>
                           </div>
                           <div>
-                            <div className="text-sm font-semibold text-slate-900">Phiên {s.sessionNo ?? s.sessionId}</div>
+                            <div className="text-sm font-semibold text-slate-900">Buổi {s.sessionNo ?? s.sessionId}</div>
                             <div className="text-[11px] text-slate-500 mt-0.5">
                               {s.sessionTitle || `ID: ${s.sessionId}`}
                             </div>
@@ -980,7 +983,7 @@ export default function TeacherTaskReportPage() {
                       {isRequestLevelReport
                         ? 'Báo cáo chung'
                         : selectedSession
-                          ? `Phiên ${selectedSession.sessionNo ?? selectedSession.sessionId}`
+                          ? `Buổi ${selectedSession.sessionNo ?? selectedSession.sessionId}`
                           : '—'}
                     </h4>
                     {selectedSession && (

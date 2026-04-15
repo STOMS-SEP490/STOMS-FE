@@ -7,7 +7,7 @@ export const REPORT_BUSY_MIN_LEAD_DAYS = 2;
 export const REPORT_BUSY_TOO_SOON_VI = 'Chỉ được báo bận trước phiên ít nhất 2 ngày.';
 
 /**
- * Phiên phải cách hôm nay ít nhất {@link REPORT_BUSY_MIN_LEAD_DAYS} ngày lịch (so sánh theo startOf day).
+ * Buổi phải cách hôm nay ít nhất {@link REPORT_BUSY_MIN_LEAD_DAYS} ngày lịch (so sánh theo startOf day).
  */
 export function canReportBusyForSessionStart(sessionStart: Date): boolean {
   const sessionDay = dayjs(sessionStart).startOf('day');

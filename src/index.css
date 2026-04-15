@@ -55,10 +55,16 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Unified app page background (gray surface) */
+  --app-page-bg: #f3f4f6;
 }
 
-/* Tailwind preflight sets border-color: currentColor (often black).
-   Force a light default border color globally; component utilities can override. */
+/* Use this on page/layout wrappers to keep background consistent */
+.app-page-bg {
+  background-color: var(--app-page-bg);
+}
+
 *,
 ::before,
 ::after {

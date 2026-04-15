@@ -23,6 +23,8 @@ export type Team = {
   updatedAt?: string | null;
   leaderMemberId?: number | null;
   leaderMemberName?: string | null;
+  /** GET /teams/filter (TeamResponse.TotalMembers) */
+  totalMembers?: number;
   teamSessions?: TeamSession[];
   teamTopics?: TeamTopic[];
   /** GET /teams/:id (TeamDetailResponse) — danh sách topic phẳng */

@@ -17,6 +17,8 @@ interface DataTableProps<TData, TValue> {
   totalItems: number;
 
   onPageChange: (page: number) => void;
+  /** Bấm vào hàng (không gồm control tương tác đã stopPropagation) */
+  onRowClick?: (row: TData) => void;
   fillHeight?: boolean;
   /** Bảng full-width, padding rộng, kẻ ngang giữa các hàng — đồng bộ với trang thiết bị khả dụng */
   comfortable?: boolean;
@@ -31,6 +33,7 @@ export function DataTable<TData, TValue>({
   pageSize,
   totalItems,
   onPageChange,
+  onRowClick,
   fillHeight = false,
   comfortable = false,
   tableGap = 'default',
@@ -94,7 +97,29 @@ export function DataTable<TData, TValue>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={cn(comfortable && 'border-b border-slate-100 hover:bg-slate-50/60')}
+                  className={cn(
+                    comfortable && 'border-b border-slate-100 hover:bg-slate-50/60',
+                    onRowClick && 'cursor-pointer hover:bg-slate-50/80',
+                  )}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? 'button' : undefined}
+                  onClick={
+                    onRowClick
+                      ? () => {
+                          onRowClick(row.original);
+                        }
+                      : undefined
+                  }
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onRowClick(row.original);
+                          }
+                        }
+                      : undefined
+                  }
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

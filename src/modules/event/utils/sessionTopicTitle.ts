@@ -36,5 +36,5 @@ export function resolvePopoverSessionHeading(
   if (fromDetail) return fromDetail;
   const notes = (session?.Notes ?? '').trim();
   if (notes) return notes;
-  return 'Phiên học';
+  return 'Buổi học';
 }

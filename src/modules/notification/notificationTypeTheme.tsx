@@ -77,7 +77,7 @@ const THEMES: Record<NotificationKind, Omit<NotificationVisual, 'kind'>> = {
     iconWrapClass: 'bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-sm shadow-rose-500/20',
   },
   SESSION: {
-    label: 'Phiên học',
+    label: 'Buổi học',
     Icon: CalendarClock,
     iconWrapClass: 'bg-gradient-to-br from-cyan-500 to-sky-600 text-white shadow-sm shadow-cyan-500/20',
   },

@@ -144,7 +144,7 @@ export default function TeacherContributionHistoryPage() {
 
   return (
     <div
-      className="relative flex flex-col gap-2 bg-slate-50 p-6"
+      className="relative flex flex-col gap-2 app-page-bg p-6"
     >
       <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
         <div className="min-w-0">

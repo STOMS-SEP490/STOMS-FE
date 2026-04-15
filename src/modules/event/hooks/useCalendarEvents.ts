@@ -134,7 +134,7 @@ async function loadCalendarEventsViaSessionFilter(
     const title =
       requestName ||
       topicTitle ||
-      (s.SessionNo != null ? `Phiên ${s.SessionNo}` : 'Phiên');
+      (s.SessionNo != null ? `Buổi ${s.SessionNo}` : 'Buổi');
     return {
       id: s.SessionId,
       title,

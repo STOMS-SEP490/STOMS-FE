@@ -467,7 +467,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
       );
     };
 
-    const teamTextLocked = lockedTeamNames.length ? lockedTeamNames.join(', ') : 'đội khác';
+    const teamTextLocked = lockedTeamNames.length ? lockedTeamNames.join(', ') : 'nhóm khác';
 
     return (
       <div className="space-y-3">
@@ -769,7 +769,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden py-0 px-0"
+      className="flex h-full min-h-0 flex-col app-page-bg overflow-hidden py-0 px-0"
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
@@ -850,7 +850,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               {filteredRequests.length}
             </span>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 app-page-bg">
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
                 Chưa có yêu cầu nào có phiên của nhóm này.
@@ -1140,7 +1140,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                             {fullyAssigned && teamCount > 0 ? (
                               <>
                                 <span className="text-slate-300">•</span>
-                                <span className="text-slate-700 font-medium">{teamCount} đội</span>
+                                <span className="text-slate-700 font-medium">{teamCount} nhóm</span>
                               </>
                             ) : null}
                           </div>
@@ -1314,7 +1314,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       </div>
                       {(lockedTeacherSlots > 0 || lockedTaSlots > 0) && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                          Phiên này cần phân công nhân sự thuộc nhóm khác, bạn chỉ phân công nhân sự thuộc nhóm của mình.
+                          Buổi này cần phân công nhân sự thuộc nhóm khác, bạn chỉ phân công nhân sự thuộc nhóm của mình.
                         </div>
                       )}
                     </div>
@@ -1388,7 +1388,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         )} */}
                         {teamRejectedAssignments.length === 0 && sessionRejectedUi && (
                           <p className="px-4 py-3 text-xs text-orange-800">
-                            Phiên đang ở trạng thái từ chối phân công. Nếu không thấy dòng vị trí cụ thể,
+                            Buổi đang ở trạng thái từ chối phân công. Nếu không thấy dòng vị trí cụ thể,
                             hãy làm mới hoặc kiểm tra phân công từng giảng viên / trợ giảng phía dưới.
                           </p>
                         )}
@@ -1399,7 +1399,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
                         <AlertCircle className="w-5 h-5 text-amber-500 mx-auto mb-2" />
                         <p className="text-xs text-amber-700 font-medium">
-                          Phiên này chưa có vị trí phân công.
+                          Buổi này chưa có vị trí phân công.
                         </p>
                       </div>
                     ) : (

@@ -288,7 +288,7 @@ function DeviceRow({ device, isLast }: { device: UserDevice; isLast: boolean }) 
             {platformLabel(device.platform)}
           </span>
           {device.isActive ? (
-            <Badge className="border-0 bg-emerald-50 text-emerald-800">Phiên hoạt động</Badge>
+            <Badge className="border-0 bg-emerald-50 text-emerald-800">Buổi hoạt động</Badge>
           ) : (
             <Badge className="border-0 bg-slate-100 text-slate-600">Không hoạt động</Badge>
           )}

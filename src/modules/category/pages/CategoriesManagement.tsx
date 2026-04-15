@@ -18,6 +18,7 @@ export default function CategoriesManagement() {
   const context = useOutletContext<{ position?: string }>();
   const location = useLocation();
   const isEquipmentManager = location.pathname.startsWith('/em/');
+  const isStandalonePage = !context?.position;
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editCategory, setEditCategory] = useState<CategoryListItem | null>(null);
@@ -135,8 +136,7 @@ export default function CategoriesManagement() {
       header: 'Số thiết bị',
       cell: ({ row }) => {
         const item = row.original;
-        const count =
-          item.totalEquipment 
+        const count = Number(item.totalEquipment ?? 0);
         return <span className="font-semibold">{count}</span>;
       },
     },
@@ -205,6 +205,111 @@ export default function CategoriesManagement() {
           value={search}
           onChange={(value) => setSearch(value)}
         />
+      </div>
+    );
+  }
+
+  if (isStandalonePage) {
+    return (
+      <div className="p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+        <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
+          <div>
+            <h2 className="text-xl font-semibold text-black">Quản lý danh mục thiết bị</h2>
+            <p className="text-xs text-gray-500">Quản lý danh mục và phân loại thiết bị trong hệ thống</p>
+          </div>
+          <div className="flex gap-3 items-center">
+            {isEquipmentManager ? (
+              <>
+                <Button
+                  onClick={() => setOpenCreateModal(true)}
+                  className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                >
+                  <Plus size={16} />
+                  Tạo danh mục thiết bị
+                </Button>
+                <CreateCategoryModal
+                  open={openCreateModal}
+                  onClose={() => setOpenCreateModal(false)}
+                  onCreated={() => {
+                    refetch();
+                    setOpenCreateModal(false);
+                  }}
+                />
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mb-2 flex justify-end">
+          <HoverSearch
+            placeholder="Tìm tên danh mục..."
+            value={search}
+            onChange={(value) => setSearch(value)}
+          />
+        </div>
+
+        <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+          <div className="relative">
+            {loading && (
+              <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
+                <span className="text-sm text-muted-foreground">Đang tải...</span>
+              </div>
+            )}
+            <CategoryDetailSidebar
+              open={detailOpen}
+              onClose={closeDetailFromUrl}
+              category={detailCategory}
+            />
+            <EditCategoryModal
+              open={editOpen}
+              onClose={() => {
+                setEditOpen(false);
+                setEditCategory(null);
+              }}
+              category={editCategory}
+              onUpdated={refetch}
+            />
+            <Dialog
+              open={deleteOpen}
+              onClose={() => {
+                setDeleteOpen(false);
+                setCategoryToDelete(null);
+              }}
+              title="Xác nhận xóa danh mục"
+              description={
+                categoryToDelete
+                  ? `Bạn có chắc muốn xóa danh mục "${categoryToDelete.categoryName}"? Hành động này không thể hoàn tác.`
+                  : 'Bạn có chắc muốn xóa danh mục này?'
+              }
+            >
+              <div className="flex gap-3 justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeleteOpen(false);
+                    setCategoryToDelete(null);
+                  }}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleDeleteConfirm}
+                >
+                  Xóa danh mục
+                </Button>
+              </div>
+            </Dialog>
+            <DataTable
+              columns={columns}
+              data={data}
+              pageNumber={pageNumber}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={(page) => setPageNumber(page)}
+            />
+          </div>
+        </div>
       </div>
     );
   }

@@ -84,7 +84,7 @@ export default function RequestDetailPC() {
 
   if (loading && !request) {
     return (
-      <div className="flex flex-1 min-h-[320px] items-center justify-center bg-slate-50 text-black p-6">
+      <div className="flex flex-1 min-h-[320px] items-center justify-center app-page-bg text-black p-6">
         <Spin size="large" tip="Đang tải chi tiết yêu cầu và danh sách phiên..." />
       </div>
     );
@@ -209,7 +209,7 @@ export default function RequestDetailPC() {
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden text-black">
+      <div className="flex h-full min-h-0 flex-col app-page-bg overflow-hidden text-black">
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
           <div className="w-full min-w-0 space-y-4">
         <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
@@ -550,7 +550,7 @@ export default function RequestDetailPC() {
                         {getSessionDisplayTitle(resolvedDetailSession)}
                       </h2>
                       <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                        Phiên {resolvedDetailSession.sessionNo}
+                        Buổi {resolvedDetailSession.sessionNo}
                         {' · '}
                         {dayjs(resolvedDetailSession.startAt).format('HH:mm')} –{' '}
                         {dayjs(resolvedDetailSession.endAt).format('HH:mm')}
@@ -559,7 +559,7 @@ export default function RequestDetailPC() {
                       </p>
                     </>
                   ) : (
-                    <h2 className="text-lg font-bold text-slate-900">Phiên {rightPanel.session.sessionNo}</h2>
+                    <h2 className="text-lg font-bold text-slate-900">Buổi {rightPanel.session.sessionNo}</h2>
                   )}
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     {(() => {

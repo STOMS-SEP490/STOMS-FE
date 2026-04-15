@@ -208,7 +208,7 @@ export default function ReservationDetailSidebar({
 
                 {singleSession ? (
                   <div className="col-span-full mt-1 border-t border-slate-100 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <InfoRow label="Phiên" value={`Phiên ${singleSession.SessionNo}`} />
+                    <InfoRow label="Buổi" value={`Buổi ${singleSession.SessionNo}`} />
                     <InfoRow
                       label="Trạng thái phiên"
                       value={(() => {
@@ -260,7 +260,7 @@ export default function ReservationDetailSidebar({
                 <div className={sectionHeaderClassName()}>
                   <h3 className="flex items-center gap-2 font-semibold text-slate-900 text-sm">
                     <ListChecks className="h-4 w-4 text-indigo-500" aria-hidden />
-                    Phiên liên quan
+                    Buổi liên quan
                   </h3>
                 </div>
                 <div className="px-4 py-3">
@@ -273,7 +273,7 @@ export default function ReservationDetailSidebar({
                         return (
                           <div key={s.SessionId} className="space-y-2 py-3 first:pt-0 last:pb-0">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="text-sm font-semibold text-slate-900">Phiên {s.SessionNo}</div>
+                              <div className="text-sm font-semibold text-slate-900">Buổi {s.SessionNo}</div>
                               <span
                                 className={cn(
                                   'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold',

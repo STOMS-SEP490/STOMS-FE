@@ -1,39 +1,70 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
-  Star,
+  Bookmark,
+  Bell,
+  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  ClipboardCheck,
+  ClipboardList,
   FileText,
   GraduationCap,
-  CalendarDays,
-  ClipboardList,
-  Package,
-  Wallet,
-  Users,
-  UserCircle,
-  Bookmark,
-  Tag,
-  PieChart,
-  Menu,
+  LayoutGrid,
+  LayoutTemplate,
+  Layers,
   LogOut,
-  ClipboardCheck,
-  CheckCircle2,
+  Package,
+  PieChart,
+  Star,
+  Tag,
+  UserCircle,
+  Users,
+  Wallet,
   ListChecks,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { logout } from '@/modules/auth/pages/Logout';
-
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
-import NotificationBell from '@/shared/components/common/NotificationBell';
+import { Button } from '@/shared/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
+import { cn } from '@/shared/lib/utils';
+
+const TOP_ROW = 'grid w-full grid-cols-[18px_1fr] items-center gap-3 px-3 py-2.5';
+const TOP_ROW_WITH_CHEVRON = 'grid w-full grid-cols-[18px_1fr_18px] items-center gap-3 px-3 py-2.5';
+const SUB_ROW =
+  'grid w-full grid-cols-[18px_1fr] items-center gap-3 py-2 pl-1 pr-2';
+const ICON_SLOT = 'flex size-[18px] shrink-0 items-center justify-center';
+const SUBTREE_WRAPPER = 'mt-0.5 ml-[calc(0.75rem+9px)] flex flex-col gap-0.5 border-l border-slate-200 pl-3';
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(true);
   const sidebarRef = useRef<HTMLElement | null>(null);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [accountOpen, setAccountOpen] = useState(false);
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
     const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
     return avatarUrl.trim() ? avatarUrl : '/img/ava.png';
   });
   const [memberName, setMemberName] = useState(() => localStorage.getItem('memberFullName') || '');
+  const userMeta = useMemo(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('user') || '{}') as {
+        email?: string;
+      };
+      return {
+        email: parsed.email || '',
+      };
+    } catch {
+      return {
+        email: '',
+      };
+    }
+  }, []);
 
   useEffect(() => {
     const raw = localStorage.getItem('user');
@@ -63,13 +94,15 @@ export default function Sidebar() {
   }, []);
 
   useEffect(() => {
-    if (collapsed) return;
-
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
-      if (sidebarRef.current?.contains(target)) return;
-      setCollapsed(true);
+      if (!sidebarRef.current?.contains(target)) {
+        setCollapsed(true);
+      }
+      if (accountOpen && !accountMenuRef.current?.contains(target)) {
+        setAccountOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -79,196 +112,360 @@ export default function Sidebar() {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [collapsed]);
+  }, [accountOpen]);
 
-  const menus = useMemo(
-    () => [
-      { label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
-      { label: 'Quản lý tài khoản', icon: UserCircle, path: '/manager/users' },
-      { label: 'Quản lý thành viên', icon: Users, path: '/manager/members' },
-      { label: 'Nhóm', icon: ListChecks, path: '/manager/teams' },
-      { label: 'Sự kiện', icon: Star, path: '/manager/events' },
-      { label: 'Giáo trình', icon: GraduationCap, path: '/manager/courses' },
-      { label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
-      { label: 'Thiết bị', icon: Package, path: '/manager/equipments' },
-      { label: 'Phiếu mượn', icon: ClipboardCheck, path: '/manager/borrowings' },
-      { label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
-      { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
-      { label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },
-      { label: 'Thời khóa biểu', icon: CalendarDays, path: '/manager/timetable' },
-      { label: 'Trung tâm duyệt', icon: CheckCircle2, path: '/manager/requests' },
-      { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
-      { label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
-    ],
+  const templateChildPaths = useMemo(
+    () => ['/manager/events', '/manager/courses', '/manager/subjects'],
     []
   );
+  const isOnTemplateChild = templateChildPaths.some((p) => location.pathname === p);
+
+  const isOnEquipmentSection = useMemo(() => {
+    const p = location.pathname;
+    return (
+      p === '/manager/equipments' ||
+      p.startsWith('/manager/equipments/categories') ||
+      p.startsWith('/manager/borrowings')
+    );
+  }, [location.pathname]);
+
+  const GROUP_TEMPLATE = 'Quản lý mẫu';
+  const GROUP_EQUIPMENT = 'Thiết bị';
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    [GROUP_TEMPLATE]: true,
+    [GROUP_EQUIPMENT]: true,
+  });
+
+  useEffect(() => {
+    if (isOnTemplateChild) {
+      setOpenGroups((prev) => ({ ...prev, [GROUP_TEMPLATE]: true }));
+    }
+  }, [isOnTemplateChild]);
+
+  useEffect(() => {
+    if (isOnEquipmentSection) {
+      setOpenGroups((prev) => ({ ...prev, [GROUP_EQUIPMENT]: true }));
+    }
+  }, [isOnEquipmentSection]);
+
+  type MenuLink = { kind: 'link'; label: string; icon: LucideIcon; path: string; end?: boolean };
+  type MenuGroup = {
+    kind: 'group';
+    label: string;
+    icon: LucideIcon;
+    children: { label: string; icon: LucideIcon; path: string; end?: boolean }[];
+  };
+
+  const menus = useMemo((): (MenuLink | MenuGroup)[] => {
+    return [
+      { kind: 'link', label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
+      { kind: 'link', label: 'Quản lý tài khoản', icon: UserCircle, path: '/manager/users' },
+      { kind: 'link', label: 'Quản lý thành viên', icon: Users, path: '/manager/members' },
+      { kind: 'link', label: 'Nhóm', icon: ListChecks, path: '/manager/teams' },
+      {
+        kind: 'group',
+        label: GROUP_TEMPLATE,
+        icon: LayoutTemplate,
+        children: [
+          { label: 'Mẫu sự kiện', icon: Star, path: '/manager/events' },
+          { label: 'Khung chương trình', icon: GraduationCap, path: '/manager/courses' },
+          { label: 'Môn học', icon: Layers, path: '/manager/subjects' },
+        ],
+      },
+      { kind: 'link', label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
+      {
+        kind: 'group',
+        label: GROUP_EQUIPMENT,
+        icon: Package,
+        children: [
+          { label: 'Thiết bị', icon: Package, path: '/manager/equipments', end: true },
+          { label: 'Danh mục', icon: Layers, path: '/manager/equipments/categories', end: true },
+          { label: 'Phiếu mượn', icon: ClipboardCheck, path: '/manager/borrowings', end: true },
+          { label: 'Đặt trước', icon: CalendarClock, path: '/manager/borrowings/reservations', end: true },
+        ],
+      },
+      { kind: 'link', label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
+      { kind: 'link', label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
+      { kind: 'link', label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },
+      { kind: 'link', label: 'Thời khóa biểu', icon: CalendarDays, path: '/manager/timetable' },
+      { kind: 'link', label: 'Trung tâm duyệt', icon: CheckCircle2, path: '/manager/requests' },
+      { kind: 'link', label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
+      { kind: 'link', label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
+    ];
+  }, []);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
+  const userInitial = useMemo(() => {
+    const source = (memberName || userMeta.email || '').trim();
+    return source ? source.charAt(0).toUpperCase() : 'U';
+  }, [memberName, userMeta.email]);
+
   return (
     <aside
       ref={sidebarRef}
-      className={`
-        h-screen bg-[#F6F8FB]
-        transition-all duration-300
-        ${collapsed ? 'w-[72px] px-1.5' : 'w-72 px-5'}
-        py-5 flex flex-col
-      `}
+      className={cn(
+        'relative z-20 h-screen shrink-0 transition-[width,background-color] duration-300',
+        collapsed ? 'w-[32px] overflow-visible app-page-bg px-0 py-0' : 'w-[280px] bg-white px-2 py-3'
+      )}
     >
-      {!collapsed && (
-        <div className="w-full flex items-center justify-between mb-4 gap-2 min-w-0">
-          <div className="flex items-center gap-1 min-w-0 flex-1">
-            <img src="/img/logo.png" alt="logo" className="w-13 h-10 shrink-0" />
-            <span className="text-sm font-bold text-slate-700 truncate">STOMS</span>
-          </div>
-          <div className="flex items-center gap-0.5 shrink-0">
-            <NotificationBell />
-            <button
+      {collapsed ? (
+        <div className="absolute inset-y-3 left-2 flex flex-col items-center justify-between pl-0.5">
+          <div className="flex flex-col items-center gap-2">
+            <Button
               type="button"
-              onClick={() => setCollapsed(!collapsed)}
-              className="rounded-md hover:bg-gray-200 transition p-1"
-              aria-label="Thu gọn menu"
+              variant="ghost"
+              onClick={() => setCollapsed(false)}
+              className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-slate-700 shadow-none hover:bg-transparent"
+              aria-label="Mở rộng menu"
             >
-              <Menu size={20} color="black" />
-            </button>
+              <LayoutGrid className="h-[18px] w-[18px]" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-slate-700 shadow-none hover:bg-transparent"
+              aria-label="Thông báo"
+              title="Thông báo"
+            >
+              <Bell className="h-[18px] w-[18px]" />
+            </Button>
           </div>
-        </div>
-      )}
 
-      {!collapsed && (
-        <button
-          type="button"
-          onClick={() => navigate('/manager/profile')}
-          className="flex flex-col items-center mb-8 w-full focus:outline-none"
-          title="Xem hồ sơ"
-        >
-          <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center shadow-lg ring-4 ring-white">
-            <img
-              src={sidebarAvatarSrc}
-              alt="avatar"
-              className="w-14 h-14 rounded-full object-cover"
-              onError={(e) => {
-                const img = e.currentTarget;
-                img.onerror = null;
-                img.src = '/img/ava.png';
-              }}
-            />
-          </div>
-          <div className="mt-4 text-center">
-            <div className="font-medium text-slate-700">
-              Xin chào {memberName || JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
-            </div>
-            <div className="text-sm text-slate-400">
-              {JSON.parse(localStorage.getItem('user') || '{}')?.email || ''}
-            </div>
-          </div>
-        </button>
-      )}
-
-      {collapsed && (
-        <div className="flex flex-col items-center gap-1.5 mb-4 w-full">
-          <button
+          <Button
             type="button"
-            onClick={() => setCollapsed(!collapsed)}
-            className="rounded-md hover:bg-gray-200 transition p-1"
-            aria-label="Mở rộng menu"
+            variant="ghost"
+            onClick={handleLogout}
+            className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-red-600 shadow-none hover:bg-transparent hover:text-red-700"
+            aria-label="Đăng xuất"
+            title="Đăng xuất"
           >
-            <Menu size={20} color="black" />
-          </button>
-          <NotificationBell variant="sidebarCollapsed" />
+            <LogOut className="h-[18px] w-[18px]" />
+          </Button>
         </div>
-      )}
+      ) : (
+      <div className="flex h-full flex-col text-slate-700 shadow-none ring-0">
+        <div className="mb-2 flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setCollapsed(true);
+              setAccountOpen(false);
+            }}
+            className="h-10 w-10 rounded-xl p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            aria-label="Thu gọn menu"
+          >
+            <LayoutGrid className="h-[18px] w-[18px]" />
+          </Button>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900">STOMS</p>
+          </div>
+        </div>
 
-      <div className="overflow-y-auto no-scrollbar relative">
-        <div
-          className={`
-            grid gap-px bg-gray-200
-            ${collapsed ? 'grid-cols-1' : 'grid-cols-2'}
-          `}
-        >
-          {menus.map((m) => {
-            const Icon = m.icon;
-
-            return (
-              <NavLink key={m.path} to={m.path}>
-                {({ isActive }) => (
-                  <div className={`relative group ${collapsed ? 'h-[54px]' : 'aspect-square min-h-[64px]'}`}>
-                    <div
-                      className={` 
-                        h-full
-                        flex flex-col items-center justify-center
-                        transition-all
-                        bg-[#F6F8FB]
-                        ${isActive ? 'opacity-0' : 'group-hover:opacity-0'}
-                      `}
-                    >
-                      <Icon size={18} className="text-gray-400" />
-                      {!collapsed && (
-                        <div className="text-xs mt-1 text-center text-gray-400">
-                          {m.label}
+        <div className="relative overflow-visible">
+          <div className="max-h-[calc(100vh-120px)] overflow-y-auto overflow-x-visible no-scrollbar">
+          <div className="flex flex-col gap-1">
+            {menus.map((m) => {
+              if (m.kind === 'link') {
+                const Icon = m.icon;
+                return (
+                  <NavLink key={m.path} to={m.path} end={m.end}>
+                    {({ isActive }) => (
+                      <div className="relative">
+                        <div
+                          className={cn(
+                            TOP_ROW,
+                            'group rounded-xl transition-colors duration-200',
+                            isActive
+                              ? 'bg-[#208aae] text-white hover:bg-[#208aae]'
+                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                          )}
+                        >
+                          <span className={ICON_SLOT}>
+                            <Icon
+                              className={cn(
+                                'size-[18px]',
+                                isActive ? 'text-white' : 'text-slate-600 group-hover:text-slate-700'
+                              )}
+                            />
+                          </span>
+                          <span className="min-w-0 truncate text-left text-sm font-medium leading-5">
+                            {m.label}
+                          </span>
                         </div>
-                      )}
-                    </div>
-
-                    <div
-                      className={`
-                        absolute inset-0
-                        flex flex-col items-center justify-center
-                        transition-all duration-300
-                        ${
-                          isActive
-                            ? 'bg-white text-[#208aae] scale-100 shadow-md z-10'
-                            : 'bg-white text-[#208aae] opacity-0 scale-100 group-hover:opacity-100'
-                        }
-                      `}
-                    >
-                      <Icon size={20} />
-                      {!collapsed && (
-                        <div className="text-xs mt-1 font-medium text-center px-1">
-                          {m.label}
-                        </div>
-                      )}
-                    </div>
-
-                    {collapsed && (
-                      <div
-                        className="
-                          absolute left-full ml-3
-                          top-1/2 -translate-y-1/2
-                          bg-gray-900 text-white text-xs
-                          px-3 py-1.5 rounded-md
-                          opacity-0 group-hover:opacity-100
-                          transition-all duration-200
-                          whitespace-nowrap
-                          shadow-lg z-50
-                        "
-                      >
-                        {m.label}
                       </div>
                     )}
+                  </NavLink>
+                );
+              }
+
+              const GroupIcon = m.icon;
+
+              const groupOpen = openGroups[m.label] ?? true;
+
+              return (
+                <div key={m.label} className="rounded-xl">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={groupOpen}
+                    onClick={() =>
+                      setOpenGroups((prev) => ({
+                        ...prev,
+                        [m.label]: !(prev[m.label] ?? true),
+                      }))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setOpenGroups((prev) => ({
+                          ...prev,
+                          [m.label]: !(prev[m.label] ?? true),
+                        }));
+                      }
+                    }}
+                    className={cn(
+                      TOP_ROW_WITH_CHEVRON,
+                      'group cursor-pointer rounded-xl text-left text-slate-500 transition-colors duration-200',
+                      'hover:bg-slate-100 hover:text-slate-900',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2'
+                    )}
+                  >
+                    <span className={ICON_SLOT}>
+                      <GroupIcon className="size-[18px] text-slate-600 group-hover:text-slate-700" />
+                    </span>
+                    <span className="min-w-0 truncate text-sm font-medium leading-5">{m.label}</span>
+                    <span className={ICON_SLOT}>
+                      <ChevronDown
+                        className={cn(
+                          'size-4 text-slate-500 transition-transform duration-200',
+                          groupOpen ? 'rotate-0' : '-rotate-90'
+                        )}
+                      />
+                    </span>
                   </div>
-                )}
-              </NavLink>
-            );
-          })}
+                  {groupOpen ? (
+                    <div className={SUBTREE_WRAPPER}>
+                      {m.children.map((c) => {
+                        const ChildIcon = c.icon;
+                        return (
+                          <NavLink key={c.path} to={c.path} end={c.end ?? false}>
+                            {({ isActive }) => (
+                              <div
+                                className={cn(
+                                  SUB_ROW,
+                                  'group rounded-lg transition-colors duration-200',
+                                  isActive
+                                    ? 'bg-[#208aae] text-white hover:bg-[#208aae]'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                                )}
+                              >
+                                <span className={ICON_SLOT}>
+                                  <ChildIcon
+                                    className={cn(
+                                      'size-4',
+                                      isActive
+                                        ? 'text-white'
+                                        : 'text-slate-600 group-hover:text-slate-700'
+                                    )}
+                                  />
+                                </span>
+                                <span className="min-w-0 truncate text-left text-sm font-medium leading-5">
+                                  {c.label}
+                                </span>
+                              </div>
+                            )}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          </div>
+        </div>
+
+        <div className="mt-auto border-t border-slate-200 pt-3">
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-10 w-full justify-start gap-2.5 rounded-xl px-2 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+            onClick={() => setAccountOpen((prev) => !prev)}
+          >
+            <Avatar className="h-7 w-7 rounded-full">
+              <AvatarImage
+                src={sidebarAvatarSrc}
+                alt="avatar"
+                className="object-cover"
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  img.onerror = null;
+                  img.src = '/img/ava.png';
+                }}
+              />
+              <AvatarFallback className="text-[10px] font-semibold text-slate-800">{userInitial}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 text-left">
+              <p className="truncate text-sm font-medium text-slate-900">{memberName || 'Tài khoản'}</p>
+              <p className="truncate text-xs text-slate-500">
+                {userMeta.email || 'Chưa cập nhật email'}
+              </p>
+            </div>
+          </Button>
+
+          {accountOpen && (
+            <div
+              ref={accountMenuRef}
+              className={cn(
+                'absolute z-50 w-[220px] rounded-xl border border-slate-200 bg-white p-2 text-slate-800 shadow-xl',
+                'bottom-3 left-full ml-2'
+              )}
+            >
+              <div className="mb-2 flex items-center gap-2 rounded-lg px-2 py-1.5">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={sidebarAvatarSrc} alt="avatar" />
+                  <AvatarFallback>{userInitial}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{memberName || 'Tài khoản'}</p>
+                  <p className="truncate text-xs text-slate-500">
+                    {userMeta.email || 'Chưa cập nhật email'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="my-1 h-px bg-slate-200" />
+
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100"
+              >
+                <Bell className="h-4 w-4" />
+                Thông báo
+              </button>
+
+              <div className="my-1 h-px bg-slate-200" />
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
+              >
+                <LogOut className="h-4 w-4" />
+                Đăng xuất
+              </button>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Logout */}
-      <div className="mt-auto pt-4">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 
-                     py-3 rounded-xl text-red-600 
-                     hover:bg-red-50 transition"
-        >
-          <LogOut size={18} />
-          {!collapsed && <span>Đăng xuất</span>}
-        </button>
-      </div>
+      )}
     </aside>
   );
 }

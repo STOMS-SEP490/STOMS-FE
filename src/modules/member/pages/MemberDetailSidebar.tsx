@@ -269,7 +269,7 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
                     <MetaRow
                       variant="grid"
                       icon={ListChecks}
-                      label="Phiên nhóm (teamSessions)"
+                      label="Buổi nhóm (teamSessions)"
                       value={String(Array.isArray(team.teamSessions) ? team.teamSessions.length : 0)}
                       iconClassName="text-violet-600"
                     />
@@ -360,13 +360,13 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
                             deltaClass="text-sky-600"
                           />
                           <WorkloadMetricCell
-                            label="Phiên hoàn thành"
+                            label="Buổi hoàn thành"
                             value={Number(workload.completedSessions ?? 0)}
                             changePercent={workload.completedSessionsChangePercent ?? 0}
                             deltaClass="text-emerald-600"
                           />
                           <WorkloadMetricCell
-                            label="Phiên bị hủy"
+                            label="Buổi bị hủy"
                             value={Number(workload.canceledSessions ?? 0)}
                             changePercent={workload.canceledSessionsChangePercent ?? 0}
                             deltaClass="text-rose-600"

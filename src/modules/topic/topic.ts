@@ -46,6 +46,7 @@ export type TopicListItem = {
   description: string
   isActive: boolean
   createdAt: string | null
+  updatedAt?: string | null
   /** Response GET by id */
   events?: TopicDetailEvent[] | null
   teams?: TopicDetailTeam[] | null
@@ -65,6 +66,7 @@ export type TopicFilterParams = {
   pageSize?: number
   topicId?: number
   topicName?: string
+  TopicName?: string
   /** Khi true: API chỉ trả chủ đề đang hoạt động (đồng bộ TopicFilterRequest.IsActive). */
   IsActive?: boolean
 }

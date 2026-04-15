@@ -467,7 +467,7 @@ export default function UserProfile() {
 
   return (
     <div
-      className="bg-slate-50 p-6"
+      className="app-page-bg p-6"
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
       <div className="max-w-6xl mx-auto space-y-6">
@@ -861,13 +861,13 @@ export default function UserProfile() {
                       tone="blue"
                     />
                     <WorkloadItem
-                      label="Phiên hoàn thành"
+                      label="Buổi hoàn thành"
                       value={workload.completedSessions ?? 0}
                       changePercent={workload.completedSessionsChangePercent ?? 0}
                       tone="green"
                     />
                     <WorkloadItem
-                      label="Phiên bị hủy"
+                      label="Buổi bị hủy"
                       value={workload.canceledSessions ?? 0}
                       changePercent={workload.canceledSessionsChangePercent ?? 0}
                       tone="rose"

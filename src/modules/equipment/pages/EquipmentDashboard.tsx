@@ -43,7 +43,7 @@ import { cn } from '@/shared/lib/utils'
 import CreateBorrowingModal from './CreateBorrowingModal'
 import CreateEquipmentModal from './CreateEquipmentModal'
 
-const PAGE_BG = 'bg-[#f3f4f6]'
+const PAGE_BG = 'app-page-bg'
 
 function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return '—'
