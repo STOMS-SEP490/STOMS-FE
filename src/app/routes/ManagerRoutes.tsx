@@ -83,6 +83,8 @@ const ManagerRoutes = [
       { path: 'assignments/:id', element: <RequestDetail /> },
       { path: 'approval', element: <RequestPlaceholder /> },
       { path: 'approval/:id', element: <RequestDetail /> },
+      { path: 'team-assign', element: <RequestPlaceholder /> },
+      { path: 'team-assign/:id', element: <RequestDetail /> },
       { path: 'all', element: <Navigate to="/manager/requests" replace /> },
       { path: 'all/:id', element: <RedirectOldRequestsAllId /> },
       { path: ':id', element: <RequestDetail /> },

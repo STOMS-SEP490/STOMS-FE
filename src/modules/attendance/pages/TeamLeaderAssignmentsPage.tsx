@@ -366,7 +366,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     lockedCount = 0,
     lockedTeamNames: string[] = [],
   ) => {
-    const roleLabel = colorScheme === 'sky' ? 'Giáo viên' : 'Trợ giảng';
+    const roleLabel = colorScheme === 'sky' ? 'Giáo viên' : 'Sinh viên';
     const accent =
       colorScheme === 'sky'
         ? {
@@ -395,8 +395,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             approvedStripe: 'border-l-[3px] border-l-yellow-500 bg-yellow-50/45',
             approvedLockBox: 'bg-yellow-100 text-yellow-900',
           };
-    const placeholder = colorScheme === 'sky' ? 'Chọn giảng viên' : 'Chọn trợ giảng';
-    const searchPlaceholder = colorScheme === 'sky' ? 'Tìm giảng viên...' : 'Tìm trợ giảng...';
+    const placeholder = colorScheme === 'sky' ? 'Chọn giảng viên' : 'Chọn sinh viên';
+    const searchPlaceholder = colorScheme === 'sky' ? 'Tìm giảng viên...' : 'Tìm sinh viên...';
 
     const excludeCancelledSet = new Set(
       excludeMemberIdsFromCancelled.map((id) => Number(id)).filter((id) => id > 0),
@@ -1307,7 +1307,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       </div>
                       <div className="flex items-center gap-3 text-gray-600">
                         <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                        <span className="text-gray-500">Trợ giảng cần:</span>
+                        <span className="text-gray-500">Sinh viên cần:</span>
                         <span className="font-medium text-black">
                           {tasRequired}
                         </span>
@@ -1389,7 +1389,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         {teamRejectedAssignments.length === 0 && sessionRejectedUi && (
                           <p className="px-4 py-3 text-xs text-orange-800">
                             Buổi đang ở trạng thái từ chối phân công. Nếu không thấy dòng vị trí cụ thể,
-                            hãy làm mới hoặc kiểm tra phân công từng giảng viên / trợ giảng phía dưới.
+                            hãy làm mới hoặc kiểm tra phân công từng giảng viên / sinh viên phía dưới.
                           </p>
                         )}
                       </div>
@@ -1567,7 +1567,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
         const isTA = String(s.roleName ?? '').toUpperCase().includes('TA') || String(s.roleName ?? '').toUpperCase().includes('ASSIST');
         const roleChip = isTA
-          ? { label: 'Trợ giảng', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
+          ? { label: 'Sinh viên', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
           : { label: 'Giảng viên', cls: 'bg-sky-100 text-sky-800 border-sky-200' };
         const frame = isTA
           ? { border: 'border-emerald-200/70', ring: 'ring-emerald-100', grad: 'from-emerald-50/70' }

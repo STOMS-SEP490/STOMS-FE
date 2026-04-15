@@ -27,5 +27,11 @@ export type RightPanelState =
 
 export type RequestLayoutOutletContext = {
   refreshRequestSidebar?: () => void;
-  viewMode?: 'request' | 'assignment';
+  /**
+   * request: chi tiết đầy đủ
+   * assignment: duyệt phân công (manager)
+   * approval: duyệt yêu cầu (chỉ thông tin + duyệt/từ chối, không gắn đội)
+   * team_assign: gán đội cho các yêu cầu đã duyệt
+   */
+  viewMode?: 'request' | 'assignment' | 'approval' | 'team_assign';
 };

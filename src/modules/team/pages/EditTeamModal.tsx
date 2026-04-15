@@ -86,7 +86,7 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         };
 
         const inTeam = items.filter(isInThisTeam);
-        // Thành viên chưa thuộc team: chỉ lấy Giáo viên (4) + Trợ giảng (5)
+        // Thành viên chưa thuộc team: chỉ lấy Giáo viên (4) + Sinh viên (5)
         const noTeamTeachersAndTas = items.filter(
           (m) => isNoTeam(m) && isTeacherOrTa(m),
         );
@@ -384,7 +384,7 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
                           case 6:
                             return 'Quản lý thiết bị';
                           case 5:
-                            return 'Trợ giảng';
+                            return 'Sinh viên';
                           case 4:
                             return 'Giáo viên';
                           case 3:

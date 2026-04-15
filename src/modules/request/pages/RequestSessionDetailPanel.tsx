@@ -259,7 +259,7 @@ export default function RequestSessionDetailPanel({
           </div>
           <div className="flex items-center gap-3 text-gray-700">
             <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="font-semibold text-gray-900">Số lượng trợ giảng yêu cầu:</span>
+            <span className="font-semibold text-gray-900">Số lượng sinh viên yêu cầu:</span>
             <span className="text-base font-bold text-violet-700 tracking-tight">
               {sessionLoading ? 'Đang tải...' : (tasRequired ?? '—')}
             </span>
