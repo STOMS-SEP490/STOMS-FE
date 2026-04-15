@@ -330,7 +330,7 @@ function TeamAssignmentsSection({
       ) : null}
       {tas.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">Trợ giảng</p>
+          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">Sinh viên</p>
           <ul className="space-y-2">
             {tas.map((a) => (
               <SessionAssignmentRow
@@ -584,7 +584,7 @@ export default function RequestDetailTeamSummary({
                         </span>
                       </p>
                       <p>
-                        Trợ giảng:{' '}
+                        Sinh viên:{' '}
                         <span className="font-semibold text-black">
                           {team.embedTas ?? taFallback}
                         </span>

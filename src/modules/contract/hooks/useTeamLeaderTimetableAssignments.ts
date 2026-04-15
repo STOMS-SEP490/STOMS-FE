@@ -79,7 +79,7 @@ function normalizeSessionsToRows(
         for (const r of matchedStaffRoles) {
           const u = r.toUpperCase();
           if (u.includes('TEACHER') || u === '4') labels.add('Giảng viên');
-          else if (u.includes('TA') || u === '5') labels.add('Trợ giảng');
+          else if (u.includes('TA') || u === '5') labels.add('Sinh viên');
         }
 
         const arr = Array.from(labels);

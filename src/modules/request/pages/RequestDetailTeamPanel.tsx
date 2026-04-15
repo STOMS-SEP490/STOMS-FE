@@ -461,7 +461,7 @@ export default function RequestDetailTeamPanel({
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm text-gray-600">Số lượng trợ giảng:</span>
+                    <span className="text-sm text-gray-600">Số lượng sinh viên:</span>
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
@@ -666,7 +666,7 @@ export default function RequestDetailTeamPanel({
 
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-semibold text-slate-900">Trợ giảng</span>
+                            <span className="text-[11px] font-semibold text-slate-900">Sinh viên</span>
                           </div>
                           <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-700">
                             <span className="truncate">

@@ -106,7 +106,7 @@ export default function TeacherTeachingHistoryPage() {
 
     const rawRole = String(item.role || '');
     const normalized = rawRole.toLowerCase();
-    setSessionDetailRoleLabel(normalized.includes('ta') || normalized.includes('trợ') ? 'Trợ giảng' : 'Giáo viên');
+    setSessionDetailRoleLabel(normalized.includes('ta') || normalized.includes('trợ') ? 'Sinh viên' : 'Giáo viên');
 
     try {
       const s = await sessionApi.getById(item.sessionId);
@@ -241,7 +241,7 @@ export default function TeacherTeachingHistoryPage() {
                     const normalized = rawRole.toLowerCase();
                     const roleLabel =
                       normalized.includes('ta') || normalized.includes('trợ')
-                        ? 'Trợ giảng'
+                        ? 'Sinh viên'
                         : 'Giáo viên';
                     setDetailRoleLabel(roleLabel);
                     const full = await contractApi.getById(row.original.contract!.contractId);

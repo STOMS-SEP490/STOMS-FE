@@ -196,7 +196,7 @@ export default function TeamLeaderSessionDetailPanel({
           </div>
           <div className="flex items-center gap-3 text-gray-600">
             <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Số lượng trợ giảng:</span>
+            <span className="text-gray-500">Số lượng sinh viên:</span>
             <span className="font-medium text-black">{session.tasRequired ?? '—'}</span>
           </div>
         </div>
