@@ -369,7 +369,7 @@ export default function SessionDetailPopover({
 
         <div className="px-4 pb-4 flex-1 overflow-y-auto no-scrollbar">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-semibold text-gray-800">Giảng viên/Trợ giảng:</div>
+            <div className="text-xs font-semibold text-gray-800">Giảng viên/Sinh viên:</div>
             {session && canSeeAttendanceButton && (
               <button
                 type="button"
@@ -450,7 +450,7 @@ export default function SessionDetailPopover({
             {(staff.length === 0 || staff.every((s) => !s.name || s.name === '—')) && (
               <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 flex items-center justify-between gap-3">
                 <div className="text-xs text-amber-800">
-                  Buổi này hiện <span className="font-semibold">chưa có phân công</span> giảng viên/trợ giảng.
+                  Buổi này hiện <span className="font-semibold">chưa có phân công</span> giảng viên/sinh viên.
                 </div>
                 {isTeamLeader && (
                   <button

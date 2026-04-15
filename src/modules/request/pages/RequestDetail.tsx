@@ -68,6 +68,9 @@ export default function RequestDetail() {
   };
   const { id } = useParams<{ id: string }>();
   const { refreshRequestSidebar, viewMode } = useOutletContext<RequestLayoutOutletContext>();
+  const isApprovalView = viewMode === 'approval';
+  const isTeamAssignView = viewMode === 'team_assign';
+  const isDefaultRequestView = viewMode === 'request' || viewMode == null;
   const {
     request,
     sessions,
@@ -98,6 +101,7 @@ export default function RequestDetail() {
     handleOpenRejectAssignment,
     handleConfirmRejectAssignment,
     handleConfirmApprove,
+    handleSaveTeamAssignments,
     handleRejectClick,
     handleCancelRequestClick,
     handleConfirmReject,
@@ -113,6 +117,32 @@ export default function RequestDetail() {
     const code = getRequestStatusCode(request.status);
     return code != null && RESERVE_EQUIPMENT_ALLOWED_REQUEST_STATUS.has(code);
   }, [request?.status]);
+
+  const requestDateRange = useMemo(() => {
+    const list = sessions ?? [];
+    if (!list.length) return { startAt: null as string | null, endAt: null as string | null };
+
+    const s1 = list.find((s) => s.sessionNo === 1) ?? null;
+    const maxNo = list.reduce((m, s) => (s.sessionNo > m ? s.sessionNo : m), 1);
+    const sLast = list.find((s) => s.sessionNo === maxNo) ?? null;
+
+    const startAt =
+      s1?.startAt ??
+      list.reduce<string | null>((min, s) => {
+        if (!s.startAt) return min;
+        if (!min) return s.startAt;
+        return dayjs(s.startAt).isBefore(min) ? s.startAt : min;
+      }, null);
+    const endAt =
+      sLast?.endAt ??
+      list.reduce<string | null>((max, s) => {
+        if (!s.endAt) return max;
+        if (!max) return s.endAt;
+        return dayjs(s.endAt).isAfter(max) ? s.endAt : max;
+      }, null);
+
+    return { startAt, endAt };
+  }, [sessions]);
 
   useEffect(() => {
     if (rightPanel?.mode !== 'equipment') return;
@@ -447,7 +477,7 @@ export default function RequestDetail() {
               >
                 {statusInfo.label}
               </span>
-              {!isRequestCancelled ? (
+              {!isRequestCancelled && !isApprovalView && !isDefaultRequestView ? (
                 <button
                   type="button"
                   onClick={handleCancelRequestClick}
@@ -459,17 +489,17 @@ export default function RequestDetail() {
               ) : null}
             </div>
           </div>
-          {/* Info: Mã yêu cầu, Ngày gửi, Số lượng phiên */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100">
+          {/* Info: Mã yêu cầu, Ngày gửi, Ngày bắt đầu, Ngày kết thúc, Số lượng phiên */}
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4 pt-4 border-t border-slate-100">
             <div className="flex items-start gap-3">
-              <Hash className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+              {/* <Hash className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
               <div>
                 <p className="text-[11px] text-slate-500 uppercase tracking-wide">Mã yêu cầu</p>
                 <p className="font-semibold text-sm text-slate-900 mt-0.5">{request.requestCode}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+              {/* <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
               <div>
                 <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày gửi</p>
                 <p className="font-semibold text-sm text-slate-900 mt-0.5">
@@ -480,7 +510,25 @@ export default function RequestDetail() {
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+              {/* <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
+              <div>
+                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày bắt đầu</p>
+                <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                  {requestDateRange.startAt ? dayjs(requestDateRange.startAt).format('DD/MM/YYYY') : '—'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              {/* <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
+              <div>
+                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày kết thúc</p>
+                <p className="font-semibold text-sm text-slate-900 mt-0.5">
+                  {requestDateRange.endAt ? dayjs(requestDateRange.endAt).format('DD/MM/YYYY') : '—'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              {/* <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" /> */}
               <div>
                 <p className="text-[11px] text-slate-500 uppercase tracking-wide">Số lượng phiên</p>
                 <p className="font-semibold text-sm text-slate-900 mt-0.5">{sessionCount} phiên</p>
@@ -559,7 +607,7 @@ export default function RequestDetail() {
                           >
                             {sessionStatusInfo.label}
                           </span>
-                          {sessionPending ? (
+                          {sessionPending && !isApprovalView ? (
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
                                 fullyAssigned
@@ -614,81 +662,92 @@ export default function RequestDetail() {
           </div>
 
           <TabsContent value="overview" className="space-y-4 mb-0">
-          {/* WARNING BOX + PROGRESS — Figma: cam, tiến độ gắn nhóm, nút Từ chối */}
-          <div className="space-y-3">
-            {remainingUnassignedSessions > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex items-start gap-2 min-w-0">
-                  <span className="text-amber-600 shrink-0 mt-0.5">⚠</span>
-                  <div>
-                    <p className="text-sm text-amber-800">
-                      Vui lòng gắn nhóm cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn{' '}
-                      {remainingUnassignedSessions} phiên chưa được gắn nhóm phụ trách.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={scrollToNearestUnassignedSession}
-                      className="text-xs font-medium text-amber-700 mt-1 underline underline-offset-2 hover:text-amber-800"
-                    >
-                      Xem phiên chưa gắn
-                    </button>
+          {/* WARNING BOX + PROGRESS + ACTIONS
+              - Ẩn hoàn toàn ở /manager/requests/:id (chỉ xem thông tin)
+              - Approval: render action ở cuối (bên dưới) */}
+          {!isDefaultRequestView ? (
+            <div className="space-y-3">
+              {!isApprovalView && remainingUnassignedSessions > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <span className="text-amber-600 shrink-0 mt-0.5">⚠</span>
+                    <div>
+                      <p className="text-sm text-amber-800">
+                        Vui lòng gắn nhóm cho tất cả các phiên để có thể duyệt yêu cầu. Hiện tại còn{' '}
+                        {remainingUnassignedSessions} phiên chưa được gắn nhóm phụ trách.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={scrollToNearestUnassignedSession}
+                        className="text-xs font-medium text-amber-700 mt-1 underline underline-offset-2 hover:text-amber-800"
+                      >
+                        Xem phiên chưa gắn
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-slate-700">Tiến độ phân nhóm</span>
-                <span className="text-sm font-semibold text-slate-800 tabular-nums">
-                  {assignedCount}/{sessions.length || 0} phiên
-                </span>
-              </div>
-              <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-sky-500 transition-all duration-300"
-                  style={{
-                    width: sessions.length === 0 ? '0%' : `${(assignedCount / sessions.length) * 100}%`,
-                  }}
-                />
+              )}
+              {!isApprovalView && !isTeamAssignView ? (
+                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-slate-700">Tiến độ phân nhóm</span>
+                    <span className="text-sm font-semibold text-slate-800 tabular-nums">
+                      {assignedCount}/{sessions.length || 0} phiên
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-sky-500 transition-all duration-300"
+                      style={{
+                        width: sessions.length === 0 ? '0%' : `${(assignedCount / sessions.length) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-3">
+                {isTeamAssignView || isApprovalView ? null : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 bg-white"
+                      disabled={String(request.status ?? '').toLowerCase() !== 'pending'}
+                      onClick={handleRejectClick}
+                    >
+                      <X className="w-4 h-4 mr-1.5" />
+                      Từ chối yêu cầu
+                    </Button>
+                    <Button
+                      type="button"
+                      className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={
+                        String(request.status ?? '').toLowerCase() !== 'pending' ||
+                        (!isApprovalView && (sessions.length === 0 || assignedCount !== sessions.length))
+                      }
+                      onClick={handleApproveClick}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                      Duyệt yêu cầu
+                    </Button>
+                    {!isApprovalView ? (
+                      <span className="text-xs text-slate-500">
+                        {assignedCount !== sessions.length || sessions.length === 0
+                          ? 'Cần gắn nhóm cho tất cả các phiên trước khi duyệt.'
+                          : ''}
+                      </span>
+                    ) : null}
+                  </>
+                )}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 bg-white"
-                disabled={String(request.status ?? '').toLowerCase() !== 'pending'}
-                onClick={handleRejectClick}
-              >
-                <X className="w-4 h-4 mr-1.5" />
-                Từ chối yêu cầu
-              </Button>
-              <Button
-                type="button"
-                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                disabled={
-                  String(request.status ?? '').toLowerCase() !== 'pending' ||
-                  sessions.length === 0 ||
-                  assignedCount !== sessions.length
-                }
-                onClick={handleApproveClick}
-              >
-                <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                Duyệt yêu cầu
-              </Button>
-              <span className="text-xs text-slate-500">
-                {assignedCount !== sessions.length || sessions.length === 0
-                  ? 'Cần gắn nhóm cho tất cả các phiên trước khi duyệt.'
-                  : ''}
-              </span>
-            </div>
-          </div>
+          ) : null}
 
           {/* DANH SÁCH PHIÊN HỌC — kích thước gọn, cân với header request */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
-              {canReserveEquipment ? (
+              {!isApprovalView && canReserveEquipment ? (
                 <Button
                   onClick={() => hasUnreservedEquipmentSlot && setRightPanel({ mode: 'equipment' })}
                   disabled={!hasUnreservedEquipmentSlot}
@@ -720,11 +779,11 @@ export default function RequestDetail() {
                       tabIndex={0}
                       data-request-session-id={session.sessionId}
                       data-request-session-unassigned={String(sessionPending && !fullyAssigned)}
-                      onClick={() => setRightPanel({ mode: 'detail', session })}
+                      onClick={() => setRightPanel({ mode: isTeamAssignView ? 'team' : 'detail', session })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          setRightPanel({ mode: 'detail', session });
+                          setRightPanel({ mode: isTeamAssignView ? 'team' : 'detail', session });
                         }
                       }}
                       className={`w-full border border-slate-200 rounded-xl bg-white px-4 py-3 hover:border-slate-300 hover:bg-slate-50/60 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2 ${
@@ -745,7 +804,7 @@ export default function RequestDetail() {
                           >
                             {sessionStatusInfo.label}
                           </span>
-                          {sessionPending ? (
+                          {sessionPending && !isApprovalView ? (
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                                 fullyAssigned
@@ -802,6 +861,44 @@ export default function RequestDetail() {
               </div>
             )}
           </div>
+
+          {isTeamAssignView ? (
+            <div className="flex justify-end gap-3 pt-1">
+              <Button
+                type="button"
+                className="rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={sessions.length === 0}
+                onClick={handleSaveTeamAssignments}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                Lưu gán đội
+              </Button>
+            </div>
+          ) : null}
+
+          {isApprovalView ? (
+            <div className="flex justify-end gap-3 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 bg-white"
+                disabled={String(request.status ?? '').toLowerCase() !== 'pending'}
+                onClick={handleRejectClick}
+              >
+                <X className="w-4 h-4 mr-1.5" />
+                Từ chối yêu cầu
+              </Button>
+              <Button
+                type="button"
+                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={String(request.status ?? '').toLowerCase() !== 'pending'}
+                onClick={handleApproveClick}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                Duyệt yêu cầu
+              </Button>
+            </div>
+          ) : null}
           </TabsContent>
 
          
@@ -981,7 +1078,7 @@ export default function RequestDetail() {
                     showTeamSummary={String(request.status ?? '').toLowerCase() !== 'pending'}
                   />
                   <div className="mt-6">
-                    {String(request.status ?? '').toLowerCase() === 'pending' ? (
+                    {!isApprovalView && String(request.status ?? '').toLowerCase() === 'pending' ? (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
                         currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
@@ -991,18 +1088,20 @@ export default function RequestDetail() {
                       />
                     ) : null}
                   </div>
-                  <div className="mt-6">
-                    <RequestSessionDetailPanel
-                      session={
-                        sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
-                      }
-                      requestId={Number(request.requestId)}
-                      requestCode={request.requestCode ?? ''}
-                      sectionMode="equipment"
-                      onReservationUpdated={handleEquipmentSuccess}
-                    />
-                  </div>
-                  {resolvedDetailSession ? (
+                  {!isApprovalView ? (
+                    <div className="mt-6">
+                      <RequestSessionDetailPanel
+                        session={
+                          sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
+                        }
+                        requestId={Number(request.requestId)}
+                        requestCode={request.requestCode ?? ''}
+                        sectionMode="equipment"
+                        onReservationUpdated={handleEquipmentSuccess}
+                      />
+                    </div>
+                  ) : null}
+                  {resolvedDetailSession && !isApprovalView && !isDefaultRequestView ? (
                     <div className="mt-6 pt-4 border-t border-slate-100">
                       <div className="relative inline-flex group">
                         <button
@@ -1409,7 +1508,7 @@ export default function RequestDetail() {
                             </div>
                             <div>
                               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Trợ giảng
+                                Sinh viên
                               </p>
                               <div className="divide-y divide-slate-200/45 overflow-hidden rounded-xl bg-yellow-50/45">
                                 {taRows.length ? (
@@ -1663,16 +1762,16 @@ export default function RequestDetail() {
               <h4 className="text-xl font-bold text-slate-900 sm:text-2xl">
                 {request.requestName ?? request.requestCode}
               </h4>
-              <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-3">
+              <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-5">
                 <div className="flex items-center gap-3">
-                  <Hash className="h-5 w-5 shrink-0 text-sky-500" />
+                  {/* <Hash className="h-5 w-5 shrink-0 text-sky-500" /> */}
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
                     <p className="text-base font-semibold text-slate-900">{request.requestCode}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5 shrink-0 text-sky-500" />
+                  {/* <Calendar className="h-5 w-5 shrink-0 text-sky-500" /> */}
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Ngày tạo</p>
                     <p className="text-base font-semibold text-slate-900">
@@ -1683,7 +1782,25 @@ export default function RequestDetail() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <List className="h-5 w-5 shrink-0 text-sky-500" />
+                  {/* <Calendar className="h-5 w-5 shrink-0 text-sky-500" /> */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Ngày bắt đầu</p>
+                    <p className="text-base font-semibold text-slate-900">
+                      {requestDateRange.startAt ? dayjs(requestDateRange.startAt).format('DD/MM/YYYY') : '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* <Calendar className="h-5 w-5 shrink-0 text-sky-500" /> */}
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Ngày kết thúc</p>
+                    <p className="text-base font-semibold text-slate-900">
+                      {requestDateRange.endAt ? dayjs(requestDateRange.endAt).format('DD/MM/YYYY') : '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* <List className="h-5 w-5 shrink-0 text-sky-500" /> */}
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Số lượng phiên</p>
                     <p className="text-base font-semibold text-slate-900">{sessions.length || 0} phiên</p>

@@ -75,7 +75,7 @@ export default function SessionDetailSidebar({ open, onClose, session }: Props) 
                   }
                 />
                 <InfoRow
-                  label="Số trợ giảng"
+                  label="Số sinh viên"
                   value={session.TasRequired != null ? session.TasRequired : 'Không rõ'}
                 />
               </div>

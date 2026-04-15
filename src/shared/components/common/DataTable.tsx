@@ -17,6 +17,8 @@ interface DataTableProps<TData, TValue> {
   totalItems: number;
 
   onPageChange: (page: number) => void;
+  /** Ẩn phần phân trang bên trong bảng (để render pagination ở ngoài). */
+  showPagination?: boolean;
   /** Bấm vào hàng (không gồm control tương tác đã stopPropagation) */
   onRowClick?: (row: TData) => void;
   fillHeight?: boolean;
@@ -33,6 +35,7 @@ export function DataTable<TData, TValue>({
   pageSize,
   totalItems,
   onPageChange,
+  showPagination = true,
   onRowClick,
   fillHeight = false,
   comfortable = false,
@@ -149,37 +152,39 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* PAGINATION */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Hiển thị {fromItem}
-          {' - '}
-          {toItem} trên {totalItems} bản ghi
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onPageChange(pageNumber - 1)}
-            disabled={pageNumber <= 1}
-          >
-            Trước
-          </Button>
-
-          <div className="px-3 py-1 text-sm">
-            {pageNumber} / {totalPages || 1}
+      {showPagination ? (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Hiển thị {fromItem}
+            {' - '}
+            {toItem} trên {totalItems} bản ghi
           </div>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onPageChange(pageNumber + 1)}
-            disabled={pageNumber >= totalPages}
-          >
-            Sau
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onPageChange(pageNumber - 1)}
+              disabled={pageNumber <= 1}
+            >
+              Trước
+            </Button>
+
+            <div className="px-3 py-1 text-sm">
+              {pageNumber} / {totalPages || 1}
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onPageChange(pageNumber + 1)}
+              disabled={pageNumber >= totalPages}
+            >
+              Sau
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

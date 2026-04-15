@@ -50,7 +50,7 @@ function roleLabel(roleId: number) {
     case 6:
       return 'Quản lý thiết bị';
     case 5:
-      return 'Trợ giảng';
+      return 'Sinh viên';
     case 4:
       return 'Giáo viên';
     case 3:

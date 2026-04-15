@@ -647,9 +647,21 @@ export const useRequestDetailManager = (params: {
   };
 
   const handleConfirmApprove = useCallback(async () => {
-    if (!id || sessions.length === 0) return;
+    if (!id) return;
     try {
       setActionLoading(true);
+      // Approval view: chỉ duyệt yêu cầu, không yêu cầu gắn đội / kiểm tra nhu cầu.
+      if (viewMode === 'approval') {
+        await requestService.approve(Number(id), { approvedByMemberId: createdByMemberId || undefined });
+        message.success('Đã duyệt yêu cầu');
+        setApproveOpen(false);
+        setRightPanel(null);
+        await refreshDetail();
+        refreshRequestSidebar?.();
+        return;
+      }
+
+      if (sessions.length === 0) return;
       for (const s of sessions) {
         const teamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
         if (teamIds.length === 0) {
@@ -710,6 +722,45 @@ export const useRequestDetailManager = (params: {
     uiAssignedTeamIdsBySessionId,
     uiTeamQuantitiesBySessionId,
     refreshRequestSidebar,
+    viewMode,
+  ]);
+
+  const handleSaveTeamAssignments = useCallback(async () => {
+    if (!id || sessions.length === 0) return;
+    try {
+      setActionLoading(true);
+      for (const s of sessions) {
+        const teamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
+        if (teamIds.length === 0) continue; // cho phép lưu từng phần
+        const teamQuantityMap = uiTeamQuantitiesBySessionId[s.sessionId] ?? {};
+        const items = teamIds
+          .map((teamId) => ({
+            teamId,
+            teachersRequired: normalizeRequiredCount(teamQuantityMap[teamId]?.teachersRequired, 0),
+            tasRequired: normalizeRequiredCount(teamQuantityMap[teamId]?.tasRequired, 0),
+          }))
+          .filter((item) => item.teachersRequired > 0 || item.tasRequired > 0);
+        if (!items.length) continue;
+        await teamSessionApi.replaceForSession(s.sessionId, items);
+      }
+      message.success('Đã lưu gán đội');
+      setRightPanel(null);
+      await refreshDetail();
+      refreshRequestSidebar?.();
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msg = (err as any)?.message || 'Lưu gán đội thất bại';
+      message.error(msg);
+    } finally {
+      setActionLoading(false);
+    }
+  }, [
+    id,
+    refreshDetail,
+    refreshRequestSidebar,
+    sessions,
+    uiAssignedTeamIdsBySessionId,
+    uiTeamQuantitiesBySessionId,
   ]);
 
   const handleRejectClick = useCallback(() => {
@@ -832,6 +883,7 @@ export const useRequestDetailManager = (params: {
     handleOpenRejectAssignment,
     handleConfirmRejectAssignment,
     handleConfirmApprove,
+    handleSaveTeamAssignments,
     handleRejectClick,
     handleCancelRequestClick,
     handleConfirmReject,
