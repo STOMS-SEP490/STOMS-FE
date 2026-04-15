@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, LayoutGrid, LogOut, type LucideIcon } from 'lucide-react';
+import { LayoutGrid, LogOut, type LucideIcon } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
 import { logout } from '@/modules/auth/pages/Logout';
 import { Button } from '@/shared/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
+import NotificationBell from '@/shared/components/common/NotificationBell';
 
 export type RoleSidebarMenuItem = {
   label: string;
@@ -118,15 +119,7 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
             >
               <LayoutGrid className="h-[18px] w-[18px]" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-slate-700 shadow-none hover:bg-transparent"
-              aria-label="Thông báo"
-              title="Thông báo"
-            >
-              <Bell className="h-[18px] w-[18px]" />
-            </Button>
+            <NotificationBell variant="sidebarCollapsed" />
           </div>
 
           <Button
@@ -157,6 +150,9 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
             </Button>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-900">STOMS</p>
+            </div>
+            <div className="ml-auto">
+              <NotificationBell />
             </div>
           </div>
 
@@ -254,13 +250,10 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
 
                 <div className="my-1 h-px bg-slate-200" />
 
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                >
-                  <Bell className="h-4 w-4" />
-                  Thông báo
-                </button>
+                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                  <span>Thông báo</span>
+                  <NotificationBell />
+                </div>
 
                 <div className="my-1 h-px bg-slate-200" />
 
