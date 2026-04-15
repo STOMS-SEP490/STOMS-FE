@@ -17,7 +17,7 @@ export type TeamLeaderSessionDetailPanelProps = {
   /** Cột "Ủy quyền" sau giờ ra; chỉ truyền khi cần (vd. team leader). */
   delegateColumn?: {
     currentMemberId: number | null;
-    /** Giá trị ban đầu từ phiên (trước khi API danh sách trả về); sau ủy quyền dùng attendanceByMemberId từ từng dòng. */
+    /** Giá trị ban đầu từ buổi (trước khi API danh sách trả về); sau ủy quyền dùng attendanceByMemberId từ từng dòng. */
     sessionAttendanceByMemberId: number | null;
     onDelegated?: () => void;
   };
@@ -26,7 +26,7 @@ export type TeamLeaderSessionDetailPanelProps = {
    * Khi false, vẫn dùng delegateColumn cho "Người điểm danh" / nút Điểm danh nếu cần.
    */
   memberDelegateColumnVisible?: boolean;
-  /** Mở nhanh panel điểm danh (khi user là người điểm danh của phiên). */
+  /** Mở nhanh panel điểm danh (khi user là người điểm danh của buổi). */
   onOpenAttendance?: () => void;
 };
 
@@ -121,10 +121,10 @@ export default function TeamLeaderSessionDetailPanel({
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Thông tin phiên — giống phần manager nhưng không hiển thị reservation */}
+      {/* Thông tin buổi — giống phần manager nhưng không hiển thị reservation */}
       <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
         <div className="px-4 py-2.5 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
+          <h3 className="font-semibold text-gray-900 text-sm">Thông tin buổi</h3>
         </div>
         <div className="px-4 py-3 space-y-2 text-sm">
           {(topic?.title?.trim() || responseText || topic?.duration?.trim()) && (
@@ -231,7 +231,7 @@ export default function TeamLeaderSessionDetailPanel({
           ) : attError ? (
             <p className="text-xs text-red-600">{attError}</p>
           ) : attendances.length === 0 ? (
-            <p className="text-xs text-gray-500">Không có dữ liệu điểm danh cho phiên này.</p>
+            <p className="text-xs text-gray-500">Không có dữ liệu điểm danh cho buổi này.</p>
           ) : (
             <div className="overflow-hidden rounded-xl bg-white">
               <div

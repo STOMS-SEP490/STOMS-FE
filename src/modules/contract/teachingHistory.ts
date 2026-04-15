@@ -95,15 +95,11 @@ export type TeachingScheduleFilterParams = {
   toDate?: string;
   keyword?: string;
   status?: string;
-  /** Session.status — ví dụ 6 = ASSIGNED (MemberTeachingScheduleRequest.Status). */
   Status?: number | number[];
   pageNumber?: number;
   pageSize?: number;
 };
 
-// ─── Helpers
-
-/** Tạo tên hiển thị cho phiên dạy (fallback nếu sessionTitle trống). */
 export function sessionDisplayName(item: { sessionTitle?: string; sessionNo?: number }): string {
   const title = (item.sessionTitle ?? '').trim();
   if (title) return title;

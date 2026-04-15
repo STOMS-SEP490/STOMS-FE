@@ -32,7 +32,7 @@ type Props = {
   sessionTeamsEmbedded?: TeamSessionResponse[];
   /** Assignments kèm StaffMember từ GET /sessions/:id (đã normalize) */
   sessionAssignments?: AssignmentResponse[];
-  /** Đang tải chi tiết phiên (GET /sessions/:id) */
+  /** Đang tải chi tiết buổi (GET /sessions/:id) */
   sessionDetailLoading?: boolean;
   reviewMode?: boolean;
   onApproveAssignment?: (assignment: AssignmentResponse) => void | Promise<void>;

@@ -39,7 +39,7 @@ const entityTypeLabelMap: Record<string, string> = {
   '15': 'Buổi môn học',
   '16': 'Môn học',
   '17': 'Báo cáo công việc',
-  '18': 'Đội nhóm',
+  '18': 'Nhóm',
   '19': 'Chủ đề',
   '20': 'Giao dịch',
 };
@@ -445,7 +445,7 @@ export default function AuditLogs() {
               <SelectItem value="15">Buổi môn học</SelectItem>
               <SelectItem value="16">Môn học</SelectItem>
               <SelectItem value="17">Báo cáo công việc</SelectItem>
-              <SelectItem value="18">Đội nhóm</SelectItem>
+              <SelectItem value="18">Nhóm</SelectItem>
               <SelectItem value="19">Chủ đề</SelectItem>
               <SelectItem value="20">Giao dịch</SelectItem>
             </SelectContent>

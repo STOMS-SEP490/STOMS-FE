@@ -7,7 +7,6 @@ import PCRequestsIndex from '@/modules/request/pages/PCRequestsIndex';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage';
-import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout';
 import CoursesReadonlyPage from '@/modules/course/pages/CoursesReadonlyPage';
 import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
 import PCTopicsPage from '@/modules/topic/pages/PCTopicsPage';
@@ -30,14 +29,8 @@ const ProgramCoordinatorRoutes = [
   { path: 'events', element: <EventsManagement /> },
   { path: 'timetable', element: <EventCalendar /> },
   { path: 'timetable/assignments', element: <Navigate to="/pc/timetable" replace /> },
-  {
-    path: 'courses',
-    element: <CoursesReadonlyLayout />,
-    children: [
-      { index: true, element: <CoursesReadonlyPage /> },
-      { path: 'subjects', element: <SubjectsReadonlyPage /> },
-    ],
-  },
+  { path: 'courses', element: <CoursesReadonlyPage /> },
+  { path: 'subjects', element: <SubjectsReadonlyPage /> },
   { path: 'topics', element: <PCTopicsPage /> },
   { path: 'teams', element: <ProgramCoordinatorTeamsPage /> },
   { path: 'fund-contributions', element: <TeacherContributionHistoryPage /> },

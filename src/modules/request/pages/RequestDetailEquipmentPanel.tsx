@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import { Check, ImageOff, Search } from 'lucide-react';
-import { DatePicker, Image, Select as AntSelect, message } from 'antd';
+import { DatePicker, Select as AntSelect, message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -49,6 +49,44 @@ function disabledBorrowTime(date: dayjs.Dayjs | null) {
       return Array.from({ length: now.minute() }, (_, i) => i);
     },
   };
+}
+
+function getEquipmentStatusMeta(status?: string | null) {
+  const value = String(status ?? '').trim().toLowerCase();
+  switch (value) {
+    case 'available':
+      return {
+        label: 'Sẵn sàng',
+        className: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+      };
+    case 'in_use':
+    case 'inuse':
+      return {
+        label: 'Đang sử dụng',
+        className: 'bg-sky-50 text-sky-700 border border-sky-200',
+      };
+    case 'maintenance':
+      return {
+        label: 'Bảo trì',
+        className: 'bg-amber-50 text-amber-700 border border-amber-200',
+      };
+    case 'broken':
+    case 'damaged':
+      return {
+        label: 'Hỏng',
+        className: 'bg-rose-50 text-rose-700 border border-rose-200',
+      };
+    case 'inactive':
+      return {
+        label: 'Ngưng hoạt động',
+        className: 'bg-slate-100 text-slate-600 border border-slate-200',
+      };
+    default:
+      return {
+        label: status?.trim() || 'Không rõ',
+        className: 'bg-slate-100 text-slate-600 border border-slate-200',
+      };
+  }
 }
 
 type Props = {
@@ -117,7 +155,7 @@ export default function RequestDetailEquipmentPanel({
     ].join('|');
   }, []);
 
-  // UX: panel này hỗ trợ "đặt dài hạn" bằng cách chọn nhiều phiên cùng lúc,
+  // UX: panel này hỗ trợ "đặt dài hạn" bằng cách chọn nhiều buổi cùng lúc,
   // lấy khung thời gian mượn/trả từ session đầu-cuối để check availability.
 
   // Load thiết bị khả dụng theo từng dòng (session + start/end + category).
@@ -210,7 +248,7 @@ export default function RequestDetailEquipmentPanel({
 
   const setReservationRowSessions = useCallback(
     (_index: number, nextSessionIds: number[]) => {
-      // Đổi phiên => đổi khung thời gian => bỏ lựa chọn thiết bị để tránh stale.
+      // Đổi buổi => đổi khung thời gian => bỏ lựa chọn thiết bị để tránh stale.
       setSelectedEquipmentById({});
       setReservationRows((prev) => {
         const next =
@@ -328,12 +366,10 @@ export default function RequestDetailEquipmentPanel({
     setReserveSubmitError(null);
     try {
       const row = validReservationRows[0];
-      // Sessions prop is expected to contain only sessions that are NOT reserved yet.
-      // Guard against stale UI state: if session is no longer in selectable list, block submit.
       const selectableIds = new Set(sessions.map((s) => s.sessionId));
       const notSelectable = row.sessionIds.filter((id) => !selectableIds.has(id));
       if (notSelectable.length > 0) {
-        setReserveSubmitError('Một số phiên đã có thiết bị đặt trước. Vui lòng chỉnh sửa trong chi tiết phiên.');
+        setReserveSubmitError('Một số buổi đã có thiết bị được yêu cầu. Vui lòng chỉnh sửa trong chi tiết buổi.');
         return;
       }
       const start = dayjs(row.startAtLocal);
@@ -352,7 +388,7 @@ export default function RequestDetailEquipmentPanel({
         EndAt: end.format('YYYY-MM-DDTHH:mm:ss'),
         Equipment: row.equipmentIds.map((EquipmentId) => ({ EquipmentId })),
       });
-      message.success('Đã tạo đặt trước thiết bị.');
+      message.success('Đã tạo đơn yêu cầu thiết bị.');
       onClose();
       await onSuccess();
     } catch (err: unknown) {
@@ -361,8 +397,8 @@ export default function RequestDetailEquipmentPanel({
           ? String((err as { message: unknown }).message)
           : '';
       const friendly = raw.includes('StartAt phải >= thời điểm hiện tại')
-        ? 'Buổi này đã quá hạn để đặt trước thiết bị.'
-        : raw || 'Đặt trước thiết bị thất bại.';
+        ? 'Buổi này đã quá hạn để tạo đơn yêu cầu thiết bị.'
+        : raw || 'Đơn yêu cầu thiết bị thất bại.';
       setReserveSubmitError(friendly);
     } finally {
       setReserveSubmitLoading(false);
@@ -386,7 +422,7 @@ export default function RequestDetailEquipmentPanel({
                   <label className="block text-[11px] font-medium text-gray-500">Buổi học (chọn nhiều)</label>
                   {row.sessionIds.length > 0 && (
                     <span className="text-[11px] font-medium text-sky-800 bg-sky-100/80 rounded-full px-2.5 py-0.5">
-                      {row.sessionIds.length} phiên
+                      {row.sessionIds.length} buổi
                     </span>
                   )}
                 </div>
@@ -401,7 +437,7 @@ export default function RequestDetailEquipmentPanel({
                           type="button"
                           onClick={() => setReservationRowSessions(rowIndex, row.sessionIds.filter((x) => x !== id))}
                           className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-sky-800 shadow-sm ring-1 ring-sky-200/60 hover:bg-sky-50/90 hover:ring-sky-300/70"
-                          title="Bỏ phiên"
+                          title="Bỏ buổi"
                         >
                           <span className="font-semibold">Buổi {s.sessionNo}</span>
                           <span className="text-sky-600">×</span>
@@ -417,7 +453,7 @@ export default function RequestDetailEquipmentPanel({
                     open={sessionPickerOpen}
                     onDropdownVisibleChange={(open) => setSessionPickerOpen(open)}
                     style={{ width: '100%' }}
-                    placeholder="— Chọn phiên —"
+                    placeholder="— Chọn buổi —"
                     value={row.sessionIds.map((id) => String(id))}
                     showSearch
                     maxTagCount={0}
@@ -447,7 +483,7 @@ export default function RequestDetailEquipmentPanel({
                     className="rounded-full w-full border-slate-200/90 bg-white shadow-sm hover:bg-slate-50"
                     onClick={() => setSessionPickerOpen(true)}
                   >
-                    {row.sessionIds.length > 0 ? 'Chọn thêm' : 'Chọn phiên'}
+                    {row.sessionIds.length > 0 ? 'Chọn thêm' : 'Chọn buổi'}
                   </Button>
                 )}
               </div>
@@ -484,11 +520,47 @@ export default function RequestDetailEquipmentPanel({
                         showTime={{ format: 'HH:mm' }}
                         format="DD/MM/YYYY HH:mm"
                         placeholder="Chọn giờ trả"
-                        onChange={(v) =>
+                        disabledDate={disabledBorrowDate}
+                        disabledTime={(date) => {
+                          const now = dayjs();
+                          const start = row.startAtLocal ? dayjs(row.startAtLocal) : null;
+                          const selected = date ?? null;
+                          const disabledHours = new Set<number>();
+                          const disabledMinutesByHour: Record<number, Set<number>> = {};
+
+                          if (selected?.isSame(now, 'day')) {
+                            for (let h = 0; h < now.hour(); h += 1) disabledHours.add(h);
+                            disabledMinutesByHour[now.hour()] = new Set(
+                              Array.from({ length: now.minute() }, (_, i) => i)
+                            );
+                          }
+
+                          if (start && selected?.isSame(start, 'day')) {
+                            for (let h = 0; h < start.hour(); h += 1) disabledHours.add(h);
+                            const startMinuteSet = disabledMinutesByHour[start.hour()] ?? new Set<number>();
+                            for (let m = 0; m <= start.minute(); m += 1) startMinuteSet.add(m);
+                            disabledMinutesByHour[start.hour()] = startMinuteSet;
+                          }
+
+                          return {
+                            disabledHours: () => Array.from(disabledHours).sort((a, b) => a - b),
+                            disabledMinutes: (selectedHour: number) =>
+                              Array.from(disabledMinutesByHour[selectedHour] ?? []).sort((a, b) => a - b),
+                          };
+                        }}
+                        onChange={(v) => {
+                          if (v && v.isBefore(dayjs())) {
+                            message.warning('Giờ trả không được chọn thời điểm trong quá khứ.');
+                            return;
+                          }
+                          if (v && row.startAtLocal && !v.isAfter(dayjs(row.startAtLocal))) {
+                            message.warning('Giờ trả phải sau giờ mượn.');
+                            return;
+                          }
                           setReservationRowTime(rowIndex, {
                             endAtLocal: v ? v.format('YYYY-MM-DDTHH:mm') : '',
-                          })
-                        }
+                          });
+                        }}
                       />
                     </div>
                   </div>
@@ -544,14 +616,14 @@ export default function RequestDetailEquipmentPanel({
                         placeholder="Tìm theo tên hoặc mã thiết bị..."
                         value={row.search ?? ''}
                         onChange={(e) => setReservationRowSearch(rowIndex, e.target.value)}
-                        className="pl-8 py-1.5 text-xs text-black border-0 shadow-none rounded-xl bg-slate-100/90 focus-visible:ring-0 focus-visible:bg-white focus-visible:shadow-[0_0_0_2px_rgba(14,165,233,0.25)]"
+                        className="pl-8 py-1.5 text-xs text-black border border-slate-200/90 shadow-none rounded-xl bg-white focus-visible:ring-0 focus-visible:bg-white focus-visible:shadow-[0_0_0_2px_rgba(14,165,233,0.25)]"
                       />
                     </div>
                     <Select
                       value={row.categoryId != null ? String(row.categoryId) : 'all'}
                       onValueChange={(v) => setReservationRowCategory(rowIndex, v === 'all' ? null : Number(v))}
                     >
-                      <SelectTrigger className="h-9 w-[180px] text-xs font-medium bg-slate-100/90 text-slate-700 rounded-xl border-0 shadow-none ring-0 focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-white data-[state=open]:shadow-[0_0_0_2px_rgba(14,165,233,0.2)]">
+                      <SelectTrigger className="h-9 w-[180px] text-xs font-medium bg-white text-slate-700 rounded-xl border border-slate-200/90 shadow-none ring-0 focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-white data-[state=open]:shadow-[0_0_0_2px_rgba(14,165,233,0.2)]">
                         <SelectValue placeholder="Danh mục" />
                       </SelectTrigger>
                       <SelectContent>
@@ -608,7 +680,7 @@ export default function RequestDetailEquipmentPanel({
                       return (
                         <p className="text-xs text-gray-500 py-2">
                           {rawItems.length === 0
-                            ? 'Không có thiết bị khả dụng trong khung giờ phiên này.'
+                            ? 'Không có thiết bị khả dụng trong khung giờ buổi này.'
                             : 'Không có thiết bị nào trùng với từ khóa tìm kiếm.'}
                         </p>
                       );
@@ -617,6 +689,7 @@ export default function RequestDetailEquipmentPanel({
                       <div className="flex flex-col gap-1">
                         {items.map((eq) => {
                           const isSelected = row.equipmentIds.includes(eq.EquipmentId);
+                          const statusMeta = getEquipmentStatusMeta(eq.Status);
                           return (
                             <div
                               key={eq.EquipmentId}
@@ -626,13 +699,14 @@ export default function RequestDetailEquipmentPanel({
                             >
                               <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-100">
                                 {eq.ImgLink ? (
-                                  <Image
+                                  <img
                                     src={eq.ImgLink}
                                     alt={eq.EquipmentName ?? `Thiết bị #${eq.EquipmentId}`}
                                     width={40}
                                     height={40}
-                                    className="object-cover"
-                                    preview={{ mask: 'Xem ảnh' }}
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="h-10 w-10 object-cover"
                                   />
                                 ) : (
                                   <ImageOff className="w-5 h-5 text-gray-300" />
@@ -654,6 +728,14 @@ export default function RequestDetailEquipmentPanel({
                                   <div className="text-[11px] text-gray-500 truncate">
                                     Danh mục:{' '}
                                     {eq.CategoryName ?? '---'}
+                                  </div>
+                                  <div className="mt-1">
+                                    <span className="text-[11px] text-gray-500 mr-1">Trạng thái:</span>
+                                    <span
+                                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusMeta.className}`}
+                                    >
+                                      {statusMeta.label}
+                                    </span>
                                   </div>
                                 </div>
                                 <span

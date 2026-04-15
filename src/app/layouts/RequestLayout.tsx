@@ -30,7 +30,7 @@ const ASSIGNMENT_TAB_STATUS_FILTERS: ManagerRequestStatusFilter[] = [
   'published',
 ];
 
-/** Tab Các yêu cầu cần gán đội: chỉ lấy yêu cầu đã duyệt. */
+/** Tab Các yêu cầu cần gán nhóm: chỉ lấy yêu cầu đã duyệt. */
 const TEAM_ASSIGN_TAB_STATUS_FILTERS: ManagerRequestStatusFilter[] = ['all', 'approved'];
 
 type RequestTypeKey = 'subject' | 'course' | 'event' | 'other';
@@ -80,16 +80,6 @@ const STATUS_FILTER_TO_API: Record<Exclude<ManagerRequestStatusFilter, 'all'>, s
   completed: 'COMPLETED',
   cancelled: 'CANCELLED',
 };
-
-function getAllTabDetailPath(row: RequestListItem): string {
-  const code = getRequestStatusCode(row.status);
-  if (code === REQUEST_STATUS.PENDING) return `/manager/requests/approval/${row.requestId}`;
-  if (code === REQUEST_STATUS.APPROVED) return `/manager/requests/team-assign/${row.requestId}`;
-  if (code === REQUEST_STATUS.ASSIGNING || code === REQUEST_STATUS.PUBLISHED) {
-    return `/manager/requests/assignments/${row.requestId}`;
-  }
-  return `/manager/requests/${row.requestId}`;
-}
 
 function formatDateTime(value: string | undefined | null): string {
   if (!value) return '—';
@@ -142,7 +132,7 @@ export default function RequestLayout() {
     if (location.pathname.includes('/requests/team-assign')) return 'team_assign';
     return 'all';
   }, [location.pathname]);
-  const pageSize = tabValue === 'all' ? 6 : 10;
+  const pageSize = 10;
 
   const outletViewMode =
     tabValue === 'assignment'
@@ -152,15 +142,6 @@ export default function RequestLayout() {
         : tabValue === 'team_assign'
           ? 'team_assign'
           : 'request';
-
-  const requestBasePath =
-    tabValue === 'assignment'
-      ? '/manager/requests/assignments'
-      : tabValue === 'approval'
-        ? '/manager/requests/approval'
-        : tabValue === 'team_assign'
-          ? '/manager/requests/team-assign'
-        : '/manager/requests';
 
   const handleResetFilters = () => {
     setSearch('');
@@ -196,7 +177,7 @@ export default function RequestLayout() {
     return {};
   }, [statusFilter, tabValue]);
 
-  const { data: requestList, totalItems: requestTotalItems, loading: requestLoading } = useRequests(
+  const { data: requestList, loading: requestLoading } = useRequests(
     1,
     500,
     sidebarRefreshKey,
@@ -341,177 +322,161 @@ export default function RequestLayout() {
 
   return (
     <div
-      className="p-6 app-page-bg flex flex-col gap-1 min-h-0 overflow-hidden"
-      style={{ height: 'var(--content-height, 100vh)' }}
+      className="p-6 app-page-bg flex min-h-[var(--content-height)] flex-col gap-1"
     >
       {/* HEADER */}
 
-      <div className="bg-white px-6 py-4 mb-0 rounded-2xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Trung tâm phê duyệt</h2>
-        <p className="text-xs text-gray-500">
-          Quản lý phê duyệt yêu cầu và phê duyệt phân công nhân sự
-        </p>
-      </div>
+      {!isDetailMode && (
+        <>
+          <div className="bg-white px-6 py-4 mb-0 rounded-2xl border border-slate-200 shadow-sm">
+            <h2 className="text-xl font-semibold text-black">Trung tâm phê duyệt</h2>
+            <p className="text-xs text-gray-500">
+              Quản lý phê duyệt yêu cầu và phê duyệt phân công nhân sự
+            </p>
+          </div>
 
-      <div className="px-4 pb-2 mb-1 pt-0">
-        <Tabs
-          value={tabValue}
-          onValueChange={(v) => {
-            const mode = v as 'all' | 'approval' | 'assignment' | 'team_assign';
-            if (mode === 'assignment') {
-              setStatusFilter((prev) =>
-                ASSIGNMENT_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
-              );
-              navigate('/manager/requests/assignments');
-              return;
-            }
-            if (mode === 'approval') {
-              setStatusFilter((prev) =>
-                APPROVAL_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
-              );
-              navigate('/manager/requests/approval');
-              return;
-            }
-            if (mode === 'team_assign') {
-              setStatusFilter((prev) =>
-                TEAM_ASSIGN_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
-              );
-              navigate('/manager/requests/team-assign');
-              return;
-            }
-            setStatusFilter((prev) => (prev === 'assigning' ? 'all' : prev));
-            navigate('/manager/requests');
-          }}
-        >
-          <TabsList>
-            <TabsTrigger
-              value="all"
-              onClick={() => {
-                setPageNumber(1);
+          <div className="px-4 pb-2 pt-2">
+            <Tabs
+              value={tabValue}
+              onValueChange={(v) => {
+                const mode = v as 'all' | 'approval' | 'assignment' | 'team_assign';
+                if (mode === 'assignment') {
+                  setStatusFilter((prev) =>
+                    ASSIGNMENT_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
+                  );
+                  navigate('/manager/requests/assignments');
+                  return;
+                }
+                if (mode === 'approval') {
+                  setStatusFilter((prev) =>
+                    APPROVAL_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
+                  );
+                  navigate('/manager/requests/approval');
+                  return;
+                }
+                if (mode === 'team_assign') {
+                  setStatusFilter((prev) =>
+                    TEAM_ASSIGN_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
+                  );
+                  navigate('/manager/requests/team-assign');
+                  return;
+                }
+                setStatusFilter((prev) => (prev === 'assigning' ? 'all' : prev));
                 navigate('/manager/requests');
               }}
             >
-              Tất cả yêu cầu
-            </TabsTrigger>
-            <TabsTrigger
-              value="approval"
-              onClick={() => {
-                setPageNumber(1);
-                navigate('/manager/requests/approval');
-              }}
-            >
-            Yêu cầu cần duyệt
-            </TabsTrigger>
-            <TabsTrigger
-              value="team_assign"
-              onClick={() => {
-                setPageNumber(1);
-                navigate('/manager/requests/team-assign');
-              }}
-            >
-              Yêu cầu cần gán đội
-            </TabsTrigger>
-            <TabsTrigger
-              value="assignment"
-              onClick={() => {
-                setPageNumber(1);
-                navigate('/manager/requests/assignments');
-              }}
-            >
-              Phân công cần duyệt
-            </TabsTrigger>
-           
-          </TabsList>
-        </Tabs>
-      </div>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <TabsList>
+                  <TabsTrigger
+                    value="all"
+                    onClick={() => {
+                      setPageNumber(1);
+                      navigate('/manager/requests');
+                    }}
+                  >
+                    Tất cả yêu cầu
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="approval"
+                    onClick={() => {
+                      setPageNumber(1);
+                      navigate('/manager/requests/approval');
+                    }}
+                  >
+                  Yêu cầu cần duyệt
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="team_assign"
+                    onClick={() => {
+                      setPageNumber(1);
+                      navigate('/manager/requests/team-assign');
+                    }}
+                  >
+                    Yêu cầu cần gán nhóm
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="assignment"
+                    onClick={() => {
+                      setPageNumber(1);
+                      navigate('/manager/requests/assignments');
+                    }}
+                  >
+                    Phân công cần duyệt
+                  </TabsTrigger>
+                </TabsList>
 
-      {!isDetailMode && (
-        <div className="flex justify-end gap-3 mb-2">
-          <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
+                <div className="flex flex-wrap items-center justify-end gap-3">
+                <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
 
-          <div className="flex items-center gap-3">
-            {/* Type Filter */}
-            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
-              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[160px]">
-                <SelectValue placeholder="Loại yêu cầu" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value="event">Sự kiện</SelectItem>
-                <SelectItem value="subject">Môn học</SelectItem>
-                <SelectItem value="course">Khóa học</SelectItem>
-              </SelectContent>
-            </Select>
+                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
+                  <SelectTrigger className="w-[168px] text-gray-500 text-sm gap-2 bg-white border-slate-200">
+                    <SelectValue placeholder="Loại yêu cầu" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả loại</SelectItem>
+                    <SelectItem value="event">Sự kiện</SelectItem>
+                    <SelectItem value="subject">Môn học</SelectItem>
+                    <SelectItem value="course">Khóa học</SelectItem>
+                  </SelectContent>
+                </Select>
 
-            {/* Status Filter — tab Phân công chỉ 3–5; tab Tất cả đủ enum */}
-            {tabValue === 'assignment' && (
-              <Select
-                value={statusFilter}
-                onValueChange={(v) => setStatusFilter(v as ManagerRequestStatusFilter)}
-              >
-                <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[180px]">
-                  <SelectValue placeholder="Trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                  <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
-                  <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
-                  <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            {tabValue === 'all' && (
-              <Select
-                value={statusFilter}
-                onValueChange={(v) => setStatusFilter(v as ManagerRequestStatusFilter)}
-              >
-                <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white border-slate-200 min-w-[180px]">
-                  <SelectValue placeholder="Trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                  <SelectItem value="pending">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PENDING]}</SelectItem>
-                  <SelectItem value="rejected">{REQUEST_STATUS_LABEL[REQUEST_STATUS.REJECTED]}</SelectItem>
-                  <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
-                  <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
-                  <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
-                  <SelectItem value="completed">{REQUEST_STATUS_LABEL[REQUEST_STATUS.COMPLETED]}</SelectItem>
-                  <SelectItem value="cancelled">{REQUEST_STATUS_LABEL[REQUEST_STATUS.CANCELLED]}</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
+                {/* Status Filter — tab Phân công chỉ 3–5; tab Tất cả đủ enum */}
+                {tabValue === 'assignment' && (
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(v) => setStatusFilter(v as ManagerRequestStatusFilter)}
+                  >
+                    <SelectTrigger className="w-[176px] text-gray-500 text-sm gap-2 bg-white border-slate-200">
+                      <SelectValue placeholder="Trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                      <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
+                      <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
+                      <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                {tabValue === 'all' && (
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(v) => setStatusFilter(v as ManagerRequestStatusFilter)}
+                  >
+                    <SelectTrigger className="w-[176px] text-gray-500 text-sm gap-2 bg-white border-slate-200">
+                      <SelectValue placeholder="Trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                      <SelectItem value="pending">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PENDING]}</SelectItem>
+                      <SelectItem value="rejected">{REQUEST_STATUS_LABEL[REQUEST_STATUS.REJECTED]}</SelectItem>
+                      <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
+                      <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
+                      <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
+                      <SelectItem value="completed">{REQUEST_STATUS_LABEL[REQUEST_STATUS.COMPLETED]}</SelectItem>
+                      <SelectItem value="cancelled">{REQUEST_STATUS_LABEL[REQUEST_STATUS.CANCELLED]}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
 
-            {/* Reset Button */}
-            <Button
-              variant="outline"
-              size="icon"
-              className="shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
-              onClick={handleResetFilters}
-            >
-              <RotateCcw size={16} />
-            </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
+                  onClick={handleResetFilters}
+                >
+                  <RotateCcw size={16} />
+                </Button>
+                </div>
+              </div>
+            </Tabs>
           </div>
-        </div>
+        </>
       )}
 
-      <div className="flex-1 min-h-0 min-w-0 overflow-hidden pb-4">
+      <div className="pb-4">
         {!isDetailMode ? (
-          <div className="h-full min-h-0 bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between gap-3 p-4 border-b border-slate-200">
-              <div className="min-w-0">
-                <h2 className="font-semibold text-base text-black truncate">Danh sách yêu cầu</h2>
-                <p className="text-[11px] text-slate-500">
-                  {requestLoading
-                    ? 'Đang tải...'
-                    : `${filteredRequests.length}${typeof requestTotalItems === 'number' ? `/${requestTotalItems}` : ''} yêu cầu`}
-                </p>
-              </div>
-              <span className="text-xs font-medium text-sky-800 bg-sky-100 border border-sky-200 rounded-full px-3 py-1">
-                {filteredRequests.length}
-              </span>
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 app-page-bg">
+          <div className="flex min-h-[calc(var(--content-height)-190px)] flex-col rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+            <div className="flex-1">
               {requestLoading ? (
                 <div className="p-4 text-sm text-gray-500">Đang tải danh sách...</div>
               ) : (
@@ -523,11 +488,7 @@ export default function RequestLayout() {
                   totalItems={filteredRequests.length}
                   onPageChange={(page) => setPageNumber(page)}
                   onRowClick={(row) => {
-                    if (tabValue === 'all') {
-                      navigate(getAllTabDetailPath(row));
-                      return;
-                    }
-                    navigate(`${requestBasePath}/${row.requestId}`);
+                    navigate(`/manager/requests/${row.requestId}`);
                   }}
                   comfortable
                   tableGap="tight"
@@ -536,7 +497,7 @@ export default function RequestLayout() {
               )}
             </div>
 
-            <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3">
+            <div className="mt-auto border-t border-slate-200 bg-white px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm text-muted-foreground">
                   Hiển thị {fromItem}

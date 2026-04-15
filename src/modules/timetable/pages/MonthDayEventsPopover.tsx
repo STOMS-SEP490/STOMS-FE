@@ -97,7 +97,7 @@ export default function MonthDayEventsPopover({ open, anchorRect, day, events, o
 
         <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar px-1.5 py-1">
           {sortedEvents.length === 0 ? (
-            <div className="py-3 text-center text-[11px] text-slate-500">Không có phiên.</div>
+            <div className="py-3 text-center text-[11px] text-slate-500">Không có buổi.</div>
           ) : (
             <ul className="flex flex-col gap-0">
               {sortedEvents.map((ev) => {

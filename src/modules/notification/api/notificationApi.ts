@@ -92,7 +92,7 @@ export async function markNotificationRead(id: number): Promise<NotificationRead
   return { notificationId: n.notificationId, readAt: n.readAt ?? new Date().toISOString() };
 }
 
-/** Team leader báo phiên không thể phân công — BE gửi thông báo cho quản lý. */
+/** Team leader báo buổi không thể phân công — BE gửi thông báo cho quản lý. */
 export async function postSessionCannotBeAssigned(payload: { sessionId: number; reason: string }) {
   await axiosClient.post<unknown>('/notifications/session-cannot-be-assigned', {
     sessionId: payload.sessionId,

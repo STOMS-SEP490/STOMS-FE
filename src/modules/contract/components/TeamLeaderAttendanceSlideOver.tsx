@@ -67,7 +67,7 @@ export default function TeamLeaderAttendanceSlideOver({
   saveAttendance,
   refreshAttendanceItems,
   refetch,
-  /** Cùng mức z với panel Chi tiết phiên (tl/timetable) để lớp mờ nhất quán */
+
   overlayZClass = 'z-[80]',
 }: TeamLeaderAttendanceSlideOverProps) {
   const currentMemberId = useMemo(() => {

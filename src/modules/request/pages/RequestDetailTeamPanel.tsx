@@ -28,7 +28,7 @@ function readTeamNumeric(team: Team | undefined, keys: readonly string[]): numbe
   return undefined;
 }
 
-/** Trần GV có thể gán cho một đội (theo API team-suggestions). Ưu tiên tổng pool; không có dữ liệu → không giới hạn phía FE. */
+/** Trần GV có thể gán cho một nhóm (theo API team-suggestions). Ưu tiên tổng pool; không có dữ liệu → không giới hạn phía FE. */
 function getTeamTeacherAssignCap(team: Team | undefined): number | undefined {
   const total = readTeamNumeric(team, [
     'totalTeacherCount',
@@ -123,7 +123,7 @@ export default function RequestDetailTeamPanel({
         const msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: unknown }).message)
-            : 'Không tải được danh sách đội gợi ý.';
+            : 'Không tải được danh sách nhóm gợi ý.';
         setError(msg);
         setSuggestedTeams([]);
       } finally {
@@ -154,7 +154,7 @@ export default function RequestDetailTeamPanel({
     }
     setTeamQuantities(next);
     setShowAddTeam(false);
-    // Chỉ đồng bộ khi đổi phiên hoặc tập id đội từ parent (vd. bỏ đội 0 GV/0 TG); không gắn currentTeamQuantities để tránh đóng panel "Thêm đội" khi gõ số.
+    // Chỉ đồng bộ khi đổi buổi hoặc tập id nhóm từ parent (vd. bỏ nhóm 0 GV/0 TG); không gắn currentTeamQuantities để tránh đóng panel "Thêm nhóm" khi gõ số.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.sessionId, assignedIdsKey, requestedTeachers, requestedTas, suggestedTeams]);
 
@@ -240,7 +240,7 @@ export default function RequestDetailTeamPanel({
 
       return [...prev, teamId];
     });
-    // Sau khi chọn/bỏ chọn đội, đóng popup nếu đang mở để tránh bị kẹt
+    // Sau khi chọn/bỏ chọn nhóm, đóng popup nếu đang mở để tránh bị kẹt
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
@@ -259,7 +259,7 @@ export default function RequestDetailTeamPanel({
       delete next[teamId];
       return next;
     });
-    // Khi xóa đội, đảm bảo popup chi tiết đóng lại
+    // Khi xóa nhóm, đảm bảo popup chi tiết đóng lại
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
@@ -379,9 +379,9 @@ export default function RequestDetailTeamPanel({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-black">Đội phụ trách</h3>
+      <h3 className="text-sm font-semibold text-black">nhóm phụ trách</h3>
 
-      {/* Đã chọn đội: card từng đội (icon, tên, X thành viên, nút xóa) */}
+      {/* Đã chọn nhóm: card từng nhóm (icon, tên, X thành viên, nút xóa) */}
       {addedTeamIds.length > 0 && (
         <div className="space-y-3">
           {addedTeamIds.map((tid) => {
@@ -398,9 +398,9 @@ export default function RequestDetailTeamPanel({
                       <Users className="w-5 h-5 text-sky-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-black truncate">{team?.teamName ?? `Đội #${tid}`}</p>
+                      <p className="font-semibold text-black truncate">{team?.teamName ?? `nhóm #${tid}`}</p>
                       <p className="text-xs text-gray-500">
-                        {memberCount != null ? `${memberCount} thành viên` : 'Đội đã gắn'}
+                        {memberCount != null ? `${memberCount} thành viên` : 'nhóm đã gắn'}
                       </p>
                     </div>
                   </div>
@@ -408,7 +408,7 @@ export default function RequestDetailTeamPanel({
                     type="button"
                     onClick={() => removeAddedTeam(tid)}
                     className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition shrink-0"
-                    aria-label="Xóa đội"
+                    aria-label="Xóa nhóm"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -416,7 +416,7 @@ export default function RequestDetailTeamPanel({
 
                 <div className="space-y-3 pt-1 border-t border-gray-100">
                   <p className="text-[11px] text-gray-500">
-                    Số lượng áp dụng cho đội này
+                    Số lượng áp dụng cho nhóm này
                   </p>
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-sm text-gray-600">Số lượng giảng viên:</span>
@@ -519,7 +519,7 @@ export default function RequestDetailTeamPanel({
         </div>
       )}
 
-      {/* Chỉ hiện sau khi đã có ít nhất 1 đội — lần đầu dùng danh sách gợi ý bên dưới để chọn */}
+      {/* Chỉ hiện sau khi đã có ít nhất 1 nhóm — lần đầu dùng danh sách gợi ý bên dưới để chọn */}
       {addedTeamIds.length > 0 && (
         <button
           type="button"
@@ -527,21 +527,21 @@ export default function RequestDetailTeamPanel({
           className="w-full rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:border-sky-400 hover:text-sky-600 hover:bg-sky-50/50 py-2.5 flex items-center justify-center gap-2 text-sm font-medium transition"
         >
           <Plus className="w-4 h-4" />
-          Thêm đội
+          Thêm nhóm
         </button>
       )}
 
-      {/* Danh sách gợi ý: luôn khi chưa có đội; khi đã có đội thì chỉ khi bấm Thêm đội */}
+      {/* Danh sách gợi ý: luôn khi chưa có nhóm; khi đã có nhóm thì chỉ khi bấm Thêm nhóm */}
       {(showAddTeam || addedTeamIds.length === 0) && (
         <>
           <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
             <CircleHelp className="w-3.5 h-3.5" />
-            Di chuột vào từng đội để xem chi tiết năng lực và khả dụng nhân sự.
+            Di chuột vào từng nhóm để xem chi tiết năng lực và khả dụng nhân sự.
           </div>
           <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
-          placeholder="Tìm theo tên đội"
+          placeholder="Tìm theo tên nhóm"
           value={teamSearch}
           onChange={(e) => setTeamSearch(e.target.value)}
           className="pl-9 text-xs text-black border-gray-200 bg-white"
@@ -551,9 +551,9 @@ export default function RequestDetailTeamPanel({
         <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{error}</p>
       )}
       {loading ? (
-        <p className="text-xs text-gray-500">Đang tải danh sách đội gợi ý...</p>
+        <p className="text-xs text-gray-500">Đang tải danh sách nhóm gợi ý...</p>
       ) : filteredTeams.length === 0 ? (
-        <p className="text-xs text-gray-500">Không có đội gợi ý phù hợp cho phiên này.</p>
+        <p className="text-xs text-gray-500">Không có nhóm gợi ý phù hợp cho buổi này.</p>
       ) : (
         <div className="space-y-2">
           {filteredTeams.map((team) => {
@@ -573,14 +573,14 @@ export default function RequestDetailTeamPanel({
                 <div className="flex items-center justify-between">
                   <div>
                         <p className="text-sm font-medium text-black">{team.teamName}</p>
-                        <p className="text-xs text-gray-500">ID đội: {team.teamId}</p>
+                        <p className="text-xs text-gray-500">ID nhóm: {team.teamId}</p>
                       </div>
                       {isAdded ? (
                         <span className="text-xs text-green-600 font-medium">Đã chọn</span>
                       ) : (
                         <span
                           className="text-[11px] text-sky-600 font-medium"
-                          title="Di chuột vào thẻ đội để xem thông tin chi tiết"
+                          title="Di chuột vào thẻ nhóm để xem thông tin chi tiết"
                         >
                           Hover xem chi tiết
                         </span>
@@ -608,7 +608,7 @@ export default function RequestDetailTeamPanel({
                 <p className="text-sm font-semibold text-slate-900 truncate">
                   {teamDetailPopup.team.teamName}
                 </p>
-                <p className="text-[11px] text-slate-600 mt-0.5">ID đội: {teamDetailPopup.team.teamId}</p>
+                <p className="text-[11px] text-slate-600 mt-0.5">ID nhóm: {teamDetailPopup.team.teamId}</p>
               </div>
             </div>
             <div className="p-4 space-y-3">
@@ -630,7 +630,7 @@ export default function RequestDetailTeamPanel({
               )}
               <div className="pt-2 border-t border-slate-100 space-y-2">
                 <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
-                  Đánh giá theo phiên
+                  Đánh giá theo buổi
                 </p>
                 {(() => {
                   const matchedTeacher = getTeamMetric(teamDetailPopup.team, ['matchingSkillTeacherCount']);
@@ -684,7 +684,7 @@ export default function RequestDetailTeamPanel({
                       {topics.length > 0 && (
                         <div className="pt-1 border-t border-slate-100 mt-1">
                           <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 font-semibold">
-                            Chủ đề đội
+                            Chủ đề nhóm
                           </p>
                           <div className="flex flex-wrap gap-1">
                             {topics.map((t) => (

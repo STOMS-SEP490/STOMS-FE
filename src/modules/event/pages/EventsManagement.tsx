@@ -1,5 +1,4 @@
 import { DataTable } from '@/shared/components/common/DataTable'; 
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -654,19 +653,6 @@ export default function EventsManagement() {
       },
     },
     {
-      id: 'status',
-      header: () => <span className="block w-full text-center">Trạng thái</span>,
-      cell: ({ row }) => (
-        <div className="flex justify-center">
-          {row.original.isActive ? (
-            <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
-          ) : (
-            <Badge className="bg-gray-200 text-gray-600">Ngừng hoạt động</Badge>
-          )}
-        </div>
-      ),
-    },
-    {
       accessorKey: 'numberOfSession',
       header: () => <span className="block w-full text-center">Số buổi</span>,
       cell: ({ row }) => (
@@ -685,18 +671,24 @@ export default function EventsManagement() {
       ),
     },
     {
+      id: 'status',
+      header: () => <span className="block w-full text-center">Trạng thái</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          {row.original.isActive ? (
+            <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
+          ) : (
+            <Badge className="bg-gray-200 text-gray-600">Ngừng hoạt động</Badge>
+          )}
+        </div>
+      ),
+    },
+    {
       id: 'actions',
       header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
       cell: ({ row }) => {
         const ev = row.original;
-        if (readOnly) {
-          return (
-            <div className="flex justify-center">
-              <TableTextAction onClick={() => void handleViewDetail(ev)} />
-            </div>
-          );
-        }
         return (
           <div className="flex items-center justify-center gap-2">
             <Eye
@@ -731,6 +723,9 @@ export default function EventsManagement() {
       },
     },
   ];
+  const visibleColumns = readOnly
+    ? columns.filter((column) => column.id !== 'status' && column.id !== 'actions')
+    : columns;
 
   return (
     <>
@@ -770,12 +765,15 @@ export default function EventsManagement() {
               comfortable
               fillHeight
               tableGap="tight"
-              columns={columns}
+              columns={visibleColumns}
               data={events}
               pageNumber={pageNumber}
               pageSize={pageSize}
               totalItems={totalItems}
               onPageChange={(page) => setPageNumber(page)}
+              onRowClick={(row) => {
+                void handleViewDetail(row);
+              }}
             />
           </div>
         </div>
@@ -847,11 +845,11 @@ export default function EventsManagement() {
               setPageNumber(1);
             }}
           >
-            <SelectTrigger className="text-sm bg-white">
-              <SelectValue placeholder="Trạng thái" />
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px] border-slate-200">
+              <SelectValue placeholder="Tất cả trạng thái" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
               <SelectItem value="active">Hoạt động</SelectItem>
               <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
             </SelectContent>
@@ -875,7 +873,7 @@ export default function EventsManagement() {
       {/* TABLE */}
       <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
         <DataTable
-          columns={columns}
+          columns={visibleColumns}
           data={events}
           pageNumber={pageNumber}
           pageSize={pageSize}

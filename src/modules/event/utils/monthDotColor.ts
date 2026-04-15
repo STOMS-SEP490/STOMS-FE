@@ -1,5 +1,5 @@
 /**
- * Chấm tròn lịch: màu theo trạng thái phiên từ BE.
+ * Chấm tròn lịch: màu theo trạng thái buổi từ BE.
  * - Đã phân công / chưa diễn ra (Assigned, …): xanh dương
  * - Đang diễn ra: vàng
  * - Hoàn thành: xanh lá

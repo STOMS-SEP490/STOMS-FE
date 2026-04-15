@@ -82,7 +82,7 @@ const THEMES: Record<NotificationKind, Omit<NotificationVisual, 'kind'>> = {
     iconWrapClass: 'bg-cyan-50 text-cyan-600 ring-1 ring-cyan-100',
   },
   RESERVATION: {
-    label: 'Đặt trước',
+    label: 'Đơn yêu cầu thiết bị',
     Icon: CalendarClock,
     iconWrapClass: 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100',
   },

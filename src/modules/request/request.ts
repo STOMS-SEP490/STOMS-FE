@@ -52,6 +52,52 @@ export type RequestSessionSummary = {
   sessionSkills?: string[];
 };
 
+export type RequestCourseInfo = {
+  courseId?: number;
+  courseCode?: string | null;
+  courseName?: string | null;
+  description?: string | null;
+  isActive?: boolean;
+  duration?: string | null;
+  numberOfSubject?: number;
+  numberOfSession?: number;
+  updatedAt?: string | null;
+};
+
+export type RequestSubjectInfo = {
+  subjectId?: number;
+  subjectCode?: string | null;
+  subjectName?: string | null;
+  isActive?: boolean;
+  description?: string | null;
+  topicId?: number | null;
+  duration?: string | null;
+  numberOfSession?: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type RequestEventInfo = {
+  eventId?: number;
+  eventCode?: string | null;
+  eventName?: string | null;
+  isActive?: boolean;
+  description?: string | null;
+  duration?: string | null;
+  numberOfSession?: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type RequestProgramCoordinatorInfo = {
+  memberId?: number;
+  userId?: number;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+  phone?: string | null;
+  email?: string | null;
+};
+
 export type RequestListItem = {
   requestId: number;
   requestCode: string;
@@ -66,6 +112,7 @@ export type RequestListItem = {
   sessionsRequired: number;
 
   status: string;
+  note?: string | null;
   reason?: string | null;
   createdAt: string;
 
@@ -79,6 +126,11 @@ export type RequestListItem = {
     fileUrl?: string | null;
     uploadedAt?: string | null;
   }>;
+
+  course?: RequestCourseInfo | null;
+  subject?: RequestSubjectInfo | null;
+  event?: RequestEventInfo | null;
+  programCoordinator?: RequestProgramCoordinatorInfo | null;
 };
 
 export type RequestFilterParams = {

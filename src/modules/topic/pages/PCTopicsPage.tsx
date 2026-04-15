@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import dayjs from 'dayjs';
+import { RotateCcw } from 'lucide-react';
 import { Modal, message } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { MANAGER_ROLE_ID } from '@/constants/role';
 import { DataTable } from '@/shared/components/common/DataTable';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import HoverSearch from '@/shared/components/ui/search';
+import { Button } from '@/shared/components/ui/button';
 import topicApi from '@/modules/topic/api/topicApi';
 import type { TopicListItem } from '@/modules/topic/topic';
 
@@ -78,7 +79,7 @@ export default function PCTopicsPage() {
         pageNumber,
         pageSize,
         topicName: search.trim() || undefined,
-        ...(activeOnly ? { IsActive: true } : {}),
+        IsActive: activeOnly ? true : undefined,
       });
       setData(res.items ?? []);
       setTotalItems(res.totalItems ?? 0);
@@ -141,29 +142,21 @@ export default function PCTopicsPage() {
   const columns = useMemo<ColumnDef<TopicListItem>[]>(
     () => [
       {
-        accessorKey: 'topicId',
-        header: 'MÃ CHỦ ĐỀ',
-        cell: ({ row }) => <span className="font-semibold text-gray-900">{row.original.topicId}</span>,
-      },
-      {
         accessorKey: 'topicName',
         header: 'TÊN CHỦ ĐỀ',
+        cell: ({ row }) => <div className="font-medium text-gray-900 truncate">{row.original.topicName || '—'}</div>,
+      },
+      {
+        accessorKey: 'description',
+        header: 'MÔ TẢ',
         cell: ({ row }) => (
-          <div className="min-w-0">
-            <div className="font-medium text-gray-900 truncate">{row.original.topicName}</div>
-            <div className="text-xs text-gray-500 truncate">{row.original.description?.trim() || '—'}</div>
-          </div>
+          <div className="text-sm text-gray-700 truncate">{row.original.description?.trim() || '—'}</div>
         ),
       },
       {
         accessorKey: 'createdAt',
         header: 'NGÀY TẠO',
         cell: ({ row }) => (row.original.createdAt ? dayjs(row.original.createdAt).format('DD/MM/YYYY HH:mm') : '—'),
-      },
-      {
-        id: 'actions',
-        header: 'THAO TÁC',
-        cell: ({ row }) => <TableTextAction onClick={() => void openDetailById(row.original.topicId)} />,
       },
     ],
     [],
@@ -176,8 +169,19 @@ export default function PCTopicsPage() {
         <p className="text-xs text-gray-500">Xem danh sách chủ đề trong hệ thống</p>
       </div>
 
-      <div className="shrink-0 px-2 py-1 flex justify-end">
+      <div className="shrink-0 px-2 py-1 flex flex-wrap justify-end gap-3">
         <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo tên chủ đề..." />
+        <Button
+          variant="secondary"
+          className="bg-white h-9 border-slate-200"
+          type="button"
+          onClick={() => {
+            setSearch('');
+            setPageNumber(1);
+          }}
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
       </div>
 
       <div className="relative flex w-full min-w-0 flex-1 min-h-0 flex-col bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
@@ -193,6 +197,9 @@ export default function PCTopicsPage() {
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(page) => setPageNumber(page)}
+          onRowClick={(row) => {
+            void openDetailById(row.topicId);
+          }}
           fillHeight
           comfortable
         />
