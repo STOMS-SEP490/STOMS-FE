@@ -14,7 +14,7 @@ export const ROLE_MAP: Record<number, string> = {
   2: 'Trưởng nhóm',
   3: 'Điều phối chương trình',
   4: 'Giảng viên',
-  5: 'Trợ giảng',
+  5: 'Sinh viên',
   6: 'Quản lý thiết bị',
 };
 

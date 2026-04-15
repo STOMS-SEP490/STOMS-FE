@@ -1,5 +1,4 @@
 import { DataTable } from '@/shared/components/common/DataTable'; 
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -634,47 +633,64 @@ export default function EventsManagement() {
       header: 'Tên sự kiện',
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="font-medium text-gray-900 truncate">{row.original.eventName}</div>
-          <div className="text-xs text-gray-500 truncate">
+          <div className="font-medium text-gray-900 ">{row.original.eventName}</div>
+          <div className="text-xs text-gray-500 ">
             {row.original.description?.trim() || '—'}
           </div>
         </div>
       ),
     },
     {
-      id: 'status',
-      header: 'Trạng thái',
-      cell: ({ row }) =>
-        row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700">
-            Hoạt động
-          </Badge>
-        ) : (
-          <Badge className="bg-gray-200 text-gray-600">
-            Ngừng hoạt động
-          </Badge>
-        ),
+      accessorKey: 'duration',
+      header: () => <span className="block w-full text-center">Thời lượng</span>,
+      cell: ({ row }) => {
+        const d = String(row.original.duration ?? '').trim();
+        return (
+          <div className="text-center">
+            <span className="tabular-nums text-gray-800">{d || '—'}</span>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'numberOfSession',
-      header: 'Số buổi',
+      header: () => <span className="block w-full text-center">Số buổi</span>,
       cell: ({ row }) => (
-        <span className="font-medium">
-          {row.original.numberOfSession} buổi
-        </span>
+        <div className="text-center">
+          <span className="font-medium">{row.original.numberOfSession} buổi</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'updatedAt',
+      header: () => <span className="block w-full text-center">Cập nhật</span>,
+      cell: ({ row }) => (
+        <div className="text-center tabular-nums text-gray-800">
+          {row.original.updatedAt ? new Date(row.original.updatedAt).toLocaleString('vi-VN') : '—'}
+        </div>
+      ),
+    },
+    {
+      id: 'status',
+      header: () => <span className="block w-full text-center">Trạng thái</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          {row.original.isActive ? (
+            <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
+          ) : (
+            <Badge className="bg-gray-200 text-gray-600">Ngừng hoạt động</Badge>
+          )}
+        </div>
       ),
     },
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
       cell: ({ row }) => {
         const ev = row.original;
-        if (readOnly) {
-          return <TableTextAction onClick={() => void handleViewDetail(ev)} />;
-        }
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <Eye
               size={16}
               className="text-gray-800 cursor-pointer"
@@ -707,11 +723,14 @@ export default function EventsManagement() {
       },
     },
   ];
+  const visibleColumns = readOnly
+    ? columns.filter((column) => column.id !== 'status' && column.id !== 'actions')
+    : columns;
 
   return (
     <>
       {readOnly ? (
-        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 bg-slate-50 p-6 pb-8">
+        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
           <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
             <h2 className="text-xl font-semibold text-black">Danh sách sự kiện</h2>
             <p className="text-xs text-gray-500">Xem thông tin các sự kiện trong hệ thống</p>
@@ -746,12 +765,15 @@ export default function EventsManagement() {
               comfortable
               fillHeight
               tableGap="tight"
-              columns={columns}
+              columns={visibleColumns}
               data={events}
               pageNumber={pageNumber}
               pageSize={pageSize}
               totalItems={totalItems}
               onPageChange={(page) => setPageNumber(page)}
+              onRowClick={(row) => {
+                void handleViewDetail(row);
+              }}
             />
           </div>
         </div>
@@ -823,11 +845,11 @@ export default function EventsManagement() {
               setPageNumber(1);
             }}
           >
-            <SelectTrigger className="text-sm bg-white">
-              <SelectValue placeholder="Trạng thái" />
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px] border-slate-200">
+              <SelectValue placeholder="Tất cả trạng thái" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
               <SelectItem value="active">Hoạt động</SelectItem>
               <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
             </SelectContent>
@@ -851,7 +873,7 @@ export default function EventsManagement() {
       {/* TABLE */}
       <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
         <DataTable
-          columns={columns}
+          columns={visibleColumns}
           data={events}
           pageNumber={pageNumber}
           pageSize={pageSize}

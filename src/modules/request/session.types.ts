@@ -27,7 +27,7 @@ export type SubjectSkillResponse = {
 /** StaffMember nested trong Assignment (BE MemberResponse rút gọn cho session detail). */
 export type SessionStaffMemberResponse = {
   MemberId: number;
-  /** Đội của thành viên — dùng để nhóm assignment theo đội phụ trách */
+  /** Nhóm của thành viên — dùng để nhóm assignment theo nhóm phụ trách */
   TeamId?: number | null;
   FullName?: string | null;
   AvatarUrl?: string | null;

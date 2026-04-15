@@ -174,7 +174,7 @@ export default function ContractsManagement() {
         const rawRole = String(matched?.StaffRole ?? '').toLowerCase();
         const roleLabel = rawRole
           ? rawRole.includes('ta') || rawRole.includes('trợ')
-            ? 'Trợ giảng'
+            ? 'Sinh viên'
             : 'Giáo viên'
           : null;
         setDetailRoleLabel(roleLabel);
@@ -273,7 +273,7 @@ export default function ContractsManagement() {
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
           <h2 className="text-xl font-semibold text-black">Quản lý hợp đồng</h2>
-          <p className="text-xs text-gray-500">Quản lý hợp đồng giảng viên và trợ giảng</p>
+          <p className="text-xs text-gray-500">Quản lý hợp đồng giảng viên và sinh viên</p>
         </div>
 
         {!isManagerPage && (

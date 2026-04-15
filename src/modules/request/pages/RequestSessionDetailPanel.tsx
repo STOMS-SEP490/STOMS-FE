@@ -1,18 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { Clock, Calendar, MapPin, Hash, GraduationCap, Users, SquarePen } from 'lucide-react';
 import { message } from 'antd';
 import reservationService from '../../reservation/api/reservationApi';
 import type { EquipmentReservationItemResponse, ReservationDetail } from '@/modules/reservation/reservation.types';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
-import { ImageOff } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import EditReservationModal from '@/modules/reservation/pages/EditReservationModal';
 import type { RequestSessionSummary } from '../request';
 import sessionService from '../api/sessionApi';
 import type { AssignmentResponse, SessionResponse } from '../session.types';
-import { Image } from 'antd';
 import RequestDetailTeamSummary from './RequestDetailTeamSummary';
 
 export type SessionDetailProps = {
@@ -20,19 +17,14 @@ export type SessionDetailProps = {
     reservationId?: number | null;
     teamAssigned?: boolean;
   };
-  /** Tăng giá trị để ép refetch GET /sessions/:id (vd sau khi duyệt/từ chối phân công) */
   reloadKey?: number;
   requestId: number;
   requestCode: string;
-  /** Đội đã gắn — dùng với TeamSessions từ GET /sessions/:id */
   assignedTeamIds?: number[];
-  /** false: ẩn khối Đội phụ trách (vd. yêu cầu Chờ duyệt — dùng TeamPanel riêng) */
   showTeamSummary?: boolean;
   showReservedEquipment?: boolean;
   sectionMode?: 'all' | 'info' | 'equipment';
-  /** Cho phép mở UI sửa đặt trước (mặc định: true). */
   canEditReservation?: boolean;
-  /** Gọi sau khi sửa đặt trước thành công (vd. đồng bộ lại session / yêu cầu). */
   onReservationUpdated?: () => void | Promise<void>;
   reviewMode?: boolean;
   onApproveAssignment?: (assignment: AssignmentResponse) => void | Promise<void>;
@@ -92,7 +84,7 @@ export default function RequestSessionDetailPanel({
         const msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: unknown }).message)
-            : 'Không tải được thông tin phiên.';
+            : 'Không tải được thông tin buổi.';
         setSessionError(msg);
         setSessionDetail(null);
       } finally {
@@ -115,6 +107,33 @@ export default function RequestSessionDetailPanel({
   const teachersRequired =
     mergedSession?.TeachersRequired ?? (mergedSession as any)?.teachersRequired ?? null;
   const tasRequired = mergedSession?.TasRequired ?? (mergedSession as any)?.tasRequired ?? null;
+  const notes = String(
+    mergedSession?.Notes ??
+      (mergedSession as any)?.notes ??
+      '',
+  ).trim();
+  const isOnlineRaw =
+    mergedSession?.IsOnline ??
+    (mergedSession as any)?.isOnline ??
+    null;
+  const createdAt = mergedSession?.CreatedAt ?? (mergedSession as any)?.createdAt ?? null;
+  const updatedAt = mergedSession?.UpdatedAt ?? (mergedSession as any)?.updatedAt ?? null;
+  const eventSession = mergedSession?.EventSession ?? (mergedSession as any)?.eventSession ?? null;
+  const subjectSession = mergedSession?.SubjectSession ?? (mergedSession as any)?.subjectSession ?? null;
+  const sessionDescription = String(
+    eventSession?.Description ??
+      eventSession?.description ??
+      subjectSession?.Description ??
+      subjectSession?.description ??
+      '',
+  ).trim();
+  const sessionDuration = String(
+    eventSession?.Duration ??
+      eventSession?.duration ??
+      subjectSession?.Duration ??
+      subjectSession?.duration ??
+      '',
+  ).trim();
 
   const skills = useMemo(() => {
     const detail = mergedSession as SessionResponse | null;
@@ -127,6 +146,24 @@ export default function RequestSessionDetailPanel({
     const names = list
       .filter((s: any) => (s?.IsActive ?? s?.isActive ?? true) !== false)
       .map((s: any) => String(s?.SkillName ?? s?.skillName ?? '').trim())
+      .filter(Boolean);
+    return Array.from(new Set(names));
+  }, [mergedSession]);
+
+  const topics = useMemo(() => {
+    const detail = mergedSession as SessionResponse | null;
+    const detailAny = detail as any;
+    const fromEvent = [
+      ...((Array.isArray(detailAny?.EventSession?.Topics) ? detailAny.EventSession.Topics : []) as any[]),
+      ...((Array.isArray(detailAny?.eventSession?.topics) ? detailAny.eventSession.topics : []) as any[]),
+    ];
+    const fromSubject = [
+      ...((Array.isArray(detailAny?.SubjectSession?.Topics) ? detailAny.SubjectSession.Topics : []) as any[]),
+      ...((Array.isArray(detailAny?.subjectSession?.topics) ? detailAny.subjectSession.topics : []) as any[]),
+    ];
+    const names = [...fromEvent, ...fromSubject]
+      .filter((t: any) => (t?.IsActive ?? t?.isActive ?? true) !== false)
+      .map((t: any) => String(t?.TopicName ?? t?.topicName ?? '').trim())
       .filter(Boolean);
     return Array.from(new Set(names));
   }, [mergedSession]);
@@ -210,83 +247,129 @@ export default function RequestSessionDetailPanel({
   return (
     <div className="space-y-4 text-sm">
       {renderInfoCard && (
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-50/70">
-          <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
-        </div>
-        <div className="px-4 py-3 space-y-3 text-sm">
-          {sessionError && <p className="text-xs text-red-600">{sessionError}</p>}
-          <div className="flex items-center gap-3 text-gray-600">
-            <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Thời gian:</span>
-            <span className="font-medium text-black">
-              {sessionLoading
-                ? 'Đang tải...'
-                : mergedSession
-                  ? startAt && endAt
-                    ? `${dayjs(startAt).format('HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
-                    : '—'
-                  : '—'}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Ngày:</span>
-            <span className="font-medium text-black">
-              {sessionLoading ? 'Đang tải...' : startAt ? dayjs(startAt).format('DD/MM/YYYY') : '—'}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Địa điểm:</span>
-            <span className="font-medium text-black">
-              {sessionLoading
-                ? 'Đang tải...'
-                : (location || '—')}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Mã yêu cầu:</span>
-            <span className="font-semibold text-[#2197C0]">{requestCode}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-700">
-            <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="font-semibold text-gray-900">Số lượng giảng viên yêu cầu:</span>
-            <span className="text-base font-bold tracking-tight text-[#2197C0]">
-              {sessionLoading ? 'Đang tải...' : (teachersRequired ?? '—')}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-700">
-            <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="font-semibold text-gray-900">Số lượng trợ giảng yêu cầu:</span>
-            <span className="text-base font-bold text-violet-700 tracking-tight">
-              {sessionLoading ? 'Đang tải...' : (tasRequired ?? '—')}
-            </span>
-          </div>
+        <div className="bg-white">
+          <div  />
 
-          <div className="flex items-start gap-3 text-gray-600">
-            <span className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
-            <span className="text-gray-500 shrink-0">Kỹ năng:</span>
-            <div className="flex flex-wrap gap-1.5">
-              {sessionLoading ? (
-                <span className="font-medium text-black">Đang tải...</span>
-              ) : skills.length === 0 ? (
-                <span className="font-medium text-black">—</span>
-              ) : (
-                skills.map((name) => (
-                  <Badge
-                    key={name}
-                    className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px]"
-                  >
-                    {name}
-                  </Badge>
-                ))
-              )}
+          <div className="pt-3 space-y-4 text-sm">
+            {sessionError && <p className="text-xs text-red-600">{sessionError}</p>}
+
+            <div className="grid grid-cols-1 gap-1">
+              <p className="text-xs text-slate-500">
+                {sessionLoading
+                  ? 'Đang tải...'
+                  : startAt && endAt
+                    ? `${dayjs(startAt).format('DD/MM/YYYY HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
+                    : '—'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã buổi</p>
+                <p className="mt-1 font-medium text-slate-900">{sessionLoading ? 'Đang tải...' : (session.sessionId ?? '—')}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{requestCode}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Buổi số</p>
+                <p className="mt-1 font-medium text-slate-900">{session.sessionNo ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Thời lượng</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (sessionDuration || '—')}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Hình thức</p>
+                <p className="mt-1 font-medium text-slate-900">
+                  {sessionLoading ? 'Đang tải...' : isOnlineRaw == null ? '—' : isOnlineRaw ? 'Trực tuyến' : 'Trực tiếp'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Địa điểm</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (location || '—')}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Giảng viên yêu cầu</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (teachersRequired ?? '—')}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Sinh viên yêu cầu</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (tasRequired ?? '—')}</p>
+              </div>
+            </div>
+
+            {(sessionDescription || notes) && <div className="border-t border-slate-100" />}
+
+            {sessionDescription ? (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Mô tả nội dung</p>
+                <p className="mt-1 text-slate-700 leading-6">{sessionLoading ? 'Đang tải...' : sessionDescription}</p>
+              </div>
+            ) : null}
+
+            {notes ? (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Ghi chú</p>
+                <p className="mt-1 text-slate-700 leading-6">{sessionLoading ? 'Đang tải...' : notes}</p>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Chủ đề</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {sessionLoading ? (
+                    <span className="text-slate-700">Đang tải...</span>
+                  ) : topics.length === 0 ? (
+                    <span className="text-slate-700">—</span>
+                  ) : (
+                    topics.map((name) => (
+                      <Badge key={name} className="bg-slate-100 text-slate-700 border-0 text-[11px] font-medium">
+                        {name}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Kỹ năng</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {sessionLoading ? (
+                  <span className="text-slate-700">Đang tải...</span>
+                ) : skills.length === 0 ? (
+                  <span className="text-slate-700">—</span>
+                ) : (
+                  skills.map((name) => (
+                    <Badge key={name} className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px] font-medium">
+                      {name}
+                    </Badge>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100" />
+
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2">
+              <div>
+                <span className="uppercase tracking-wide">Tạo lúc: </span>
+                <span className="text-slate-600">
+                  {sessionLoading ? 'Đang tải...' : (createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm:ss') : '—')}
+                </span>
+              </div>
+              <div>
+                <span className="uppercase tracking-wide">Cập nhật: </span>
+                <span className="text-slate-600">
+                  {sessionLoading ? 'Đang tải...' : (updatedAt ? dayjs(updatedAt).format('DD/MM/YYYY HH:mm:ss') : '—')}
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       )}
 
       {showTeamBlock && (
@@ -313,8 +396,8 @@ export default function RequestSessionDetailPanel({
 
       {renderEquipmentCard && (
         <>
-          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
-            <div className="px-4 py-2.5 bg-slate-50/70 flex flex-wrap items-center justify-between gap-2">
+          <div className="bg-white">
+            <div className="px-0 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200">
               <h3 className="font-semibold text-gray-900 text-sm">Danh sách thiết bị mượn trước</h3>
               {resolvedReservationId && canEditReservation ? (
                 <Button
@@ -325,14 +408,13 @@ export default function RequestSessionDetailPanel({
                   disabled={editReservationLoading}
                   onClick={() => void handleOpenEditReservation()}
                 >
-                  <SquarePen className="w-3.5 h-3.5" />
                   Sửa đặt trước
                 </Button>
               ) : null}
             </div>
-            <div className="px-4 py-3 space-y-2">
+            <div className="px-0 py-3 space-y-2">
               {!resolvedReservationId ? (
-                <p className="text-xs text-gray-500">Chưa có thiết bị mượn trước cho phiên này.</p>
+                <p className="text-xs text-gray-500">Chưa có thiết bị mượn trước cho buổi này.</p>
               ) : reservedLoading ? (
                 <p className="text-xs text-gray-500">Đang tải danh sách thiết bị...</p>
               ) : reservedError ? (
@@ -346,20 +428,21 @@ export default function RequestSessionDetailPanel({
                     return (
                     <li
                       key={er.EquipmentId}
-                      className="rounded-xl bg-slate-50/80 px-3 py-2.5 flex items-center gap-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)]"
+                      className="px-0 py-2.5 flex items-center gap-3 border-b border-slate-100 last:border-b-0"
                     >
-                      <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
+                      <div className="w-10 h-10 overflow-hidden bg-slate-100 flex-shrink-0 flex items-center justify-center">
                         {eq?.ImgLink ? (
-                          <Image
+                          <img
                             src={eq.ImgLink}
                             alt={eq.EquipmentName || `Thiết bị #${er.EquipmentId}`}
                             width={40}
                             height={40}
-                            className="object-cover"
-                            preview={{ mask: 'Xem ảnh' }}
+                            loading="lazy"
+                            decoding="async"
+                            className="h-10 w-10 object-cover"
                           />
                         ) : (
-                          <ImageOff className="w-5 h-5 text-gray-400" />
+                          <span className="text-[10px] text-gray-400">Không có ảnh</span>
                         )}
                       </div>
 

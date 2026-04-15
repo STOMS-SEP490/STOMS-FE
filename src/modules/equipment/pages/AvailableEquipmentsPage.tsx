@@ -118,7 +118,7 @@ export default function AvailableEquipmentsPage() {
 
   return (
     <div
-      className="p-6 bg-slate-50 flex flex-col gap-2 min-h-0 overflow-hidden"
+      className="p-6 app-page-bg flex flex-col gap-2 min-h-0 overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm">
@@ -170,7 +170,7 @@ export default function AvailableEquipmentsPage() {
           </>
         ) : (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <EquipmentsHistory borrowedByMemberId={borrowedByMemberId} />
+            <EquipmentsHistory borrowedByMemberId={borrowedByMemberId} embedded />
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { CheckCircle2, Layers, Package, PackageOpen } from 'lucide-react';
+import { CheckCircle2, CircleX, Package, PackageOpen, Wrench } from 'lucide-react';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useEquipmentsManagementStats } from '@/modules/equipment/hooks/useEquipmentsManagementStats';
@@ -29,7 +29,7 @@ export default function EquipmentsLayout() {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
       <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <div>
@@ -47,37 +47,45 @@ export default function EquipmentsLayout() {
         </div>
       </div>
 
-      {/* STATS — dữ liệu thật từ API thiết bị / danh mục */}
-      <div className="grid grid-cols-4 gap-4 mb-0">
-        <StatCard
-          icon={<Package className={iconClass} strokeWidth={2} />}
-          label="Tổng thiết bị"
-          value={formatStatValue(statsLoading, stats.totalEquipment)}
-          sub="Tất cả trạng thái"
-          variant="blue"
-        />
-        <StatCard
-          icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
-          label="Khả dụng"
-          value={formatStatValue(statsLoading, stats.available)}
-          sub="Có thể mượn ngay"
-          variant="green"
-        />
-        <StatCard
-          icon={<Layers className={iconClass} strokeWidth={2} />}
-          label="Tổng danh mục"
-          value={formatStatValue(statsLoading, stats.totalCategories)}
-          sub="Phân loại thiết bị"
-          variant="violet"
-        />
-        <StatCard
-          icon={<PackageOpen className={iconClass} strokeWidth={2} />}
-          label="Đang mượn"
-          value={formatStatValue(statsLoading, stats.borrowed)}
-          sub="Thiết bị đang cho mượn"
-          variant="orange"
-        />
-      </div>
+      {currentTab === 'equipments' ? (
+        <div className="grid grid-cols-5 gap-4 mb-0">
+          <StatCard
+            icon={<Package className={iconClass} strokeWidth={2} />}
+            label="Tổng thiết bị"
+            value={formatStatValue(statsLoading, stats.totalEquipment)}
+            sub="Tất cả trạng thái"
+            variant="blue"
+          />
+          <StatCard
+            icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
+            label="Khả dụng"
+            value={formatStatValue(statsLoading, stats.availableEquipment)}
+            sub="Có thể mượn ngay"
+            variant="green"
+          />
+          <StatCard
+            icon={<PackageOpen className={iconClass} strokeWidth={2} />}
+            label="Đang mượn"
+            value={formatStatValue(statsLoading, stats.borrowedEquipment)}
+            sub="Thiết bị đang cho mượn"
+            variant="orange"
+          />
+          <StatCard
+            icon={<Wrench className={iconClass} strokeWidth={2} />}
+            label="Hư hỏng"
+            value={formatStatValue(statsLoading, stats.damagedEquipment)}
+            sub="Cần sửa chữa/bảo trì"
+            variant="violet"
+          />
+          <StatCard
+            icon={<CircleX className={iconClass} strokeWidth={2} />}
+            label="Mất"
+            value={formatStatValue(statsLoading, stats.lostEquipment)}
+            sub="Thiết bị đã thất lạc"
+            variant="rose"
+          />
+        </div>
+      ) : null}
 
       {/* TABS */}
       <div className=" px-6 py-2 mb-1">

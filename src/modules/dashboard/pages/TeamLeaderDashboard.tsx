@@ -146,7 +146,7 @@ function TeachingHistoryRow(props: { item: DashboardTeachingHistoryItem }) {
     <div className={cn('rounded-xl border p-3', containerBorder, containerBg)}>
       <div className="flex items-start gap-3">
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-slate-900">{it.sessionTitle || `Phiên ${it.sessionNo}`}</div>
+          <div className="truncate text-sm font-semibold text-slate-900">{it.sessionTitle || `Buổi ${it.sessionNo}`}</div>
           <div className="mt-1 truncate text-xs text-slate-500">
             {it.request?.requestCode ? `${it.request.requestCode} · ` : ''}
             {it.request?.requestName ?? '—'}
@@ -305,8 +305,8 @@ export default function TeamLeaderDashboard() {
   const requestSessionData = [
     { name: 'Yêu cầu đang xử lý', value: (requestSummaryQ.data?.approvedRequests ?? 0) + (requestSummaryQ.data?.assigningRequests ?? 0) + (requestSummaryQ.data?.publishedRequests ?? 0) },
     { name: 'Yêu cầu hoàn thành', value: requestSummaryQ.data?.completedRequests ?? 0 },
-    { name: 'Phiên đang dạy', value: sessionSummaryQ.data?.ongoingSessions ?? 0 },
-    { name: 'Phiên hoàn thành', value: sessionSummaryQ.data?.completedSessions ?? 0 },
+    { name: 'Buổi đang dạy', value: sessionSummaryQ.data?.ongoingSessions ?? 0 },
+    { name: 'Buổi hoàn thành', value: sessionSummaryQ.data?.completedSessions ?? 0 },
   ];
 
   const firstError =
@@ -320,13 +320,13 @@ export default function TeamLeaderDashboard() {
     null;
 
   return (
-    <div className="min-h-full space-y-5 bg-slate-50 p-6">
+    <div className="min-h-full space-y-5 app-page-bg p-6">
       <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <h2 className="text-xl font-semibold text-slate-900">Dashboard trưởng nhóm</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Tổng quan team của bạn, tiến độ phiên dạy và các mục cần theo dõi.
+              Tổng quan team của bạn, tiến độ buổi dạy và các mục cần theo dõi.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -369,14 +369,14 @@ export default function TeamLeaderDashboard() {
             />
             <KpiCard
               tone="indigo"
-              title="Tổng phiên của team"
+              title="Tổng buổi của team"
               value={teamStats?.totalSessions ?? '—'}
               sub={rangeLabelMap[effectiveRange]}
               icon={<CalendarDays className="h-5 w-5" />}
             />
             <KpiCard
               tone="emerald"
-              title="Phiên hoàn thành"
+              title="Buổi hoàn thành"
               value={teamStats?.completedSessions ?? '—'}
               sub={teamStats ? `Sắp tới: ${teamStats.upcomingSessions}` : rangeLabelMap[effectiveRange]}
               icon={<CheckCircle2 className="h-5 w-5" />}
@@ -396,7 +396,7 @@ export default function TeamLeaderDashboard() {
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-indigo-600" />
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Tiến độ phiên team</p>
+                    <p className="text-sm font-semibold text-slate-900">Tiến độ buổi team</p>
                     <p className="text-xs text-slate-500">Theo {rangeLabelMap[effectiveRange]}</p>
                   </div>
                 </div>
@@ -423,7 +423,7 @@ export default function TeamLeaderDashboard() {
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-sky-600" />
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Yêu cầu & phiên</p>
+                    <p className="text-sm font-semibold text-slate-900">Yêu cầu & buổi</p>
                     <p className="text-xs text-slate-500">Tổng quan hệ thống theo kỳ</p>
                   </div>
                 </div>
@@ -441,7 +441,7 @@ export default function TeamLeaderDashboard() {
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-2">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Phiên đã dạy gần đây</p>
+                  <p className="text-sm font-semibold text-slate-900">Buổi đã dạy gần đây</p>
                   <p className="text-xs text-slate-500">Trong {rangeLabelMap[effectiveRange]}</p>
                 </div>
                 <Button type="button" variant="ghost" size="sm" className="text-sky-700" onClick={() => (window.location.href = '/tl/teaching-history')}>
@@ -472,7 +472,7 @@ export default function TeamLeaderDashboard() {
               </div>
               <div className="space-y-3">
                 {attendanceItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Không có phiên thiếu giờ ra.</p>
+                  <p className="py-8 text-center text-xs text-slate-500">Không có buổi thiếu giờ ra.</p>
                 ) : (
                   attendanceItems.map((it) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
                 )}

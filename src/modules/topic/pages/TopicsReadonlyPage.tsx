@@ -1,14 +1,15 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { Drawer, message, Skeleton } from 'antd';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   CalendarClock,
   FileText,
   GraduationCap,
   Hash,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
   Users,
@@ -17,17 +18,17 @@ import {
 import { useAuth } from '@/app/providers/AuthProvider';
 import { MANAGER_ROLE_ID } from '@/constants/role';
 import { DataTable } from '@/shared/components/common/DataTable';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import HoverSearch from '@/shared/components/ui/search';
 import { cn } from '@/shared/lib/utils';
 import topicApi from '@/modules/topic/api/topicApi';
 import type { TopicListItem } from '@/modules/topic/topic';
-import type { CoursesReadonlyOutletContext } from '@/modules/course/pages/coursesReadonlyOutletContext';
 
 export default function TopicsReadonlyPage() {
   const { user } = useAuth();
   const activeOnly = Number(user?.role ?? 0) !== MANAGER_ROLE_ID;
-  const { topicSearch } = useOutletContext<CoursesReadonlyOutletContext>();
+  const [search, setSearch] = useState('');
   const [data, setData] = useState<TopicListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
@@ -44,9 +45,9 @@ export default function TopicsReadonlyPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const lastOpenedTopicIdRef = useRef<number | null>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     setPageNumber(1);
-  }, [topicSearch]);
+  }, [search]);
 
   const fetchTopics = async () => {
     try {
@@ -54,8 +55,8 @@ export default function TopicsReadonlyPage() {
       const res = await topicApi.getTopics({
         pageNumber,
         pageSize,
-        topicName: topicSearch.trim() || undefined,
-        ...(activeOnly ? { IsActive: true } : {}),
+        topicName: search.trim() || undefined,
+        IsActive: activeOnly ? true : undefined,
       });
       setData(res.items ?? []);
       setTotalItems(res.totalItems ?? 0);
@@ -68,7 +69,7 @@ export default function TopicsReadonlyPage() {
 
   useEffect(() => {
     void fetchTopics();
-  }, [pageNumber, topicSearch, activeOnly]);
+  }, [pageNumber, search, activeOnly]);
 
   const closeDetailFromUrl = () => {
     if (openDetailFromUrl === '1') {
@@ -120,22 +121,19 @@ export default function TopicsReadonlyPage() {
       {
         accessorKey: 'topicName',
         header: 'Tên chủ đề',
+        cell: ({ row }) => <div className="font-medium text-gray-900 truncate">{row.original.topicName || '—'}</div>,
+      },
+      {
+        accessorKey: 'description',
+        header: 'Mô tả',
         cell: ({ row }) => (
-          <div className="min-w-0">
-            <div className="font-medium text-gray-900 truncate">{row.original.topicName}</div>
-            <div className="text-xs text-gray-500 truncate">{row.original.description?.trim() || '—'}</div>
-          </div>
+          <div className="text-sm text-gray-700 truncate">{row.original.description?.trim() || '—'}</div>
         ),
       },
       {
         accessorKey: 'createdAt',
         header: 'Ngày tạo',
         cell: ({ row }) => (row.original.createdAt ? dayjs(row.original.createdAt).format('DD/MM/YYYY') : '—'),
-      },
-      {
-        id: 'actions',
-        header: 'Thao tác',
-        cell: ({ row }) => <TableTextAction onClick={() => void openDetailById(row.original.topicId)} />,
       },
     ],
     [],
@@ -146,22 +144,53 @@ export default function TopicsReadonlyPage() {
   const teamsCount = detailTopic?.teams?.length ?? detailTopic?.teamTopics?.length ?? 0;
 
   return (
-    <div className="relative flex w-full min-w-0 flex-1 min-h-0 flex-col">
-      {loading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/60">
-          <span className="text-sm text-slate-500">Dang tai...</span>
+    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+      <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+        <h2 className="text-xl font-semibold text-black">Danh sách chủ đề</h2>
+        <p className="text-xs text-gray-500">Xem thông tin các chủ đề trong hệ thống</p>
+      </div>
+
+      <div className="shrink-0 px-2 py-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <HoverSearch
+            value={search}
+            onChange={(v) => setSearch(v)}
+            placeholder="Tìm theo tên chủ đề..."
+          />
+          <Button
+            variant="secondary"
+            className="bg-white h-9 border-slate-200"
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setPageNumber(1);
+            }}
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
         </div>
-      )}
-      <DataTable
-        columns={columns}
-        data={data}
-        pageNumber={pageNumber}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={(page) => setPageNumber(page)}
-        fillHeight
-        comfortable
-      />
+      </div>
+
+      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/60">
+            <span className="text-sm text-slate-500">Dang tai...</span>
+          </div>
+        )}
+        <DataTable
+          columns={columns}
+          data={data}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={(page) => setPageNumber(page)}
+          onRowClick={(row) => {
+            void openDetailById(row.topicId);
+          }}
+          fillHeight
+          comfortable
+        />
+      </div>
 
       <Drawer
         open={detailOpen}
@@ -271,7 +300,7 @@ export default function TopicsReadonlyPage() {
                           {ev.eventCode || `EV-${ev.eventId}`} — {ev.eventName || '—'}
                         </div>
                         <div className="mt-1 text-xs text-slate-500">
-                          {ev.eventSessions?.length ?? 0} phiên · {ev.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                          {ev.eventSessions?.length ?? 0} buổi · {ev.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
                         </div>
                       </div>
                     ))}

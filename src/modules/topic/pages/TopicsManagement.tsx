@@ -4,10 +4,17 @@ import { Dialog } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Badge } from '@/shared/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
 import HoverSearch from '@/shared/components/ui/search';
 import { message, Modal } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Plus, Power, PowerOff } from 'lucide-react';
+import { Eye, Pencil, Plus, Power, PowerOff, RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -53,8 +60,19 @@ function TopicDetailBody({ t }: { t: TopicListItem }) {
 }
 
 export default function TopicsManagement() {
-  const { data, loading, search, setSearch, pageNumber, pageSize, totalItems, setPageNumber, refetch } =
-    useTopics();
+  const {
+    data,
+    loading,
+    search,
+    setSearch,
+    statusFilter,
+    setStatusFilter,
+    pageNumber,
+    pageSize,
+    totalItems,
+    setPageNumber,
+    refetch,
+  } = useTopics();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const openDetailFromUrl = searchParams.get('openDetail');
@@ -204,16 +222,32 @@ export default function TopicsManagement() {
     return { active, inactive };
   }, [data]);
 
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPageNumber(1);
+  };
+
+  const handleStatusChange = (value: 'all' | 'active' | 'inactive') => {
+    setStatusFilter(value);
+    setPageNumber(1);
+  };
+
+  const resetFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setPageNumber(1);
+  };
+
   const columns: ColumnDef<TopicListItem>[] = [
-    {
-      accessorKey: 'topicId',
-      header: 'MÃ CHỦ ĐỀ',
-      cell: ({ row }) => <div className="text-sm font-medium">{row.original.topicId}</div>,
-    },
     {
       accessorKey: 'topicName',
       header: 'TÊN CHỦ ĐỀ',
-      cell: ({ row }) => <div className="text-sm font-medium">{row.original.topicName}</div>,
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-gray-900">{row.original.topicName}</div>
+          <div className="text-xs text-gray-500 truncate">{row.original.description?.trim() || '—'}</div>
+        </div>
+      ),
     },
     {
       accessorKey: 'isActive',
@@ -238,27 +272,40 @@ export default function TopicsManagement() {
     },
     {
       id: 'actions',
-      header: 'THAO TÁC',
+      header: () => <span className="block w-full text-center">THAO TÁC</span>,
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => handleView(row.original)} title="Xem">
-            <Eye className="w-4 h-4 text-gray-800" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => openEdit(row.original)} title="Sửa">
-            <Pencil className="w-4 h-4 text-blue-600" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleToggleActive(row.original)}
-            title={row.original.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
-          >
-            {row.original.isActive ? (
-              <PowerOff className="w-4 h-4 text-red-500" />
-            ) : (
-              <Power className="w-4 h-4 text-green-600" />
-            )}
-          </Button>
+        <div className="flex items-center justify-center gap-2">
+          <span title="Xem">
+            <Eye
+              size={16}
+              className="text-gray-800 cursor-pointer"
+              onClick={() => handleView(row.original)}
+            />
+          </span>
+          <span title="Sửa">
+            <Pencil
+              size={16}
+              className="text-blue-600 cursor-pointer"
+              onClick={() => openEdit(row.original)}
+            />
+          </span>
+          {row.original.isActive ? (
+            <span title="Vô hiệu hóa">
+              <PowerOff
+                size={16}
+                className="text-red-500 cursor-pointer"
+                onClick={() => void handleToggleActive(row.original)}
+              />
+            </span>
+          ) : (
+            <span title="Kích hoạt">
+              <Power
+                size={16}
+                className="text-green-600 cursor-pointer"
+                onClick={() => void handleToggleActive(row.original)}
+              />
+            </span>
+          )}
         </div>
       ),
     },
@@ -298,8 +345,28 @@ export default function TopicsManagement() {
           <div className="text-2xl font-semibold text-slate-900">{stats.inactive}</div>
         </div>
       </div>
-      <div className="flex mb-2 justify-end">
-        <HoverSearch value={search} onChange={setSearch} />
+      <div className="mb-2 flex items-center justify-end gap-3">
+        <HoverSearch
+          value={search}
+          onChange={handleSearchChange}
+          placeholder="Tìm theo tên chủ đề..."
+        />
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => handleStatusChange(value as 'all' | 'active' | 'inactive')}
+        >
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[160px] border-slate-200">
+            <SelectValue placeholder="Trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="active">Đang hoạt động</SelectItem>
+            <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button variant="secondary" className="bg-white" onClick={resetFilters} type="button">
+          <RotateCcw className="w-4 h-4" />
+        </Button>
       </div>
       {/* TABLE CARD */}
       <div className="bg-white rounded-xl border shadow-sm p-6">

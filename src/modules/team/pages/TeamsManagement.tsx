@@ -1,8 +1,9 @@
-import { RotateCcw, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Loader2, Plus, RotateCcw, Eye, Pencil, Trash2 } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message } from 'antd';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 import CreateTeamModal from './CreateTeamModal';
 import EditTeamModal from './EditTeamModal';
@@ -54,6 +55,11 @@ function TeamsToolbar() {
 }
 
 function TeamsContent() {
+  const queryClient = useQueryClient();
+  const invalidateTeamList = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['teams', 'list'] });
+  }, [queryClient]);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const openDetailFromUrl = searchParams.get('openDetail');
   const teamIdFromUrl = searchParams.get('teamId');
@@ -70,9 +76,14 @@ function TeamsContent() {
   const [editTeam, setEditTeam] = useState<Team | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data, totalItems, loading, refetch } = useTeams(pageNumber, pageSize, search, refreshKey);
+  const {
+    data: listData,
+    isFetching: listFetching,
+    refetch: refetchList,
+  } = useTeams(pageNumber, pageSize, search);
+  const data = listData?.items ?? [];
+  const totalItems = listData?.totalItems ?? 0;
 
   const skipNextAutoOpenRef = useRef(false);
 
@@ -157,14 +168,14 @@ function TeamsContent() {
     setDeleteOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (!teamToDelete) return;
     try {
       await teamService.deleteTeam(teamToDelete.teamId);
       message.success('Đã xóa nhóm');
       setDeleteOpen(false);
       setTeamToDelete(null);
-      setRefreshKey((k) => k + 1);
+      invalidateTeamList();
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && 'response' in err
@@ -172,11 +183,10 @@ function TeamsContent() {
           : null;
       message.error(msg || 'Xóa nhóm thất bại');
     }
-  };
+  }, [teamToDelete, invalidateTeamList]);
 
   const columns: ColumnDef<Team>[] = useMemo(
     () => [
-      { accessorKey: 'teamId', header: 'Team ID' },
       {
         accessorKey: 'teamName',
         header: 'Tên nhóm',
@@ -188,18 +198,32 @@ function TeamsContent() {
         cell: ({ row }) => row.original.leaderMemberName ?? row.original.leaderMemberId ?? '—',
       },
       {
+        id: 'totalMembers',
+        header: 'Số thành viên',
+        cell: ({ row }) => {
+          const t = row.original as Team & { TotalMembers?: number };
+          const n = t.totalMembers ?? t.TotalMembers;
+          return (
+            <span className="tabular-nums text-gray-800">
+              {typeof n === 'number' && !Number.isNaN(n) ? n : '—'}
+            </span>
+          );
+        },
+      },
+      {
         id: 'topics',
         header: 'Số topic',
         cell: ({ row }) =>
           row.original.teamTopics?.filter((tt) => tt.isActive !== false).length ?? 0,
       },
       {
-        accessorKey: 'createdAt',
-        header: 'Ngày tạo',
-        cell: ({ row }) =>
-          row.original.createdAt
-            ? new Date(row.original.createdAt).toLocaleString('vi-VN')
-            : '—',
+        accessorKey: 'updatedAt',
+        header: 'Cập nhật',
+        cell: ({ row }) => (
+          <div className=" tabular-nums text-gray-800">
+            {row.original.updatedAt ? new Date(row.original.updatedAt).toLocaleString('vi-VN') : '—'}
+          </div>
+        ),
       },
       {
         id: 'actions',
@@ -208,31 +232,28 @@ function TeamsContent() {
         cell: ({ row }) => {
           const team = row.original;
           return (
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => handleView(team)}
-                className="text-gray-800 hover:text-gray-950"
-                title="Xem"
-              >
-                <Eye size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleEdit(team)}
-                className="text-blue-600 hover:text-blue-800"
-                title="Sửa"
-              >
-                <Pencil size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDeleteClick(team)}
-                className="text-red-500 hover:text-red-700"
-                title="Xóa"
-              >
-                <Trash2 size={16} />
-              </button>
+            <div className="flex items-center gap-3">
+              <span title="Xem">
+                <Eye
+                  size={16}
+                  className="cursor-pointer text-gray-800"
+                  onClick={() => void handleView(team)}
+                />
+              </span>
+              <span title="Sửa">
+                <Pencil
+                  size={16}
+                  className="cursor-pointer text-blue-600"
+                  onClick={() => void handleEdit(team)}
+                />
+              </span>
+              <span title="Xóa">
+                <Trash2
+                  size={16}
+                  className="cursor-pointer text-red-500"
+                  onClick={() => handleDeleteClick(team)}
+                />
+              </span>
             </div>
           );
         },
@@ -243,28 +264,34 @@ function TeamsContent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <h3 className="text-lg font-semibold text-black">Danh sách nhóm</h3>
-          <p className="text-xs text-gray-500">Quản lý các nhóm trong hệ thống</p>
-        </div>
-        {loading && <span className="text-xs text-gray-500">Đang tải dữ liệu...</span>}
-      </div>
+      
 
-      <DataTable
-        columns={columns}
-        data={data}
-        pageNumber={pageNumber}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={(page) => {
-          setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            next.set(TEAM_PAGE_PARAM, String(page));
-            return next;
-          });
-        }}
-      />
+      <div className="relative min-h-[220px]">
+        <DataTable
+          columns={columns}
+          data={data}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={(page) => {
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set(TEAM_PAGE_PARAM, String(page));
+              return next;
+            });
+          }}
+        />
+        {listFetching ? (
+          <div
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-md bg-white/80 backdrop-blur-[1px]"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" aria-hidden />
+            <span className="text-sm text-slate-500">Đang tải danh sách...</span>
+          </div>
+        ) : null}
+      </div>
 
       <CreateTeamModal
         open={openCreateModal}
@@ -275,7 +302,8 @@ function TeamsContent() {
             next.set(TEAM_PAGE_PARAM, '1');
             return next;
           });
-          await refetch();
+          await refetchList();
+          invalidateTeamList();
         }}
       />
 
@@ -289,7 +317,8 @@ function TeamsContent() {
         onUpdated={async () => {
           setEditOpen(false);
           setEditTeam(null);
-          await refetch();
+          await refetchList();
+          invalidateTeamList();
         }}
       />
 
@@ -337,7 +366,39 @@ function TeamsContent() {
 }
 
 export default function TeamsManagement() {
-  const ctx = useOutletContext<{ position: string }>();
-  if (ctx.position === 'toolbar') return <TeamsToolbar />;
-  return <TeamsContent />;
+  const [, setSearchParams] = useSearchParams();
+
+  return (
+    <div className="space-y-6 p-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+      <div className="mb-2 flex items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
+        <div>
+          <h2 className="text-xl font-semibold text-black">Quản lý nhóm</h2>
+          <p className="text-xs text-gray-500">Quản lý nhóm trong hệ thống</p>
+        </div>
+        <Button
+          onClick={() => {
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('openCreate', '1');
+              next.delete('openDetail');
+              next.delete('teamId');
+              return next;
+            });
+          }}
+          className="gap-2 rounded-md bg-[#2197C0] px-3 py-2 text-white hover:bg-[#208AAE]"
+        >
+          <Plus size={16} />
+          Thêm nhóm mới
+        </Button>
+      </div>
+
+      <div className="mb-2 flex justify-end">
+        <TeamsToolbar />
+      </div>
+
+      <div className="rounded-xl border bg-white px-6 py-4 shadow-sm">
+        <TeamsContent />
+      </div>
+    </div>
+  );
 }

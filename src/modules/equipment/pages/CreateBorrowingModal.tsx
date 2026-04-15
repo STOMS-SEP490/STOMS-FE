@@ -78,7 +78,7 @@ function sessionOptionLabel(s: {
   SessionTitle?: string | null
   Notes?: string | null
 }): string {
-  const base = `Phiên ${s.SessionNo ?? ''}`.trim()
+  const base = `Buổi ${s.SessionNo ?? ''}`.trim()
   const title = (s.SessionTitle ?? s.Notes ?? '').trim()
   return title ? `${base} - ${title}` : base
 }

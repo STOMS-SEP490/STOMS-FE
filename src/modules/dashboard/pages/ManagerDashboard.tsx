@@ -404,7 +404,7 @@ export default function ManagerDashboard() {
             tone="indigo"
           />
           <KpiCard
-            title="Phiên hôm nay"
+            title="Buổi hôm nay"
             value={sessionSummaryToday?.totalSessions ?? '—'}
             sub={`Đang diễn ra: ${sessionSummaryToday?.ongoingSessions ?? '—'}`}
             icon={<Calendar className="h-4 w-4 text-blue-700" />}
@@ -1327,7 +1327,7 @@ export default function ManagerDashboard() {
                 <p className="text-xs font-semibold text-gray-500 uppercase">
                   Hiệu suất nhóm
                 </p>
-                <p className="text-sm text-gray-600">Top nhóm theo số phiên dạy</p>
+                <p className="text-sm text-gray-600">Top nhóm theo số buổi dạy</p>
               </div>
             </div>
             {topTeamsBySessions.length > 0 ? (

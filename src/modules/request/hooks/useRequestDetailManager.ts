@@ -456,7 +456,7 @@ export const useRequestDetailManager = (params: {
 
       if (totalTeachers > requiredTeachers || totalTas > requiredTas) {
         message.error(
-          `Phân bổ vượt nhu cầu phiên (${requiredTeachers} GV / ${requiredTas} TG). Vui lòng giảm số lượng hoặc bớt đội.`
+          `Phân bổ vượt nhu cầu buổi (${requiredTeachers} GV / ${requiredTas} TG). Vui lòng giảm số lượng hoặc bớt nhóm.`
         );
         return;
       }
@@ -556,7 +556,7 @@ export const useRequestDetailManager = (params: {
     async (sessionId: number) => {
       const rows = assignmentsBySessionId[sessionId] ?? [];
       if (!rows.length) {
-        message.warning('Phiên này chưa có phân công nào để duyệt.');
+        message.warning('Buổi này chưa có phân công nào để duyệt.');
         return;
       }
       const selected = selectedAssignmentIdsBySessionId[sessionId] ?? [];
@@ -647,34 +647,36 @@ export const useRequestDetailManager = (params: {
   };
 
   const handleConfirmApprove = useCallback(async () => {
+    if (!id) return;
+    try {
+      setActionLoading(true);
+      await requestService.approve(Number(id));
+      message.success('Đã duyệt yêu cầu');
+      setApproveOpen(false);
+      setRightPanel(null);
+      await refreshDetail();
+      refreshRequestSidebar?.();
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msg = (err as any)?.message || 'Duyệt yêu cầu thất bại';
+      message.error(msg);
+    } finally {
+      setActionLoading(false);
+    }
+  }, [
+    id,
+    refreshDetail,
+    refreshRequestSidebar,
+  ]);
+
+  const handleSaveTeamAssignments = useCallback(async () => {
     if (!id || sessions.length === 0) return;
     try {
       setActionLoading(true);
       for (const s of sessions) {
         const teamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
-        if (teamIds.length === 0) {
-          message.error(`Phiên ${s.sessionNo} chưa có đội gán.`);
-          return;
-        }
-        const requiredTeachers = normalizeRequiredCount((s as SessionWithFlags).teachersRequired, 1);
-        const requiredTas = normalizeRequiredCount((s as SessionWithFlags).tasRequired, 1);
+        if (teamIds.length === 0) continue; // cho phép lưu từng phần
         const teamQuantityMap = uiTeamQuantitiesBySessionId[s.sessionId] ?? {};
-        const totalAssignedTeachers = teamIds.reduce(
-          (sum, teamId) => sum + normalizeRequiredCount(teamQuantityMap[teamId]?.teachersRequired, 0),
-          0
-        );
-        const totalAssignedTas = teamIds.reduce(
-          (sum, teamId) => sum + normalizeRequiredCount(teamQuantityMap[teamId]?.tasRequired, 0),
-          0
-        );
-
-        if (totalAssignedTeachers !== requiredTeachers || totalAssignedTas !== requiredTas) {
-          message.error(
-            `Phiên ${s.sessionNo} phải đúng nhu cầu ${requiredTeachers} GV / ${requiredTas} TG trước khi duyệt.`
-          );
-          return;
-        }
-
         const items = teamIds
           .map((teamId) => ({
             teamId,
@@ -682,34 +684,27 @@ export const useRequestDetailManager = (params: {
             tasRequired: normalizeRequiredCount(teamQuantityMap[teamId]?.tasRequired, 0),
           }))
           .filter((item) => item.teachersRequired > 0 || item.tasRequired > 0);
-
-        if (!items.length) {
-          message.error(`Phiên ${s.sessionNo} chưa có phân bổ nhân sự hợp lệ.`);
-          return;
-        }
+        if (!items.length) continue;
         await teamSessionApi.replaceForSession(s.sessionId, items);
       }
-      await requestService.approve(Number(id), { approvedByMemberId: createdByMemberId || undefined });
-      message.success('Đã gán đội và duyệt yêu cầu');
-      setApproveOpen(false);
+      message.success('Đã lưu gán nhóm');
       setRightPanel(null);
       await refreshDetail();
       refreshRequestSidebar?.();
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Gán đội hoặc duyệt yêu cầu thất bại';
+      const msg = (err as any)?.message || 'Lưu gán nhóm thất bại';
       message.error(msg);
     } finally {
       setActionLoading(false);
     }
   }, [
-    createdByMemberId,
     id,
     refreshDetail,
+    refreshRequestSidebar,
     sessions,
     uiAssignedTeamIdsBySessionId,
     uiTeamQuantitiesBySessionId,
-    refreshRequestSidebar,
   ]);
 
   const handleRejectClick = useCallback(() => {
@@ -832,6 +827,7 @@ export const useRequestDetailManager = (params: {
     handleOpenRejectAssignment,
     handleConfirmRejectAssignment,
     handleConfirmApprove,
+    handleSaveTeamAssignments,
     handleRejectClick,
     handleCancelRequestClick,
     handleConfirmReject,

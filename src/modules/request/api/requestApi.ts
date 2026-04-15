@@ -37,16 +37,8 @@ const requestApi = {
     return axiosClient.post<RequestListItem, RequestListItem>('/requests', data);
   },
 
-  approve: (
-    id: number,
-    payload: { approvedByMemberId?: number | null },
-  ): Promise<RequestListItem> => {
-    return axiosClient.put<RequestListItem, RequestListItem>(
-      `/requests/${id}/approve`,
-      {
-        ApprovedByMemberId: payload.approvedByMemberId ?? null,
-      },
-    );
+  approve: (id: number): Promise<RequestListItem> => {
+    return axiosClient.put<RequestListItem, RequestListItem>(`/requests/${id}/approve`);
   },
 
   reject: (

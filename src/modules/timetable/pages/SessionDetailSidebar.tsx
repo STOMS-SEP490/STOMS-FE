@@ -38,7 +38,7 @@ export default function SessionDetailSidebar({ open, onClose, session }: Props) 
             <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold text-black truncate">
-                  Phiên #{session.SessionNo} · ID {session.SessionId}
+                  Buổi #{session.SessionNo} · ID {session.SessionId}
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">
                   Request ID: <span className="font-medium">{session.RequestId}</span>
@@ -75,7 +75,7 @@ export default function SessionDetailSidebar({ open, onClose, session }: Props) 
                   }
                 />
                 <InfoRow
-                  label="Số trợ giảng"
+                  label="Số sinh viên"
                   value={session.TasRequired != null ? session.TasRequired : 'Không rõ'}
                 />
               </div>

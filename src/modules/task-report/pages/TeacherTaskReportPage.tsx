@@ -262,7 +262,7 @@ export default function TeacherTaskReportPage() {
         setTaskReports(reportRes.items ?? []);
       } catch (err) {
         console.error(err);
-      message.error(getApiErrorMessage(err) || 'Không tải được danh sách phiên hoặc báo cáo công việc');
+      message.error(getApiErrorMessage(err) || 'Không tải được danh sách buổi hoặc báo cáo công việc');
       } finally {
         setLoading(false);
       }
@@ -762,13 +762,16 @@ export default function TeacherTaskReportPage() {
   // ─── Render ───
 
   return (
-    <div className="flex flex-col p-6 gap-4 bg-slate-50 overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
+    <div
+      className="flex flex-col p-6 gap-4 app-page-bg overflow-hidden"
+      style={{ height: 'var(--content-height, 100vh)' }}
+    >
       {/* Header + bộ lọc cùng một thẻ (đồng bộ teacher/events, teaching-history…) */}
       <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>
           <p className="text-xs text-gray-500">
-            Ghi báo cáo cho các phiên. Chọn yêu cầu bên trái rồi bấm vào phiên để xem chi tiết.
+            Ghi báo cáo cho các buổi. Chọn yêu cầu bên trái rồi bấm vào buổi để xem chi tiết.
           </p>
         </div>
         <div className="flex min-w-0 flex-col items-stretch gap-2 min-[900px]:items-end">
@@ -804,7 +807,7 @@ export default function TeacherTaskReportPage() {
             </Button>
           </div>
           {(filterFrom || filterTo) && (
-            <span className="text-right text-xs text-gray-500">Chỉ hiển thị phiên trong khoảng đã chọn</span>
+            <span className="text-right text-xs text-gray-500">Chỉ hiển thị buổi trong khoảng đã chọn</span>
           )}
         </div>
       </div>
@@ -822,14 +825,14 @@ export default function TeacherTaskReportPage() {
                 {requestGroups.length}
               </span>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
+            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 app-page-bg">
               {loading ? (
                 <div className="flex items-center justify-center py-8"><Spin size="small" /></div>
               ) : requestGroups.length === 0 ? (
                 <div className="py-8 text-center text-xs text-gray-500">
                   {filterFrom || filterTo || search
                     ? 'Không có yêu cầu nào khớp bộ lọc.'
-                    : 'Chưa có phiên nào để ghi báo cáo.'}
+                    : 'Chưa có buổi nào để ghi báo cáo.'}
                 </div>
               ) : (
                 requestGroups.map((g) => {
@@ -849,7 +852,7 @@ export default function TeacherTaskReportPage() {
                         setSelectedRequestId(g.requestId);
                         setActiveTarget(null);
                       }}
-                      hintText={`${g.sessions.length} phiên`}
+                      hintText={`${g.sessions.length} buổi`}
                     />
                   );
                 })
@@ -871,7 +874,7 @@ export default function TeacherTaskReportPage() {
                   <FileText className="text-slate-400" size={28} />
                 </div>
                 <p className="text-sm font-medium text-black">Chọn một yêu cầu ở cột bên trái</p>
-                <p className="text-xs text-gray-500 mt-1">để xem danh sách phiên và ghi báo cáo.</p>
+                <p className="text-xs text-gray-500 mt-1">để xem danh sách buổi và ghi báo cáo.</p>
               </div>
             ) : (
               <>
@@ -879,7 +882,7 @@ export default function TeacherTaskReportPage() {
                 <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-200">
                   <div className="min-w-0">
                     <h3 className="text-lg font-semibold text-black truncate">{selectedGroup.requestName}</h3>
-                    <p className="text-xs text-slate-500 mt-1">{selectedGroup.requestCode} · {selectedGroup.sessions.length} phiên</p>
+                    <p className="text-xs text-slate-500 mt-1">{selectedGroup.requestCode} · {selectedGroup.sessions.length} buổi</p>
                   </div>
                 </div>
 
@@ -933,7 +936,7 @@ export default function TeacherTaskReportPage() {
                             <span className="text-sm font-bold text-sky-700">{s.sessionNo ?? '?'}</span>
                           </div>
                           <div>
-                            <div className="text-sm font-semibold text-slate-900">Phiên {s.sessionNo ?? s.sessionId}</div>
+                            <div className="text-sm font-semibold text-slate-900">Buổi {s.sessionNo ?? s.sessionId}</div>
                             <div className="text-[11px] text-slate-500 mt-0.5">
                               {s.sessionTitle || `ID: ${s.sessionId}`}
                             </div>
@@ -980,7 +983,7 @@ export default function TeacherTaskReportPage() {
                       {isRequestLevelReport
                         ? 'Báo cáo chung'
                         : selectedSession
-                          ? `Phiên ${selectedSession.sessionNo ?? selectedSession.sessionId}`
+                          ? `Buổi ${selectedSession.sessionNo ?? selectedSession.sessionId}`
                           : '—'}
                     </h4>
                     {selectedSession && (

@@ -17,6 +17,10 @@ interface DataTableProps<TData, TValue> {
   totalItems: number;
 
   onPageChange: (page: number) => void;
+  /** Ẩn phần phân trang bên trong bảng (để render pagination ở ngoài). */
+  showPagination?: boolean;
+  /** Bấm vào hàng (không gồm control tương tác đã stopPropagation) */
+  onRowClick?: (row: TData) => void;
   fillHeight?: boolean;
   /** Bảng full-width, padding rộng, kẻ ngang giữa các hàng — đồng bộ với trang thiết bị khả dụng */
   comfortable?: boolean;
@@ -31,6 +35,8 @@ export function DataTable<TData, TValue>({
   pageSize,
   totalItems,
   onPageChange,
+  showPagination = true,
+  onRowClick,
   fillHeight = false,
   comfortable = false,
   tableGap = 'default',
@@ -94,7 +100,29 @@ export function DataTable<TData, TValue>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={cn(comfortable && 'border-b border-slate-100 hover:bg-slate-50/60')}
+                  className={cn(
+                    comfortable && 'border-b border-slate-100 hover:bg-slate-50/60',
+                    onRowClick && 'cursor-pointer hover:bg-slate-50/80',
+                  )}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? 'button' : undefined}
+                  onClick={
+                    onRowClick
+                      ? () => {
+                          onRowClick(row.original);
+                        }
+                      : undefined
+                  }
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onRowClick(row.original);
+                          }
+                        }
+                      : undefined
+                  }
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
@@ -124,37 +152,39 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* PAGINATION */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Hiển thị {fromItem}
-          {' - '}
-          {toItem} trên {totalItems} bản ghi
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onPageChange(pageNumber - 1)}
-            disabled={pageNumber <= 1}
-          >
-            Trước
-          </Button>
-
-          <div className="px-3 py-1 text-sm">
-            {pageNumber} / {totalPages || 1}
+      {showPagination ? (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Hiển thị {fromItem}
+            {' - '}
+            {toItem} trên {totalItems} bản ghi
           </div>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onPageChange(pageNumber + 1)}
-            disabled={pageNumber >= totalPages}
-          >
-            Sau
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onPageChange(pageNumber - 1)}
+              disabled={pageNumber <= 1}
+            >
+              Trước
+            </Button>
+
+            <div className="px-3 py-1 text-sm">
+              {pageNumber} / {totalPages || 1}
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onPageChange(pageNumber + 1)}
+              disabled={pageNumber >= totalPages}
+            >
+              Sau
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

@@ -90,13 +90,13 @@ export default function SessionDetailPopover({
     (eventMeta?.sessionTitle ?? '').trim() ||
     topicTitle ||
     (session?.Notes ?? '').trim() ||
-    'Phiên học';
+    'Buổi học';
   const secondarySubtitle =
     resolvedRequestName || resolvedRequestCode
       ? `${topicTitle ? `${topicTitle} · ` : ''}Buổi ${resolvedSessionNo ?? '—'}`
       : `Buổi ${resolvedSessionNo ?? '—'}`;
 
-  // Team leader luôn xem/mở điểm danh (theo role hoặc route); teacher/TA chỉ được thấy nút khi đúng là người điểm danh của phiên.
+  // Team leader luôn xem/mở điểm danh (theo role hoặc route); teacher/TA chỉ được thấy nút khi đúng là người điểm danh của buổi.
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
 
   const ownerIdFromSession = getAttendanceOwnerId(session?.Attendances ?? null);
@@ -116,7 +116,7 @@ export default function SessionDetailPopover({
     resolveSessionTopicTitleFromSessionLike(session) ||
     ((detailSession as { eventSession?: { title?: string | null } | null } | null)?.eventSession?.title ?? '').trim() ||
     ((detailSession as { subjectSession?: { title?: string | null } | null } | null)?.subjectSession?.title ?? '').trim() ||
-    `Phiên ${detailSession?.sessionNo ?? resolvedSessionNo ?? '—'}`;
+    `Buổi ${detailSession?.sessionNo ?? resolvedSessionNo ?? '—'}`;
   const detailSessionNotes = String((detailSession as { notes?: string | null } | null)?.notes ?? '').trim();
   const detailIsOnline =
     ((detailSession as { isOnline?: boolean | null } | null)?.isOnline ?? null) ??
@@ -155,7 +155,7 @@ export default function SessionDetailPopover({
       ) as (RequestSessionSummary & Record<string, unknown>) | undefined;
 
       if (!rawSession) {
-        throw new Error('Không tìm thấy phiên trong yêu cầu.');
+        throw new Error('Không tìm thấy buổi trong yêu cầu.');
       }
 
       const anySession = rawSession as Record<string, unknown> & {
@@ -208,7 +208,7 @@ export default function SessionDetailPopover({
       const msg =
         err && typeof err === 'object' && 'message' in err
           ? String((err as { message: unknown }).message)
-          : 'Không tải được chi tiết phiên.';
+          : 'Không tải được chi tiết buổi.';
       setDetailError(msg);
     } finally {
       if (seq !== detailFetchSeq.current) return;
@@ -279,7 +279,7 @@ export default function SessionDetailPopover({
           <aside className="absolute right-0 top-0 flex h-full w-full max-w-[640px] flex-col overflow-hidden border-l border-slate-200 bg-white text-black shadow-2xl animate-in slide-in-from-right fade-in-0 duration-300 ease-out">
             <div className="flex items-start justify-between border-b border-gray-100 p-6 pb-4">
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết buổi</p>
                 <h2 className="text-lg font-bold text-slate-900">
                   {detailSessionTitle}
                 </h2>
@@ -304,14 +304,14 @@ export default function SessionDetailPopover({
                   onClose();
                 }}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-                aria-label="Đóng chi tiết phiên"
+                aria-label="Đóng chi tiết buổi"
               >
                 <X size={18} />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 py-2">
-              {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết phiên...</p>}
+              {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết buổi...</p>}
 
               {detailError && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">{detailError}</p>
@@ -369,7 +369,7 @@ export default function SessionDetailPopover({
 
         <div className="px-4 pb-4 flex-1 overflow-y-auto no-scrollbar">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-semibold text-gray-800">Giảng viên/Trợ giảng:</div>
+            <div className="text-xs font-semibold text-gray-800">Giảng viên/Sinh viên:</div>
             {session && canSeeAttendanceButton && (
               <button
                 type="button"
@@ -450,7 +450,7 @@ export default function SessionDetailPopover({
             {(staff.length === 0 || staff.every((s) => !s.name || s.name === '—')) && (
               <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 flex items-center justify-between gap-3">
                 <div className="text-xs text-amber-800">
-                  Phiên này hiện <span className="font-semibold">chưa có phân công</span> giảng viên/trợ giảng.
+                  Buổi này hiện <span className="font-semibold">chưa có phân công</span> giảng viên/sinh viên.
                 </div>
                 {isTeamLeader && (
                   <button

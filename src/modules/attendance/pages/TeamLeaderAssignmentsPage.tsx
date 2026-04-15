@@ -112,9 +112,9 @@ function isAssignmentRejectedStatus(status: string | number | null | undefined):
 }
 
 /**
- * Badge phụ danh sách phiên (không lặp lại nhãn trạng thái phiên):
+ * Badge phụ danh sách buổi (không lặp lại nhãn trạng thái buổi):
  * - Cảnh báo vận hành: cần phân lại, chưa có slot
- * - Chỉ với phiên APPROVED (Đã duyệt): thêm «Chưa gán đủ» khi đã tải chi tiết và slot chưa đủ
+ * - Chỉ với buổi APPROVED (Đã duyệt): thêm «Chưa gán đủ» khi đã tải chi tiết và slot chưa đủ
  */
 function getSessionListSecondaryBadge(
   session: { status: string },
@@ -366,7 +366,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     lockedCount = 0,
     lockedTeamNames: string[] = [],
   ) => {
-    const roleLabel = colorScheme === 'sky' ? 'Giáo viên' : 'Trợ giảng';
+    const roleLabel = colorScheme === 'sky' ? 'Giáo viên' : 'Sinh viên';
     const accent =
       colorScheme === 'sky'
         ? {
@@ -395,8 +395,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             approvedStripe: 'border-l-[3px] border-l-yellow-500 bg-yellow-50/45',
             approvedLockBox: 'bg-yellow-100 text-yellow-900',
           };
-    const placeholder = colorScheme === 'sky' ? 'Chọn giảng viên' : 'Chọn trợ giảng';
-    const searchPlaceholder = colorScheme === 'sky' ? 'Tìm giảng viên...' : 'Tìm trợ giảng...';
+    const placeholder = colorScheme === 'sky' ? 'Chọn giảng viên' : 'Chọn sinh viên';
+    const searchPlaceholder = colorScheme === 'sky' ? 'Tìm giảng viên...' : 'Tìm sinh viên...';
 
     const excludeCancelledSet = new Set(
       excludeMemberIdsFromCancelled.map((id) => Number(id)).filter((id) => id > 0),
@@ -467,7 +467,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
       );
     };
 
-    const teamTextLocked = lockedTeamNames.length ? lockedTeamNames.join(', ') : 'đội khác';
+    const teamTextLocked = lockedTeamNames.length ? lockedTeamNames.join(', ') : 'nhóm khác';
 
     return (
       <div className="space-y-3">
@@ -769,7 +769,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden py-0 px-0"
+      className="flex h-full min-h-0 flex-col app-page-bg overflow-hidden py-0 px-0"
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
@@ -850,10 +850,10 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               {filteredRequests.length}
             </span>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 app-page-bg">
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
-                Chưa có yêu cầu nào có phiên của nhóm này.
+                Chưa có yêu cầu nào có buổi của nhóm này.
               </div>
             )}
             {filteredRequests.map((r) => (
@@ -873,7 +873,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   setSelectedRequestId(r.requestId);
                   setActiveSession(null);
                 }}
-                hintText="Bấm để xem danh sách phiên"
+                hintText="Bấm để xem danh sách buổi"
               />
             ))}
           </div>
@@ -889,7 +889,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
           ) : (
             <div className="space-y-4 flex flex-col min-h-0 flex-1">
               {/* Request header */}
-              <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
+              <div className="bg-white rounded-xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <h5 className="text-xl font-medium text-slate-800 truncate min-w-0 flex-1">
                     {selectedRequest.requestName || selectedRequest.requestCode}
@@ -956,9 +956,9 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   <div className="flex items-start gap-3">
                     <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-[11px] text-slate-500">Số lượng phiên</p>
+                      <p className="text-[11px] text-slate-500">Số lượng buổi</p>
                       <p className="font-medium text-sm text-slate-900 mt-0.5">
-                        {requestSessionsLoading ? '—' : `${selectedRequest.sessions.length} phiên`}
+                        {requestSessionsLoading ? '—' : `${selectedRequest.sessions.length} buổi`}
                       </p>
                     </div>
                   </div>
@@ -967,7 +967,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
               {requestSessionsLoading ? (
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[280px] py-12">
-                  <Spin tip="Đang tải danh sách phiên theo nhóm..." />
+                  <Spin tip="Đang tải danh sách buổi theo nhóm..." />
                 </div>
               ) : (
                 <>
@@ -993,7 +993,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                             <span className="text-sm font-medium text-slate-700">Tiến độ phân công</span>
                           </div>
                           <p className="text-xs text-slate-500">
-                            Mở một phiên học bên dưới để tải chi tiết và xem tiến độ theo vị trí của nhóm.
+                            Mở một buổi học bên dưới để tải chi tiết và xem tiến độ theo vị trí của nhóm.
                           </p>
                         </div>
                       );
@@ -1006,7 +1006,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                             {filledSlots}/{totalSlots} vị trí
                             {loadedSessionCount < sessions.length ? (
                               <span className="text-[11px] font-normal text-slate-500 ml-1">
-                                ({loadedSessionCount}/{sessions.length} phiên đã tải)
+                                ({loadedSessionCount}/{sessions.length} buổi đã tải)
                               </span>
                             ) : null}
                           </span>
@@ -1022,17 +1022,17 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   })()
                 : null}
 
-              {/* Danh sách phiên học — layout đồng bộ RequestDetail (manager) */}
+              {/* Danh sách buổi học — layout đồng bộ RequestDetail (manager) */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                 <div className="mb-3">
-                  <h3 className="text-sm font-medium text-slate-900">Danh sách phiên học</h3>
+                  <h3 className="text-sm font-medium text-slate-900">Danh sách buổi học</h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    {selectedRequest.sessions.length} phiên trong yêu cầu này
+                    {selectedRequest.sessions.length} buổi trong yêu cầu này
                   </p>
                 </div>
                 {selectedRequest.sessions.length === 0 ? (
                   <p className="text-xs text-slate-500 py-6 text-center">
-                    Yêu cầu này chưa có phiên nào gán cho nhóm.
+                    Yêu cầu này chưa có buổi nào gán cho nhóm.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -1140,7 +1140,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                             {fullyAssigned && teamCount > 0 ? (
                               <>
                                 <span className="text-slate-300">•</span>
-                                <span className="text-slate-700 font-medium">{teamCount} đội</span>
+                                <span className="text-slate-700 font-medium">{teamCount} nhóm</span>
                               </>
                             ) : null}
                           </div>
@@ -1190,7 +1190,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       <>
                         {tab === 'rejected' && !sessionRejected ? (
                           <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-800">
-                            Yêu cầu có phiên bị từ chối
+                            Yêu cầu có buổi bị từ chối
                           </span>
                         ) : null}
                         <span
@@ -1213,14 +1213,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               </button>
             </div>
 
-            {/* Panel body: thông tin phiên trước, sau đó phân công */}
+            {/* Panel body: thông tin buổi trước, sau đó phân công */}
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-4 space-y-5">
               {(() => {
                 const detail = sessionDetailsById[activeSession.sessionId];
                 if (!detail) {
                   return (
                     <div className="flex items-center justify-center py-8">
-                      <Spin tip="Đang tải chi tiết phiên..." />
+                      <Spin tip="Đang tải chi tiết buổi..." />
                     </div>
                   );
                 }
@@ -1266,7 +1266,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 const sessionInfoCard = (
                   <div className="rounded-xl bg-white shadow-sm border border-gray-100">
                     <div className="px-4 py-2.5 border-b border-gray-100">
-                      <h3 className="font-medium text-gray-900 text-sm">Thông tin phiên</h3>
+                      <h3 className="font-medium text-gray-900 text-sm">Thông tin buổi</h3>
                     </div>
                     <div className="px-4 py-3 space-y-3 text-sm">
                       <div className="flex items-center gap-3 text-gray-600">
@@ -1307,14 +1307,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       </div>
                       <div className="flex items-center gap-3 text-gray-600">
                         <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                        <span className="text-gray-500">Trợ giảng cần:</span>
+                        <span className="text-gray-500">Sinh viên cần:</span>
                         <span className="font-medium text-black">
                           {tasRequired}
                         </span>
                       </div>
                       {(lockedTeacherSlots > 0 || lockedTaSlots > 0) && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                          Phiên này cần phân công nhân sự thuộc nhóm khác, bạn chỉ phân công nhân sự thuộc nhóm của mình.
+                          Buổi này cần phân công nhân sự thuộc nhóm khác, bạn chỉ phân công nhân sự thuộc nhóm của mình.
                         </div>
                       )}
                     </div>
@@ -1388,8 +1388,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         )} */}
                         {teamRejectedAssignments.length === 0 && sessionRejectedUi && (
                           <p className="px-4 py-3 text-xs text-orange-800">
-                            Phiên đang ở trạng thái từ chối phân công. Nếu không thấy dòng vị trí cụ thể,
-                            hãy làm mới hoặc kiểm tra phân công từng giảng viên / trợ giảng phía dưới.
+                            Buổi đang ở trạng thái từ chối phân công. Nếu không thấy dòng vị trí cụ thể,
+                            hãy làm mới hoặc kiểm tra phân công từng giảng viên / sinh viên phía dưới.
                           </p>
                         )}
                       </div>
@@ -1399,7 +1399,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
                         <AlertCircle className="w-5 h-5 text-amber-500 mx-auto mb-2" />
                         <p className="text-xs text-amber-700 font-medium">
-                          Phiên này chưa có vị trí phân công.
+                          Buổi này chưa có vị trí phân công.
                         </p>
                       </div>
                     ) : (
@@ -1480,7 +1480,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           type="button"
                           onClick={() => {
                             if (!canReportCannotAssign) {
-                              message.info('Không đủ điều kiện gửi báo cáo phiên này.');
+                              message.info('Không đủ điều kiện gửi báo cáo buổi này.');
                               return;
                             }
                             openReportCannotAssignSession();
@@ -1492,7 +1492,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           }`}
                         >
                           <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
-                          Hủy phiên
+                          Hủy buổi
                         </button>
                         {!canReportCannotAssign ? (
                           <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
@@ -1512,8 +1512,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
       <Dialog
         open={reportSessionOpen}
         onClose={() => !reportSessionLoading && setReportSessionOpen(false)}
-        title="Hủy phiên"
-        description="Nhập lý do để báo phiên cần bị hủy. Thao tác không thể hoàn tác."
+        title="Hủy buổi"
+        description="Nhập lý do để báo buổi cần bị hủy. Thao tác không thể hoàn tác."
         className="max-w-md border-0 shadow-2xl"
       >
         <div className="space-y-3">
@@ -1567,7 +1567,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
         const isTA = String(s.roleName ?? '').toUpperCase().includes('TA') || String(s.roleName ?? '').toUpperCase().includes('ASSIST');
         const roleChip = isTA
-          ? { label: 'Trợ giảng', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
+          ? { label: 'Sinh viên', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
           : { label: 'Giảng viên', cls: 'bg-sky-100 text-sky-800 border-sky-200' };
         const frame = isTA
           ? { border: 'border-emerald-200/70', ring: 'ring-emerald-100', grad: 'from-emerald-50/70' }

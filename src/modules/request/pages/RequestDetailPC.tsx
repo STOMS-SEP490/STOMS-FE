@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { AlertTriangle, Calendar, Hash, List, MapPin, Pencil, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, MapPin, Pencil, Trash2, X } from 'lucide-react';
 import { Paperclip } from 'lucide-react';
 import { message, Modal, Spin } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
-import { getRequestType } from '@/shared/components/request/RequestCard';
 import {
   getRequestStatusInfo,
   getRequestStatusCode,
@@ -84,8 +83,8 @@ export default function RequestDetailPC() {
 
   if (loading && !request) {
     return (
-      <div className="flex flex-1 min-h-[320px] items-center justify-center bg-slate-50 text-black p-6">
-        <Spin size="large" tip="Đang tải chi tiết yêu cầu và danh sách phiên..." />
+      <div className="flex flex-1 min-h-[320px] items-center justify-center app-page-bg text-black p-6">
+        <Spin size="large" tip="Đang tải chi tiết yêu cầu và danh sách buổi..." />
       </div>
     );
   }
@@ -94,12 +93,16 @@ export default function RequestDetailPC() {
     return <div className="text-sm text-black p-4">Không tìm thấy yêu cầu.</div>;
   }
 
-  const typeInfo = getRequestType({
-    subjectId: request.subjectId,
-    courseId: request.courseId,
-    eventId: request.eventId,
-  });
+  const requestTypeLabel = request.courseId
+    ? 'Khóa học'
+    : request.eventId
+      ? 'Sự kiện'
+      : request.subjectId
+        ? 'Môn học'
+        : 'Khác';
   const statusInfo = getRequestStatusInfo(request.status);
+  const dotClass = 'mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#2197C0] align-middle';
+  const metaLabelClass = 'text-[11px] uppercase tracking-wide text-[#2197C0] font-semibold';
   const requestStatusCode = getRequestStatusCode(request.status);
   const canHuyYeuCau =
     requestStatusCode === REQUEST_STATUS.APPROVED ||
@@ -108,6 +111,57 @@ export default function RequestDetailPC() {
     requestStatusCode === REQUEST_STATUS.PENDING || statusInfo.label === 'Chờ duyệt';
   const isRejected = statusInfo.label === 'Từ chối';
   const sessionCount = sessions.length || request.sessionsRequired || 0;
+  const sessionSortedByNo = [...sessions].sort((a, b) => (a.sessionNo ?? 0) - (b.sessionNo ?? 0));
+  const firstSession = sessionSortedByNo[0];
+  const lastSession = sessionSortedByNo[sessionSortedByNo.length - 1];
+  const requestRaw = request as Record<string, unknown>;
+  const courseRaw =
+    (requestRaw.course as Record<string, unknown> | undefined) ??
+    (requestRaw.Course as Record<string, unknown> | undefined) ??
+    undefined;
+  const subjectRaw =
+    (requestRaw.subject as Record<string, unknown> | undefined) ??
+    (requestRaw.Subject as Record<string, unknown> | undefined) ??
+    undefined;
+  const eventRaw =
+    (requestRaw.event as Record<string, unknown> | undefined) ??
+    (requestRaw.Event as Record<string, unknown> | undefined) ??
+    undefined;
+  const sourceRaw = eventRaw ?? courseRaw ?? subjectRaw;
+  const sourceName = request.courseId
+    ? String(courseRaw?.courseName ?? courseRaw?.CourseName ?? '').trim()
+    : request.eventId
+      ? String(eventRaw?.eventName ?? eventRaw?.EventName ?? '').trim()
+      : request.subjectId
+        ? String(subjectRaw?.subjectName ?? subjectRaw?.SubjectName ?? '').trim()
+        : '';
+  const sourceNameLabel = request.courseId
+    ? 'Tên khóa học'
+    : request.eventId
+      ? 'Tên sự kiện'
+      : request.subjectId
+        ? 'Tên môn học'
+        : 'Tên';
+  const eventName = String(
+    eventRaw?.eventName ??
+      eventRaw?.EventName ??
+      ''
+  ).trim();
+  const sourceDescription = String(
+    sourceRaw?.description ??
+      sourceRaw?.Description ??
+      ''
+  ).trim();
+  const sourceDuration = String(
+    sourceRaw?.duration ??
+      sourceRaw?.Duration ??
+      ''
+  ).trim();
+  const hasSourceDescription = Boolean(sourceDescription);
+  const hasSourceName = Boolean(sourceName);
+  const hasSourceDuration = Boolean(sourceDuration);
+  const hasStartAt = Boolean(firstSession?.startAt);
+  const hasEndAt = Boolean(lastSession?.endAt);
   const resolvedDetailSession =
     rightPanel?.mode === 'detail'
       ? (sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session)
@@ -187,20 +241,20 @@ export default function RequestDetailPC() {
     if (!resolvedDetailSession) return;
     const trimmed = cancelSessionReason.trim();
     if (!trimmed) {
-      message.warning('Vui lòng nhập lý do hủy phiên.');
+      message.warning('Vui lòng nhập lý do hủy buổi.');
       return;
     }
     try {
       setCancelSessionLoading(true);
       await sessionService.cancel({ sessionId: resolvedDetailSession.sessionId, reason: trimmed });
-      message.success('Đã hủy phiên.');
+      message.success('Đã hủy buổi.');
       setCancelSessionOpen(false);
       setCancelSessionReason('');
       await refreshDetail();
       refreshRequestSidebar?.();
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Hủy phiên thất bại.';
+      const msg = (err as any)?.message || 'Hủy buổi thất bại.';
       message.error(msg);
     } finally {
       setCancelSessionLoading(false);
@@ -209,94 +263,165 @@ export default function RequestDetailPC() {
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden text-black">
-        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
-          <div className="w-full min-w-0 space-y-4">
-        <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
+      <div className="flex h-full min-h-0 flex-col app-page-bg overflow-hidden p-6 text-black">
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain">
+          <div className="w-full min-w-0 space-y-4 pb-1">
+        <div className="bg-white rounded-xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
           <div className="flex flex-wrap items-center gap-3">
-            <h5 className="text-xl font-bold text-slate-800 truncate min-w-0 flex-1">
-              {request.requestName ?? request.requestCode}
-            </h5>
+            <button
+              type="button"
+              onClick={() => navigate('/pc/requests')}
+              className="!p-0 w-8 h-8 rounded-lg border border-gray-300 flex items-center justify-center text-black bg-white hover:bg-gray-100 transition-colors"
+              aria-label="Quay lại danh sách yêu cầu"
+              title="Quay lại"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <h5 className="truncate text-xl font-bold text-slate-900">
+                  Chi tiết {request.requestName || eventName || request.requestCode}
+                </h5>
+                <p className="text-xs text-slate-700">
+                  <span className="text-slate-500">Mã yêu cầu: </span>
+                  <span className="font-semibold text-slate-900">{request.requestCode}</span>
+                </p>
+              </div>
+              
+            </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200">
-                {typeInfo.label}
-              </span>
-              <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}>
-                {statusInfo.label}
-              </span>
-              {isPendingRequest ? (
-                <>
+
+            <div className="flex min-w-[260px] shrink-0 flex-col items-end gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500">Trạng thái:</span>
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border ${statusInfo.className}`}>
+                  {statusInfo.label}
+                </span>
+                {isPendingRequest ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/pc/requests/edit/${request.requestId}`)}
+                      className="h-8 w-8 p-0 shrink-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                      aria-label="Sửa yêu cầu"
+                      title="Sửa yêu cầu"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDeleteRequest}
+                      className="h-8 w-8 p-0 shrink-0 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+                      aria-label="Xóa yêu cầu"
+                      title="Xóa yêu cầu"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                ) : null}
+                {canHuyYeuCau ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => navigate(`/pc/requests/edit/${request.requestId}`)}
-                    className="h-8 w-8 p-0 shrink-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 hover:text-blue-800"
-                    aria-label="Sửa yêu cầu"
-                    title="Sửa yêu cầu"
+                    onClick={() => {
+                      setHuyYeuCauReason('');
+                      setHuyYeuCauOpen(true);
+                    }}
+                    className="shrink-0 gap-1.5 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                    Hủy yêu cầu
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDeleteRequest}
-                    className="h-8 w-8 p-0 shrink-0 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
-                    aria-label="Xóa yêu cầu"
-                    title="Xóa yêu cầu"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </>
-              ) : null}
-              {canHuyYeuCau ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setHuyYeuCauReason('');
-                    setHuyYeuCauOpen(true);
-                  }}
-                  className="shrink-0 gap-1.5 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
-                >
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden />
-                  Hủy yêu cầu
-                </Button>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100">
-            <div className="flex items-start gap-3">
-              <Hash className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Mã yêu cầu</p>
-                <p className="font-semibold text-sm text-slate-900 mt-0.5">{request.requestCode}</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Ngày gửi</p>
-                <p className="font-semibold text-sm text-slate-900 mt-0.5">
-                  {request.createdAt ? dayjs(request.createdAt).format('DD/MM/YYYY') : dayjs(request.startDate).format('DD/MM/YYYY')}
+          <div className='flex flex-col gap-1 px-5 pt-3'>
+            {hasSourceName ? (
+                <p className="mt-1 text-sm font-semibold">
+                  <span className="text-[#2197C0]">
+                    <span className={dotClass} aria-hidden />
+                    {sourceNameLabel}:{' '}
+                  </span>
+                  <span className="text-slate-900">{sourceName || '—'}</span>
+                  </p>
+                ) : null}
+                {hasSourceDescription ? (
+                  <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                    {sourceDescription}
                 </p>
-              </div>
+            ) : null}
+          </div>
+            <div className={`mt-4 grid gap-x-6 gap-y-3 border-t border-slate-100 px-5 py-4 ${
+              hasSourceDuration || hasStartAt || hasEndAt
+                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-6'
+                : 'grid-cols-1 sm:grid-cols-3'
+            }`}
+          >
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Loại yêu cầu
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{requestTypeLabel}</p>
             </div>
 
-            <div className="flex items-start gap-3">
-              <List className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[11px] text-slate-500 uppercase tracking-wide">Số lượng phiên</p>
-                <p className="font-semibold text-sm text-slate-900 mt-0.5">
-                  {loading ? '—' : `${sessionCount} phiên`}
-                </p>
-              </div>
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Ngày gửi
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                {request.createdAt ? dayjs(request.createdAt).format('DD/MM/YYYY') : dayjs(request.startDate).format('DD/MM/YYYY')}
+              </p>
             </div>
+
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Số lượng buổi
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                {loading ? '—' : `${sessionCount} buổi`}
+              </p>
+            </div>
+
+            {hasSourceDuration || hasStartAt || hasEndAt ? (
+              <>
+                <div className="min-w-0">
+                  <p className={metaLabelClass}>
+                    <span className={dotClass} aria-hidden />
+                    Thời lượng
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">{sourceDuration || '—'}</p>
+                </div>
+
+                <div className="min-w-0">
+                  <p className={metaLabelClass}>
+                    <span className={dotClass} aria-hidden />
+                    Ngày bắt đầu
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {firstSession?.startAt ? dayjs(firstSession.startAt).format('DD/MM/YYYY HH:mm') : '—'}
+                  </p>
+                </div>
+
+                <div className="min-w-0">
+                  <p className={metaLabelClass}>
+                    <span className={dotClass} aria-hidden />
+                    Ngày kết thúc
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {lastSession?.endAt ? dayjs(lastSession.endAt).format('DD/MM/YYYY HH:mm') : '—'}
+                  </p>
+                </div>
+              </>
+            ) : null}
           </div>
 
           {isRejected && (
@@ -327,15 +452,15 @@ export default function RequestDetailPC() {
           <TabsContent value="overview" className="space-y-4 mb-0">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-semibold text-slate-900">Danh sách phiên học</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Danh sách buổi học</h3>
               </div>
 
               {loading ? (
                 <div className="flex flex-col items-center justify-center min-h-[240px] py-10">
-                  <Spin tip="Đang tải danh sách phiên..." />
+                  <Spin tip="Đang tải danh sách buổi..." />
                 </div>
               ) : sessions.length === 0 ? (
-                <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách phiên chi tiết.</p>
+                <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách buổi chi tiết.</p>
               ) : (
                 <div className="space-y-2">
                   {sessions.map((session) => {
@@ -362,13 +487,14 @@ export default function RequestDetailPC() {
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <span className="text-xs text-sky-700 font-semibold tabular-nums">
+                            <span className="text-xs text-[#2197C0] font-semibold tabular-nums">
                               <span className="text-slate-600 font-medium">
                                 {dayjs(session.startAt).format('DD/MM/YYYY')}
                               </span>
                               <span className="text-slate-300 font-normal mx-1">·</span>
                               {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                             </span>
+                            <span className="text-[10px] font-medium text-slate-500">Trạng thái:</span>
                             <span
                               className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
                             >
@@ -543,31 +669,35 @@ export default function RequestDetailPC() {
             <div className="w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden max-w-2xl border-l">
               <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
                 <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết buổi</p>
                   {resolvedDetailSession ? (
                     <>
                       <h2 className="text-lg font-bold text-slate-900 leading-snug">
                         {getSessionDisplayTitle(resolvedDetailSession)}
                       </h2>
                       <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                        Phiên {resolvedDetailSession.sessionNo}
-                        {' · '}
-                        {dayjs(resolvedDetailSession.startAt).format('HH:mm')} –{' '}
-                        {dayjs(resolvedDetailSession.endAt).format('HH:mm')}
-                        {' · '}
-                        {dayjs(resolvedDetailSession.startAt).format('DD/MM/YYYY')}
+                        <span>Buổi {resolvedDetailSession.sessionNo}</span>
+                        <span className="text-slate-300">{' · '}</span>
+                        <span className="font-semibold text-[#2197C0]">
+                          {dayjs(resolvedDetailSession.startAt).format('HH:mm')} – {dayjs(resolvedDetailSession.endAt).format('HH:mm')}
+                        </span>
+                        <span className="text-slate-300">{' · '}</span>
+                        <span className="font-semibold text-[#2197C0]">{dayjs(resolvedDetailSession.startAt).format('DD/MM/YYYY')}</span>
                       </p>
                     </>
                   ) : (
-                    <h2 className="text-lg font-bold text-slate-900">Phiên {rightPanel.session.sessionNo}</h2>
+                    <h2 className="text-lg font-bold text-slate-900">Buổi {rightPanel.session.sessionNo}</h2>
                   )}
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     {(() => {
                       const info = getSessionStatusInfo((resolvedDetailSession as any)?.status);
                       return (
-                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
-                          {info.label}
-                        </span>
+                        <>
+                          <span className="text-[11px] font-medium text-slate-500">Trạng thái:</span>
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${info.className}`}>
+                            {info.label}
+                          </span>
+                        </>
                       );
                     })()}
                   </div>
@@ -603,7 +733,7 @@ export default function RequestDetailPC() {
                         type="button"
                         onClick={() => {
                           if (!canCancelDetailSession) {
-                            message.info('Không đủ điều kiện hủy phiên.');
+                            message.info('Không đủ điều kiện hủy buổi.');
                             return;
                           }
                           openCancelSessionDialog();
@@ -615,7 +745,7 @@ export default function RequestDetailPC() {
                         }`}
                       >
                         <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
-                        Hủy phiên
+                        Hủy buổi
                       </button>
                       {!canCancelDetailSession ? (
                         <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
@@ -675,11 +805,11 @@ export default function RequestDetailPC() {
           </div>
         </Dialog>
 
-        {/* Hủy phiên (PUT /sessions/cancel) — cần lý do */}
+        {/* Hủy buổi (PUT /sessions/cancel) — cần lý do */}
         <Dialog
           open={cancelSessionOpen}
           onClose={() => !cancelSessionLoading && setCancelSessionOpen(false)}
-          title="Hủy phiên"
+          title="Hủy buổi"
           description="Nhập lý do hủy. Thao tác không thể hoàn tác."
           className="max-w-md border-0 shadow-2xl"
         >

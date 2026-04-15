@@ -200,7 +200,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
       return;
     }
     if ((reservation.Sessions ?? []).length > 0 && sessionIds.length === 0) {
-      message.error('Chọn ít nhất một phiên.');
+      message.error('Chọn ít nhất một buổi.');
       return;
     }
 
@@ -249,8 +249,8 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
         hasEnded
           ? 'Đặt trước đã kết thúc, không thể chỉnh sửa.'
           : hasStarted
-            ? 'Đặt trước đã bắt đầu — chỉ có thể đổi danh sách thiết bị / phiên, không đổi khung giờ.'
-            : 'Điều chỉnh thời gian, phiên và thiết bị. Thiết bị đang gán cho đặt trước này vẫn hiển thị trong danh sách.'
+            ? 'Đặt trước đã bắt đầu — chỉ có thể đổi danh sách thiết bị / buổi, không đổi khung giờ.'
+            : 'Điều chỉnh thời gian, buổi và thiết bị. Thiết bị đang gán cho đặt trước này vẫn hiển thị trong danh sách.'
       }
       className="max-w-2xl w-[96vw]"
     >
@@ -286,7 +286,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
 
             {(reservation.Sessions ?? []).length > 0 ? (
               <div>
-                <span className="block text-[11px] font-medium text-gray-500 mb-2">Phiên liên quan</span>
+                <span className="block text-[11px] font-medium text-gray-500 mb-2">Buổi liên quan</span>
                 <div className="space-y-2 rounded-md border border-gray-100 bg-gray-50/50 px-3 py-2">
                   {(reservation.Sessions ?? []).map((s) => (
                     <label key={s.SessionId} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -297,7 +297,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
                         onChange={(e) => toggleSession(s.SessionId, e.target.checked)}
                       />
                       <span>
-                        Phiên {s.SessionNo} (#{s.SessionId}) ·{' '}
+                        Buổi {s.SessionNo} (#{s.SessionId}) ·{' '}
                         {dayjs(s.StartAt).format('DD/MM HH:mm')}–{dayjs(s.EndAt).format('HH:mm')}
                       </span>
                     </label>

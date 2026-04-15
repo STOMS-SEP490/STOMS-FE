@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { BookOpen, CheckCircle, Clock, Eye, Pencil, Trash2, XCircle } from 'lucide-react';
 import { Modal, message } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import HoverSearch from '@/shared/components/ui/search';
@@ -14,11 +14,10 @@ import {
   normalizeReservationPagedResponse,
   normalizeReservationResponse,
 } from '@/modules/reservation/utils/normalizeReservationResponse';
-import type { BorrowingsManagementOutletContext } from '@/app/layouts/BorrowingsManagementLayout';
+import { useReservationsListStats } from '@/modules/reservation/hooks/useReservationsListStats';
+import { StatCard } from '@/shared/components/common/StatCard';
 import ReservationDetailSidebar from './ReservationDetailSidebar';
 import EditReservationModal from './EditReservationModal';
-
-type OutletContext = BorrowingsManagementOutletContext;
 
 const PAGE_SIZE = 10;
 const DEFAULT_AVATAR_SRC = '/img/ava.png';
@@ -53,16 +52,7 @@ function canDeleteReservationRow(
 }
 
 export default function ReservationsManagement() {
-  const context = useOutletContext<OutletContext>();
-
-  const sharedFilterFromLayout = Boolean(
-    context?.setReservationCancelFilter &&
-      context?.setReservationIdSearch &&
-      context?.reservationCancelFilter !== undefined &&
-      context?.reservationIdSearch !== undefined &&
-      context?.reservationPageNumber !== undefined &&
-      context?.setReservationPageNumber,
-  );
+  const { loading: loadingStats, stats: reservationsStats } = useReservationsListStats();
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -75,26 +65,19 @@ export default function ReservationsManagement() {
   const [detailReservation, setDetailReservation] = useState<ReservationDetail | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
-  const [localReservationIdSearch, setLocalReservationIdSearch] = useState('');
-  const [localCancelFilter, setLocalCancelFilter] = useState<'all' | 'cancelled' | 'active'>('all');
+  const [reservationIdSearch, setReservationIdSearchState] = useState('');
+  const [cancelFilter, setCancelFilterState] = useState<'all' | 'cancelled' | 'active'>('all');
+  const [pageNumber, setPageNumber] = useState(1);
 
-  const reservationIdSearch = sharedFilterFromLayout
-    ? (context!.reservationIdSearch as string)
-    : localReservationIdSearch;
-  const setReservationIdSearch = sharedFilterFromLayout
-    ? context!.setReservationIdSearch!
-    : setLocalReservationIdSearch;
+  const setReservationIdSearch = useCallback((value: string) => {
+    setReservationIdSearchState(value);
+    setPageNumber(1);
+  }, []);
 
-  const cancelFilter = sharedFilterFromLayout
-    ? (context!.reservationCancelFilter as 'all' | 'cancelled' | 'active')
-    : localCancelFilter;
-  const setCancelFilter = sharedFilterFromLayout
-    ? context!.setReservationCancelFilter!
-    : setLocalCancelFilter;
-
-  const [localPageNumber, setLocalPageNumber] = useState(1);
-  const pageNumber = sharedFilterFromLayout ? context!.reservationPageNumber! : localPageNumber;
-  const setPageNumber = sharedFilterFromLayout ? context!.setReservationPageNumber! : setLocalPageNumber;
+  const setCancelFilter = useCallback((v: 'all' | 'cancelled' | 'active') => {
+    setCancelFilterState(v);
+    setPageNumber(1);
+  }, []);
   const [totalItems, setTotalItems] = useState(0);
   const [items, setItems] = useState<ReservationListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -442,10 +425,43 @@ export default function ReservationsManagement() {
     [handleView, handleEditFromList, handleDelete, currentMemberId],
   );
 
+  const statCards = useMemo(
+    () => [
+      {
+        icon: <BookOpen />,
+        label: 'Tổng đặt trước',
+        value: loadingStats ? '—' : reservationsStats.total,
+        sub: '',
+        variant: 'blue' as const,
+      },
+      {
+        icon: <CheckCircle />,
+        label: 'Đang diễn ra',
+        value: loadingStats ? '—' : reservationsStats.ongoing,
+        sub: '',
+        variant: 'green' as const,
+      },
+      {
+        icon: <Clock />,
+        label: 'Sắp diễn ra',
+        value: loadingStats ? '—' : reservationsStats.upcoming,
+        sub: '',
+        variant: 'orange' as const,
+      },
+      {
+        icon: <XCircle />,
+        label: 'Tạm hủy',
+        value: loadingStats ? '—' : reservationsStats.cancelled,
+        sub: '',
+        variant: 'rose' as const,
+      },
+    ],
+    [loadingStats, reservationsStats],
+  );
+
   // Debounce for reservationId search
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (context?.position === 'header' || context?.position === 'toolbar') return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void fetchReservations();
@@ -453,10 +469,9 @@ export default function ReservationsManagement() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [context?.position, reservationIdSearch, cancelFilter, pageNumber, fetchReservations]);
+  }, [reservationIdSearch, cancelFilter, pageNumber, fetchReservations]);
 
   useEffect(() => {
-    if (context?.position === 'header' || context?.position === 'toolbar') return;
     if (openDetailFromUrl !== '1') return;
     if (!reservationIdFromUrl) return;
     if (skipNextAutoOpenRef.current) {
@@ -477,65 +492,77 @@ export default function ReservationsManagement() {
         message.error('Không tải được chi tiết lịch sử đặt trước');
       }
     })();
-  }, [context?.position, openDetailFromUrl, reservationIdFromUrl, detailOpen, detailReservation?.ReservationId]);
-
-  // Layout regions: header / toolbar / content
-  if (context?.position === 'header') return null;
-
-  if (context?.position === 'toolbar') {
-    return (
-      <div className="flex gap-3 items-center">
-        <HoverSearch
-          placeholder="Tìm theo mã đặt trước..."
-          value={reservationIdSearch}
-          onChange={(value) => {
-            setReservationIdSearch(value);
-          }}
-        />
-        <Select
-          value={cancelFilter}
-          onValueChange={(v) => {
-            setCancelFilter(v as typeof cancelFilter);
-          }}
-        >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px]">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            <SelectItem value="active">Đang hoạt động</SelectItem>
-            <SelectItem value="cancelled">Tạm hủy</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  }
+  }, [openDetailFromUrl, reservationIdFromUrl, detailOpen, detailReservation?.ReservationId]);
 
   return (
-    <div className="space-y-4">
-      <div className="pt-1">
-        <DataTable
-          columns={columns}
-          data={items}
-          pageNumber={pageNumber}
-          pageSize={PAGE_SIZE}
-          totalItems={totalItems}
-          onPageChange={(p) => setPageNumber(p)}
-          fillHeight={false}
-        />
+    <div
+      className="space-y-6 p-6 app-page-bg"
+      style={{ minHeight: 'var(--content-height, 100vh)' }}
+    >
+      <div className="mb-2 rounded-xl border bg-white px-6 py-4 shadow-sm">
+        <h2 className="text-xl font-semibold text-black">Đơn yêu cầu thiết bị</h2>
+        <p className="text-xs text-gray-500">
+          Quản lý đơn yêu cầu thiết bị trong hệ thống
+        </p>
       </div>
 
-      {loading ? (
-        <div className="text-xs text-muted-foreground">Đang tải...</div>
-      ) : null}
+      <div className="mb-0 grid grid-cols-4 gap-4">
+        {statCards.map((c) => (
+          <StatCard
+            key={c.label}
+            icon={c.icon}
+            label={c.label}
+            value={c.value}
+            sub={c.sub}
+            variant={c.variant}
+          />
+        ))}
+      </div>
+
+      <div className="mb-1 px-6 py-2">
+        <div className="flex items-center justify-end gap-3">
+          <HoverSearch
+            placeholder="Tìm theo mã đặt trước..."
+            value={reservationIdSearch}
+            onChange={(value) => setReservationIdSearch(value)}
+          />
+          <Select value={cancelFilter} onValueChange={(v) => setCancelFilter(v as typeof cancelFilter)}>
+            <SelectTrigger className="w-[190px] gap-2 bg-white text-sm text-gray-500">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="active">Đang hoạt động</SelectItem>
+              <SelectItem value="cancelled">Tạm hủy</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="relative rounded-xl border bg-white px-6 py-4 shadow-sm">
+        {loading ? (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/60">
+            <span className="text-sm text-muted-foreground">Đang tải...</span>
+          </div>
+        ) : null}
+        <div className="space-y-4 pt-1">
+          <DataTable
+            columns={columns}
+            data={items}
+            pageNumber={pageNumber}
+            pageSize={PAGE_SIZE}
+            totalItems={totalItems}
+            onPageChange={(p) => setPageNumber(p)}
+            fillHeight={false}
+          />
+        </div>
+      </div>
 
       <ReservationDetailSidebar
         open={detailOpen}
         onClose={closeDetail}
         reservation={detailReservation}
-        onEditReservation={
-          detailReservation ? () => setEditOpen(true) : undefined
-        }
+        onEditReservation={detailReservation ? () => setEditOpen(true) : undefined}
       />
 
       <EditReservationModal

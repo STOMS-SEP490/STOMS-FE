@@ -475,7 +475,7 @@ export default function EventCalendar() {
   return (
     <div
       ref={calendarContainerRef}
-      className="event-calendar-page flex flex-col bg-[#f3f4f6] overflow-hidden p-3 md:p-4"
+      className="event-calendar-page flex flex-col app-page-bg overflow-hidden p-3 md:p-4"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="relative flex flex-1 min-h-0 gap-4">
@@ -602,11 +602,11 @@ export default function EventCalendar() {
             <div className="space-y-3 overflow-y-auto pr-1">
               {isTeacherTimetable && teacherUpcomingLoading && teacherUpcomingCards.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">
-                  Đang tải phiên sắp tới…
+                  Đang tải buổi sắp tới…
                 </div>
               ) : isTeacherTimetable && teacherUpcomingCards.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">
-                  Không có phiên sắp tới.
+                  Không có buổi sắp tới.
                 </div>
               ) : isTeacherTimetable ? (
                 teacherUpcomingCards.map((session) => {
@@ -703,7 +703,7 @@ export default function EventCalendar() {
                 })
               ) : upcomingSessions.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">
-                  Không có phiên sắp tới.
+                  Không có buổi sắp tới.
                 </div>
               ) : (
                 upcomingSessions.map((session) => (

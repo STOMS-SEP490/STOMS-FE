@@ -67,7 +67,7 @@ export default function TeamLeaderAttendanceSlideOver({
   saveAttendance,
   refreshAttendanceItems,
   refetch,
-  /** Cùng mức z với panel Chi tiết phiên (tl/timetable) để lớp mờ nhất quán */
+
   overlayZClass = 'z-[80]',
 }: TeamLeaderAttendanceSlideOverProps) {
   const currentMemberId = useMemo(() => {
@@ -133,7 +133,7 @@ export default function TeamLeaderAttendanceSlideOver({
     const t = topic?.Title?.trim();
     if (t) return t;
     if (requestNameText) return requestNameText;
-    if (activeSession?.sessionNo != null) return `Phiên ${activeSession.sessionNo}`;
+    if (activeSession?.sessionNo != null) return `Buổi ${activeSession.sessionNo}`;
     return 'Điểm danh';
   }, [topic?.Title, requestNameText, activeSession?.sessionNo]);
 

@@ -79,7 +79,7 @@ function normalizeSessionsToRows(
         for (const r of matchedStaffRoles) {
           const u = r.toUpperCase();
           if (u.includes('TEACHER') || u === '4') labels.add('Giảng viên');
-          else if (u.includes('TA') || u === '5') labels.add('Trợ giảng');
+          else if (u.includes('TA') || u === '5') labels.add('Sinh viên');
         }
 
         const arr = Array.from(labels);
@@ -178,8 +178,6 @@ export function useTeamLeaderTimetableAssignments(
       let rows: TeamLeaderTimetableAssignmentRow[] = [];
       let remoteTotalItems = 0;
 
-      // TL (timetable/assignments): bắt buộc lấy theo session/filter để đúng trạng thái phiên và TeamId.
-      // Teacher: giữ luồng session-level để đảm bảo lọc đúng theo MemberId.
       const res = await sessionApi.getFilter({
         TeamId: byMember ? undefined : teamId,
         MemberId: byMember ? leaderMemberId ?? undefined : undefined,
@@ -192,7 +190,6 @@ export function useTeamLeaderTimetableAssignments(
       remoteTotalItems = Number(res.TotalItems ?? 0);
       rows = normalizeSessionsToRows(publishedItems, leaderMemberId);
 
-      // SessionResponse chỉ có RequestId, nên cần fetch Request để hiển thị requestCode/requestName.
       const requestIdSet = new Set<number>(
         rows.map((r) => r.requestId).filter((id): id is number => typeof id === 'number' && id > 0),
       );
@@ -204,7 +201,6 @@ export function useTeamLeaderTimetableAssignments(
             const req = await requestApi.getById(rid);
             requestMap.set(rid, { requestCode: req.requestCode, requestName: req.requestName });
           } catch {
-            // Nếu lỗi fetch request, vẫn giữ row session để không chặn UI.
           }
         }),
       );

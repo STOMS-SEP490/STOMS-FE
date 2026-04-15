@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { useOutletContext, useSearchParams } from 'react-router-dom'
-import { Eye, Loader2, Pencil, Power, PowerOff, Trash2, Plus } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Eye, Loader2, Pencil, Power, PowerOff, Trash2, Plus, Layers, CalendarDays, Sigma, TrendingUp, RotateCcw } from 'lucide-react'
 import { DataTable } from '@/shared/components/common/DataTable'
 import { Badge } from '@/shared/components/ui/badge'
 import HoverSearch from '@/shared/components/ui/search'
@@ -11,7 +11,15 @@ import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import { Switch } from '@/shared/components/ui/switch'
 import { Drawer, message, Modal } from 'antd'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select'
 import { useAuth } from '@/app/providers/AuthProvider'
+import { StatCard } from '@/shared/components/common/StatCard'
 import type { SkillListItem } from '@/modules/skill/skill'
 import skillApi from '@/modules/skill/api/skillApi'
 import type { TopicListItem } from '@/modules/topic/topic'
@@ -23,7 +31,8 @@ import subjectSkillApi, { type SubjectSkillItem } from '../api/subjectSkillApi'
 import subjectSessionApi from '../api/subjectSessionApi'
 import { SubjectDetailDrawer } from '../components/SubjectDetailDrawer'
 import { dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi'
-import type { CoursesManagementLayoutOutletContext } from '@/app/layouts/coursesManagementOutletContext'
+import { dashboardApi } from '@/modules/dashboard/api/dashboardApi'
+import { useQuery } from '@tanstack/react-query'
 
 type EditableSession = {
   subjectSessionId?: number
@@ -34,41 +43,27 @@ type EditableSession = {
 }
 
 export default function SubjectsManagement() {
-  const context = useOutletContext<CoursesManagementLayoutOutletContext>()
   const queryClient = useQueryClient()
 
   const { user } = useAuth()
   const roleId = Number(user?.role ?? 0)
   const isManager = roleId === 1
 
-  const subjectListLifted =
-    context.subjectListLifted === true &&
-    typeof context.setSubjectListSearch === 'function' &&
-    typeof context.subjectListSearch === 'string' &&
-    typeof context.setSubjectListPage === 'function' &&
-    typeof context.subjectListPage === 'number'
-
   const {
     data,
     isListBlocking,
     search,
     setSearch,
+    topicId: topicFilterId,
+    setTopicId: setTopicFilterId,
+    statusFilter,
+    setStatusFilter,
     pageNumber,
     pageSize,
     totalItems,
     setPageNumber,
     refetch,
-  } = useSubjects(
-    subjectListLifted
-      ? {
-          search: context.subjectListSearch,
-          setSearch: context.setSubjectListSearch,
-          pageNumber: context.subjectListPage,
-          setPageNumber: context.setSubjectListPage,
-          activeOnly: false,
-        }
-      : { activeOnly: false },
-  )
+  } = useSubjects({ activeOnly: false })
 
   const [searchParams, setSearchParams] = useSearchParams()
   const openDetailFromUrl = searchParams.get('openDetail')
@@ -135,6 +130,18 @@ export default function SubjectsManagement() {
   const [sessionsToDelete, setSessionsToDelete] = useState<number[]>([])
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([])
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null)
+
+  const { data: subjectSessionStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['dashboard', 'subject-session-statistics'],
+    queryFn: () => dashboardApi.getSubjectSessionStatistics(),
+    staleTime: 60_000,
+  })
+
+  const totalSubjectsStat = subjectSessionStats?.totalSubjects ?? 0
+  const totalSubjectSessionsStat = subjectSessionStats?.totalSubjectSessions ?? 0
+  const avgSessionsPerSubject = subjectSessionStats?.averageSessionsPerSubject ?? 0
+  const maxSessionsPerSubject = subjectSessionStats?.maxSessionsPerSubject ?? 0
+  const statValue = (loading: boolean, value: number | string) => (loading ? '—' : value)
 
   useEffect(() => {
     skillApi
@@ -246,7 +253,6 @@ export default function SubjectsManagement() {
   }, [isManager])
 
   useEffect(() => {
-    if (context.position !== 'content') return
     if (openCreateFromUrl !== '1') return
     openCreateModal()
     setSearchParams((prev) => {
@@ -254,7 +260,7 @@ export default function SubjectsManagement() {
       next.delete('openSubjectCreate')
       return next
     })
-  }, [context.position, openCreateFromUrl, openCreateModal, setSearchParams])
+  }, [openCreateFromUrl, openCreateModal, setSearchParams])
 
   const handleRemoveSessionLocal = (sessionId?: number, sessionNo?: number) => {
     if (!sessionId && !sessionNo) return
@@ -518,11 +524,11 @@ export default function SubjectsManagement() {
         ),
     },
     {
-      accessorKey: 'createdAt',
-      header: 'Ngày tạo',
+      accessorKey: 'updatedAt',
+      header: 'Cập nhật',
       cell: ({ row }) =>
-        row.original.createdAt
-          ? new Date(row.original.createdAt).toLocaleString('vi-VN')
+        row.original.updatedAt
+          ? new Date(row.original.updatedAt).toLocaleString('vi-VN')
           : '—',
     },
     {
@@ -532,7 +538,7 @@ export default function SubjectsManagement() {
       cell: ({ row }) => {
         const s = row.original
         return (
-          <div className="flex gap-3">
+          <div className="flex items-center justify-center gap-2">
             <span title="Xem chi tiết">
               <Eye
                 size={16}
@@ -574,20 +580,114 @@ export default function SubjectsManagement() {
     },
   ], [isManager, handleView, openEditModal, handleToggleActive])
 
-  if (context.position === 'toolbar') {
-    return (
-      <div className="flex gap-3">
-        <HoverSearch
-          placeholder="Tìm môn học..."
-          value={search}
-          onChange={(value) => setSearch(value)}
+  return (
+    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+      <div className="flex shrink-0 items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
+        <div>
+          <h2 className="text-xl font-semibold text-black">Quản lý môn học</h2>
+          <p className="text-xs text-gray-500">Quản lý môn học và buổi học trong hệ thống</p>
+        </div>
+        {isManager ? (
+          <Button
+            onClick={openCreateModal}
+            className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+          >
+            <Plus size={16} />
+            Thêm môn học
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 shrink-0">
+        <StatCard
+          icon={<Layers className="h-6 w-6" strokeWidth={2} />}
+          label="Tổng môn học"
+          value={statValue(statsLoading, totalSubjectsStat)}
+          sub="Tất cả môn trong hệ thống"
+          variant="violet"
+        />
+        <StatCard
+          icon={<CalendarDays className="h-6 w-6" strokeWidth={2} />}
+          label="Tổng buổi học"
+          value={statValue(statsLoading, totalSubjectSessionsStat)}
+          sub="Tổng buổi theo môn"
+          variant="orange"
+        />
+        <StatCard
+          icon={<Sigma className="h-6 w-6" strokeWidth={2} />}
+          label="Trung bình buổi/môn"
+          value={statsLoading ? '—' : avgSessionsPerSubject.toLocaleString('vi-VN')}
+          sub="Average sessions per subject"
+          variant="blue"
+        />
+        <StatCard
+          icon={<TrendingUp className="h-6 w-6" strokeWidth={2} />}
+          label="Max buổi/môn"
+          value={statValue(statsLoading, maxSessionsPerSubject)}
+          sub="Giá trị lớn nhất"
+          variant="amber"
         />
       </div>
-    )
-  }
 
-  return (
-    <div className="space-y-4">
+      <div className="shrink-0 px-2 py-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <HoverSearch
+            placeholder="Tìm môn học..."
+            value={search}
+            onChange={(value) => setSearch(value)}
+          />
+          <Select
+            value={topicFilterId == null ? 'all' : String(topicFilterId)}
+            onValueChange={(v) => {
+              if (v === 'all') setTopicFilterId(null)
+              else setTopicFilterId(Number(v))
+            }}
+          >
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px] border-slate-200">
+              <SelectValue placeholder="Chủ đề" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả chủ đề</SelectItem>
+              {allTopics.map((t) => (
+                <SelectItem key={t.topicId} value={String(t.topicId)}>
+                  {t.topicName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-3">
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as 'all' | 'active' | 'inactive')}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px] border-slate-200">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="active">Hoạt động</SelectItem>
+                <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="secondary"
+              className="bg-white h-9 border-slate-200"
+              type="button"
+              onClick={() => {
+                setSearch('')
+                setTopicFilterId(null)
+                setStatusFilter('all')
+                setPageNumber(1)
+              }}
+              title="Đặt lại bộ lọc"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col rounded-xl border bg-white p-4 shadow-sm">
       <div className="relative min-h-[200px]">
         <DataTable
           columns={columns}
@@ -608,6 +708,7 @@ export default function SubjectsManagement() {
             <span className="text-sm text-slate-500">Đang tải...</span>
           </div>
         ) : null}
+      </div>
       </div>
 
       <SubjectDetailDrawer

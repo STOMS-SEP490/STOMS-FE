@@ -168,7 +168,7 @@ function TeachingHistoryRow(props: { item: DashboardTeachingHistoryItem }) {
     <div className={cn('rounded-xl border p-3', containerBorder, containerBg)}>
       <div className="flex items-start gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-slate-900 truncate">{it.sessionTitle || `Phiên ${it.sessionNo}`}</div>
+          <div className="text-sm font-semibold text-slate-900 truncate">{it.sessionTitle || `Buổi ${it.sessionNo}`}</div>
           <div className="mt-1 text-xs text-slate-500 truncate">
             {it.request?.requestCode ? `${it.request.requestCode} · ` : ''}
             {it.request?.requestName ?? '—'}
@@ -303,13 +303,13 @@ export default function TeacherDashboard() {
     workloadQ.error ?? teachingHistoryQ.error ?? attendanceIssuesQ.error ?? contractsQ.error ?? null;
 
   return (
-    <div className="min-h-full space-y-5 bg-slate-50 p-6">
+    <div className="min-h-full space-y-5 app-page-bg p-6">
       <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <h2 className="text-xl font-semibold text-slate-900">Dashboard giảng viên</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Tổng quan khối lượng giảng dạy, thu nhập ước tính và các phiên cần bạn chú ý.
+              Tổng quan khối lượng giảng dạy, thu nhập ước tính và các buổi cần bạn chú ý.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -394,7 +394,7 @@ export default function TeacherDashboard() {
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-2">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Phiên đã dạy gần đây</p>
+                  <p className="text-sm font-semibold text-slate-900">Buổi đã dạy gần đây</p>
                   <p className="text-xs text-slate-500">Trong {rangeLabelMap[effectiveRange]}</p>
                 </div>
                 <Button type="button" variant="ghost" size="sm" className="text-sky-700" onClick={() => (window.location.href = '/teacher/teaching-history')}>
@@ -425,7 +425,7 @@ export default function TeacherDashboard() {
               </div>
               <div className="space-y-3">
                 {attendanceItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Không có phiên thiếu giờ ra.</p>
+                  <p className="py-8 text-center text-xs text-slate-500">Không có buổi thiếu giờ ra.</p>
                 ) : (
                   attendanceItems.map((it) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
                 )}

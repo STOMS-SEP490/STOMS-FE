@@ -6,7 +6,6 @@ import AvailableEquipmentsPage from '@/modules/equipment/pages/AvailableEquipmen
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage';
 import CoursesReadonlyPage from '@/modules/course/pages/CoursesReadonlyPage';
-import CoursesReadonlyLayout from '@/modules/course/pages/CoursesReadonlyLayout';
 import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
 import TopicsReadonlyPage from '@/modules/topic/pages/TopicsReadonlyPage';
 import TeacherAttendanceHistoryPage from '@/modules/attendance/pages/TeacherAttendanceHistoryPage';
@@ -32,15 +31,9 @@ const TeamLeaderRoutes = [
   { path: 'profile', element: <UserProfile /> },
   { path: 'teams', element: <MyTeamPage /> },
   { path: 'events', element: <EventsManagement /> },
-  {
-    path: 'courses',
-    element: <CoursesReadonlyLayout />,
-    children: [
-      { index: true, element: <CoursesReadonlyPage /> },
-      { path: 'subjects', element: <SubjectsReadonlyPage /> },
-      { path: 'topics', element: <TopicsReadonlyPage /> },
-    ],
-  },
+  { path: 'courses', element: <CoursesReadonlyPage /> },
+  { path: 'subjects', element: <SubjectsReadonlyPage /> },
+  { path: 'topics', element: <TopicsReadonlyPage /> },
   { path: 'timetable', element: <EventCalendar /> },
   { path: 'timetable/assignments', element: <Navigate to="/tl/timetable" replace /> },
   { path: 'teaching-history', element: <TeacherTeachingHistoryPage /> },

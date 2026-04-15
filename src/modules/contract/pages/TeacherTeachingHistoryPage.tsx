@@ -106,7 +106,7 @@ export default function TeacherTeachingHistoryPage() {
 
     const rawRole = String(item.role || '');
     const normalized = rawRole.toLowerCase();
-    setSessionDetailRoleLabel(normalized.includes('ta') || normalized.includes('trợ') ? 'Trợ giảng' : 'Giáo viên');
+    setSessionDetailRoleLabel(normalized.includes('ta') || normalized.includes('trợ') ? 'Sinh viên' : 'Giáo viên');
 
     try {
       const s = await sessionApi.getById(item.sessionId);
@@ -136,7 +136,7 @@ export default function TeacherTeachingHistoryPage() {
       const msg =
         err && typeof err === 'object' && 'message' in err
           ? String((err as { message: unknown }).message)
-          : 'Không tải được chi tiết phiên.';
+          : 'Không tải được chi tiết buổi.';
       setSessionDetailError(msg);
     } finally {
       if (seq !== sessionDetailFetchSeq.current) return;
@@ -162,7 +162,7 @@ export default function TeacherTeachingHistoryPage() {
       },
       {
         id: 'sessionName',
-        header: 'PHIÊN',
+        header: 'BUỔI',
         cell: ({ row }) => (
           <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
             <div className="text-[13px] font-semibold text-slate-900 line-clamp-2">
@@ -241,7 +241,7 @@ export default function TeacherTeachingHistoryPage() {
                     const normalized = rawRole.toLowerCase();
                     const roleLabel =
                       normalized.includes('ta') || normalized.includes('trợ')
-                        ? 'Trợ giảng'
+                        ? 'Sinh viên'
                         : 'Giáo viên';
                     setDetailRoleLabel(roleLabel);
                     const full = await contractApi.getById(row.original.contract!.contractId);
@@ -321,7 +321,7 @@ export default function TeacherTeachingHistoryPage() {
 
   return (
     <div
-      className="relative flex min-h-0 flex-col gap-3 overflow-hidden bg-slate-50 p-6"
+      className="relative flex min-h-0 flex-col gap-3 overflow-hidden app-page-bg p-6"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {sessionDetailOpen && (
@@ -331,7 +331,7 @@ export default function TeacherTeachingHistoryPage() {
           <div className="w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden max-w-2xl border-l">
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div className="min-w-0">
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết phiên</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết buổi</p>
                 <h2 className="text-lg font-bold text-slate-900 truncate">{sessionDetailHeading}</h2>
                 {sessionDetailRequest?.requestCode ? (
                   <div className="text-xs text-slate-500 mt-1 truncate">
@@ -344,14 +344,14 @@ export default function TeacherTeachingHistoryPage() {
                 type="button"
                 onClick={closeSessionDetail}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-                aria-label="Đóng chi tiết phiên"
+                aria-label="Đóng chi tiết buổi"
               >
                 <X size={18} />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0 space-y-4">
-              {sessionDetailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết phiên...</p>}
+              {sessionDetailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết buổi...</p>}
 
               {sessionDetailError && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">
@@ -412,7 +412,7 @@ export default function TeacherTeachingHistoryPage() {
                         </div>
                       ) : (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs text-slate-500">Chưa có hợp đồng cho phiên này.</span>
+                          <span className="text-xs text-slate-500">Chưa có hợp đồng cho buổi này.</span>
                           <button
                             type="button"
                             className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100 whitespace-nowrap"
@@ -437,15 +437,15 @@ export default function TeacherTeachingHistoryPage() {
 
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-white/60">
-          <span className="text-sm text-slate-500">Đang tải danh sách phiên đã dạy...</span>
+          <span className="text-sm text-slate-500">Đang tải danh sách buổi đã dạy...</span>
         </div>
       )}
 
       {/* HEADER: tiêu đề + tìm kiếm / lọc cùng một thẻ như attendance-history */}
       <div className="flex shrink-0 flex-col gap-4 rounded-xl border bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-black">Danh sách phiên đã dạy</h2>
-          <p className="text-xs text-gray-500">Các phiên bạn đã dạy cùng trạng thái hợp đồng.</p>
+          <h2 className="text-xl font-semibold text-black">Danh sách buổi đã dạy</h2>
+          <p className="text-xs text-gray-500">Các buổi bạn đã dạy cùng trạng thái hợp đồng.</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 min-[900px]:gap-3">
           <HoverSearch
@@ -454,7 +454,7 @@ export default function TeacherTeachingHistoryPage() {
               setPageNumber(1);
               setSearch(v);
             }}
-            placeholder="Tìm theo tên phiên..."
+            placeholder="Tìm theo tên buổi..."
           />
           <Select
             value={hasContract}

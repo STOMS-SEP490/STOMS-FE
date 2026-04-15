@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Loader2, Pencil, Power, PowerOff, Plus, RotateCcw, X } from 'lucide-react';
-import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
+import { Eye, Loader2, Pencil, Power, PowerOff, Plus, RotateCcw, X, GraduationCap, CheckCircle2, Layers, CalendarDays } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Modal, message } from 'antd';
 import courseApi from '@/modules/course/api/courseApi';
 import courseSubjectApi from '@/modules/course/api/courseSubjectApi';
@@ -23,13 +23,14 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
-import type { CoursesManagementLayoutOutletContext } from '@/app/layouts/coursesManagementOutletContext';
 import { useCourses, type CourseListStatusFilter } from '@/modules/course/hooks/useCourses';
 import { useCourseDetailDrawer } from '@/modules/course/hooks/useCourseDetailDrawer';
 import { useActiveSubjects } from '@/modules/course/hooks/useActiveSubjects';
 import { CourseDetailDrawer } from '@/modules/course/components/CourseDetailDrawer';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi';
+import { dashboardApi, dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi';
+import { StatCard } from '@/shared/components/common/StatCard';
+import { useQuery } from '@tanstack/react-query';
 
 type Props = {
   readOnly?: boolean;
@@ -54,7 +55,6 @@ function mapApiCourseSubjectToRow(
 }
 
 export default function CoursesManagement({ readOnly = false }: Props) {
-  const context = useOutletContext<CoursesManagementLayoutOutletContext>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -65,15 +65,6 @@ export default function CoursesManagement({ readOnly = false }: Props) {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const openCreateFromUrl = searchParams.get('openCourseCreate');
-
-  const listLifted =
-    context.courseListLifted === true &&
-    typeof context.setCourseListSearch === 'function' &&
-    typeof context.courseListSearch === 'string' &&
-    typeof context.setCourseListStatusFilter === 'function' &&
-    typeof context.courseListStatusFilter !== 'undefined' &&
-    typeof context.setCourseListPage === 'function' &&
-    typeof context.courseListPage === 'number';
 
   const {
     data,
@@ -88,19 +79,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
     totalItems,
     setPageNumber,
     refetch,
-  } = useCourses(
-    listLifted
-      ? {
-          search: context.courseListSearch,
-          setSearch: context.setCourseListSearch,
-          statusFilter: context.courseListStatusFilter,
-          setStatusFilter: context.setCourseListStatusFilter,
-          pageNumber: context.courseListPage,
-          setPageNumber: context.setCourseListPage,
-          activeOnly: false,
-        }
-      : { activeOnly: false },
-  );
+  } = useCourses({ activeOnly: false });
 
   const allSubjects = useActiveSubjects();
 
@@ -165,7 +144,6 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   }, [canEdit]);
 
   useEffect(() => {
-    if (context.position !== 'content') return;
     if (openCreateFromUrl !== '1') return;
     openCreateModal();
     setSearchParams((prev) => {
@@ -173,7 +151,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       next.delete('openCourseCreate');
       return next;
     });
-  }, [context.position, openCreateFromUrl, openCreateModal, setSearchParams]);
+  }, [openCreateFromUrl, openCreateModal, setSearchParams]);
 
   const openEditModal = useCallback(
     async (c: CourseListItem) => {
@@ -405,7 +383,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         cell: ({ row }) => {
           const c = row.original;
           return (
-            <div className="flex gap-3">
+            <div className="flex items-center justify-center gap-2">
               <span title="Xem chi tiết">
                 <Eye
                   size={16}
@@ -449,47 +427,102 @@ export default function CoursesManagement({ readOnly = false }: Props) {
     [canEdit, handleView, openEditModal, handleToggleActive],
   );
 
-  if (context.position === 'toolbar') {
-    if (!isManager) {
-      return (
-        <div className="flex gap-3 items-center">
-          <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
-        </div>
-      );
-    }
-    return (
-      <div className="flex gap-3 items-center">
-        <HoverSearch
-          placeholder="Tìm khóa học..."
-          value={search}
-          onChange={(value) => setSearch(value)}
-        />
-        <Select
-          value={statusFilter}
-          onValueChange={(v) =>
-            setFiltersAndResetPage({
-              statusFilter: v as CourseListStatusFilter,
-            })
-          }
-        >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[160px]">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            <SelectItem value="active">Đang hoạt động</SelectItem>
-            <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="secondary" className="bg-white" onClick={resetFilters} type="button">
-          <RotateCcw className="w-4 h-4" />
-        </Button>
-      </div>
-    );
-  }
+  const { data: courseSummary, isLoading: summaryLoading } = useQuery({
+    queryKey: dashboardCoursesSummaryQueryKey,
+    queryFn: () => dashboardApi.getCourseSummary(),
+    staleTime: 60_000,
+  });
+  const totalCourses = courseSummary?.totalCourses ?? 0;
+  const totalActiveCourses = courseSummary?.activeCourses ?? 0;
+  const totalSubjects = courseSummary?.totalSubjects ?? 0;
+  const totalSessions = courseSummary?.totalSubjectSessions ?? 0;
+  const statValue = (loading: boolean, value: number) => (loading ? '—' : value.toLocaleString('vi-VN'));
+  const iconClass = 'h-6 w-6';
 
   return (
-    <div className="space-y-4">
+    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+      <div className="flex shrink-0 items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
+        <div>
+          <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>
+          <p className="text-xs text-gray-500">Quản lý khóa học trong hệ thống</p>
+        </div>
+        {canEdit && (
+          <Button
+            onClick={openCreateModal}
+            className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+          >
+            <Plus size={16} />
+            Thêm khóa học
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 shrink-0">
+        <StatCard
+          icon={<GraduationCap className={iconClass} strokeWidth={2} />}
+          label="Tổng khóa học"
+          value={statValue(summaryLoading, totalCourses)}
+          sub="Tất cả khóa trong hệ thống"
+          variant="blue"
+        />
+        <StatCard
+          icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
+          label="Đang hoạt động"
+          value={statValue(summaryLoading, totalActiveCourses)}
+          sub="Khóa học đang bật"
+          variant="green"
+        />
+        <StatCard
+          icon={<Layers className={iconClass} strokeWidth={2} />}
+          label="Tổng môn học"
+          value={statValue(summaryLoading, totalSubjects)}
+          sub="Phân bổ theo chương trình"
+          variant="violet"
+        />
+        <StatCard
+          icon={<CalendarDays className={iconClass} strokeWidth={2} />}
+          label="Tổng buổi học"
+          value={statValue(summaryLoading, totalSessions)}
+          sub="Buổi theo môn học"
+          variant="orange"
+        />
+      </div>
+
+      <div className="shrink-0 px-2 py-1">
+        {!isManager ? (
+          <div className="flex gap-3 items-center justify-end">
+            <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={(value) => setSearch(value)} />
+            <div className="flex items-center gap-3">
+              <Select
+                value={statusFilter}
+                onValueChange={(v) =>
+                  setFiltersAndResetPage({
+                    statusFilter: v as CourseListStatusFilter,
+                  })
+                }
+              >
+                <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px] border-slate-200">
+                  <SelectValue placeholder="Tất cả trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value="active">Đang hoạt động</SelectItem>
+                  <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="secondary" className="bg-white h-9 border-slate-200" onClick={resetFilters} type="button">
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col rounded-xl border bg-white p-4 shadow-sm">
       <div className="relative min-h-[200px]">
         <DataTable
           columns={columns}
@@ -511,6 +544,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
           </div>
         ) : null}
       </div>
+      </div>
 
       <CourseDetailDrawer
         open={detailOpen}
@@ -518,7 +552,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         detailCourse={detailCourse}
         detailLoading={detailLoading}
         onSubjectClick={(subjectId) => {
-          navigate(`/manager/courses/subjects?openDetail=1&subjectId=${subjectId}`);
+          navigate(`/manager/subjects?openDetail=1&subjectId=${subjectId}`);
         }}
       />
 

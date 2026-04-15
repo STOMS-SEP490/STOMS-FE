@@ -54,62 +54,62 @@ const THEMES: Record<NotificationKind, Omit<NotificationVisual, 'kind'>> = {
   ASSIGNMENT: {
     label: 'Phân công',
     Icon: ClipboardList,
-    iconWrapClass: 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-sm shadow-violet-500/20',
+    iconWrapClass: 'bg-violet-50 text-violet-600 ring-1 ring-violet-100',
   },
   BORROWING: {
     label: 'Mượn trả',
     Icon: Package,
-    iconWrapClass: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm shadow-amber-500/20',
+    iconWrapClass: 'bg-amber-50 text-amber-600 ring-1 ring-amber-100',
   },
   EQUIPMENT_BORROWING: {
     label: 'Mượn thiết bị',
     Icon: Laptop,
-    iconWrapClass: 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm shadow-teal-500/20',
+    iconWrapClass: 'bg-teal-50 text-teal-600 ring-1 ring-teal-100',
   },
   MEMBER: {
     label: 'Thành viên',
     Icon: UserCircle,
-    iconWrapClass: 'bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-sm shadow-sky-500/20',
+    iconWrapClass: 'bg-sky-50 text-sky-600 ring-1 ring-sky-100',
   },
   REQUEST: {
     label: 'Yêu cầu',
     Icon: Inbox,
-    iconWrapClass: 'bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-sm shadow-rose-500/20',
+    iconWrapClass: 'bg-rose-50 text-rose-600 ring-1 ring-rose-100',
   },
   SESSION: {
-    label: 'Phiên học',
+    label: 'Buổi học',
     Icon: CalendarClock,
-    iconWrapClass: 'bg-gradient-to-br from-cyan-500 to-sky-600 text-white shadow-sm shadow-cyan-500/20',
+    iconWrapClass: 'bg-cyan-50 text-cyan-600 ring-1 ring-cyan-100',
   },
   RESERVATION: {
-    label: 'Đặt trước',
+    label: 'Đơn yêu cầu thiết bị',
     Icon: CalendarClock,
-    iconWrapClass: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-sm shadow-indigo-500/20',
+    iconWrapClass: 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100',
   },
   SKILL: {
     label: 'Kỹ năng',
     Icon: Award,
-    iconWrapClass: 'bg-gradient-to-br from-fuchsia-500 to-purple-600 text-white shadow-sm shadow-fuchsia-500/20',
+    iconWrapClass: 'bg-fuchsia-50 text-fuchsia-600 ring-1 ring-fuchsia-100',
   },
   TEAM: {
     label: 'Nhóm',
     Icon: Users,
-    iconWrapClass: 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm shadow-blue-500/20',
+    iconWrapClass: 'bg-blue-50 text-blue-600 ring-1 ring-blue-100',
   },
   TRANSACTION: {
     label: 'Giao dịch / Quỹ',
     Icon: Wallet,
-    iconWrapClass: 'bg-gradient-to-br from-emerald-500 to-green-700 text-white shadow-sm shadow-emerald-500/20',
+    iconWrapClass: 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100',
   },
   USER: {
     label: 'Tài khoản',
     Icon: User,
-    iconWrapClass: 'bg-gradient-to-br from-slate-600 to-slate-800 text-white shadow-sm shadow-slate-600/20',
+    iconWrapClass: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
   },
   GENERIC: {
     label: 'Thông báo',
     Icon: Bell,
-    iconWrapClass: 'bg-gradient-to-br from-slate-400 to-slate-600 text-white shadow-sm shadow-slate-400/15',
+    iconWrapClass: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
   },
 };
 

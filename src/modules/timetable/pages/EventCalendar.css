@@ -46,7 +46,7 @@
 }
 
 .calendar-subtle-btn:hover {
-  background: #f8fafc;
+  background: var(--app-page-bg);
   border-color: #cbd5e1;
 }
 
@@ -136,7 +136,7 @@
 
 .calendar-segment-btn:hover {
   color: #0f172a;
-  background: #f8fafc;
+  background: var(--app-page-bg);
 }
 
 .calendar-segment-btn.active {
@@ -185,7 +185,7 @@
   max-width: 100%;
   min-width: 0;
   --fc-border-color: #e5e7eb;
-  --fc-neutral-bg-color: #f8fafc;
+  --fc-neutral-bg-color: var(--app-page-bg);
   --fc-page-bg-color: #ffffff;
 }
 
@@ -223,7 +223,7 @@
   font-size: 12px;
   color: #334155;
   font-weight: 600;
-  background: #f8fafc;
+  background: var(--app-page-bg);
 }
 
 .fc .fc-timegrid-slot-label {

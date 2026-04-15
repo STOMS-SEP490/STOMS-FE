@@ -127,7 +127,7 @@ export default function ForgotPassword() {
   const onSubmit = async (data: FormValues) => {
     const token = resetToken.trim();
     if (!token) {
-      message.error('Phiên đặt lại mật khẩu không hợp lệ. Vui lòng xác thực OTP lại.');
+      message.error('Buổi đặt lại mật khẩu không hợp lệ. Vui lòng xác thực OTP lại.');
       setStep(2);
       return;
     }
