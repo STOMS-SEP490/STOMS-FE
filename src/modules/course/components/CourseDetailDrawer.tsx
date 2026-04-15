@@ -352,9 +352,9 @@ function SubjectBlock({
       </div>
 
       {expanded ? (
-        <div className="border-t border-slate-200/90 bg-slate-100/80 px-2.5 pb-2.5 pt-2.5 sm:px-3">
-          <div className="rounded-xl border border-slate-200/90 bg-white p-3.5 sm:p-4">
-            <div className="space-y-4 border-l-[3px] border-[#2197C0] pl-3.5">
+        <div className="px-2.5 pb-2.5 pt-2.5">
+          <div className=" bg-white ">
+            <div className="space-y-4 pl-3.5">
               {topic ? (
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Chủ đề</p>

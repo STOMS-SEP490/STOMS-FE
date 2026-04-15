@@ -16,7 +16,9 @@ export default function ProgramCoordinatorTeamsPage() {
   const pageSize = 10;
   const [search, setSearch] = useState('');
 
-  const { data, totalItems, loading } = useTeams(pageNumber, pageSize, search);
+  const { data: listData, isFetching: loading } = useTeams(pageNumber, pageSize, search);
+  const data = listData?.items ?? [];
+  const totalItems = listData?.totalItems ?? 0;
 
   const [searchParams, setSearchParams] = useSearchParams();
   const openDetailFromUrl = searchParams.get('openDetail');

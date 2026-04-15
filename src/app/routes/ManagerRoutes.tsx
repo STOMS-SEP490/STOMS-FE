@@ -1,12 +1,9 @@
 import { Navigate, useLocation, useParams } from 'react-router-dom';
 import CoursesManagement from '../../modules/course/pages/CoursesManagement';
 import TopicsManagement from '@/modules/topic/pages/TopicsManagement';
-import CoursesLayout from '@/app/layouts/CoursesManagementLayout';
 import SubjectsManagement from '@/modules/subject/pages/SubjectsManagement';
 import EquipmentsManagement from '@/modules/equipment/pages/EquipmentsManagement';
 import CategoriesManagement from '@/modules/category/pages/CategoriesManagement';
-import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout';
-import BorrowingsManagementLayout from '@/app/layouts/BorrowingsManagementLayout';
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory';
 import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement';
 import TeamsManagement from '@/modules/team/pages/TeamsManagement';
@@ -20,7 +17,6 @@ import ContributionFund from '@/modules/transaction/pages/ContributionFund';
 import WalletsManagement from '@/modules/transaction/pages/WalletsManagement';
 import AuditLogs from '@/modules/auditLog/pages/AuditLogs';
 import SkillsManagement from '@/modules/skill/pages/SkillMangagement';
-import TeamLayout from '@/app/layouts/TeamLayout';
 import UserManagement from '@/modules/user/pages/UsersManagement';
 import RolesManagement from '@/modules/role/pages/RolesManagement';
 import RequestLayout from '../layouts/RequestLayout';
@@ -60,16 +56,8 @@ const ManagerRoutes = [
   { path: 'events', element: <EventsManagement /> },
   { path: 'timetable', element: <EventCalendar /> },
   { path: 'courses/subjects', element: <RedirectCoursesSubjectsToSubjects /> },
-  {
-    path: 'courses',
-    element: <CoursesLayout variant="courses" />,
-    children: [{ index: true, element: <CoursesManagement /> }],
-  },
-  {
-    path: 'subjects',
-    element: <CoursesLayout variant="subjects" />,
-    children: [{ index: true, element: <SubjectsManagement /> }],
-  },
+  { path: 'courses', element: <CoursesManagement /> },
+  { path: 'subjects', element: <SubjectsManagement /> },
   { path: 'profile', element: <UserProfile /> },
   { path: 'users', element: <UserManagement /> },
   { path: 'members', element: <MembersManagement /> },
@@ -112,22 +100,10 @@ const ManagerRoutes = [
     path: 'equipments/history/reservations',
     element: <Navigate to="/manager/borrowings/reservations" replace />,
   },
-  {
-    path: 'equipments',
-    element: <EquipmentsManagementLayout />,
-    children: [
-      { index: true, element: <EquipmentsManagement /> },
-      { path: 'categories', element: <CategoriesManagement /> },
-    ],
-  },
-  {
-    path: 'borrowings',
-    element: <BorrowingsManagementLayout />,
-    children: [
-      { index: true, element: <EquipmentsHistory /> },
-      { path: 'reservations', element: <ReservationsManagement /> },
-    ],
-  },
+  { path: 'equipments', element: <EquipmentsManagement /> },
+  { path: 'equipments/categories', element: <CategoriesManagement /> },
+  { path: 'borrowings/reservations', element: <ReservationsManagement /> },
+  { path: 'borrowings', element: <EquipmentsHistory /> },
   {
     path: 'transactions',
     element: <TransactionLayout />,
@@ -138,11 +114,7 @@ const ManagerRoutes = [
       { path: 'wallets', element: <WalletsManagement /> },
     ],
   },
-  {
-    path: 'teams',
-    element: <TeamLayout />,
-    children: [{ index: true, element: <TeamsManagement /> }],
-  },
+  { path: 'teams', element: <TeamsManagement /> },
 ];
 
 export default ManagerRoutes;

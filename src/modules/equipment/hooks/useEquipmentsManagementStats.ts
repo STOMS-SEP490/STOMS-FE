@@ -1,54 +1,63 @@
 import { useEffect, useState } from 'react'
-import { EQUIPMENT_STATUS } from '@/constants/equipment'
-import categoryApi from '@/modules/category/api/categoryApi'
-import equipmentApi from '../api/equipmentApi'
+import { dashboardApi } from '@/modules/dashboard/api/dashboardApi'
 
 export type EquipmentsManagementStats = {
   totalEquipment: number
-  available: number
-  totalCategories: number
-  borrowed: number
+  availableEquipment: number
+  borrowedEquipment: number
+  damagedEquipment: number
+  lostEquipment: number
 }
 
 const initial: EquipmentsManagementStats = {
   totalEquipment: 0,
-  available: 0,
-  totalCategories: 0,
-  borrowed: 0,
+  availableEquipment: 0,
+  borrowedEquipment: 0,
+  damagedEquipment: 0,
+  lostEquipment: 0,
 }
 
-/** Thống kê header trang Quản lý thiết bị — lấy totalItems từ API filter (pageSize=1). */
+let statsCache: EquipmentsManagementStats | null = null
+let statsInFlight: Promise<EquipmentsManagementStats> | null = null
+
+async function fetchEquipmentsManagementStats(): Promise<EquipmentsManagementStats> {
+  if (statsCache) return statsCache
+  if (statsInFlight) return statsInFlight
+
+  statsInFlight = (async () => {
+    try {
+      const statsRes = await dashboardApi.getEquipmentStatistics()
+      const nextStats: EquipmentsManagementStats = {
+        totalEquipment: statsRes.totalEquipment ?? 0,
+        availableEquipment: statsRes.availableEquipment ?? 0,
+        borrowedEquipment: statsRes.borrowedEquipment ?? 0,
+        damagedEquipment: statsRes.damagedEquipment ?? 0,
+        lostEquipment: statsRes.lostEquipment ?? 0,
+      }
+      statsCache = nextStats
+      return nextStats
+    } finally {
+      statsInFlight = null
+    }
+  })()
+
+  return statsInFlight
+}
+
+/** Equipment management header stats from GET /dashboard/equipments/statistics. */
 export function useEquipmentsManagementStats() {
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState<EquipmentsManagementStats>(initial)
+  const [loading, setLoading] = useState(!statsCache)
+  const [stats, setStats] = useState<EquipmentsManagementStats>(statsCache ?? initial)
 
   useEffect(() => {
     let cancelled = false
 
     ;(async () => {
-      setLoading(true)
+      if (!statsCache) setLoading(true)
       try {
-        const [totalRes, availableRes, categoriesRes, borrowedRes] = await Promise.all([
-          equipmentApi.getEquipments({ pageNumber: 1, pageSize: 1 }),
-          equipmentApi.getEquipments({
-            pageNumber: 1,
-            pageSize: 1,
-            status: EQUIPMENT_STATUS.AVAILABLE,
-          }),
-          categoryApi.getCategories({ pageNumber: 1, pageSize: 1 }),
-          equipmentApi.getEquipments({
-            pageNumber: 1,
-            pageSize: 1,
-            status: EQUIPMENT_STATUS.BORROWED,
-          }),
-        ])
+        const nextStats = await fetchEquipmentsManagementStats()
         if (cancelled) return
-        setStats({
-          totalEquipment: totalRes.totalItems,
-          available: availableRes.totalItems,
-          totalCategories: categoriesRes.totalItems,
-          borrowed: borrowedRes.totalItems,
-        })
+        setStats(nextStats)
       } catch {
         if (!cancelled) setStats(initial)
       } finally {

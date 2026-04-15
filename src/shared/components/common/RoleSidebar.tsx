@@ -19,7 +19,7 @@ type RoleSidebarProps = {
   menus: RoleSidebarMenuItem[];
 };
 
-export default function RoleSidebar({ profilePath, menus }: RoleSidebarProps) {
+export default function RoleSidebar({ menus }: RoleSidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);

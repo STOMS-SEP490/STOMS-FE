@@ -11,15 +11,16 @@ import {
 } from '@/shared/components/ui/select';
 import type { BorrowingListItem } from '@/modules/equipment/borrowing';
 import type { ColumnDef } from '@tanstack/react-table';
-import { RotateCcw } from 'lucide-react';
-import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
+import { BookOpen, CheckCircle, Clock, GraduationCap, Plus, RotateCcw } from 'lucide-react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useBorrowings } from '../hooks/useBorrowings';
+import { useBorrowingsListStats } from '../hooks/useBorrowingsListStats';
+import { StatCard } from '@/shared/components/common/StatCard';
 import {
   BORROWING_STATUS_OPTIONS,
   getBorrowingStatusDisplay,
   getBorrowingStatusColor,
 } from '@/constants/borrowing';
-import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import borrowingApi from '../api/borrowingApi';
 import CreateBorrowingModal from './CreateBorrowingModal';
@@ -159,20 +160,21 @@ const columns = (
   },
 ];
 
-type OutletContext = {
-  position?: string;
-  createBorrowingOpen?: boolean;
-  setCreateBorrowingOpen?: (open: boolean) => void;
-};
-
 type Props = {
   borrowedByMemberId?: number;
+  /** Trang đầy đủ (manager / EM route). */
   standalone?: boolean;
+  /** Chèn trong tab (vd. thành viên): chỉ bảng, không header / thống kê / bộ lọc. */
+  embedded?: boolean;
 };
 
-export default function EquipmentsHistory({ borrowedByMemberId, standalone = false }: Props = {}) {
-  const context = useOutletContext<OutletContext>();
+export default function EquipmentsHistory({
+  borrowedByMemberId,
+  standalone = false,
+  embedded = false,
+}: Props = {}) {
   const location = useLocation();
+  const { loading: loadingStats, stats: borrowingsStats } = useBorrowingsListStats();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const searchValue = searchParams.get(QP_SEARCH) ?? '';
@@ -231,15 +233,13 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
     [setQuery],
   );
 
-  const enabledFetch = context?.position !== 'header' && context?.position !== 'toolbar';
   const { data, loading, pageSize, totalItems, refetch } = useBorrowings({
     borrowedByMemberId,
     search: searchValue,
     status: statusValue,
     pageNumber: pageFromUrl,
-    enabled: enabledFetch,
   });
-  const [createOpenLocal, setCreateOpenLocal] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailBorrowing, setDetailBorrowing] = useState<BorrowingListItem | null>(
     null
@@ -261,10 +261,6 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
       return next;
     });
   };
-
-  const openCreate = context?.createBorrowingOpen ?? createOpenLocal;
-  const setOpenCreate =
-    context?.setCreateBorrowingOpen ?? setCreateOpenLocal;
 
   const handleView = async (item: BorrowingListItem) => {
     try {
@@ -321,56 +317,41 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
   ]);
 
   const isEquipmentManager = location.pathname.startsWith('/em/');
-  const renderStandalone = standalone || (!context?.position && isEquipmentManager);
+  const showFullShell = !embedded && (standalone || !borrowedByMemberId);
 
-  if (context?.position === 'header') {
-    if (!isEquipmentManager) return null;
-    return (
-      <Button
-        className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
-        type="button"
-        onClick={() => setOpenCreate(true)}
-      >
-        <Plus size={16} />
-        Tạo phiếu mượn
-      </Button>
-    );
-  }
-  if (context?.position === 'toolbar') {
-    return (
-      <div className="flex gap-3 items-center">
-        <HoverSearch
-          placeholder="Tìm theo mô tả, ghi chú..."
-          value={searchValue}
-          onChange={(v) => setSearchQuery(v)}
-        />
-        <Select
-          value={statusValue ?? 'all'}
-          onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}
-        >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            {BORROWING_STATUS_OPTIONS.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant="secondary"
-          className="bg-white"
-          onClick={resetFiltersQuery}
-          type="button"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </Button>
-      </div>
-    );
-  }
+  const statCards = useMemo(
+    () => [
+      {
+        icon: <GraduationCap />,
+        label: 'Tổng phiếu mượn',
+        value: loadingStats ? '—' : borrowingsStats.total,
+        sub: '',
+        variant: 'blue' as const,
+      },
+      {
+        icon: <CheckCircle />,
+        label: 'Đang hoạt động',
+        value: loadingStats ? '—' : borrowingsStats.active,
+        sub: '',
+        variant: 'green' as const,
+      },
+      {
+        icon: <BookOpen />,
+        label: 'Đã trả',
+        value: loadingStats ? '—' : borrowingsStats.returned,
+        sub: '',
+        variant: 'violet' as const,
+      },
+      {
+        icon: <Clock />,
+        label: 'Phiếu quá hạn',
+        value: loadingStats ? '—' : borrowingsStats.overdue,
+        sub: '',
+        variant: 'amber' as const,
+      },
+    ],
+    [borrowingsStats, loadingStats],
+  );
 
   const contentNode = (
     <>
@@ -382,10 +363,10 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
         canManageReturn={isEquipmentManager}
       />
       <CreateBorrowingModal
-        open={openCreate}
-        onClose={() => setOpenCreate(false)}
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
         onCreated={() => {
-          setOpenCreate(false);
+          setCreateOpen(false);
           refetch();
         }}
       />
@@ -408,67 +389,79 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
     </>
   );
 
-  if (renderStandalone) {
-    return (
-      <div
-        className="p-6 app-page-bg flex flex-col min-h-0 gap-3"
-        style={{ height: 'var(--content-height, 100vh)' }}
-      >
-        <div className="shrink-0 bg-white flex justify-between items-center px-6 py-4 rounded-xl border shadow-sm">
-          <div>
-            <h2 className="text-xl font-semibold text-black">Phiếu mượn thiết bị</h2>
-            <p className="text-xs text-gray-500">Quản lý phiếu mượn, theo dõi trạng thái trả thiết bị</p>
-          </div>
+  if (!showFullShell) {
+    return contentNode;
+  }
+
+  return (
+    <div
+      className="space-y-6 p-6 app-page-bg"
+      style={{ minHeight: 'var(--content-height, 100vh)' }}
+    >
+      <div className="mb-2 flex items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
+        <div>
+          <h2 className="text-xl font-semibold text-black">Phiếu mượn thiết bị</h2>
+          <p className="text-xs text-gray-500">
+            Quản lý phiếu mượn, theo dõi trạng thái trả thiết bị
+          </p>
+        </div>
+        {isEquipmentManager ? (
           <Button
-            className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+            className="gap-2 rounded-md bg-[#2197C0] px-3 py-2 text-white hover:bg-[#208AAE]"
             type="button"
-            onClick={() => setOpenCreate(true)}
+            onClick={() => setCreateOpen(true)}
           >
             <Plus size={16} />
             Tạo phiếu mượn
           </Button>
-        </div>
+        ) : null}
+      </div>
 
-        <div className="shrink-0 px-6 py-2">
-          <div className="flex gap-3 items-center justify-end">
-            <HoverSearch
-              placeholder="Tìm theo mô tả, ghi chú..."
-              value={searchValue}
-              onChange={(v) => setSearchQuery(v)}
-            />
-            <Select
-              value={statusValue ?? 'all'}
-              onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}
-            >
-              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                {BORROWING_STATUS_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="secondary"
-              className="bg-white"
-              onClick={resetFiltersQuery}
-              type="button"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
+      <div className="mb-0 grid grid-cols-4 gap-4">
+        {statCards.map((c) => (
+          <StatCard
+            key={c.label}
+            icon={c.icon}
+            label={c.label}
+            value={c.value}
+            sub={c.sub}
+            variant={c.variant}
+          />
+        ))}
+      </div>
 
-        <div className="bg-white rounded-xl border shadow-sm px-6 py-4 flex-1 min-h-0">
-          {contentNode}
+      <div className="mb-1 px-6 py-2">
+        <div className="flex items-center justify-end gap-3">
+          <HoverSearch
+            placeholder="Tìm theo mô tả, ghi chú..."
+            value={searchValue}
+            onChange={(v) => setSearchQuery(v)}
+          />
+          <Select
+            value={statusValue ?? 'all'}
+            onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}
+          >
+            <SelectTrigger className="w-[140px] gap-2 bg-white text-sm text-gray-500">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              {BORROWING_STATUS_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="secondary" className="bg-white" onClick={resetFiltersQuery} type="button">
+            <RotateCcw className="h-4 w-4" />
+          </Button>
         </div>
       </div>
-    );
-  }
 
-  return contentNode;
+      <div className="rounded-xl border bg-white px-6 py-4 shadow-sm">
+        {contentNode}
+      </div>
+    </div>
+  );
 }

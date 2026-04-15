@@ -634,47 +634,71 @@ export default function EventsManagement() {
       header: 'Tên sự kiện',
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="font-medium text-gray-900 truncate">{row.original.eventName}</div>
-          <div className="text-xs text-gray-500 truncate">
+          <div className="font-medium text-gray-900 ">{row.original.eventName}</div>
+          <div className="text-xs text-gray-500 ">
             {row.original.description?.trim() || '—'}
           </div>
         </div>
       ),
     },
     {
+      accessorKey: 'duration',
+      header: () => <span className="block w-full text-center">Thời lượng</span>,
+      cell: ({ row }) => {
+        const d = String(row.original.duration ?? '').trim();
+        return (
+          <div className="text-center">
+            <span className="tabular-nums text-gray-800">{d || '—'}</span>
+          </div>
+        );
+      },
+    },
+    {
       id: 'status',
-      header: 'Trạng thái',
-      cell: ({ row }) =>
-        row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700">
-            Hoạt động
-          </Badge>
-        ) : (
-          <Badge className="bg-gray-200 text-gray-600">
-            Ngừng hoạt động
-          </Badge>
-        ),
+      header: () => <span className="block w-full text-center">Trạng thái</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          {row.original.isActive ? (
+            <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
+          ) : (
+            <Badge className="bg-gray-200 text-gray-600">Ngừng hoạt động</Badge>
+          )}
+        </div>
+      ),
     },
     {
       accessorKey: 'numberOfSession',
-      header: 'Số buổi',
+      header: () => <span className="block w-full text-center">Số buổi</span>,
       cell: ({ row }) => (
-        <span className="font-medium">
-          {row.original.numberOfSession} buổi
-        </span>
+        <div className="text-center">
+          <span className="font-medium">{row.original.numberOfSession} buổi</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'updatedAt',
+      header: () => <span className="block w-full text-center">Cập nhật</span>,
+      cell: ({ row }) => (
+        <div className="text-center tabular-nums text-gray-800">
+          {row.original.updatedAt ? new Date(row.original.updatedAt).toLocaleString('vi-VN') : '—'}
+        </div>
       ),
     },
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
       cell: ({ row }) => {
         const ev = row.original;
         if (readOnly) {
-          return <TableTextAction onClick={() => void handleViewDetail(ev)} />;
+          return (
+            <div className="flex justify-center">
+              <TableTextAction onClick={() => void handleViewDetail(ev)} />
+            </div>
+          );
         }
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <Eye
               size={16}
               className="text-gray-800 cursor-pointer"

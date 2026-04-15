@@ -1,4 +1,5 @@
 import { DataTable } from '@/shared/components/common/DataTable';
+import { StatCard } from '@/shared/components/common/StatCard';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
@@ -10,8 +11,8 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import type { EquipmentListItem } from '@/modules/equipment/equipment';
-import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import type { ColumnDef, Row } from '@tanstack/react-table';
+import { CheckCircle2, CircleX, Package, PackageOpen, Pencil, Plus, RotateCcw, Trash2, Wrench } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useEquipments } from '../hooks/useEquipments';
@@ -28,11 +29,20 @@ import { Image, message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import EquipmentDetailSidebar from './EquipmentDetailSidebar';
 import EditEquipmentModal from './EditEquipmentModal';
+import { useEquipmentsManagementStats } from '../hooks/useEquipmentsManagementStats';
+
+const iconClass = 'h-6 w-6';
+
+function formatStatValue(loading: boolean, n: number) {
+  if (loading) return '—';
+  return n.toLocaleString('vi-VN');
+}
 
 export default function EquipmentsManagement() {
   const context = useOutletContext<{ position?: string }>()
   const location = useLocation();
   const isEquipmentManager = location.pathname.startsWith('/em/');
+  const isStandalonePage = !context?.position;
   const [searchParams, setSearchParams] = useSearchParams();
   const [openCreateModal, setOpenCreateModal] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -59,6 +69,7 @@ export default function EquipmentsManagement() {
     setPageNumber,
     refetch,
   } = useEquipments()
+  const { loading: statsLoading, stats } = useEquipmentsManagementStats();
   const { data: categories } = useCategories()
   const categoryNameById = new Map(categories.map((c) => [c.categoryId, c.categoryName]))
 
@@ -190,6 +201,15 @@ export default function EquipmentsManagement() {
       ),
     },
     {
+      accessorKey: 'sponsoredBy',
+      header: 'Bên cung cấp',
+      cell: ({ row }) => (
+        <span className="text-sm text-gray-700 max-w-[160px] truncate block" title={row.original.sponsoredBy || undefined}>
+          {row.original.sponsoredBy?.trim() ? row.original.sponsoredBy : '—'}
+        </span>
+      ),
+    },
+    {
       accessorKey: 'status',
       header: 'Trạng thái',
       cell: ({ row }) => {
@@ -213,9 +233,13 @@ export default function EquipmentsManagement() {
     {
       accessorKey: 'imgLink',
       header: 'Hình ảnh',
-      cell: ({ row }) => (
+      cell: ({ row }) =>
         row.original.imgLink ? (
-          <div className="w-10 h-10 rounded-md overflow-hidden border bg-gray-50">
+          <div
+            className="w-10 h-10 rounded-md overflow-hidden border bg-gray-50"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <Image
               src={row.original.imgLink}
               alt={row.original.equipmentName}
@@ -227,37 +251,35 @@ export default function EquipmentsManagement() {
           </div>
         ) : (
           <span className="text-xs text-gray-500">Không có ảnh</span>
-        )
-      ),
+        ),
     },
-    {
-      id: 'actions',
-      header: 'Thao tác',
-      enableSorting: false,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <Eye
-            size={16}
-            className="text-blue-600 cursor-pointer"
-            onClick={() => handleView(row.original)}
-          />
-          {isEquipmentManager ? (
-            <>
-              <Pencil
-                size={16}
-                className="text-blue-600 cursor-pointer"
-                onClick={() => handleEdit(row.original)}
-              />
-              <Trash2
-                size={16}
-                className="text-red-500 cursor-pointer"
-                onClick={() => handleDisableClick(row.original)}
-              />
-            </>
-          ) : null}
-        </div>
-      ),
-    },
+    ...(isEquipmentManager
+      ? [
+          {
+            id: 'actions',
+            header: 'Thao tác',
+            enableSorting: false,
+            cell: ({ row }: { row: Row<EquipmentListItem> }) => (
+              <div
+                className="flex items-center gap-3"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <Pencil
+                  size={16}
+                  className="text-blue-600 cursor-pointer"
+                  onClick={() => handleEdit(row.original)}
+                />
+                <Trash2
+                  size={16}
+                  className="text-red-500 cursor-pointer"
+                  onClick={() => handleDisableClick(row.original)}
+                />
+              </div>
+            ),
+          },
+        ]
+      : []),
   ]
 
   if (context?.position === 'header') {
@@ -287,7 +309,7 @@ export default function EquipmentsManagement() {
     return (
       <div className="flex gap-3 items-center">
         <HoverSearch
-          placeholder="Tìm tên thiết bị..."
+          placeholder="Tìm tên hoặc mã thiết bị..."
           value={search}
           onChange={(value) => setSearch(value)}
         />
@@ -299,11 +321,11 @@ export default function EquipmentsManagement() {
             })
           }
         >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px] min-w-[180px] max-w-[180px] [&>span]:min-w-0">
             <SelectValue placeholder="Danh mục" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="all">Tất cả danh mục</SelectItem>
             {categories.map((c) => (
               <SelectItem key={c.categoryId} value={String(c.categoryId)}>
                 {c.categoryName}
@@ -319,11 +341,11 @@ export default function EquipmentsManagement() {
             })
           }
         >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px]">
+          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px] min-w-[140px] max-w-[140px] [&>span]:min-w-0">
             <SelectValue placeholder="Trạng thái" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="all">Tất cả trạng thái</SelectItem>
             {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
@@ -339,6 +361,201 @@ export default function EquipmentsManagement() {
         >
           <RotateCcw className="w-4 h-4" />
         </Button>
+      </div>
+    )
+  }
+
+  if (isStandalonePage) {
+    return (
+      <div className="p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+        <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
+          <div>
+            <h2 className="text-xl font-semibold text-black">Quản lý thiết bị</h2>
+            <p className="text-xs text-gray-500">Quản lý thiết bị và loại thiết bị trong hệ thống</p>
+          </div>
+          <div className="flex gap-3 items-center">
+            {isEquipmentManager ? (
+              <>
+                <Button
+                  onClick={() => setOpenCreateModal(true)}
+                  className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                >
+                  <Plus size={16} />
+                  Thêm thiết bị
+                </Button>
+                <CreateEquipmentModal
+                  open={openCreateModal}
+                  onClose={() => setOpenCreateModal(false)}
+                  onCreated={() => {
+                    refetch()
+                    setOpenCreateModal(false)
+                  }}
+                />
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-5 gap-4 mb-2">
+          <StatCard
+            icon={<Package className={iconClass} strokeWidth={2} />}
+            label="Tổng thiết bị"
+            value={formatStatValue(statsLoading, stats.totalEquipment)}
+            sub="Tất cả trạng thái"
+            variant="blue"
+          />
+          <StatCard
+            icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
+            label="Khả dụng"
+            value={formatStatValue(statsLoading, stats.availableEquipment)}
+            sub="Có thể mượn ngay"
+            variant="green"
+          />
+          <StatCard
+            icon={<PackageOpen className={iconClass} strokeWidth={2} />}
+            label="Đang mượn"
+            value={formatStatValue(statsLoading, stats.borrowedEquipment)}
+            sub="Thiết bị đang cho mượn"
+            variant="orange"
+          />
+          <StatCard
+            icon={<Wrench className={iconClass} strokeWidth={2} />}
+            label="Hư hỏng"
+            value={formatStatValue(statsLoading, stats.damagedEquipment)}
+            sub="Cần sửa chữa/bảo trì"
+            variant="violet"
+          />
+          <StatCard
+            icon={<CircleX className={iconClass} strokeWidth={2} />}
+            label="Mất"
+            value={formatStatValue(statsLoading, stats.lostEquipment)}
+            sub="Thiết bị đã thất lạc"
+            variant="rose"
+          />
+        </div>
+
+        <div className="mb-2 flex items-center justify-end gap-3">
+          <HoverSearch
+            placeholder="Tìm tên hoặc mã thiết bị..."
+            value={search}
+            onChange={(value) => setSearch(value)}
+          />
+          <Select
+            value={categoryId?.toString() ?? 'all'}
+            onValueChange={(v) =>
+              setFiltersAndResetPage({
+                categoryId: v === 'all' ? undefined : Number(v),
+              })
+            }
+          >
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px] min-w-[180px] max-w-[180px] [&>span]:min-w-0">
+              <SelectValue placeholder="Danh mục" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả danh mục</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.categoryId} value={String(c.categoryId)}>
+                  {c.categoryName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={status ?? 'all'}
+            onValueChange={(v) =>
+              setFiltersAndResetPage({
+                status: v === 'all' ? undefined : v,
+              })
+            }
+          >
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px] min-w-[140px] max-w-[140px] [&>span]:min-w-0">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
+              {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="secondary"
+            className="bg-white"
+            onClick={resetFilters}
+            type="button"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+          <div className="relative">
+            <EquipmentDetailSidebar
+              open={detailOpen}
+              onClose={closeDetailFromUrl}
+              equipment={detailEquipment}
+              categoryName={
+                detailEquipment
+                  ? categoryNameById.get(detailEquipment.categoryId)
+                  : undefined
+              }
+            />
+            <EditEquipmentModal
+              open={editOpen}
+              onClose={() => {
+                setEditOpen(false)
+                setEditEquipment(null)
+              }}
+              equipment={editEquipment}
+              onUpdated={() => refetch()}
+            />
+            <Dialog
+              open={disableOpen}
+              onClose={() => {
+                setDisableOpen(false)
+                setEquipmentToDisable(null)
+              }}
+              title="Xác nhận ngừng sử dụng"
+              description={`Chuyển thiết bị \"${equipmentToDisable?.equipmentCode}\" sang trạng thái \"Không khả dụng\"?`}
+            >
+              <div className="flex gap-3 justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDisableOpen(false)
+                    setEquipmentToDisable(null)
+                  }}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleDisableConfirm}
+                >
+                  Xác nhận
+                </Button>
+              </div>
+            </Dialog>
+            {loading && (
+              <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
+                <span className="text-sm text-muted-foreground">Đang tải...</span>
+              </div>
+            )}
+            <DataTable
+              columns={columns}
+              data={data}
+              pageNumber={pageNumber}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={(page) => setPageNumber(page)}
+              onRowClick={(item) => {
+                void handleView(item);
+              }}
+            />
+          </div>
+        </div>
       </div>
     )
   }
@@ -403,6 +620,9 @@ export default function EquipmentsManagement() {
         pageSize={pageSize}
         totalItems={totalItems}
         onPageChange={(page) => setPageNumber(page)}
+        onRowClick={(item) => {
+          void handleView(item);
+        }}
       />
     </div>
   )

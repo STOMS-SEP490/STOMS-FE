@@ -216,7 +216,7 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
                           key={`${cs.courseId}-${cs.subjectId}`}
                           className="inline-flex items-center rounded-xl bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200/60"
                         >
-                          Khóa #{cs.courseId}
+                          {cs.courseName?.trim() || cs.course?.courseName?.trim() || `Khóa #${cs.courseId}`}
                           {cs.createdAt ? (
                             <span className="ml-1.5 font-normal text-slate-500">
                               · gắn {dayjs(cs.createdAt).format('DD/MM/YYYY')}

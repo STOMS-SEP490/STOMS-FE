@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bookmark,
   Bell,
+  CalendarClock,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -31,14 +32,11 @@ import { Button } from '@/shared/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
 
-/** Cột icon cố định để mọi mục cấp 1 thẳng hàng (giống sidebar mẫu). */
 const TOP_ROW = 'grid w-full grid-cols-[18px_1fr] items-center gap-3 px-3 py-2.5';
 const TOP_ROW_WITH_CHEVRON = 'grid w-full grid-cols-[18px_1fr_18px] items-center gap-3 px-3 py-2.5';
-/** Hàng con: không thêm px-3 ngang (đã thụt bởi border-l + pl-3). */
 const SUB_ROW =
   'grid w-full grid-cols-[18px_1fr] items-center gap-3 py-2 pl-1 pr-2';
 const ICON_SLOT = 'flex size-[18px] shrink-0 items-center justify-center';
-/** Căn đường dọc nhóm con theo trụ giữa icon cha: padding trái hàng cấp 1 (px-3) + nửa ô icon 18px. */
 const SUBTREE_WRAPPER = 'mt-0.5 ml-[calc(0.75rem+9px)] flex flex-col gap-0.5 border-l border-slate-200 pl-3';
 
 export default function Sidebar() {
@@ -122,17 +120,41 @@ export default function Sidebar() {
   );
   const isOnTemplateChild = templateChildPaths.some((p) => location.pathname === p);
 
-  const [templateMenuOpen, setTemplateMenuOpen] = useState(true);
+  const isOnEquipmentSection = useMemo(() => {
+    const p = location.pathname;
+    return (
+      p === '/manager/equipments' ||
+      p.startsWith('/manager/equipments/categories') ||
+      p.startsWith('/manager/borrowings')
+    );
+  }, [location.pathname]);
+
+  const GROUP_TEMPLATE = 'Quản lý mẫu';
+  const GROUP_EQUIPMENT = 'Thiết bị';
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    [GROUP_TEMPLATE]: true,
+    [GROUP_EQUIPMENT]: true,
+  });
+
   useEffect(() => {
-    if (isOnTemplateChild) setTemplateMenuOpen(true);
+    if (isOnTemplateChild) {
+      setOpenGroups((prev) => ({ ...prev, [GROUP_TEMPLATE]: true }));
+    }
   }, [isOnTemplateChild]);
 
-  type MenuLink = { kind: 'link'; label: string; icon: LucideIcon; path: string };
+  useEffect(() => {
+    if (isOnEquipmentSection) {
+      setOpenGroups((prev) => ({ ...prev, [GROUP_EQUIPMENT]: true }));
+    }
+  }, [isOnEquipmentSection]);
+
+  type MenuLink = { kind: 'link'; label: string; icon: LucideIcon; path: string; end?: boolean };
   type MenuGroup = {
     kind: 'group';
     label: string;
     icon: LucideIcon;
-    children: { label: string; icon: LucideIcon; path: string }[];
+    children: { label: string; icon: LucideIcon; path: string; end?: boolean }[];
   };
 
   const menus = useMemo((): (MenuLink | MenuGroup)[] => {
@@ -143,17 +165,26 @@ export default function Sidebar() {
       { kind: 'link', label: 'Nhóm', icon: ListChecks, path: '/manager/teams' },
       {
         kind: 'group',
-        label: 'Quản lý mẫu',
+        label: GROUP_TEMPLATE,
         icon: LayoutTemplate,
         children: [
-          { label: 'Quản lý sự kiện', icon: Star, path: '/manager/events' },
-          { label: 'Quản lý giáo trình', icon: GraduationCap, path: '/manager/courses' },
-          { label: 'Quản lý môn học', icon: Layers, path: '/manager/subjects' },
+          { label: 'Mẫu sự kiện', icon: Star, path: '/manager/events' },
+          { label: 'Khung chương trình', icon: GraduationCap, path: '/manager/courses' },
+          { label: 'Môn học', icon: Layers, path: '/manager/subjects' },
         ],
       },
       { kind: 'link', label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
-      { kind: 'link', label: 'Thiết bị', icon: Package, path: '/manager/equipments' },
-      { kind: 'link', label: 'Phiếu mượn', icon: ClipboardCheck, path: '/manager/borrowings' },
+      {
+        kind: 'group',
+        label: GROUP_EQUIPMENT,
+        icon: Package,
+        children: [
+          { label: 'Thiết bị', icon: Package, path: '/manager/equipments', end: true },
+          { label: 'Danh mục', icon: Layers, path: '/manager/equipments/categories', end: true },
+          { label: 'Phiếu mượn', icon: ClipboardCheck, path: '/manager/borrowings', end: true },
+          { label: 'Đặt trước', icon: CalendarClock, path: '/manager/borrowings/reservations', end: true },
+        ],
+      },
       { kind: 'link', label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
       { kind: 'link', label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
       { kind: 'link', label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },
@@ -243,7 +274,7 @@ export default function Sidebar() {
               if (m.kind === 'link') {
                 const Icon = m.icon;
                 return (
-                  <NavLink key={m.path} to={m.path}>
+                  <NavLink key={m.path} to={m.path} end={m.end}>
                     {({ isActive }) => (
                       <div className="relative">
                         <div
@@ -275,20 +306,27 @@ export default function Sidebar() {
 
               const GroupIcon = m.icon;
 
+              const groupOpen = openGroups[m.label] ?? true;
+
               return (
                 <div key={m.label} className="rounded-xl">
-                  {/*
-                    Không dùng <button>: index.css đặt padding cho mọi button → hàng “Quản lý mẫu” bị thụt so với NavLink.
-                  */}
                   <div
                     role="button"
                     tabIndex={0}
-                    aria-expanded={templateMenuOpen}
-                    onClick={() => setTemplateMenuOpen((prev) => !prev)}
+                    aria-expanded={groupOpen}
+                    onClick={() =>
+                      setOpenGroups((prev) => ({
+                        ...prev,
+                        [m.label]: !(prev[m.label] ?? true),
+                      }))
+                    }
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        setTemplateMenuOpen((prev) => !prev);
+                        setOpenGroups((prev) => ({
+                          ...prev,
+                          [m.label]: !(prev[m.label] ?? true),
+                        }));
                       }
                     }}
                     className={cn(
@@ -306,17 +344,17 @@ export default function Sidebar() {
                       <ChevronDown
                         className={cn(
                           'size-4 text-slate-500 transition-transform duration-200',
-                          templateMenuOpen ? 'rotate-0' : '-rotate-90'
+                          groupOpen ? 'rotate-0' : '-rotate-90'
                         )}
                       />
                     </span>
                   </div>
-                  {templateMenuOpen ? (
+                  {groupOpen ? (
                     <div className={SUBTREE_WRAPPER}>
                       {m.children.map((c) => {
                         const ChildIcon = c.icon;
                         return (
-                          <NavLink key={c.path} to={c.path}>
+                          <NavLink key={c.path} to={c.path} end={c.end ?? false}>
                             {({ isActive }) => (
                               <div
                                 className={cn(

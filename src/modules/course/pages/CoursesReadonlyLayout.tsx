@@ -35,8 +35,8 @@ export default function CoursesReadonlyLayout() {
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="shrink-0 bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-semibold text-slate-900">Quản lý giáo trình</h2>
-        <p className="text-xs text-gray-500">Quản lý khóa học và môn học trong hệ thống</p>
+        <h2 className="text-xl font-semibold text-slate-900">Khung chương trình</h2>
+        <p className="text-xs text-gray-500">Quản lý khung chương trình trong hệ thống</p>
       </div>
 
       <div className="shrink-0 px-2 py-1">
