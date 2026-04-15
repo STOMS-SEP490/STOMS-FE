@@ -711,7 +711,7 @@ export default function EventsManagement() {
   return (
     <>
       {readOnly ? (
-        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 bg-slate-50 p-6 pb-8">
+        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
           <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
             <h2 className="text-xl font-semibold text-black">Danh sách sự kiện</h2>
             <p className="text-xs text-gray-500">Xem thông tin các sự kiện trong hệ thống</p>

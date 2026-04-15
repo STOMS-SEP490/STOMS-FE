@@ -29,7 +29,7 @@ import { Button } from '@/shared/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 import dayjs from 'dayjs'
 
-const PAGE_BG = 'bg-[#f3f4f6]'
+const PAGE_BG = 'app-page-bg'
 
 const rangeLabelMap: Record<NonNullable<DashboardRangeParams['range']>, string> = {
   today: 'Hôm nay',

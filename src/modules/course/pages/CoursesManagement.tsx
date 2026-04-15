@@ -518,7 +518,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         detailCourse={detailCourse}
         detailLoading={detailLoading}
         onSubjectClick={(subjectId) => {
-          navigate(`/manager/courses/subjects?openDetail=1&subjectId=${subjectId}`);
+          navigate(`/manager/subjects?openDetail=1&subjectId=${subjectId}`);
         }}
       />
 

@@ -113,7 +113,7 @@ export default function ProgramCoordinatorTeamsPage() {
 
   return (
     <div
-      className="relative p-6 space-y-3 bg-slate-50 flex flex-col min-h-0 overflow-hidden"
+      className="relative p-6 space-y-3 app-page-bg flex flex-col min-h-0 overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="shrink-0 flex justify-between bg-white px-6 py-4 rounded-xl border shadow-sm items-center">

@@ -321,7 +321,7 @@ export default function TeacherTeachingHistoryPage() {
 
   return (
     <div
-      className="relative flex min-h-0 flex-col gap-3 overflow-hidden bg-slate-50 p-6"
+      className="relative flex min-h-0 flex-col gap-3 overflow-hidden app-page-bg p-6"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {sessionDetailOpen && (

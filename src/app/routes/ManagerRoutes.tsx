@@ -1,4 +1,4 @@
-import { Navigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 import CoursesManagement from '../../modules/course/pages/CoursesManagement';
 import TopicsManagement from '@/modules/topic/pages/TopicsManagement';
 import CoursesLayout from '@/app/layouts/CoursesManagementLayout';
@@ -48,18 +48,27 @@ const RedirectOldRequestsViewId = () => {
   return <Navigate to={`/manager/requests/${id ?? ''}`} replace />;
 };
 
+/** Cũ: /manager/courses/subjects → /manager/subjects (giữ query string) */
+const RedirectCoursesSubjectsToSubjects = () => {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/manager/subjects', search }} replace />;
+};
+
 const ManagerRoutes = [
   { index: true, element: <Navigate to="dashboard" replace /> },
   { path: 'dashboard', element: <ManagerDashboard /> },
   { path: 'events', element: <EventsManagement /> },
   { path: 'timetable', element: <EventCalendar /> },
+  { path: 'courses/subjects', element: <RedirectCoursesSubjectsToSubjects /> },
   {
     path: 'courses',
-    element: <CoursesLayout />,
-    children: [
-      { index: true, element: <CoursesManagement /> },
-      { path: 'subjects', element: <SubjectsManagement /> },
-    ],
+    element: <CoursesLayout variant="courses" />,
+    children: [{ index: true, element: <CoursesManagement /> }],
+  },
+  {
+    path: 'subjects',
+    element: <CoursesLayout variant="subjects" />,
+    children: [{ index: true, element: <SubjectsManagement /> }],
   },
   { path: 'profile', element: <UserProfile /> },
   { path: 'users', element: <UserManagement /> },

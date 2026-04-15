@@ -273,7 +273,7 @@ export default function BorrowingsManagementLayout() {
     : {};
 
   return (
-    <div className="p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <div>
           <h2 className="text-xl font-semibold text-black">Phiếu mượn &amp; đặt trước</h2>

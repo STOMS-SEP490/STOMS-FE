@@ -1,6 +1,6 @@
 import type { CourseListStatusFilter } from '@/modules/course/hooks/useCourses';
 
-/** Context từ `CoursesManagementLayout` — 2 Outlet: state danh sách nâng lên layout cho khóa học / môn học. */
+/** Context từ `CoursesManagementLayout` (trang khóa học hoặc trang môn học) — 2 Outlet: toolbar + nội dung; state danh sách nâng lên layout. */
 export type CoursesManagementLayoutOutletContext = {
   position: string;
   courseListLifted?: true;

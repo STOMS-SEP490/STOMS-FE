@@ -19,7 +19,7 @@ export default function PCRequestsIndex() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 min-h-[280px] items-center justify-center bg-slate-50 text-black">
+      <div className="flex flex-1 min-h-[280px] items-center justify-center app-page-bg text-black">
         <Spin size="large" tip="Đang tải danh sách yêu cầu..." />
       </div>
     );

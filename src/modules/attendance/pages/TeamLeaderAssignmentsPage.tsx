@@ -769,7 +769,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden py-0 px-0"
+      className="flex h-full min-h-0 flex-col app-page-bg overflow-hidden py-0 px-0"
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
@@ -850,7 +850,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               {filteredRequests.length}
             </span>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 bg-slate-50">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 app-page-bg">
             {filteredRequests.length === 0 && (
               <div className="p-4 text-sm text-gray-500">
                 Chưa có yêu cầu nào có phiên của nhóm này.

@@ -33,7 +33,7 @@ export default function TeamLayout() {
     loading ? '—' : value.toLocaleString('vi-VN');
 
   return (
-    <div className="p-6 space-y-6 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
       <div className="bg-white flex justify-between px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>

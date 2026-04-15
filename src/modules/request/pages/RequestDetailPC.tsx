@@ -84,7 +84,7 @@ export default function RequestDetailPC() {
 
   if (loading && !request) {
     return (
-      <div className="flex flex-1 min-h-[320px] items-center justify-center bg-slate-50 text-black p-6">
+      <div className="flex flex-1 min-h-[320px] items-center justify-center app-page-bg text-black p-6">
         <Spin size="large" tip="Đang tải chi tiết yêu cầu và danh sách phiên..." />
       </div>
     );
@@ -209,7 +209,7 @@ export default function RequestDetailPC() {
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col bg-slate-50 overflow-hidden text-black">
+      <div className="flex h-full min-h-0 flex-col app-page-bg overflow-hidden text-black">
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
           <div className="w-full min-w-0 space-y-4">
         <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-slate-200 mb-2">

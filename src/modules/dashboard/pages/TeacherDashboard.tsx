@@ -303,7 +303,7 @@ export default function TeacherDashboard() {
     workloadQ.error ?? teachingHistoryQ.error ?? attendanceIssuesQ.error ?? contractsQ.error ?? null;
 
   return (
-    <div className="min-h-full space-y-5 bg-slate-50 p-6">
+    <div className="min-h-full space-y-5 app-page-bg p-6">
       <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">

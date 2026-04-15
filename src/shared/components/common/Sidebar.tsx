@@ -5,11 +5,14 @@ import {
   Bell,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   ClipboardList,
   FileText,
   GraduationCap,
   LayoutGrid,
+  LayoutTemplate,
+  Layers,
   LogOut,
   Package,
   PieChart,
@@ -20,18 +23,30 @@ import {
   Wallet,
   ListChecks,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { logout } from '@/modules/auth/pages/Logout';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
 import { Button } from '@/shared/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
+
+/** Cột icon cố định để mọi mục cấp 1 thẳng hàng (giống sidebar mẫu). */
+const TOP_ROW = 'grid w-full grid-cols-[18px_1fr] items-center gap-3 px-3 py-2.5';
+const TOP_ROW_WITH_CHEVRON = 'grid w-full grid-cols-[18px_1fr_18px] items-center gap-3 px-3 py-2.5';
+/** Hàng con: không thêm px-3 ngang (đã thụt bởi border-l + pl-3). */
+const SUB_ROW =
+  'grid w-full grid-cols-[18px_1fr] items-center gap-3 py-2 pl-1 pr-2';
+const ICON_SLOT = 'flex size-[18px] shrink-0 items-center justify-center';
+/** Căn đường dọc nhóm con theo trụ giữa icon cha: padding trái hàng cấp 1 (px-3) + nửa ô icon 18px. */
+const SUBTREE_WRAPPER = 'mt-0.5 ml-[calc(0.75rem+9px)] flex flex-col gap-0.5 border-l border-slate-200 pl-3';
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(true);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const [accountOpen, setAccountOpen] = useState(false);
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
     const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
@@ -101,27 +116,53 @@ export default function Sidebar() {
     };
   }, [accountOpen]);
 
-  const menus = useMemo(
-    () => [
-      { label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
-      { label: 'Quản lý tài khoản', icon: UserCircle, path: '/manager/users' },
-      { label: 'Quản lý thành viên', icon: Users, path: '/manager/members' },
-      { label: 'Nhóm', icon: ListChecks, path: '/manager/teams' },
-      { label: 'Sự kiện', icon: Star, path: '/manager/events' },
-      { label: 'Giáo trình', icon: GraduationCap, path: '/manager/courses' },
-      { label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
-      { label: 'Thiết bị', icon: Package, path: '/manager/equipments' },
-      { label: 'Phiếu mượn', icon: ClipboardCheck, path: '/manager/borrowings' },
-      { label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
-      { label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
-      { label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },
-      { label: 'Thời khóa biểu', icon: CalendarDays, path: '/manager/timetable' },
-      { label: 'Trung tâm duyệt', icon: CheckCircle2, path: '/manager/requests' },
-      { label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
-      { label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
-    ],
+  const templateChildPaths = useMemo(
+    () => ['/manager/events', '/manager/courses', '/manager/subjects'],
     []
   );
+  const isOnTemplateChild = templateChildPaths.some((p) => location.pathname === p);
+
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(true);
+  useEffect(() => {
+    if (isOnTemplateChild) setTemplateMenuOpen(true);
+  }, [isOnTemplateChild]);
+
+  type MenuLink = { kind: 'link'; label: string; icon: LucideIcon; path: string };
+  type MenuGroup = {
+    kind: 'group';
+    label: string;
+    icon: LucideIcon;
+    children: { label: string; icon: LucideIcon; path: string }[];
+  };
+
+  const menus = useMemo((): (MenuLink | MenuGroup)[] => {
+    return [
+      { kind: 'link', label: 'Thống kê', icon: BarChart3, path: '/manager/dashboard' },
+      { kind: 'link', label: 'Quản lý tài khoản', icon: UserCircle, path: '/manager/users' },
+      { kind: 'link', label: 'Quản lý thành viên', icon: Users, path: '/manager/members' },
+      { kind: 'link', label: 'Nhóm', icon: ListChecks, path: '/manager/teams' },
+      {
+        kind: 'group',
+        label: 'Quản lý mẫu',
+        icon: LayoutTemplate,
+        children: [
+          { label: 'Quản lý sự kiện', icon: Star, path: '/manager/events' },
+          { label: 'Quản lý giáo trình', icon: GraduationCap, path: '/manager/courses' },
+          { label: 'Quản lý môn học', icon: Layers, path: '/manager/subjects' },
+        ],
+      },
+      { kind: 'link', label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
+      { kind: 'link', label: 'Thiết bị', icon: Package, path: '/manager/equipments' },
+      { kind: 'link', label: 'Phiếu mượn', icon: ClipboardCheck, path: '/manager/borrowings' },
+      { kind: 'link', label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
+      { kind: 'link', label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
+      { kind: 'link', label: 'Quỹ', icon: Wallet, path: '/manager/transactions' },
+      { kind: 'link', label: 'Thời khóa biểu', icon: CalendarDays, path: '/manager/timetable' },
+      { kind: 'link', label: 'Trung tâm duyệt', icon: CheckCircle2, path: '/manager/requests' },
+      { kind: 'link', label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
+      { kind: 'link', label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
+    ];
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -137,29 +178,42 @@ export default function Sidebar() {
     <aside
       ref={sidebarRef}
       className={cn(
-        'relative z-20 h-screen shrink-0 transition-all duration-300',
-        collapsed ? 'w-[32px] overflow-visible bg-slate-100 px-0 py-0' : 'w-[280px] bg-background px-2 py-3'
+        'relative z-20 h-screen shrink-0 transition-[width,background-color] duration-300',
+        collapsed ? 'w-[32px] overflow-visible app-page-bg px-0 py-0' : 'w-[280px] bg-white px-2 py-3'
       )}
     >
       {collapsed ? (
-        <div className="absolute left-2 top-3 flex flex-col items-center gap-2 pl-0.5">
+        <div className="absolute inset-y-3 left-2 flex flex-col items-center justify-between pl-0.5">
+          <div className="flex flex-col items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setCollapsed(false)}
+              className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-slate-700 shadow-none hover:bg-transparent"
+              aria-label="Mở rộng menu"
+            >
+              <LayoutGrid className="h-[18px] w-[18px]" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-slate-700 shadow-none hover:bg-transparent"
+              aria-label="Thông báo"
+              title="Thông báo"
+            >
+              <Bell className="h-[18px] w-[18px]" />
+            </Button>
+          </div>
+
           <Button
             type="button"
             variant="ghost"
-            onClick={() => setCollapsed(false)}
-            className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-slate-700 shadow-none hover:bg-transparent"
-            aria-label="Mở rộng menu"
+            onClick={handleLogout}
+            className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-red-600 shadow-none hover:bg-transparent hover:text-red-700"
+            aria-label="Đăng xuất"
+            title="Đăng xuất"
           >
-            <LayoutGrid className="h-[18px] w-[18px]" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-slate-700 shadow-none hover:bg-transparent"
-            aria-label="Thông báo"
-            title="Thông báo"
-          >
-            <Bell className="h-[18px] w-[18px]" />
+            <LogOut className="h-[18px] w-[18px]" />
           </Button>
         </div>
       ) : (
@@ -186,39 +240,121 @@ export default function Sidebar() {
           <div className="max-h-[calc(100vh-120px)] overflow-y-auto overflow-x-visible no-scrollbar">
           <div className="flex flex-col gap-1">
             {menus.map((m) => {
-              const Icon = m.icon;
+              if (m.kind === 'link') {
+                const Icon = m.icon;
+                return (
+                  <NavLink key={m.path} to={m.path}>
+                    {({ isActive }) => (
+                      <div className="relative">
+                        <div
+                          className={cn(
+                            TOP_ROW,
+                            'group rounded-xl transition-colors duration-200',
+                            isActive
+                              ? 'bg-[#208aae] text-white hover:bg-[#208aae]'
+                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                          )}
+                        >
+                          <span className={ICON_SLOT}>
+                            <Icon
+                              className={cn(
+                                'size-[18px]',
+                                isActive ? 'text-white' : 'text-slate-600 group-hover:text-slate-700'
+                              )}
+                            />
+                          </span>
+                          <span className="min-w-0 truncate text-left text-sm font-medium leading-5">
+                            {m.label}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </NavLink>
+                );
+              }
+
+              const GroupIcon = m.icon;
 
               return (
-                <NavLink key={m.path} to={m.path}>
-                  {({ isActive }) => (
-                    <div className="group relative">
-                      <div
+                <div key={m.label} className="rounded-xl">
+                  {/*
+                    Không dùng <button>: index.css đặt padding cho mọi button → hàng “Quản lý mẫu” bị thụt so với NavLink.
+                  */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={templateMenuOpen}
+                    onClick={() => setTemplateMenuOpen((prev) => !prev)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setTemplateMenuOpen((prev) => !prev);
+                      }
+                    }}
+                    className={cn(
+                      TOP_ROW_WITH_CHEVRON,
+                      'group cursor-pointer rounded-xl text-left text-slate-500 transition-colors duration-200',
+                      'hover:bg-slate-100 hover:text-slate-900',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2'
+                    )}
+                  >
+                    <span className={ICON_SLOT}>
+                      <GroupIcon className="size-[18px] text-slate-600 group-hover:text-slate-700" />
+                    </span>
+                    <span className="min-w-0 truncate text-sm font-medium leading-5">{m.label}</span>
+                    <span className={ICON_SLOT}>
+                      <ChevronDown
                         className={cn(
-                          'w-full rounded-xl transition-colors duration-200',
-                          'flex items-center gap-3 px-3 py-2.5',
-                          isActive
-                            ? 'bg-[#208aae] text-white hover:bg-[#208aae]'
-                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                          'size-4 text-slate-500 transition-transform duration-200',
+                          templateMenuOpen ? 'rotate-0' : '-rotate-90'
                         )}
-                      >
-                        <Icon
-                          className={cn(
-                            'h-[18px] w-[18px] shrink-0',
-                            isActive ? 'text-white' : 'text-slate-600'
-                          )}
-                        />
-                        <span className="text-sm font-medium leading-5">{m.label}</span>
-                      </div>
+                      />
+                    </span>
+                  </div>
+                  {templateMenuOpen ? (
+                    <div className={SUBTREE_WRAPPER}>
+                      {m.children.map((c) => {
+                        const ChildIcon = c.icon;
+                        return (
+                          <NavLink key={c.path} to={c.path}>
+                            {({ isActive }) => (
+                              <div
+                                className={cn(
+                                  SUB_ROW,
+                                  'group rounded-lg transition-colors duration-200',
+                                  isActive
+                                    ? 'bg-[#208aae] text-white hover:bg-[#208aae]'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                                )}
+                              >
+                                <span className={ICON_SLOT}>
+                                  <ChildIcon
+                                    className={cn(
+                                      'size-4',
+                                      isActive
+                                        ? 'text-white'
+                                        : 'text-slate-600 group-hover:text-slate-700'
+                                    )}
+                                  />
+                                </span>
+                                <span className="min-w-0 truncate text-left text-sm font-medium leading-5">
+                                  {c.label}
+                                </span>
+                              </div>
+                            )}
+                          </NavLink>
+                        );
+                      })}
                     </div>
-                  )}
-                </NavLink>
+                  ) : null}
+                </div>
               );
             })}
           </div>
           </div>
         </div>
 
-        <div className="mt-auto pt-2">
+        <div className="mt-auto border-t border-slate-200 pt-3">
           <Button
             type="button"
             variant="ghost"

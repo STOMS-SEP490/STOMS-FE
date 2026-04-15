@@ -411,7 +411,7 @@ export default function EquipmentsHistory({ borrowedByMemberId, standalone = fal
   if (renderStandalone) {
     return (
       <div
-        className="p-6 bg-[#f3f4f6] flex flex-col min-h-0 gap-3"
+        className="p-6 app-page-bg flex flex-col min-h-0 gap-3"
         style={{ height: 'var(--content-height, 100vh)' }}
       >
         <div className="shrink-0 bg-white flex justify-between items-center px-6 py-4 rounded-xl border shadow-sm">

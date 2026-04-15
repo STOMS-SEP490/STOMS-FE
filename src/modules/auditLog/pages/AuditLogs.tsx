@@ -253,12 +253,12 @@ export default function AuditLogs() {
         normalizedEntityType === '15' ||
         normalizedEntityType === 'subjectsession'
       ) {
-        navigate(`/manager/courses/subjects?openDetail=1&subjectId=${entityId}`);
+        navigate(`/manager/subjects?openDetail=1&subjectId=${entityId}`);
         return;
       }
 
       if (normalizedEntityType === '16' || normalizedEntityType === 'subject') {
-        navigate(`/manager/courses/subjects?openDetail=1&subjectId=${entityId}`);
+        navigate(`/manager/subjects?openDetail=1&subjectId=${entityId}`);
         return;
       }
 

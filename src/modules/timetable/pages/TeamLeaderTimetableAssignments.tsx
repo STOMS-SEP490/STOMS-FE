@@ -590,7 +590,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
       className={
         isEmbedded
           ? 'flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'
-          : 'flex min-h-0 flex-col gap-3 overflow-hidden bg-slate-50 p-6'
+          : 'flex min-h-0 flex-col gap-3 overflow-hidden app-page-bg p-6'
       }
       style={isEmbedded ? undefined : { height: 'var(--content-height, 100vh)' }}
     >

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Outlet, useSearchParams } from 'react-router-dom';
 import { GraduationCap, CheckCircle2, Layers, CalendarDays, Plus } from 'lucide-react';
 import { StatCard } from '@/shared/components/common/StatCard';
-import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi, dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi';
 import { Button } from '@/shared/components/ui/button';
@@ -12,20 +11,21 @@ import type { CourseListStatusFilter } from '@/modules/course/hooks/useCourses';
 
 const iconClass = 'h-6 w-6';
 
-export default function CoursesLayout() {
-  const navigate = useNavigate();
-  const location = useLocation();
+export type CoursesManagementPageVariant = 'courses' | 'subjects';
+
+type Props = {
+  variant: CoursesManagementPageVariant;
+};
+
+export default function CoursesLayout({ variant }: Props) {
   const { user } = useAuth();
   const roleId = Number(user?.role ?? 0);
   const canEdit = roleId === 1;
-  const isManager = location.pathname.startsWith('/manager/');
-  const isTeacher = location.pathname.startsWith('/teacher/');
-  const basePath = isManager ? '/manager/courses' : isTeacher ? '/teacher/courses' : '/tl/courses';
 
-  const currentTab = location.pathname.includes('subjects') ? 'subjects' : 'courses';
+  const currentTab = variant;
   const [, setSearchParams] = useSearchParams();
 
-  /** Hai `<Outlet />` mount `CoursesManagement` hai lần — state danh sách phải nằm ở layout. */
+  /** Hai `<Outlet />` mount cùng một page hai lần (toolbar + nội dung) — state danh sách nằm ở layout. */
   const [courseListSearch, setCourseListSearchState] = useState('');
   const [courseListStatusFilter, setCourseListStatusFilterState] =
     useState<CourseListStatusFilter>('all');
@@ -49,7 +49,7 @@ export default function CoursesLayout() {
     setSubjectListSearchState(v);
   }, []);
 
-  /** Tab Môn học: reset state danh sách khóa (hai Outlet không còn mount CoursesManagement). */
+  /** Trang môn học: reset state danh sách khóa. */
   useEffect(() => {
     if (currentTab !== 'subjects') return;
     setCourseListSearchState('');
@@ -57,7 +57,7 @@ export default function CoursesLayout() {
     setCourseListPage(1);
   }, [currentTab]);
 
-  /** Tab Khóa học: reset state danh sách môn. */
+  /** Trang khóa học: reset state danh sách môn. */
   useEffect(() => {
     if (currentTab !== 'courses') return;
     setSubjectListSearchState('');
@@ -127,13 +127,19 @@ export default function CoursesLayout() {
 
   const statValue = (loading: boolean, value: number) => (loading ? '—' : value.toLocaleString('vi-VN'));
 
+  const pageTitle = variant === 'courses' ? 'Quản lý giáo trình' : 'Quản lý môn học';
+  const pageSubtitle =
+    variant === 'courses'
+      ? 'Quản lý khóa học trong hệ thống'
+      : 'Quản lý môn học và buổi học trong hệ thống';
+
   return (
-    <div className="p-6 space-y-4 bg-[#f3f4f6]" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="p-6 space-y-4 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
       <div className="bg-white flex justify-between px-4 py-3 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Quản lý giáo trình</h2>
-          <p className="text-xs text-slate-500">Quản lý khóa học và môn học trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-slate-900">{pageTitle}</h2>
+          <p className="text-xs text-slate-500">{pageSubtitle}</p>
         </div>
         {canEdit && currentTab === 'courses' && (
           <Button
@@ -156,62 +162,80 @@ export default function CoursesLayout() {
       </div>
 
       {/* STATS — palette giống Quản lý thiết bị: xanh / xanh lá / tím / cam */}
-      <div className="grid grid-cols-4 gap-4 mb-0">
-        <StatCard
-          icon={<GraduationCap className={iconClass} strokeWidth={2} />}
-          label="Tổng khóa học"
-          value={statValue(summaryLoading, totalCourses)}
-          sub="Tất cả khóa trong hệ thống"
-          variant="blue"
-        />
-        <StatCard
-          icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
-          label="Đang hoạt động"
-          value={statValue(summaryLoading, totalActiveCourses)}
-          sub="Khóa học đang bật"
-          variant="green"
-        />
-        <StatCard
-          icon={<Layers className={iconClass} strokeWidth={2} />}
-          label="Tổng môn học"
-          value={statValue(summaryLoading, totalSubjects)}
-          sub="Phân bổ theo chương trình"
-          variant="violet"
-        />
-        <StatCard
-          icon={<CalendarDays className={iconClass} strokeWidth={2} />}
-          label="Tổng buổi học"
-          value={statValue(summaryLoading, totalSessions)}
-          sub="Buổi theo môn học"
-          variant="orange"
-        />
+      <div className="mb-0 grid grid-cols-2 gap-4 md:grid-cols-4">
+        {variant === 'courses' ? (
+          <>
+            <StatCard
+              icon={<GraduationCap className={iconClass} strokeWidth={2} />}
+              label="Tổng khóa học"
+              value={statValue(summaryLoading, totalCourses)}
+              sub="Tất cả khóa trong hệ thống"
+              variant="blue"
+            />
+            <StatCard
+              icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
+              label="Đang hoạt động"
+              value={statValue(summaryLoading, totalActiveCourses)}
+              sub="Khóa học đang bật"
+              variant="green"
+            />
+            <StatCard
+              icon={<Layers className={iconClass} strokeWidth={2} />}
+              label="Tổng môn học"
+              value={statValue(summaryLoading, totalSubjects)}
+              sub="Phân bổ theo chương trình"
+              variant="violet"
+            />
+            <StatCard
+              icon={<CalendarDays className={iconClass} strokeWidth={2} />}
+              label="Tổng buổi học"
+              value={statValue(summaryLoading, totalSessions)}
+              sub="Buổi theo môn học"
+              variant="orange"
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              icon={<Layers className={iconClass} strokeWidth={2} />}
+              label="Tổng môn học"
+              value={statValue(summaryLoading, totalSubjects)}
+              sub="Phân bổ theo chương trình"
+              variant="violet"
+            />
+            <StatCard
+              icon={<CalendarDays className={iconClass} strokeWidth={2} />}
+              label="Tổng buổi học"
+              value={statValue(summaryLoading, totalSessions)}
+              sub="Buổi theo môn học"
+              variant="orange"
+            />
+            <StatCard
+              icon={<GraduationCap className={iconClass} strokeWidth={2} />}
+              label="Tổng khóa học"
+              value={statValue(summaryLoading, totalCourses)}
+              sub="Tất cả khóa trong hệ thống"
+              variant="blue"
+            />
+            <StatCard
+              icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
+              label="Khóa đang hoạt động"
+              value={statValue(summaryLoading, totalActiveCourses)}
+              sub="Khóa học đang bật"
+              variant="green"
+            />
+          </>
+        )}
       </div>
 
-      {/* TABS */}
-      <div className="px-4 py-2 mb-1">
-        <Tabs value={currentTab}>
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="courses" onClick={() => navigate(basePath)}>
-                Khóa học
-              </TabsTrigger>
-
-              {isManager && (
-                <TabsTrigger value="subjects" onClick={() => navigate('/manager/courses/subjects')}>
-                  Môn học
-                </TabsTrigger>
-              )}
-            </TabsList>
-
-            <Outlet
-              context={{
-                position: 'toolbar',
-                ...coursesListOutletContext,
-                ...subjectsListOutletContext,
-              } satisfies CoursesManagementLayoutOutletContext}
-            />
-          </div>
-        </Tabs>
+      <div className="mb-1 flex items-center justify-end px-4 py-2">
+        <Outlet
+          context={{
+            position: 'toolbar',
+            ...coursesListOutletContext,
+            ...subjectsListOutletContext,
+          } satisfies CoursesManagementLayoutOutletContext}
+        />
       </div>
       <div className="bg-white rounded-xl border shadow-sm px-4 py-3">
         <Outlet
