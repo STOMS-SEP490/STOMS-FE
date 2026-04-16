@@ -23,7 +23,7 @@ import { auditLogApi } from '../api/auditLogApi';
 
 const entityTypeLabelMap: Record<string, string> = {
   '1': 'Phân công',
-  '2': 'Điểm danh',
+  '2': 'Xác nhận tham gia',
   '3': 'Buổi đăng nhập',
   '4': 'Phiếu mượn',
   '5': 'Danh mục',
@@ -188,7 +188,7 @@ export default function AuditLogs() {
         return;
       }
 
-      // Attendance / Điểm danh
+      // Attendance / Xác nhận tham gia
       if (
         normalizedEntityType === '2' ||
         normalizedEntityType === 'attendance' 
@@ -429,7 +429,7 @@ export default function AuditLogs() {
             <SelectContent className="max-h-64 overflow-y-auto">
               <SelectItem value="all">Tất cả loại</SelectItem>
               <SelectItem value="1">Phân công</SelectItem>
-              <SelectItem value="2">Điểm danh</SelectItem>
+              <SelectItem value="2">Xác nhận tham gia</SelectItem>
               <SelectItem value="3">Buổi đăng nhập</SelectItem>
               <SelectItem value="4">Phiếu mượn</SelectItem>
               <SelectItem value="5">Danh mục</SelectItem>

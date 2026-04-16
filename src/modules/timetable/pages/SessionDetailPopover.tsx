@@ -25,7 +25,7 @@ type Props = {
     requestName?: string;
     sessionNo?: number | null;
   } | null;
-  /** Mở panel điểm danh (check-in) — do trang cha giữ state panel. */
+  /** Mở panel xác nhận tham gia (check-in) — do trang cha giữ state panel. */
   onOpenAttendancePanel?: () => void;
 };
 
@@ -96,7 +96,7 @@ export default function SessionDetailPopover({
       ? `${topicTitle ? `${topicTitle} · ` : ''}Buổi ${resolvedSessionNo ?? '—'}`
       : `Buổi ${resolvedSessionNo ?? '—'}`;
 
-  // Team leader luôn xem/mở điểm danh (theo role hoặc route); teacher/TA chỉ được thấy nút khi đúng là người điểm danh của buổi.
+  // Team leader luôn xem/mở xác nhận tham gia (theo role hoặc route); teacher/TA chỉ được thấy nút khi đúng là người xác nhận của buổi.
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
 
   const ownerIdFromSession = getAttendanceOwnerId(session?.Attendances ?? null);
@@ -382,7 +382,7 @@ export default function SessionDetailPopover({
                   navigate(`/tl/attendance/${session.SessionId}`);
                 }}
               >
-                Điểm danh
+                Xác nhận tham gia
               </button>
             )}
           </div>

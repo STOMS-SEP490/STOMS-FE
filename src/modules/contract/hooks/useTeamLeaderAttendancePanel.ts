@@ -16,8 +16,29 @@ const FIRST_PAGE = 1;
 const PAGE_SIZE = 100;
 
 function getSelectedIdsByMode(items: AttendanceItem[], mode: AttendanceWriteMode): number[] {
-  if (mode === 'checkin') return items.filter((x) => x.CheckinAt != null).map((x) => x.MemberId);
-  return items.filter((x) => x.CheckoutAt != null).map((x) => x.MemberId);
+  const ids = (items ?? [])
+    .filter((x) => {
+      if (mode === 'checkin') {
+        return (
+          (x as unknown as { CheckinAt?: string | null; checkinAt?: string | null }).CheckinAt != null ||
+          (x as unknown as { CheckinAt?: string | null; checkinAt?: string | null }).checkinAt != null
+        );
+      }
+      return (
+        (x as unknown as { CheckoutAt?: string | null; checkoutAt?: string | null }).CheckoutAt != null ||
+        (x as unknown as { CheckoutAt?: string | null; checkoutAt?: string | null }).checkoutAt != null
+      );
+    })
+    .map((x) =>
+      Number(
+        (x as unknown as { MemberId?: number; memberId?: number }).MemberId ??
+          (x as unknown as { MemberId?: number; memberId?: number }).memberId ??
+          0,
+      ),
+    )
+    .filter((id) => Number.isFinite(id) && id > 0);
+
+  return Array.from(new Set(ids));
 }
 
 function buildAttendancePayload(
@@ -143,7 +164,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
               : prev,
           );
         } catch {
-          // Nếu lỗi khi fetch request thì bỏ qua, không chặn mở panel điểm danh.
+          // Nếu lỗi khi fetch request thì bỏ qua, không chặn mở panel xác nhận tham gia.
         }
       }
 
