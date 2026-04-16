@@ -3,7 +3,6 @@ import type { SessionAssignmentRow } from '../requestDetail.types';
 
 const PLACEHOLDER_NAMES = new Set(['—', '-', '–', 'n/a', 'na']);
 
-/** Có nhân sự được gán thật (slot không trống sau khi GV báo bận / chưa gán). */
 export function isAssignmentSlotFilled(row: SessionAssignmentRow): boolean {
   if (row.staffMemberId > 0) return true;
   const name = (row.fullName || '').trim();

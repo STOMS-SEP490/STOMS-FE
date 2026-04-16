@@ -467,7 +467,7 @@ export default function UserProfile() {
 
   return (
     <div
-      className="app-page-bg p-6"
+      className="app-page-bg p-6 pl-8"
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
       <div className="max-w-6xl mx-auto space-y-6">

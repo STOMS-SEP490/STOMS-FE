@@ -123,7 +123,7 @@ export default function PCRequestsIndex() {
   };
 
   return (
-    <div className="p-6 app-page-bg flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+    <div className="p-6 pl-8 app-page-bg flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
         <div>
           <h2 className="text-xl font-semibold text-black">Tất cả yêu cầu</h2>

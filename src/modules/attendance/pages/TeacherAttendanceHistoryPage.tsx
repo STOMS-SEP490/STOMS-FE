@@ -40,7 +40,6 @@ function formatDateTeacher(value?: string | null) {
 
 function formatDateTeamLeader(value?: string | null) {
   if (!value) return '—';
-  // Hiển thị giống hình: 27/3/2026 (không có số 0 ở đầu)
   return dayjs(value).locale('vi').format('D/M/YYYY');
 }
 

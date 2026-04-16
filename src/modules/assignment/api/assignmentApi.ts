@@ -46,9 +46,9 @@ const assignmentApi = {
   assignMembers: async (items: { assignmentId: number; staffMemberId: number }[]): Promise<void> => {
     if (!items.length) return;
     await axiosClient.put('/assignments/assign-members', {
-      Items: items.map((i) => ({
-        AssignmentId: i.assignmentId,
-        StaffMemberId: i.staffMemberId,
+      items: items.map((i) => ({
+        assignmentId: i.assignmentId,
+        staffMemberId: i.staffMemberId,
       })),
     });
   },

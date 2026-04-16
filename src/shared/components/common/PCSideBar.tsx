@@ -20,11 +20,11 @@ export default function PCSidebar() {
       { label: 'Nhóm', icon: Users, path: '/pc/teams' },
       {
         kind: 'group',
-        label: 'Thông tin mẫu',
+        label: 'Loại yêu cầu',
         icon: LayoutTemplate,
         children: [
           { label: 'Mẫu sự kiện', icon: Star, path: '/pc/events' },
-          { label: 'Khung chương trình', icon: BookOpen, path: '/pc/courses', matchPrefixPath: '/pc/courses' },
+          { label: 'Chương trình học', icon: BookOpen, path: '/pc/courses', matchPrefixPath: '/pc/courses' },
           { label: 'Môn học', icon: Layers, path: '/pc/subjects', matchPrefixPath: '/pc/subjects' },
         ],
       },

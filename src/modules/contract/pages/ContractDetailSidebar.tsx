@@ -207,7 +207,7 @@ export default function ContractDetailSidebar({ open, onClose, contract, loading
                 </div>
               </Section>
 
-              <Section icon={Monitor} title="Thông tin buổi học" tone="teal">
+              <Section icon={Monitor} title="Thông tin buổi" tone="teal">
                 <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3">
                     <h4 className="min-w-0 flex-1 text-sm font-semibold leading-snug text-slate-900">

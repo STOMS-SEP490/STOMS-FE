@@ -359,7 +359,7 @@ export default function ManagerDashboard() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 pl-8 space-y-6">
         {/* HEADER */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-white px-6 py-4 rounded-xl border border-border shadow-sm">
           <div className="min-w-0">

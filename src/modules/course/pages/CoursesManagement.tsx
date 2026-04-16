@@ -440,7 +440,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   const iconClass = 'h-6 w-6';
 
   return (
-    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
       <div className="flex shrink-0 items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
         <div>
           <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>

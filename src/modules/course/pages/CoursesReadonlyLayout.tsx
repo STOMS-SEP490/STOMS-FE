@@ -31,12 +31,12 @@ export default function CoursesReadonlyLayout() {
 
   return (
     <div
-      className="p-6 app-page-bg flex flex-col gap-2 min-h-0 overflow-hidden"
+      className="p-6 pl-8 app-page-bg flex flex-col gap-2 min-h-0 overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="shrink-0 bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-semibold text-slate-900">Khung chương trình</h2>
-        <p className="text-xs text-gray-500">Quản lý khung chương trình trong hệ thống</p>
+        <h2 className="text-xl font-semibold text-slate-900">Chương trình học</h2>
+        <p className="text-xs text-gray-500">Quản lý chương trình học trong hệ thống</p>
       </div>
 
       <div className="shrink-0 px-2 py-1">

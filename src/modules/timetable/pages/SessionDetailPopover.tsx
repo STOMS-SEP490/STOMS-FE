@@ -420,7 +420,7 @@ export default function SessionDetailPopover({
 
                 <div className="flex items-start gap-3">
                   <span className="shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-800">
-                    TG:
+                    SV:
                   </span>
                   <div className="min-w-0 flex-1 space-y-1">
                     {tas.length > 0 ? (

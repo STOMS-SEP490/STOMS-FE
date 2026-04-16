@@ -270,7 +270,7 @@ export default function RequestSessionDetailPanel({
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
-                <p className="mt-1 font-semibold text-[#2197C0]">{requestCode}</p>
+                <p className="mt-1 font-semibold ">{requestCode}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Buổi số</p>
@@ -280,15 +280,16 @@ export default function RequestSessionDetailPanel({
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Thời lượng</p>
                 <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (sessionDuration || '—')}</p>
               </div>
+              
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Địa điểm</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (location || '—')}</p>
+              </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Hình thức</p>
                 <p className="mt-1 font-medium text-slate-900">
                   {sessionLoading ? 'Đang tải...' : isOnlineRaw == null ? '—' : isOnlineRaw ? 'Trực tuyến' : 'Trực tiếp'}
                 </p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Địa điểm</p>
-                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (location || '—')}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Giảng viên yêu cầu</p>
@@ -398,7 +399,7 @@ export default function RequestSessionDetailPanel({
         <>
           <div className="bg-white">
             <div className="px-0 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200">
-              <h3 className="font-semibold text-gray-900 text-sm">Danh sách thiết bị mượn trước</h3>
+              <h3 className="font-semibold text-gray-900 text-sm">Danh sách thiết bị yêu cầu trước</h3>
               {resolvedReservationId && canEditReservation ? (
                 <Button
                   type="button"

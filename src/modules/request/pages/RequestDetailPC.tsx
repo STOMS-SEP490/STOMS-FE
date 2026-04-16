@@ -452,7 +452,7 @@ export default function RequestDetailPC() {
           <TabsContent value="overview" className="space-y-4 mb-0">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-semibold text-slate-900">Danh sách buổi học</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
               </div>
 
               {loading ? (

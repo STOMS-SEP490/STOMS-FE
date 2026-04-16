@@ -263,7 +263,7 @@ export default function ContractsManagement() {
   );
 
   return (
-    <div className="relative p-6 space-y-6">
+    <div className="relative p-6 pl-8 space-y-6">
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
           <span className="text-sm text-muted-foreground">Đang tải hợp đồng...</span>

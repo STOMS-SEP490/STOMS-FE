@@ -322,7 +322,7 @@ export default function RequestLayout() {
 
   return (
     <div
-      className="p-6 app-page-bg flex min-h-[var(--content-height)] flex-col gap-1"
+      className="p-6 pl-8 app-page-bg flex min-h-[var(--content-height)] flex-col gap-1"
     >
       {/* HEADER */}
 
@@ -331,7 +331,7 @@ export default function RequestLayout() {
           <div className="bg-white px-6 py-4 mb-0 rounded-2xl border border-slate-200 shadow-sm">
             <h2 className="text-xl font-semibold text-black">Trung tâm phê duyệt</h2>
             <p className="text-xs text-gray-500">
-              Quản lý phê duyệt yêu cầu và phê duyệt phân công nhân sự
+              Quản lý phê duyệt yêu cầu và phê duyệt phân công
             </p>
           </div>
 

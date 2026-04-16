@@ -475,7 +475,7 @@ export default function EventCalendar() {
   return (
     <div
       ref={calendarContainerRef}
-      className="event-calendar-page flex flex-col app-page-bg overflow-hidden p-3 md:p-4"
+      className="event-calendar-page flex flex-col app-page-bg overflow-hidden p-3 pl-8 md:p-4 md:pl-8"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="relative flex flex-1 min-h-0 gap-4">

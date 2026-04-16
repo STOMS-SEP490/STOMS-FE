@@ -730,7 +730,7 @@ export default function EventsManagement() {
   return (
     <>
       {readOnly ? (
-        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
           <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
             <h2 className="text-xl font-semibold text-black">Danh sách sự kiện</h2>
             <p className="text-xs text-gray-500">Xem thông tin các sự kiện trong hệ thống</p>
@@ -778,7 +778,7 @@ export default function EventsManagement() {
           </div>
         </div>
       ) : (
-        <div className="p-6 space-y-6">
+        <div className="p-6 pl-8 space-y-6">
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
@@ -911,7 +911,7 @@ export default function EventsManagement() {
                 <h2 className="text-lg font-semibold text-black">
                   {mode === 'create' ? 'Thêm sự kiện' : 'Cập nhật sự kiện'}
                 </h2>
-                <p className="mt-0.5 text-sm text-gray-500">Thiết lập thông tin chung và các buổi học của sự kiện.</p>
+                <p className="mt-0.5 text-sm text-gray-500">Thiết lập thông tin chung và các buổi của sự kiện.</p>
               </div>
               <button
                 onClick={closeUpsert}

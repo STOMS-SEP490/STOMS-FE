@@ -173,7 +173,7 @@ export default function RequestsManagement() {
   ];
 
   return (
-    <div className="p-6 flex flex-col gap-3 min-h-0 h-full">
+    <div className="p-6 pl-8 flex flex-col gap-3 min-h-0 h-full">
       <div className="flex justify-between bg-white px-6 py-4 rounded-xl border shadow-sm items-center">
         <div>
           <h2 className="text-xl font-semibold text-black">

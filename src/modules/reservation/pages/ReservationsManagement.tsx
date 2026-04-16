@@ -496,7 +496,7 @@ export default function ReservationsManagement() {
 
   return (
     <div
-      className="space-y-6 p-6 app-page-bg"
+      className="space-y-6 p-6 pl-8 app-page-bg"
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
       <div className="mb-2 rounded-xl border bg-white px-6 py-4 shadow-sm">

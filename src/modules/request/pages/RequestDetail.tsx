@@ -184,24 +184,41 @@ export default function RequestDetail() {
     target.focus({ preventScroll: true });
   }, []);
 
-  const isSessionFullyAssigned = useCallback(
-    (session: RequestSessionSummary & { sessionId: number; teachersRequired?: number | null; tasRequired?: number | null }) => {
+  type SessionArg = RequestSessionSummary & { sessionId: number; teachersRequired?: number | null; tasRequired?: number | null };
+
+  const isSessionTaFullyAssigned = useCallback(
+    (session: SessionArg) => {
       const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
       if (teamIds.length === 0) return false;
-      const reqTeachers = Math.max(0, Number(session.teachersRequired ?? 1) || 1);
       const reqTas = Math.max(0, Number(session.tasRequired ?? 1) || 1);
       const teamQuantityMap = uiTeamQuantitiesBySessionId[session.sessionId] ?? {};
-      const assignedTeachers = teamIds.reduce(
-        (sum, teamId) => sum + Math.max(0, Number(teamQuantityMap[teamId]?.teachersRequired ?? 0) || 0),
-        0
-      );
       const assignedTas = teamIds.reduce(
         (sum, teamId) => sum + Math.max(0, Number(teamQuantityMap[teamId]?.tasRequired ?? 0) || 0),
         0
       );
-      return assignedTeachers === reqTeachers && assignedTas === reqTas;
+      return assignedTas >= reqTas;
     },
     [uiAssignedTeamIdsBySessionId, uiTeamQuantitiesBySessionId]
+  );
+
+  const isSessionTeacherFullyAssigned = useCallback(
+    (session: SessionArg) => {
+      const reqTeachers = Math.max(0, Number(session.teachersRequired ?? 0) || 0);
+      if (reqTeachers === 0) return true;
+      const rows = assignmentsBySessionId[session.sessionId] ?? [];
+      const filledTeachers = rows.filter((r) => {
+        const role = String(r.staffRole ?? '').toUpperCase();
+        const isTeacher = role.includes('TEACH') || role === 'TE' || role.includes('GV');
+        return isTeacher && Number(r.staffMemberId ?? 0) > 0;
+      }).length;
+      return filledTeachers >= reqTeachers;
+    },
+    [assignmentsBySessionId]
+  );
+
+  const isSessionFullyAssigned = useCallback(
+    (session: SessionArg) => isSessionTaFullyAssigned(session) && isSessionTeacherFullyAssigned(session),
+    [isSessionTaFullyAssigned, isSessionTeacherFullyAssigned]
   );
 
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
@@ -644,7 +661,7 @@ export default function RequestDetail() {
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div className="mb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Danh sách buổi học</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
               <p className="text-[11px] text-slate-500 mt-0.5">{sessions.length} buổi trong yêu cầu này</p>
             </div>
             {sessions.length === 0 ? (
@@ -675,10 +692,10 @@ export default function RequestDetail() {
                           setRightPanel({ mode: isPendingRequest ? 'detail' : 'assignment', session });
                         }
                       }}
-                      className={`w-full rounded-xl border px-4 py-3 transition cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      className={`w-full border-t border-b px-4 py-3 transition cursor-pointer text-left focus:outline-none ${
                         pendingCount > 0
-                          ? 'border-orange-200/90 bg-orange-50/30 hover:border-orange-300 hover:bg-orange-50/50 focus:ring-orange-200/80'
-                          : 'border-slate-200 bg-slate-50/40 hover:border-slate-300 hover:bg-slate-100/60 focus:ring-sky-200/70'
+                          ? 'border-orange-200 bg-orange-50/30 hover:bg-orange-50/50'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -694,31 +711,10 @@ export default function RequestDetail() {
                             <span className="text-slate-300 font-normal mx-1">·</span>
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                           </span>
-                          <span className="text-[10px] font-medium text-slate-500">Trạng thái:</span>
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
-                          >
-                            {sessionStatusInfo.label}
-                          </span>
-                          {sessionPending &&
-                          !isApprovalView &&
-                          requestStatusCode !== REQUEST_STATUS.PENDING ? (
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
-                                fullyAssigned
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                  : 'bg-amber-50 text-amber-800 border-amber-200'
-                              }`}
-                            >
-                              {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                              {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
-                            </span>
-                          ) : null}
-                          {pendingCount > 0 ? (
-                            <Badge className="bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-semibold">
-                              {pendingCount} phân công chờ duyệt
-                            </Badge>
-                          ) : null}
+                          <span className="text-slate-300">·</span>
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="text-xs text-slate-500">Địa chỉ:</span>
+                          <span className="truncate text-xs text-slate-600">{location}</span>
                         </div>
                         <span
                           className={`inline-flex items-center gap-0.5 text-xs font-semibold select-none ${
@@ -732,13 +728,26 @@ export default function RequestDetail() {
                       <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
                         {sessionTitle}
                       </p>
-                      <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{location}</span>
-                        <span className="text-slate-300">•</span>
-                        <span>
-                          {session.teachersRequired ?? 1} GV · {session.tasRequired ?? 1} TG
-                        </span>
+                      <div className="mt-1 flex items-center justify-between gap-1.5 text-xs flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <span className="text-[10px] font-medium text-slate-500">Trạng thái:</span>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}>
+                            {sessionStatusInfo.label}
+                          </span>
+                          {pendingCount > 0 ? (
+                            <Badge className="bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-semibold">
+                              {pendingCount} phân công chờ duyệt
+                            </Badge>
+                          ) : null}
+                          <span className="text-slate-300">•</span>
+                          <span className="text-slate-600">{session.teachersRequired ?? 1} GV · {session.tasRequired ?? 1} Sinh viên</span>
+                        </div>
+                        {sessionPending && !isApprovalView && requestStatusCode !== REQUEST_STATUS.PENDING && !fullyAssigned ? (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border bg-amber-50 text-amber-800 border-amber-200 shrink-0">
+                            <AlertCircle className="w-3 h-3 shrink-0" />
+                            Chưa chọn đủ giảng viên hoặc sinh viên
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -840,7 +849,7 @@ export default function RequestDetail() {
           {/* DANH SÁCH BUỔI HỌC — kích thước gọn, cân với header request */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Danh sách buổi học</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
               {!isApprovalView && !isPendingRequest && canReserveEquipment ? (
                 <Button
                   onClick={() => hasUnreservedEquipmentSlot && setRightPanel({ mode: 'equipment' })}
@@ -882,8 +891,8 @@ export default function RequestDetail() {
                           setRightPanel({ mode: isTeamAssignView && !isPendingRequest ? 'team' : 'detail', session });
                         }
                       }}
-                      className={`w-full border border-slate-200 rounded-xl bg-slate-50/40 px-4 py-3 hover:border-slate-300 hover:bg-slate-100/60 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2 ${
-                        highlightSessionId === session.sessionId ? 'ring-2 ring-amber-300 border-amber-200 bg-amber-50/30' : ''
+                      className={`w-full border-t border-b border-slate-200 bg-white px-4 py-3 hover:bg-slate-50 transition cursor-pointer focus:outline-none ${
+                        highlightSessionId === session.sessionId ? 'border-amber-200 bg-amber-50/30' : ''
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -895,26 +904,10 @@ export default function RequestDetail() {
                             <span className="text-slate-300 font-normal mx-1">·</span>
                             {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
                           </span>
-                          <span className="text-[10px] font-medium text-slate-500">Trạng thái:</span>
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}
-                          >
-                            {sessionStatusInfo.label}
-                          </span>
-                          {sessionPending &&
-                          !isApprovalView &&
-                          requestStatusCode !== REQUEST_STATUS.PENDING ? (
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                fullyAssigned
-                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                  : 'bg-amber-50 text-amber-800 border border-amber-200'
-                              }`}
-                            >
-                              {!fullyAssigned && <AlertCircle className="w-3 h-3 shrink-0" />}
-                              {fullyAssigned ? 'Đã phân đủ' : 'Chưa phân đủ'}
-                            </span>
-                          ) : null}
+                          <span className="text-slate-300">·</span>
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="text-xs text-slate-500">Địa chỉ:</span>
+                          <span className="truncate text-xs text-slate-600">{location}</span>
                         </div>
                         <span
                           className="inline-flex items-center gap-0.5 text-xs font-semibold text-sky-700 select-none"
@@ -944,15 +937,25 @@ export default function RequestDetail() {
                           ) : null}
                         </div>
                       ) : null}
-                      <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{location}</span>
-                        {fullyAssigned && teamCount > 0 && (
-                          <>
-                            <span className="text-slate-300">•</span>
-                            <span className="text-slate-700 font-medium">{teamCount} nhóm</span>
-                          </>
-                        )}
+                      <div className="mt-1 flex items-center justify-between gap-1.5 text-xs flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <span className="text-[10px] font-medium text-slate-500">Trạng thái:</span>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}>
+                            {sessionStatusInfo.label}
+                          </span>
+                          {fullyAssigned && teamCount > 0 && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="text-slate-700 font-medium">{teamCount} nhóm</span>
+                            </>
+                          )}
+                        </div>
+                        {sessionPending && !isApprovalView && requestStatusCode !== REQUEST_STATUS.PENDING && !fullyAssigned ? (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border bg-amber-50 text-amber-800 border-amber-200 shrink-0">
+                            <AlertCircle className="w-3 h-3 shrink-0" />
+                            Chưa chọn đủ giảng viên hoặc sinh viên
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -1182,7 +1185,7 @@ export default function RequestDetail() {
                     assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                     showReservedEquipment={false}
                     sectionMode="info"
-                    showTeamSummary={String(request.status ?? '').toLowerCase() !== 'pending'}
+                    showTeamSummary={isApprovalView || isPendingRequest}
                   />
                   <div className="mt-6">
                     {!isApprovalView && !isPendingRequest ? (
@@ -1190,7 +1193,7 @@ export default function RequestDetail() {
                         session={rightPanel.session}
                         currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                        onClose={() => setRightPanel(null)}
+                        separateTeacherSelection={isApprovedRequest}
                         onAssignSession={handleAssignSession}
                       />
                     ) : null}
@@ -1245,7 +1248,7 @@ export default function RequestDetail() {
                   session={rightPanel.session}
                   currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                  onClose={() => setRightPanel(null)}
+                  separateTeacherSelection={isApprovedRequest}
                   onAssignSession={handleAssignSession}
                 />
               )}
@@ -1988,7 +1991,7 @@ export default function RequestDetail() {
                           <List className="h-4 w-4 shrink-0 text-slate-400" />
                           <span className="font-medium text-slate-600">Nhu cầu:</span>
                           <span className="font-semibold text-slate-800">
-                            {preview.teachersRequired ?? 0} GV / {preview.tasRequired ?? 0} TG
+                            {preview.teachersRequired ?? 0} GV / {preview.tasRequired ?? 0} Sinh viên
                           </span>
                         </p>
                       </div>

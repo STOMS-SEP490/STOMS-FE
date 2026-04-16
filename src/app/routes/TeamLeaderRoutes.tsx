@@ -14,6 +14,7 @@ import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherTaskReportPage from '@/modules/task-report/pages/TeacherTaskReportPage';
 import TeamLeaderAssignmentsLayout from '@/app/layouts/TeamLeaderAssignmentsLayout';
 import TeamLeaderAssignmentsPage from '@/modules/attendance/pages/TeamLeaderAssignmentsPage';
+import TeamLeaderAssignmentsTablePage from '@/modules/attendance/pages/TeamLeaderAssignmentsTablePage';
 import TeamLeaderDashboard from '@/modules/dashboard/pages/TeamLeaderDashboard';
 
 const TeamLeaderRoutes = [
@@ -24,8 +25,10 @@ const TeamLeaderRoutes = [
     element: <TeamLeaderAssignmentsLayout />,
     children: [
       { index: true, element: <Navigate to="assigning" replace /> },
-      { path: 'assigning', element: <TeamLeaderAssignmentsPage tab="assigning" /> },
-      { path: 'rejected', element: <TeamLeaderAssignmentsPage tab="rejected" /> },
+      { path: 'assigning', element: <TeamLeaderAssignmentsTablePage tab="assigning" /> },
+      { path: 'assigning/:id', element: <TeamLeaderAssignmentsPage tab="assigning" /> },
+      { path: 'rejected', element: <TeamLeaderAssignmentsTablePage tab="rejected" /> },
+      { path: 'rejected/:id', element: <TeamLeaderAssignmentsPage tab="rejected" /> },
     ],
   },
   { path: 'profile', element: <UserProfile /> },

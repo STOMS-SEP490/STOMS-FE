@@ -284,7 +284,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 type="button"
                 onClick={() => void openDetail(row.original)}
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-sky-600 underline-offset-2 hover:text-sky-800 hover:underline whitespace-nowrap"
-                title="Xem chi tiết buổi học"
+                title="Xem chi tiết buổi"
               >
                 Xem chi tiết
                 <ChevronRight className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
@@ -573,7 +573,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
               type="button"
               onClick={() => void openDetail(row.original)}
               className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:underline underline-offset-2 whitespace-nowrap"
-              title="Xem chi tiết buổi học"
+              title="Xem chi tiết buổi"
             >
               Xem chi tiết
               <ChevronRight className="h-4 w-4 shrink-0 text-sky-700 opacity-80" aria-hidden />

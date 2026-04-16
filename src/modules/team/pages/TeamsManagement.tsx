@@ -369,7 +369,7 @@ export default function TeamsManagement() {
   const [, setSearchParams] = useSearchParams();
 
   return (
-    <div className="space-y-6 p-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="space-y-6 p-6 pl-8 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       <div className="mb-2 flex items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
         <div>
           <h2 className="text-xl font-semibold text-black">Quản lý nhóm</h2>
