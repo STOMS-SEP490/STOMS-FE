@@ -25,7 +25,6 @@ import {
 } from 'lucide-react'
 import { dashboardApi } from '@/modules/dashboard/api/dashboardApi'
 import borrowingApi from '@/modules/equipment/api/borrowingApi'
-import equipmentApi from '@/modules/equipment/api/equipmentApi'
 import { getEquipmentsListCached } from '@/modules/equipment/utils/equipmentListCache'
 import type { BorrowingListItem } from '@/modules/equipment/borrowing'
 import type { EquipmentListItem } from '@/modules/equipment/equipment'
