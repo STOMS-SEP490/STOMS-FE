@@ -13,7 +13,6 @@ import type { NotificationItem } from '@/modules/notification/api/notificationAp
 import { showSignalRToast } from '@/modules/notification/ui/signalrToast';
 import {
   getNotificationVisual,
-  NOTIFICATION_TYPE_CHIP_CLASS,
 } from '@/modules/notification/notificationTypeTheme';
 
 dayjs.extend(relativeTime);
@@ -60,6 +59,7 @@ export default function NotificationBell({ variant = 'default' }: NotificationBe
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [markingAll, setMarkingAll] = useState(false);
   const loadIdRef = useRef(0);
 
   /** Số badge luôn lấy từ API — tránh lệch khi chỉ cộng tay */
@@ -181,8 +181,32 @@ export default function NotificationBell({ variant = 'default' }: NotificationBe
     }
   };
 
+  const handleMarkAllRead = async () => {
+    const unreadItems = items.filter((x) => !x.readAt);
+    if (unreadItems.length === 0 || markingAll) return;
+
+    setMarkingAll(true);
+    try {
+      const updates = await Promise.all(
+        unreadItems.map((x) => notificationApi.markNotificationRead(x.notificationId))
+      );
+      const readMap = new Map(updates.map((u) => [u.notificationId, u.readAt ?? new Date().toISOString()]));
+      setItems((prev) =>
+        prev.map((x) => {
+          const nextReadAt = readMap.get(x.notificationId);
+          return nextReadAt ? { ...x, readAt: nextReadAt } : x;
+        })
+      );
+      await refreshUnreadOnly();
+    } catch {
+      // ignore
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
   const content = (
-    <div className="w-[min(92vw,24rem)] max-h-[min(70vh,26rem)] overflow-y-auto px-0.5 pr-1">
+    <div className="w-[min(92vw,19rem)] max-h-[min(70vh,22rem)] overflow-y-auto rounded-xl bg-white px-1.5 py-1">
       {loading ? (
         <div className="flex justify-center py-6">
           <Spin />
@@ -190,67 +214,53 @@ export default function NotificationBell({ variant = 'default' }: NotificationBe
       ) : items.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có thông báo" />
       ) : (
-        <ul className="flex flex-col gap-2.5">
+        <ul className="relative divide-y divide-slate-200/80">
+          <span className="pointer-events-none absolute bottom-2 left-[1rem] top-2 w-px bg-slate-200/90" />
           {items.map((n) => {
             const vis = getNotificationVisual(n.type);
             const Icon = vis.Icon;
             const unread = !n.readAt;
             return (
-              <li key={n.notificationId}>
+              <li key={n.notificationId} className="relative">
                 <button
                   type="button"
                   onClick={() => void handleMarkRead(n)}
                   className={cn(
-                    'w-full text-left rounded-xl border px-2.5 py-2.5 shadow-sm transition',
-                    unread
-                      ? 'border-sky-200/90 bg-sky-50/80 hover:bg-sky-50'
-                      : 'border-slate-200/80 bg-white/95 opacity-90 hover:bg-slate-50/90'
+                    'w-full text-left px-1 py-2 transition',
+                    unread ? 'bg-white hover:bg-slate-50/80' : 'bg-white/90 hover:bg-slate-50/70'
                   )}
                 >
-                  <div className="flex items-stretch gap-3">
+                  <div className="grid grid-cols-[30px_1fr] items-start gap-2">
                     <div
                       className={cn(
-                        'flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-xl',
+                        'relative z-[1] mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-slate-200',
                         vis.iconWrapClass
                       )}
                     >
-                      <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
+                      <Icon className="h-3 w-3" strokeWidth={2} aria-hidden />
                     </div>
-                    <div className="min-w-0 flex-1 py-0.5">
-                      <div className="mb-1">
-                        <span
-                          className={cn(
-                            'inline-flex max-w-full items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                            NOTIFICATION_TYPE_CHIP_CLASS
-                          )}
-                        >
-                          {vis.label}
-                        </span>
-                      </div>
-                      <Typography.Text strong className="!text-sm !text-slate-800 line-clamp-2 block">
+                    <div className="min-w-0 pr-1">
+                      <Typography.Text
+                        strong
+                        className="!block !text-[11px] !leading-4 !text-slate-800 line-clamp-1"
+                      >
                         {n.title}
                       </Typography.Text>
                       <Typography.Paragraph
                         type="secondary"
-                        className="!mb-0 !mt-1 !text-xs !text-slate-600 line-clamp-3"
+                        className="!mb-0 !mt-0.5 !text-[10px] !leading-4 !text-slate-500 line-clamp-1"
                       >
                         {n.message}
                       </Typography.Paragraph>
-                      <div className="mt-1.5 text-[10px] font-medium text-slate-400">
+                      <div className="mt-0.5 flex items-center gap-1">
+                        {unread && (
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" title="Chưa đọc" />
+                        )}
+                        <span className="text-[9px] font-medium text-slate-400">
                         {n.createdAt ? dayjs(n.createdAt).fromNow() : ''}
+                        </span>
                       </div>
                     </div>
-                    {unread && (
-                      <div
-                        className="flex shrink-0 items-center justify-center self-stretch pl-0.5"
-                        aria-hidden
-                      >
-                        <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-full bg-sky-500 shadow-sm shadow-sky-500/40"
-                          title="Chưa đọc"
-                        />
-                      </div>
-                    )}
                   </div>
                 </button>
               </li>
@@ -269,13 +279,28 @@ export default function NotificationBell({ variant = 'default' }: NotificationBe
       align={isCollapsedBar ? { offset: [0, 6] } : undefined}
       trigger="click"
       title={
-        <div className="flex items-center gap-2 pr-1">
-          <span className="text-sm font-semibold text-slate-800">Thông báo</span>
-          {items.length > 0 && (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-              {items.length} gần đây
-            </span>
-          )}
+        <div className="flex items-center justify-between gap-2 pr-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-slate-800">Thông báo</span>
+            {items.length > 0 && (
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[8px] font-medium text-slate-500">
+                {items.length} gần đây
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleMarkAllRead()}
+            disabled={markingAll || unreadTotal === 0}
+            className={cn(
+              'text-[9px] font-medium transition',
+              markingAll || unreadTotal === 0
+                ? 'cursor-not-allowed text-slate-300'
+                : 'text-slate-500 hover:text-slate-700'
+            )}
+          >
+            Đánh dấu tất cả đã đọc
+          </button>
         </div>
       }
       content={content}

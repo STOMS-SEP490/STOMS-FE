@@ -1,18 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, LayoutGrid, LogOut, type LucideIcon } from 'lucide-react';
+import { ChevronDown, LayoutGrid, LogOut, type LucideIcon } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import memberApi from '@/modules/member/api/memberApi';
 import { logout } from '@/modules/auth/pages/Logout';
 import { Button } from '@/shared/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
+import NotificationBell from '@/shared/components/common/NotificationBell';
 
-export type RoleSidebarMenuItem = {
+export type RoleSidebarMenuLink = {
+  kind?: 'link';
   label: string;
   icon: LucideIcon;
   path: string;
   matchPrefixPath?: string;
+  end?: boolean;
 };
+
+export type RoleSidebarMenuGroup = {
+  kind: 'group';
+  label: string;
+  icon: LucideIcon;
+  children: RoleSidebarMenuLink[];
+};
+
+export type RoleSidebarMenuItem = RoleSidebarMenuLink | RoleSidebarMenuGroup;
 
 type RoleSidebarProps = {
   profilePath: string;
@@ -26,6 +38,15 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [accountOpen, setAccountOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const groups: Record<string, boolean> = {};
+    for (const menu of menus) {
+      if (menu.kind === 'group') {
+        groups[menu.label] = true;
+      }
+    }
+    return groups;
+  });
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
     const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
     return avatarUrl.trim() ? avatarUrl : '/img/ava.png';
@@ -98,6 +119,13 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
     return source ? source.charAt(0).toUpperCase() : 'U';
   }, [memberName, userEmail]);
 
+  const TOP_ROW = 'grid w-full grid-cols-[18px_1fr] items-center gap-3 px-3 py-2.5';
+  const TOP_ROW_WITH_CHEVRON = 'grid w-full grid-cols-[18px_1fr_18px] items-center gap-3 px-3 py-2.5';
+  const SUB_ROW = 'grid w-full grid-cols-[18px_1fr] items-center gap-3 py-2 pl-1 pr-2';
+  const ICON_SLOT = 'flex size-[18px] shrink-0 items-center justify-center';
+  const SUBTREE_WRAPPER =
+    'mt-0.5 ml-[calc(0.75rem+9px)] flex flex-col gap-0.5 border-l border-slate-200 pl-3';
+
   return (
     <aside
       ref={sidebarRef}
@@ -118,15 +146,7 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
             >
               <LayoutGrid className="h-[18px] w-[18px]" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-8 w-8 rounded-none border-0 bg-transparent p-0 text-slate-700 shadow-none hover:bg-transparent"
-              aria-label="Thông báo"
-              title="Thông báo"
-            >
-              <Bell className="h-[18px] w-[18px]" />
-            </Button>
+            <NotificationBell variant="sidebarCollapsed" />
           </div>
 
           <Button
@@ -158,17 +178,112 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-900">STOMS</p>
             </div>
+            <div className="ml-auto">
+              <NotificationBell />
+            </div>
           </div>
 
           <div className="relative overflow-visible">
             <div className="max-h-[calc(100vh-120px)] overflow-y-auto overflow-x-visible no-scrollbar">
               <div className="flex flex-col gap-1">
                 {menus.map((m) => {
+                  if (m.kind === 'group') {
+                    const GroupIcon = m.icon;
+                    const groupOpen = openGroups[m.label] ?? true;
+
+                    return (
+                      <div key={m.label} className="rounded-xl">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={groupOpen}
+                          onClick={() =>
+                            setOpenGroups((prev) => ({
+                              ...prev,
+                              [m.label]: !(prev[m.label] ?? true),
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setOpenGroups((prev) => ({
+                                ...prev,
+                                [m.label]: !(prev[m.label] ?? true),
+                              }));
+                            }
+                          }}
+                          className={cn(
+                            TOP_ROW_WITH_CHEVRON,
+                            'group cursor-pointer rounded-xl text-left text-slate-500 transition-colors duration-200',
+                            'hover:bg-slate-100 hover:text-slate-900',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2'
+                          )}
+                        >
+                          <span className={ICON_SLOT}>
+                            <GroupIcon className="size-[18px] text-slate-600 group-hover:text-slate-700" />
+                          </span>
+                          <span className="min-w-0 truncate text-sm font-medium leading-5">{m.label}</span>
+                          <span className={ICON_SLOT}>
+                            <ChevronDown
+                              className={cn(
+                                'size-4 text-slate-500 transition-transform duration-200',
+                                groupOpen ? 'rotate-0' : '-rotate-90'
+                              )}
+                            />
+                          </span>
+                        </div>
+
+                        {groupOpen ? (
+                          <div className={SUBTREE_WRAPPER}>
+                            {m.children.map((child) => {
+                              const ChildIcon = child.icon;
+                              const matchPrefixPath = child.matchPrefixPath ?? child.path;
+                              return (
+                                <NavLink key={child.path} to={child.path} end={child.end ?? !child.matchPrefixPath}>
+                                  {({ isActive }) => {
+                                    const active =
+                                      isActive ||
+                                      location.pathname === matchPrefixPath ||
+                                      location.pathname.startsWith(`${matchPrefixPath}/`);
+
+                                    return (
+                                      <div
+                                        className={cn(
+                                          SUB_ROW,
+                                          'group rounded-lg transition-colors duration-200',
+                                          active
+                                            ? 'bg-[#208aae] text-white hover:bg-[#208aae]'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                                        )}
+                                      >
+                                        <span className={ICON_SLOT}>
+                                          <ChildIcon
+                                            className={cn(
+                                              'size-4',
+                                              active ? 'text-white' : 'text-slate-600 group-hover:text-slate-700'
+                                            )}
+                                          />
+                                        </span>
+                                        <span className="min-w-0 truncate text-left text-sm font-medium leading-5">
+                                          {child.label}
+                                        </span>
+                                      </div>
+                                    );
+                                  }}
+                                </NavLink>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }
+
                   const Icon = m.icon;
                   const matchPrefixPath = m.matchPrefixPath ?? m.path;
 
                   return (
-                    <NavLink key={m.path} to={m.path} end={!m.matchPrefixPath}>
+                    <NavLink key={m.path} to={m.path} end={m.end ?? !m.matchPrefixPath}>
                       {({ isActive }) => {
                         const active =
                           isActive ||
@@ -176,23 +291,27 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
                           location.pathname.startsWith(`${matchPrefixPath}/`);
 
                         return (
-                          <div className="group relative">
+                          <div className="relative">
                             <div
                               className={cn(
-                                'w-full rounded-xl transition-colors duration-200',
-                                'flex items-center gap-3 px-3 py-2.5',
+                                TOP_ROW,
+                                'group rounded-xl transition-colors duration-200',
                                 active
                                   ? 'bg-[#208aae] text-white hover:bg-[#208aae]'
                                   : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                               )}
                             >
-                              <Icon
-                                className={cn(
-                                  'h-[18px] w-[18px] shrink-0',
-                                  active ? 'text-white' : 'text-slate-600'
-                                )}
-                              />
-                              <span className="text-sm font-medium leading-5">{m.label}</span>
+                              <span className={ICON_SLOT}>
+                                <Icon
+                                  className={cn(
+                                    'size-[18px]',
+                                    active ? 'text-white' : 'text-slate-600 group-hover:text-slate-700'
+                                  )}
+                                />
+                              </span>
+                              <span className="min-w-0 truncate text-left text-sm font-medium leading-5">
+                                {m.label}
+                              </span>
                             </div>
                           </div>
                         );
@@ -254,13 +373,10 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
 
                 <div className="my-1 h-px bg-slate-200" />
 
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                >
-                  <Bell className="h-4 w-4" />
-                  Thông báo
-                </button>
+                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                  <span>Thông báo</span>
+                  <NotificationBell />
+                </div>
 
                 <div className="my-1 h-px bg-slate-200" />
 

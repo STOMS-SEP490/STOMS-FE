@@ -23,7 +23,7 @@ import { auditLogApi } from '../api/auditLogApi';
 
 const entityTypeLabelMap: Record<string, string> = {
   '1': 'Phân công',
-  '2': 'Điểm danh',
+  '2': 'Xác nhận tham gia',
   '3': 'Buổi đăng nhập',
   '4': 'Phiếu mượn',
   '5': 'Danh mục',
@@ -39,7 +39,7 @@ const entityTypeLabelMap: Record<string, string> = {
   '15': 'Buổi môn học',
   '16': 'Môn học',
   '17': 'Báo cáo công việc',
-  '18': 'Đội nhóm',
+  '18': 'Nhóm',
   '19': 'Chủ đề',
   '20': 'Giao dịch',
 };
@@ -188,7 +188,7 @@ export default function AuditLogs() {
         return;
       }
 
-      // Attendance / Điểm danh
+      // Attendance / Xác nhận tham gia
       if (
         normalizedEntityType === '2' ||
         normalizedEntityType === 'attendance' 
@@ -429,7 +429,7 @@ export default function AuditLogs() {
             <SelectContent className="max-h-64 overflow-y-auto">
               <SelectItem value="all">Tất cả loại</SelectItem>
               <SelectItem value="1">Phân công</SelectItem>
-              <SelectItem value="2">Điểm danh</SelectItem>
+              <SelectItem value="2">Xác nhận tham gia</SelectItem>
               <SelectItem value="3">Buổi đăng nhập</SelectItem>
               <SelectItem value="4">Phiếu mượn</SelectItem>
               <SelectItem value="5">Danh mục</SelectItem>
@@ -445,7 +445,7 @@ export default function AuditLogs() {
               <SelectItem value="15">Buổi môn học</SelectItem>
               <SelectItem value="16">Môn học</SelectItem>
               <SelectItem value="17">Báo cáo công việc</SelectItem>
-              <SelectItem value="18">Đội nhóm</SelectItem>
+              <SelectItem value="18">Nhóm</SelectItem>
               <SelectItem value="19">Chủ đề</SelectItem>
               <SelectItem value="20">Giao dịch</SelectItem>
             </SelectContent>

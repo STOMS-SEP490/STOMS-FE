@@ -30,8 +30,8 @@ export type RequestLayoutOutletContext = {
   /**
    * request: chi tiết đầy đủ
    * assignment: duyệt phân công (manager)
-   * approval: duyệt yêu cầu (chỉ thông tin + duyệt/từ chối, không gắn đội)
-   * team_assign: gán đội cho các yêu cầu đã duyệt
+   * approval: duyệt yêu cầu (chỉ thông tin + duyệt/từ chối, không gắn nhóm)
+   * team_assign: gán nhóm cho các yêu cầu đã duyệt
    */
   viewMode?: 'request' | 'assignment' | 'approval' | 'team_assign';
 };

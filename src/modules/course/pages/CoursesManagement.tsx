@@ -505,11 +505,11 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                   })
                 }
               >
-                <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[160px] border-slate-200">
-                  <SelectValue placeholder="Trạng thái" />
+                <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px] border-slate-200">
+                  <SelectValue placeholder="Tất cả trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
                   <SelectItem value="active">Đang hoạt động</SelectItem>
                   <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
                 </SelectContent>

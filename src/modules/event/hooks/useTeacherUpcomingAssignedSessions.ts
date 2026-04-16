@@ -40,14 +40,9 @@ function sessionLineFromSchedule(s: TeachingScheduleItem): string {
 }
 
 export type TeacherUpcomingOptions = {
-  /** TL /timetable tab “Lịch của tôi”: cùng API & UI cột sắp tới như giáo viên. */
   teamLeaderPersonal?: boolean;
 };
 
-/**
- * Cột “Lịch sắp tới” (teacher/timetable): phiên ASSIGNED của member đăng nhập,
- * lọc end &gt;= hiện tại, sắp xếp theo giờ bắt đầu.
- */
 export function useTeacherUpcomingAssignedSessions(
   refreshNonce = 0,
   options?: TeacherUpcomingOptions,

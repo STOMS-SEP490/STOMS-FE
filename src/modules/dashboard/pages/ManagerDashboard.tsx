@@ -1327,7 +1327,7 @@ export default function ManagerDashboard() {
                 <p className="text-xs font-semibold text-gray-500 uppercase">
                   Hiệu suất nhóm
                 </p>
-                <p className="text-sm text-gray-600">Top nhóm theo số phiên dạy</p>
+                <p className="text-sm text-gray-600">Top nhóm theo số buổi dạy</p>
               </div>
             </div>
             {topTeamsBySessions.length > 0 ? (

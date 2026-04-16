@@ -10,6 +10,11 @@ export interface NotificationItem {
   readAt?: string | null;
 }
 
+export interface NotificationReadUpdate {
+  notificationId: number;
+  readAt: string | null;
+}
+
 export interface PagedNotifications {
   pageNumber: number;
   pageSize: number;
@@ -76,14 +81,18 @@ export async function fetchUnreadCount(): Promise<number> {
   return paged.totalItems ?? 0;
 }
 
-export async function markNotificationRead(id: number) {
+export async function markNotificationRead(id: number): Promise<NotificationReadUpdate> {
   const body = await axiosClient.put<unknown>(`/notifications/${id}/read`);
   const n = normalizeNotificationRow(body);
-  if (!n) throw new Error('Phản hồi đánh dấu đọc không hợp lệ');
-  return n;
+  if (!n) {
+    // Một số BE trả 204 No Content cho endpoint mark-read.
+    // Khi đó vẫn coi request thành công và cập nhật readAt cục bộ.
+    return { notificationId: id, readAt: new Date().toISOString() };
+  }
+  return { notificationId: n.notificationId, readAt: n.readAt ?? new Date().toISOString() };
 }
 
-/** Team leader báo phiên không thể phân công — BE gửi thông báo cho quản lý. */
+/** Team leader báo buổi không thể phân công — BE gửi thông báo cho quản lý. */
 export async function postSessionCannotBeAssigned(payload: { sessionId: number; reason: string }) {
   await axiosClient.post<unknown>('/notifications/session-cannot-be-assigned', {
     sessionId: payload.sessionId,

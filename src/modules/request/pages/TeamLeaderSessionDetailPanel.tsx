@@ -17,16 +17,16 @@ export type TeamLeaderSessionDetailPanelProps = {
   /** Cột "Ủy quyền" sau giờ ra; chỉ truyền khi cần (vd. team leader). */
   delegateColumn?: {
     currentMemberId: number | null;
-    /** Giá trị ban đầu từ phiên (trước khi API danh sách trả về); sau ủy quyền dùng attendanceByMemberId từ từng dòng. */
+    /** Giá trị ban đầu từ buổi (trước khi API danh sách trả về); sau ủy quyền dùng attendanceByMemberId từ từng dòng. */
     sessionAttendanceByMemberId: number | null;
     onDelegated?: () => void;
   };
   /**
    * Hiển thị cột "Ủy quyền" trong bảng thành viên. Giáo viên (teacher) không được ủy quyền — chỉ TL.
-   * Khi false, vẫn dùng delegateColumn cho "Người điểm danh" / nút Điểm danh nếu cần.
+   * Khi false, vẫn dùng delegateColumn cho "Người xác nhận" / nút Xác nhận tham gia nếu cần.
    */
   memberDelegateColumnVisible?: boolean;
-  /** Mở nhanh panel điểm danh (khi user là người điểm danh của phiên). */
+  /** Mở nhanh panel xác nhận tham gia (khi user là người xác nhận của buổi). */
   onOpenAttendance?: () => void;
 };
 
@@ -76,7 +76,7 @@ export default function TeamLeaderSessionDetailPanel({
     };
   }, [session.sessionId]);
 
-  /** Người được giao điểm danh: ưu tiên dữ liệu mới từ GET filter (sau ủy quyền), không dùng mỗi prop từ parent (dễ stale). */
+  /** Người được giao xác nhận: ưu tiên dữ liệu mới từ GET filter (sau ủy quyền), không dùng mỗi prop từ parent (dễ stale). */
   const resolvedAttendanceOwnerId = useMemo(() => {
     for (const a of attendances) {
       if (a.attendanceByMemberId != null && Number(a.attendanceByMemberId) > 0) {
@@ -94,7 +94,7 @@ export default function TeamLeaderSessionDetailPanel({
   const canDelegateForCurrentUser = useMemo(() => {
     if (!delegateColumn || !memberDelegateColumnVisible) return false;
     // Manager được quyền ủy quyền cho bất kỳ ai (kể cả ủy quyền lại cho chính mình),
-    // không cần phải trùng với "Người điểm danh" hiện tại.
+    // không cần phải trùng với "Người xác nhận" hiện tại.
     const uid = delegateColumn.currentMemberId;
     return uid != null;
   }, [delegateColumn, memberDelegateColumnVisible]);
@@ -121,10 +121,10 @@ export default function TeamLeaderSessionDetailPanel({
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Thông tin phiên — giống phần manager nhưng không hiển thị reservation */}
+      {/* Thông tin buổi — giống phần manager nhưng không hiển thị reservation */}
       <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
         <div className="px-4 py-2.5 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900 text-sm">Thông tin phiên</h3>
+          <h3 className="font-semibold text-gray-900 text-sm">Thông tin buổi</h3>
         </div>
         <div className="px-4 py-3 space-y-2 text-sm">
           {(topic?.title?.trim() || responseText || topic?.duration?.trim()) && (
@@ -217,9 +217,9 @@ export default function TeamLeaderSessionDetailPanel({
                 type="button"
                 onClick={onOpenAttendance}
                 className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
-                title="Mở nhanh panel điểm danh"
+                title="Mở nhanh panel xác nhận tham gia"
               >
-                Điểm danh
+                Xác nhận tham gia
               </button>
             )}
           </div>
@@ -227,11 +227,11 @@ export default function TeamLeaderSessionDetailPanel({
 
         <div className="px-4 py-3 space-y-2">
           {attLoading ? (
-            <p className="text-xs text-gray-500">Đang tải dữ liệu điểm danh...</p>
+            <p className="text-xs text-gray-500">Đang tải dữ liệu xác nhận tham gia...</p>
           ) : attError ? (
             <p className="text-xs text-red-600">{attError}</p>
           ) : attendances.length === 0 ? (
-            <p className="text-xs text-gray-500">Không có dữ liệu điểm danh cho phiên này.</p>
+            <p className="text-xs text-gray-500">Không có dữ liệu xác nhận tham gia cho buổi này.</p>
           ) : (
             <div className="overflow-hidden rounded-xl bg-white">
               <div
@@ -295,7 +295,7 @@ export default function TeamLeaderSessionDetailPanel({
                             return (
                               <span className="inline-flex w-fit items-center gap-0.5 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 whitespace-nowrap">
                                 <UserCheck className="h-3 w-3 shrink-0" />
-                                Người điểm danh
+                                Người xác nhận
                               </span>
                             );
                           }
@@ -349,8 +349,8 @@ export default function TeamLeaderSessionDetailPanel({
                               className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
                               title={
                                 hasCheckedIn
-                                  ? 'Không thể ủy quyền sau khi thành viên đã điểm danh vào'
-                                  : 'Ủy quyền điểm danh cho thành viên này'
+                                  ? 'Không thể ủy quyền sau khi thành viên đã xác nhận vào'
+                                  : 'Ủy quyền xác nhận tham gia cho thành viên này'
                               }
                             >
                               <UserCheck className="h-3 w-3 shrink-0 text-[#2197C0]" />

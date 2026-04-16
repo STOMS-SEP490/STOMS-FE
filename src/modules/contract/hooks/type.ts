@@ -20,7 +20,6 @@ export type TeamSessionLite = {
   endAt: string;
   location: string;
   status: string;
-  /** Đồng bộ hiển thị tiêu đề phiên với màn chi tiết / duyệt manager. */
   subjectSession?: SessionTopicInfo | null;
   eventSession?: SessionTopicInfo | null;
   notes?: string | null;
@@ -35,7 +34,6 @@ export type TeamRequestItem = {
   courseId?: number | null;
   eventId?: number | null;
   status: string;
-  /** Lý do / ghi chú từ API request (vd. từ chối phân công). */
   reason?: string | null;
   startDate?: string;
   sessions: TeamSessionLite[];

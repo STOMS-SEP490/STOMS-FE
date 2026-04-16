@@ -26,6 +26,7 @@ import {
 import { dashboardApi } from '@/modules/dashboard/api/dashboardApi'
 import borrowingApi from '@/modules/equipment/api/borrowingApi'
 import equipmentApi from '@/modules/equipment/api/equipmentApi'
+import { getEquipmentsListCached } from '@/modules/equipment/utils/equipmentListCache'
 import type { BorrowingListItem } from '@/modules/equipment/borrowing'
 import type { EquipmentListItem } from '@/modules/equipment/equipment'
 import { EQUIPMENT_STATUS } from '@/constants/equipment'
@@ -181,17 +182,17 @@ export default function EquipmentDashboard() {
     queryKey: ['em-dashboard', 'attention-equipments'],
     queryFn: async () => {
       const [damaged, lost, unavailable] = await Promise.all([
-        equipmentApi.getEquipments({
+        getEquipmentsListCached({
           pageNumber: 1,
           pageSize: 4,
           status: EQUIPMENT_STATUS.DAMAGED,
         }),
-        equipmentApi.getEquipments({
+        getEquipmentsListCached({
           pageNumber: 1,
           pageSize: 2,
           status: EQUIPMENT_STATUS.LOST,
         }),
-        equipmentApi.getEquipments({
+        getEquipmentsListCached({
           pageNumber: 1,
           pageSize: 2,
           status: EQUIPMENT_STATUS.UNAVAILABLE,
@@ -209,6 +210,7 @@ export default function EquipmentDashboard() {
         return true
       }).slice(0, 6)
     },
+    staleTime: 2 * 60 * 1000,
   })
 
   const pieData = useMemo(() => {

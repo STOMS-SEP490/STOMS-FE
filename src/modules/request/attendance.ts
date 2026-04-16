@@ -20,13 +20,42 @@ export type AttendanceCheckOutPayload = {
 
 // DTO shapes match BE response fields (PascalCase) so API can `return axiosClient...` directly.
 export type AttendanceItem = {
-  AttendanceId: number;
-  MemberId: number;
-  SessionId: number;
+  // BE hiện đang trả camelCase ở API filter, nhưng một số chỗ FE cũ đang dùng PascalCase.
+  // Giữ cả 2 để tương thích dần.
+  AttendanceId?: number;
+  attendanceId?: number;
+
+  MemberId?: number;
+  memberId?: number;
+
+  SessionId?: number;
+  sessionId?: number;
+
   CheckinAt?: string | null;
+  checkinAt?: string | null;
+
   CheckoutAt?: string | null;
+  checkoutAt?: string | null;
+
   AttendanceByMemberId?: number | null;
+  attendanceByMemberId?: number | null;
+
   Note?: string | null;
+  note?: string | null;
+
+  /** URL ảnh minh chứng check-in */
+  ImgUrl?: string | null;
+  imgcheckin?: string | null;
+  imgCheckin?: string | null;
+  imgCheckIn?: string | null;
+  ImgCheckin?: string | null;
+  ImgCheckIn?: string | null;
+  /** URL ảnh minh chứng check-out */
+  imgcheckout?: string | null;
+  imgCheckout?: string | null;
+  imgCheckOut?: string | null;
+  ImgCheckout?: string | null;
+  ImgCheckOut?: string | null;
 };
 
 export type AttendanceFilterParams = {

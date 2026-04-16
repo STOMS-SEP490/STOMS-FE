@@ -12,8 +12,8 @@ import {
 } from '@/shared/components/ui/select';
 import type { EquipmentListItem } from '@/modules/equipment/equipment';
 import type { ColumnDef, Row } from '@tanstack/react-table';
-import { CheckCircle2, CircleX, Package, PackageOpen, Pencil, Plus, RotateCcw, Trash2, Wrench } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { CheckCircle2, CircleX, Package, PackageOpen, Pencil, Plus, RotateCcw, Trash2, Wrench, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useEquipments } from '../hooks/useEquipments';
 import CreateEquipmentModal from './CreateEquipmentModal';
@@ -25,13 +25,33 @@ import {
   getEquipmentStatusColor,
 } from '@/constants/equipment';
 import equipmentApi from '../api/equipmentApi';
-import { Image, message } from 'antd';
+import { message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import EquipmentDetailSidebar from './EquipmentDetailSidebar';
 import EditEquipmentModal from './EditEquipmentModal';
 import { useEquipmentsManagementStats } from '../hooks/useEquipmentsManagementStats';
 
 const iconClass = 'h-6 w-6';
+
+function normalizeStatusValue(status: string | number) {
+  const s = String(status ?? '').trim()
+  if (s === '1') return EQUIPMENT_STATUS.AVAILABLE
+  if (s === '2') return EQUIPMENT_STATUS.BORROWED
+  if (s === '3') return EQUIPMENT_STATUS.DAMAGED
+  if (s === '4') return EQUIPMENT_STATUS.LOST
+  if (s === '5') return EQUIPMENT_STATUS.UNAVAILABLE
+  const upper = s.toUpperCase()
+  if (
+    upper === EQUIPMENT_STATUS.AVAILABLE ||
+    upper === EQUIPMENT_STATUS.BORROWED ||
+    upper === EQUIPMENT_STATUS.DAMAGED ||
+    upper === EQUIPMENT_STATUS.LOST ||
+    upper === EQUIPMENT_STATUS.UNAVAILABLE
+  ) {
+    return upper
+  }
+  return EQUIPMENT_STATUS.AVAILABLE
+}
 
 function formatStatValue(loading: boolean, n: number) {
   if (loading) return '—';
@@ -43,6 +63,7 @@ export default function EquipmentsManagement() {
   const location = useLocation();
   const isEquipmentManager = location.pathname.startsWith('/em/');
   const isStandalonePage = !context?.position;
+  const [previewImgUrl, setPreviewImgUrl] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [openCreateModal, setOpenCreateModal] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -71,12 +92,15 @@ export default function EquipmentsManagement() {
   } = useEquipments()
   const { loading: statsLoading, stats } = useEquipmentsManagementStats();
   const { data: categories } = useCategories()
-  const categoryNameById = new Map(categories.map((c) => [c.categoryId, c.categoryName]))
+  const categoryNameById = useMemo(
+    () => new Map(categories.map((c) => [c.categoryId, c.categoryName])),
+    [categories]
+  )
 
   const openDetailFromUrl = searchParams.get('openDetail');
   const equipmentIdFromUrl = searchParams.get('equipmentId');
 
-  const closeDetailFromUrl = () => {
+  const closeDetailFromUrl = useCallback(() => {
     skipNextAutoOpenRef.current = true;
     setDetailOpen(false);
     setDetailEquipment(null);
@@ -86,7 +110,7 @@ export default function EquipmentsManagement() {
       next.delete('equipmentId');
       return next;
     });
-  };
+  }, [setSearchParams]);
 
   useEffect(() => {
     if (openDetailFromUrl !== '1') return;
@@ -113,7 +137,7 @@ export default function EquipmentsManagement() {
     })();
   }, [openDetailFromUrl, equipmentIdFromUrl, detailOpen, detailEquipment?.equipmentId]);
 
-  const handleView = async (item: EquipmentListItem) => {
+  const handleView = useCallback(async (item: EquipmentListItem) => {
     try {
       const full = await equipmentApi.getById(item.equipmentId)
       setDetailEquipment(full)
@@ -121,20 +145,20 @@ export default function EquipmentsManagement() {
     } catch {
       message.error('Không tải được thông tin thiết bị')
     }
-  }
+  }, [])
 
-  const handleEdit = (item: EquipmentListItem) => {
+  const handleEdit = useCallback((item: EquipmentListItem) => {
     if (!isEquipmentManager) return;
     // Dùng luôn dữ liệu của hàng hiện tại để fill form (đã có đủ categoryId, status, ...).
     setEditEquipment(item)
     setEditOpen(true)
-  }
+  }, [isEquipmentManager])
 
-  const handleDisableClick = (item: EquipmentListItem) => {
+  const handleDisableClick = useCallback((item: EquipmentListItem) => {
     if (!isEquipmentManager) return;
     setEquipmentToDisable(item)
     setDisableOpen(true)
-  }
+  }, [isEquipmentManager])
 
   const handleDisableConfirm = async () => {
     if (!equipmentToDisable) return
@@ -143,7 +167,7 @@ export default function EquipmentsManagement() {
       message.success('Đã chuyển thiết bị sang trạng thái Không khả dụng')
       setDisableOpen(false)
       setEquipmentToDisable(null)
-      refetch()
+      refetch(true)
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && 'response' in err
@@ -153,27 +177,7 @@ export default function EquipmentsManagement() {
     }
   }
 
-  const normalizeStatusValue = (status: string | number) => {
-    const s = String(status ?? '').trim()
-    if (s === '1') return EQUIPMENT_STATUS.AVAILABLE
-    if (s === '2') return EQUIPMENT_STATUS.BORROWED
-    if (s === '3') return EQUIPMENT_STATUS.DAMAGED
-    if (s === '4') return EQUIPMENT_STATUS.LOST
-    if (s === '5') return EQUIPMENT_STATUS.UNAVAILABLE
-    const upper = s.toUpperCase()
-    if (
-      upper === EQUIPMENT_STATUS.AVAILABLE ||
-      upper === EQUIPMENT_STATUS.BORROWED ||
-      upper === EQUIPMENT_STATUS.DAMAGED ||
-      upper === EQUIPMENT_STATUS.LOST ||
-      upper === EQUIPMENT_STATUS.UNAVAILABLE
-    ) {
-      return upper
-    }
-    return EQUIPMENT_STATUS.AVAILABLE
-  }
-
-  const columns: ColumnDef<EquipmentListItem>[] = [
+  const columns: ColumnDef<EquipmentListItem>[] = useMemo(() => [
     {
       accessorKey: 'equipmentCode',
       header: 'Mã thiết bị',
@@ -240,13 +244,18 @@ export default function EquipmentsManagement() {
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            <Image
+            <img
               src={row.original.imgLink}
               alt={row.original.equipmentName}
               width={40}
               height={40}
-              className="object-cover"
-              preview={{ mask: 'Xem ảnh' }}
+              loading="lazy"
+              decoding="async"
+              className="h-10 w-10 object-cover cursor-pointer hover:opacity-90"
+              onClick={() => setPreviewImgUrl(row.original.imgLink ?? null)}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
             />
           </div>
         ) : (
@@ -280,7 +289,11 @@ export default function EquipmentsManagement() {
           },
         ]
       : []),
-  ]
+  ], [categoryNameById, handleDisableClick, handleEdit, isEquipmentManager])
+
+  const onRowClick = useCallback((item: EquipmentListItem) => {
+    void handleView(item)
+  }, [handleView])
 
   if (context?.position === 'header') {
     if (!isEquipmentManager) return null;
@@ -297,7 +310,7 @@ export default function EquipmentsManagement() {
           open={openCreateModal}
           onClose={() => setOpenCreateModal(false)}
           onCreated={() => {
-            refetch()
+            refetch(true)
             setOpenCreateModal(false)
           }}
         />
@@ -387,7 +400,7 @@ export default function EquipmentsManagement() {
                   open={openCreateModal}
                   onClose={() => setOpenCreateModal(false)}
                   onCreated={() => {
-                    refetch()
+                    refetch(true)
                     setOpenCreateModal(false)
                   }}
                 />
@@ -509,7 +522,7 @@ export default function EquipmentsManagement() {
                 setEditEquipment(null)
               }}
               equipment={editEquipment}
-              onUpdated={() => refetch()}
+              onUpdated={() => refetch(true)}
             />
             <Dialog
               open={disableOpen}
@@ -550,12 +563,36 @@ export default function EquipmentsManagement() {
               pageSize={pageSize}
               totalItems={totalItems}
               onPageChange={(page) => setPageNumber(page)}
-              onRowClick={(item) => {
-                void handleView(item);
-              }}
+              onRowClick={onRowClick}
             />
           </div>
         </div>
+        {previewImgUrl ? (
+          <div className="fixed inset-0 z-[90]">
+            <div
+              className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"
+              onClick={() => setPreviewImgUrl(null)}
+              aria-hidden="true"
+            />
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <div className="relative max-h-[90vh] w-full max-w-[900px]">
+                <button
+                  type="button"
+                  className="absolute -top-3 -right-3 rounded-full bg-white/95 border border-slate-200 p-2 text-slate-700 shadow hover:bg-white"
+                  onClick={() => setPreviewImgUrl(null)}
+                  aria-label="Đóng ảnh"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <img
+                  src={previewImgUrl}
+                  alt="Preview"
+                  className="max-h-[90vh] w-full rounded-xl object-contain bg-black/20"
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     )
   }
@@ -579,7 +616,7 @@ export default function EquipmentsManagement() {
           setEditEquipment(null)
         }}
         equipment={editEquipment}
-        onUpdated={() => refetch()}
+        onUpdated={() => refetch(true)}
       />
       <Dialog
         open={disableOpen}
@@ -620,9 +657,7 @@ export default function EquipmentsManagement() {
         pageSize={pageSize}
         totalItems={totalItems}
         onPageChange={(page) => setPageNumber(page)}
-        onRowClick={(item) => {
-          void handleView(item);
-        }}
+        onRowClick={onRowClick}
       />
     </div>
   )

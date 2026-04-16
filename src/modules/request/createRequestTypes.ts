@@ -7,6 +7,8 @@ export type SessionFormItem = {
   sessionNo: number
   subjectSessionId: number | null
   eventSessionId: number | null
+  courseSubjectId?: number | null
+  courseSubjectName?: string | null
   title: string
   duration: string
   notes: string

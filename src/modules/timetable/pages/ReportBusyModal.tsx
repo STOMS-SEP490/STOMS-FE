@@ -70,7 +70,7 @@ export default function ReportBusyModal({
       const mine = assignments.find((a) => a.StaffMemberId === memberId);
       const assignmentId = mine?.AssignmentId ?? 0;
       if (!assignmentId) {
-        message.error('Không tìm thấy phân công của bạn cho phiên này.');
+        message.error('Không tìm thấy phân công của bạn cho buổi này.');
         return;
       }
       await assignmentApi.reportBusy(assignmentId, trimmed);
@@ -101,7 +101,7 @@ export default function ReportBusyModal({
           </p>
         ) : null}
         {s ? (
-          <div className="space-y-2.5" role="group" aria-label="Thông tin phiên">
+          <div className="space-y-2.5" role="group" aria-label="Thông tin buổi">
             <p className="text-[15px] font-semibold leading-snug tracking-tight text-slate-950">
               {s.requestLine}
               {s.isOngoing ? (

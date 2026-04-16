@@ -10,7 +10,7 @@ function topicRefToInfo(ref: SessionDetail['SubjectSession']): SessionTopicInfo 
   return { title, description, duration };
 }
 
-/** Tiêu đề hiển thị cho phiên (đồng bộ danh sách + header panel chi tiết). */
+/** Tiêu đề hiển thị cho buổi (đồng bộ danh sách + header panel chi tiết). */
 export function getSessionDisplayTitle(session: RequestSessionSummary): string {
   const topic = session.subjectSession ?? session.eventSession;
   const notes = (session as RequestSessionSummary & { notes?: string }).notes;

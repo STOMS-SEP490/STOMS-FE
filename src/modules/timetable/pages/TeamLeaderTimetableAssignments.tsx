@@ -46,7 +46,7 @@ function getSessionDisplayName(row: TeamLeaderTimetableAssignmentRow) {
   return 'Buổi dạy';
 }
 
-/** Tiêu đề panel — ưu tiên tên phiên/khóa từ API, không chỉ "Buổi 2". */
+/** Tiêu đề panel — ưu tiên tên buổi/khóa từ API, không chỉ "Buổi 2". */
 function getSessionPanelTitle(
   session: RequestSessionSummary | null,
   requestName?: string | null,
@@ -58,7 +58,7 @@ function getSessionPanelTitle(
   const rn = requestName?.trim();
   if (rn) return rn;
   if (session.sessionNo != null) return `Buổi ${session.sessionNo}`;
-  return 'Chi tiết phiên';
+  return 'Chi tiết buổi';
 }
 
 type TeamLeaderTimetableAssignmentsProps = {
@@ -87,7 +87,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
   const statuses = useMemo(() => {
     if (byMember) return ['ASSIGNED', 'ONGOING'];
     if (isAttendanceTab) return ['ASSIGNED', 'ONGOING'];
-    // TL (timetable/assignments) phải theo đúng session/filter để đúng trạng thái phiên.
+    // TL (timetable/assignments) phải theo đúng session/filter để đúng trạng thái buổi.
     return ['ASSIGNED', 'ONGOING'];
   }, [byMember, isAttendanceTab]);
   const internal = useTeamLeaderTimetableAssignments({ pageSize: 8, statuses, todayOnly: isAttendanceTab, byMember });
@@ -152,7 +152,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
       setDetailRequest(null);
       setDetailSession(null);
       setDetailRow(row);
-      setDetailError('Không tìm thấy requestId của phiên này.');
+      setDetailError('Không tìm thấy requestId của buổi này.');
       return;
     }
 
@@ -175,7 +175,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
       ) as RequestSessionSummary | undefined;
 
       if (!rawSession) {
-        throw new Error('Không tìm thấy phiên trong yêu cầu.');
+        throw new Error('Không tìm thấy buổi trong yêu cầu.');
       }
 
       setDetailRequest(requestDetail);
@@ -185,7 +185,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
       const msg =
         err && typeof err === 'object' && 'message' in err
           ? String((err as { message: unknown }).message)
-          : 'Không tải được chi tiết phiên.';
+          : 'Không tải được chi tiết buổi.';
       setDetailError(msg);
     } finally {
       if (seq !== detailFetchSeq.current) return;
@@ -212,7 +212,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           },
           {
             id: 'sessionName',
-            header: 'PHIÊN',
+            header: 'BUỔI',
             enableSorting: false,
             cell: ({ row }) => (
               <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
@@ -237,7 +237,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           },
           {
             id: 'sessionStatus',
-            header: 'Trạng thái phiên',
+            header: 'Trạng thái buổi',
             enableSorting: false,
             cell: ({ row }) => {
               const info = getSessionStatusInfo(row.original.status);
@@ -284,7 +284,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 type="button"
                 onClick={() => void openDetail(row.original)}
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-sky-600 underline-offset-2 hover:text-sky-800 hover:underline whitespace-nowrap"
-                title="Xem chi tiết phiên học"
+                title="Xem chi tiết buổi học"
               >
                 Xem chi tiết
                 <ChevronRight className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
@@ -309,7 +309,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
         },
         {
           id: 'sessionName',
-          header: 'PHIÊN',
+          header: 'BUỔI',
           enableSorting: false,
           cell: ({ row }) => (
             <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
@@ -347,7 +347,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           ? [
               {
                 id: 'actions',
-                header: 'Điểm danh',
+                header: 'Xác nhận tham gia',
                 enableSorting: false,
                 cell: ({ row }: { row: { original: TeamLeaderTimetableAssignmentRow } }) => {
                   return (() => {
@@ -378,7 +378,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                     const canCheckout =
                       isAttendanceTab && isResponsibleForSession && checkoutAt == null;
 
-                    /** Đã ủy quyền / người khác là người điểm danh: chỉ disable 2 nút (không đổi nội dung ô). */
+                    /** Đã ủy quyền / người khác là người xác nhận: chỉ disable 2 nút (không đổi nội dung ô). */
                     const someoneElseIsDelegate =
                       hasOwnerAssigned && hasValidJwtMemberId && attendanceByMemberId !== jwtMemberId;
 
@@ -400,7 +400,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                 type="button"
                                 disabled
                                 className={checkinDisabledCls}
-                                title="Bạn không còn là người điểm danh phiên này"
+                                title="Bạn không còn là người xác nhận buổi này"
                               >
                                 <LogIn className="h-3 w-3" />
                                 Giờ vào: {formatDateTime(checkinAt ?? undefined)}
@@ -412,10 +412,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               disabled
                               className={checkinDisabledCls}
-                              title="Bạn không còn là người điểm danh phiên này"
+                              title="Bạn không còn là người xác nhận buổi này"
                             >
                               <LogIn className="h-3 w-3" />
-                              Điểm danh vào
+                              Xác nhận vào
                             </button>
                           );
                         }
@@ -426,10 +426,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               onClick={() => void openPanel(row.original, 'checkin')}
                               className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
-                              title="Điểm danh vào cho phiên này"
+                              title="Xác nhận vào cho buổi này"
                             >
                               <LogIn className="h-3 w-3" />
-                              Điểm danh vào
+                              Xác nhận vào
                             </button>
                           );
                         }
@@ -445,12 +445,12 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         return (
                           <button type="button" disabled className={checkinDisabledCls} title="Chưa có dữ liệu giờ vào">
                             <LogIn className="h-3 w-3" />
-                            Điểm danh vào
+                            Xác nhận vào
                           </button>
                         );
                       }
 
-                      // Tab phân công: chỉ hiển thị thời gian khi phiên đang diễn ra / completed
+                      // Tab phân công: chỉ hiển thị thời gian khi buổi đang diễn ra / completed
                       if (isOngoing || isCompletedSession) {
                         return checkinAt != null ? (
                           <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 whitespace-nowrap">
@@ -476,7 +476,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                 type="button"
                                 disabled
                                 className={checkoutDisabledCls}
-                                title="Bạn không còn là người điểm danh phiên này"
+                                title="Bạn không còn là người xác nhận buổi này"
                               >
                                 <LogOut className="h-3 w-3" />
                                 Giờ ra: {formatDateTime(checkoutAt ?? undefined)}
@@ -488,10 +488,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               disabled
                               className={checkoutDisabledCls}
-                              title="Bạn không còn là người điểm danh phiên này"
+                              title="Bạn không còn là người xác nhận buổi này"
                             >
                               <LogOut className="h-3 w-3" />
-                              Điểm danh ra
+                              Xác nhận ra
                             </button>
                           );
                         }
@@ -502,10 +502,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               onClick={() => void openPanel(row.original, 'checkout')}
                               className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
-                              title="Điểm danh ra cho phiên này"
+                              title="Xác nhận ra cho buổi này"
                             >
                               <LogOut className="h-3 w-3" />
-                              Điểm danh ra
+                              Xác nhận ra
                             </button>
                           );
                         }
@@ -521,7 +521,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         return (
                           <button type="button" disabled className={checkoutDisabledCls} title="Chưa có dữ liệu giờ ra">
                             <LogOut className="h-3 w-3" />
-                            Điểm danh ra
+                            Xác nhận ra
                           </button>
                         );
                       }
@@ -573,7 +573,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
               type="button"
               onClick={() => void openDetail(row.original)}
               className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:underline underline-offset-2 whitespace-nowrap"
-              title="Xem chi tiết phiên học"
+              title="Xem chi tiết buổi học"
             >
               Xem chi tiết
               <ChevronRight className="h-4 w-4 shrink-0 text-sky-700 opacity-80" aria-hidden />
@@ -613,10 +613,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
               </h2>
               <p className={cn(isTeacherRoute ? 'mt-0.5 text-[13px]' : 'mt-1 text-sm', 'text-slate-500')}>
                 {isTeacherRoute
-                  ? 'Theo dõi các phiên dạy của bạn theo từng buổi.'
+                  ? 'Theo dõi các buổi dạy của bạn theo từng buổi.'
                   : byMember
-                  ? 'Theo dõi các phiên dạy của bạn theo từng buổi.'
-                  : 'Theo dõi phiên dạy, lịch trình của team theo từng buổi.'}
+                  ? 'Theo dõi các buổi dạy của bạn theo từng buổi.'
+                  : 'Theo dõi buổi dạy, lịch trình của team theo từng buổi.'}
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
@@ -629,8 +629,8 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                   }}
                   placeholder={
                     !isAttendanceTab && !byMember
-                      ? 'Tìm theo phiên/địa điểm/yêu cầu...'
-                      : 'Tìm theo phiên/địa điểm/trạng thái...'
+                      ? 'Tìm theo buổi/địa điểm/yêu cầu...'
+                      : 'Tìm theo buổi/địa điểm/trạng thái...'
                   }
                 />
               </div>
@@ -722,7 +722,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           <div className="flex h-full flex-col">
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
               <div className="min-w-0 pr-2">
-                <div className="text-xs text-gray-400 uppercase tracking-wide">Chi tiết phiên</div>
+                <div className="text-xs text-gray-400 uppercase tracking-wide">Chi tiết buổi</div>
                 <h3 className="mt-1 text-lg font-semibold text-slate-900 leading-snug">
                   {getSessionPanelTitle(detailSession, detailRequest?.requestName)}
                 </h3>
@@ -737,7 +737,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                   type="button"
                   className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
                   onClick={closeDetail}
-                  aria-label="Đóng chi tiết phiên"
+                  aria-label="Đóng chi tiết buổi"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -745,7 +745,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết phiên...</p>}
+              {detailLoading && <p className="text-xs text-gray-500">Đang tải chi tiết buổi...</p>}
               {detailError && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">
                   {detailError}
