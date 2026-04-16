@@ -45,14 +45,15 @@ function getDisplayTopics(team: Team): Array<{
     }));
 }
 
-function roleLabel(roleId: number) {
+function roleLabel(roleId: number | null | undefined) {
+  if (roleId == null) return 'Chưa có vai trò';
   switch (roleId) {
     case 6:
       return 'Quản lý thiết bị';
     case 5:
       return 'Sinh viên';
     case 4:
-      return 'Giáo viên';
+      return 'Giảng viên';
     case 3:
       return 'Điều phối chương trình';
     case 2:
@@ -89,7 +90,7 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
           items.map((m) => ({
             memberId: m.memberId,
             userId: m.userId,
-            roleId: m.roleId,
+            roleId: m.roleId ?? null,
             teamId: m.teamId,
             avatarUrl: m.avatarUrl,
             fullName: m.fullName,

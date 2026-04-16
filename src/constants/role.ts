@@ -27,10 +27,12 @@ export const ROLE_BADGE_CLASS: Record<number, string> = {
   6: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
-export function getRoleLabel(roleId: number): string {
+export function getRoleLabel(roleId: number | null | undefined): string {
+  if (roleId == null) return 'Chưa có vai trò';
   return ROLE_MAP[roleId] ?? `Role ${roleId}`;
 }
 
-export function getRoleBadgeClass(roleId: number): string {
+export function getRoleBadgeClass(roleId: number | null | undefined): string {
+  if (roleId == null) return 'bg-slate-100 text-slate-600 border-slate-200';
   return ROLE_BADGE_CLASS[roleId] ?? 'bg-slate-100 text-slate-600 border-slate-200';
 }
