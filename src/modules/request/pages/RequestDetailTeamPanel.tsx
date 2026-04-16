@@ -9,6 +9,8 @@ import assignmentApi from '@/modules/assignment/api/assignmentApi';
 import type { AssignmentResponse } from '../session.types';
 import type { SuggestedStaff } from '../type';
 import sessionService from '../api/sessionApi';
+import { teamSessionApi } from '@/modules/team/api/teamSessionApi';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 export type SessionForTeam = {
   sessionNo: number;
@@ -79,15 +81,6 @@ function cappedAllocForTeam(
     teachersRequired: capT != null ? Math.min(nt, capT) : nt,
     tasRequired: capTa != null ? Math.min(na, capTa) : na,
   };
-}
-
-function distributeCountByTeam(teamIds: number[], total: number) {
-  const result = teamIds.map((teamId) => ({ teamId, count: 0 }));
-  if (!result.length || total <= 0) return result;
-  for (let i = 0; i < total; i += 1) {
-    result[i % result.length].count += 1;
-  }
-  return result;
 }
 
 function isTeacherAssignmentRole(role: string | undefined | null) {
@@ -251,8 +244,7 @@ export default function RequestDetailTeamPanel({
     }
     setTeamQuantities(next);
     setShowAddTeam(false);
-    // Chỉ đồng bộ khi đổi buổi hoặc tập id nhóm từ parent (vd. bỏ nhóm 0 GV/0 TG); không gắn currentTeamQuantities để tránh đóng panel "Thêm nhóm" khi gõ số.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [session.sessionId, assignedIdsKey, requestedTas, suggestedTeams, separateTeacherSelection, currentTeamQuantities]);
 
   const filteredTeams = useMemo(() => {
@@ -438,7 +430,7 @@ export default function RequestDetailTeamPanel({
     }
   }, [hasPendingTeacherAssignmentChanges, persistTeacherAssignments, saving]);
 
-  const handleSaveTeamsOnly = useCallback(() => {
+  const handleSaveTeamsOnly = useCallback(async () => {
     if (!hasTeamChanges) {
       setTeamEditMode(false);
       setShowAddTeam(false);
@@ -451,10 +443,24 @@ export default function RequestDetailTeamPanel({
       };
       return acc;
     }, {});
-    onAssignSession(session.sessionId, addedTeamIds, finalQuantities);
-    setTeamEditMode(false);
-    setShowAddTeam(false);
-    message.success('Đã lưu nhóm phụ trách.');
+
+    try {
+      setSaving(true);
+      const items = addedTeamIds.map((teamId) => ({
+        teamId,
+        teachersRequired: 0,
+        tasRequired: Math.max(0, Number(teamQuantities[teamId]?.tasRequired ?? 0) || 0),
+      }));
+      await teamSessionApi.replaceForSession(session.sessionId, items);
+      onAssignSession(session.sessionId, addedTeamIds, finalQuantities);
+      setTeamEditMode(false);
+      setShowAddTeam(false);
+      message.success('Đã lưu nhóm phụ trách.');
+    } catch (err: unknown) {
+      message.error(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   }, [addedTeamIds, hasTeamChanges, onAssignSession, session.sessionId, teamQuantities]);
 
   const resetTeamDraftFromCurrent = useCallback(() => {
@@ -569,7 +575,7 @@ export default function RequestDetailTeamPanel({
                 disabled={saving}
                 onClick={() => setTeacherEditMode(true)}
               >
-                Chỉnh sửa
+                {assignedTeacherCountByAssignments > 0 ? 'Chỉnh sửa' : 'Thêm'}
               </Button>
             )}
           </div>
@@ -788,7 +794,7 @@ export default function RequestDetailTeamPanel({
               size="sm"
               className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
               disabled={saving || loading}
-              onClick={handleSaveTeamsOnly}
+              onClick={() => void handleSaveTeamsOnly()}
             >
               Lưu
             </Button>
@@ -801,7 +807,7 @@ export default function RequestDetailTeamPanel({
             disabled={saving || loading}
             onClick={() => setTeamEditMode(true)}
           >
-            Chỉnh sửa
+            {addedTeamIds.length > 0 ? 'Chỉnh sửa' : 'Thêm'}
           </Button>
         )}
       </div>

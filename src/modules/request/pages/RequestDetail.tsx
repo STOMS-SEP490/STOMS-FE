@@ -674,8 +674,6 @@ export default function RequestDetail() {
                   const rows = assignmentsBySessionId[session.sessionId] ?? [];
                   const pendingCount = rows.filter((r) => canManagerReviewAssignmentRow(r)).length;
                   const fullyAssigned = isSessionFullyAssigned(session);
-                  const taFullyAssigned = isSessionTaFullyAssigned(session);
-                  const teacherFullyAssigned = isSessionTeacherFullyAssigned(session);
                   const sessionPending = getSessionStatusCode(session.status) === SESSION_STATUS.PENDING;
                   const sessionTitle = getSessionDisplayTitle(session);
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
@@ -871,8 +869,6 @@ export default function RequestDetail() {
                   const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
                   const teamCount = teamIds.length;
                   const fullyAssigned = isSessionFullyAssigned(session);
-                  const taFullyAssigned = isSessionTaFullyAssigned(session);
-                  const teacherFullyAssigned = isSessionTeacherFullyAssigned(session);
                   const sessionPending = getSessionStatusCode(session.status) === SESSION_STATUS.PENDING;
                   const topic = session.subjectSession ?? session.eventSession;
                   const sessionTitle = getSessionDisplayTitle(session);

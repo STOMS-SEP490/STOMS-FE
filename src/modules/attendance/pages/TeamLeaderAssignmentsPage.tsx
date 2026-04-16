@@ -1239,9 +1239,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 );
                 const progressStats = getSessionStats(activeSession);
                 const progressTotal = progressStats.total;
-                const progressFilled = progressStats.filled;
-                const progressRatio =
-                  progressTotal === 0 ? 0 : Math.min(1, progressFilled / progressTotal);
 
                 const sessionInfoCard = (
                   <div className="rounded-xl bg-white shadow-sm border border-gray-100">

@@ -445,7 +445,7 @@ export const useRequestDetailManager = (params: {
       );
 
       if (totalTas > requiredTas) {
-        message.error(`Phân bổ vượt nhu cầu buổi (${requiredTas} TG). Vui lòng giảm số lượng hoặc bớt nhóm.`);
+        message.error(`Vui lòng giảm số lượng hoặc bớt nhóm.`);
         return;
       }
 
