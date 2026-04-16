@@ -3,6 +3,9 @@ import { message } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import memberApi from '../api/memberApi';
 import type { Member, MemberDetail } from '../member';
+import { ROLE_ID } from '@/constants/role';
+
+type MemberRoleFilter = 'all' | 'teacher' | 'student';
 
 export const useMembers = (options?: { filterFullName?: string; filterTeamId?: number | string }) => {
   const [members, setMembers] = useState<Member[]>([]);
@@ -16,16 +19,24 @@ export const useMembers = (options?: { filterFullName?: string; filterTeamId?: n
   const [filterTeamId, setFilterTeamId] = useState<string>(
     options?.filterTeamId !== undefined ? String(options.filterTeamId) : ''
   );
+  const [filterRole, setFilterRole] = useState<MemberRoleFilter>('all');
 
   const fetchMembers = async () => {
     try {
       setLoading(true);
-      const params: Parameters<typeof memberApi.getMembers>[0] = { pageNumber, pageSize };
-      if (filterFullName.trim()) params.FullName = filterFullName.trim();
+      const baseParams: Parameters<typeof memberApi.getMembers>[0] = { pageNumber, pageSize };
+      if (filterFullName.trim()) baseParams.FullName = filterFullName.trim();
       const tid = filterTeamId === '' || filterTeamId === 'all' ? undefined : Number(filterTeamId);
-      if (tid !== undefined && !Number.isNaN(tid)) params.TeamId = tid;
-      const res = await memberApi.getMembers(params);
+      if (tid !== undefined && !Number.isNaN(tid)) baseParams.TeamId = tid;
 
+      const roleId =
+        filterRole === 'teacher'
+          ? ROLE_ID.TEACHER
+          : filterRole === 'student'
+            ? ROLE_ID.ASSISTANT
+            : undefined;
+
+      const res = await memberApi.getMembers({ ...baseParams, RoleId: roleId });
       setMembers(res.items ?? []);
       setTotalItems(res.totalItems ?? 0);
     } catch (err) {
@@ -47,11 +58,12 @@ export const useMembers = (options?: { filterFullName?: string; filterTeamId?: n
 
   useEffect(() => {
     fetchMembers();
-  }, [pageNumber, filterFullName, filterTeamId]);
+  }, [pageNumber, filterFullName, filterTeamId, filterRole]);
 
   const resetFilters = () => {
     setFilterFullName('');
     setFilterTeamId('all');
+    setFilterRole('all');
     setPageNumber(1);
   };
 
@@ -71,6 +83,8 @@ export const useMembers = (options?: { filterFullName?: string; filterTeamId?: n
     setFilterFullName,
     filterTeamId,
     setFilterTeamId,
+    filterRole,
+    setFilterRole,
     resetFilters,
   };
 };

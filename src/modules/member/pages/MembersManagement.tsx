@@ -35,6 +35,8 @@ export default function MembersManagement() {
     setFilterFullName,
     filterTeamId,
     setFilterTeamId,
+    filterRole,
+    setFilterRole,
     resetFilters,
   } = useMembers();
 
@@ -132,10 +134,12 @@ export default function MembersManagement() {
       id: 'role',
       header: 'Vai trò',
       cell: ({ row }) => {
-        const roleId = Number(row.original.roleId ?? 0);
-        return (
-          <Badge className={`${getRoleBadgeClass(roleId)} border`}>{getRoleLabel(roleId)}</Badge>
-        );
+        const rawRoleId = row.original.roleId;
+        const roleId = rawRoleId == null ? null : Number(rawRoleId);
+        if (roleId == null || !Number.isFinite(roleId) || roleId <= 0) {
+          return <Badge className="bg-slate-100 text-slate-600 border border-slate-200">Chưa có vai trò</Badge>;
+        }
+        return <Badge className={`${getRoleBadgeClass(roleId)} border`}>{getRoleLabel(roleId)}</Badge>;
       },
     },
     { id: 'team', header: 'Nhóm', cell: ({ row }) => row.original.team?.teamName },
@@ -218,6 +222,16 @@ export default function MembersManagement() {
       <div className="flex justify-end gap-3 mb-2">
         <HoverSearch placeholder="Tìm theo tên..." value={filterFullName} onChange={setFilterFullName} />
         <div className="flex items-center gap-3">
+          <Select value={filterRole} onValueChange={(v) => setFilterRole(v as 'all' | 'teacher' | 'student')}>
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[220px]">
+              <SelectValue placeholder="Vai trò" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="teacher">Giảng viên</SelectItem>
+              <SelectItem value="student">Sinh viên</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={filterTeamId || 'all'} onValueChange={setFilterTeamId}>
             <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[160px]">
               <SelectValue placeholder="Nhóm" />
