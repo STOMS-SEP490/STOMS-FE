@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, Calendar, Hash, List, MapPin, AlertCircle, AlertTriangle, Paperclip, ImageOff, Users, Wrench, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, X, CheckCircle2, List, MapPin, AlertCircle, AlertTriangle, Paperclip, ImageOff, Users, Wrench, ChevronDown, ChevronRight } from 'lucide-react';
 import { message } from 'antd';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
