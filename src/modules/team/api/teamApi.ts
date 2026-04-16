@@ -46,7 +46,7 @@ function mapMemberToTeamItem(m: Member): TeamMemberItem {
   return {
     memberId: m.memberId,
     userId: m.userId,
-    roleId: m.roleId,
+    roleId: m.roleId ?? null,
     teamId: m.teamId ?? null,
     avatarUrl: m.avatarUrl,
     fullName: m.fullName,

@@ -26,7 +26,7 @@ import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import { useMyTeam } from '../hooks/useMyTeam';
 import type { MemberSkillItem, TeamMemberItem, TeamTopicItem } from '../team';
 
-function roleBadge(roleId: number) {
+function roleBadge(roleId: number | null | undefined) {
   return (
     <Badge className={`${getRoleBadgeClass(roleId)} text-[10px] px-1.5 py-0 leading-normal border`}>
       {getRoleLabel(roleId)}
