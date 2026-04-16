@@ -581,7 +581,7 @@ export default function SubjectsManagement() {
   ], [isManager, handleView, openEditModal, handleToggleActive])
 
   return (
-    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
       <div className="flex shrink-0 items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
         <div>
           <h2 className="text-xl font-semibold text-black">Quản lý môn học</h2>
@@ -608,9 +608,9 @@ export default function SubjectsManagement() {
         />
         <StatCard
           icon={<CalendarDays className="h-6 w-6" strokeWidth={2} />}
-          label="Tổng buổi học"
+          label="Tổng số buổi"
           value={statValue(statsLoading, totalSubjectSessionsStat)}
-          sub="Tổng buổi theo môn"
+          sub="Tổng số buổi theo môn"
           variant="orange"
         />
         <StatCard
@@ -928,11 +928,11 @@ export default function SubjectsManagement() {
           )}
 
           <div className="space-y-2">
-            <Label>Các buổi học trong môn</Label>
+            <Label>Các buổi trong môn</Label>
             <div className="stoms-scrollbar max-h-56 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2 space-y-2">
               {sessions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Chưa có buổi học nào. Nhấn "Thêm buổi" để tạo.
+                  Chưa có buổi nào. Nhấn "Thêm buổi" để tạo.
                 </p>
               ) : (
                 sessions
@@ -989,7 +989,7 @@ export default function SubjectsManagement() {
                             }
                             rows={2}
                             className="w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            placeholder="Mô tả nội dung buổi học"
+                            placeholder="Mô tả nội dung buổi"
                           />
                         </div>
                       </div>

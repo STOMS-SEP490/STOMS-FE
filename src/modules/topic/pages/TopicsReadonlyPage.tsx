@@ -144,7 +144,7 @@ export default function TopicsReadonlyPage() {
   const teamsCount = detailTopic?.teams?.length ?? detailTopic?.teamTopics?.length ?? 0;
 
   return (
-    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
       <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
         <h2 className="text-xl font-semibold text-black">Danh sách chủ đề</h2>
         <p className="text-xs text-gray-500">Xem thông tin các chủ đề trong hệ thống</p>

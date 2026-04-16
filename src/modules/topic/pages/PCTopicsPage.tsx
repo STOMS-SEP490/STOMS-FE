@@ -163,7 +163,7 @@ export default function PCTopicsPage() {
   );
 
   return (
-    <div className="p-6 app-page-bg flex flex-col gap-2 min-h-0 overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
+    <div className="p-6 pl-8 app-page-bg flex flex-col gap-2 min-h-0 overflow-hidden" style={{ height: 'var(--content-height, 100vh)' }}>
       <div className="shrink-0 bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm">
         <h2 className="text-xl font-semibold text-black">Quản lý chủ đề</h2>
         <p className="text-xs text-gray-500">Xem danh sách chủ đề trong hệ thống</p>

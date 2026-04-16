@@ -468,7 +468,7 @@ export default function TaskReportsManagement() {
 
   return (
     <div
-      className="flex flex-col gap-4 overflow-hidden bg-slate-50 p-6"
+      className="flex flex-col gap-4 overflow-hidden bg-slate-50 p-6 pl-8"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">

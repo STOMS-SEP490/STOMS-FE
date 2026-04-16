@@ -131,10 +131,10 @@ export default function CoursesLayout({ variant }: Props) {
   const pageSubtitle =
     variant === 'courses'
       ? 'Quản lý khóa học trong hệ thống'
-      : 'Quản lý môn học và buổi học trong hệ thống';
+      : 'Quản lý môn học trong hệ thống';
 
   return (
-    <div className="p-6 space-y-4 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="p-6 pl-8 space-y-4 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
       <div className="bg-white flex justify-between px-4 py-3 mb-2 rounded-xl border shadow-sm items-center">
         <div>

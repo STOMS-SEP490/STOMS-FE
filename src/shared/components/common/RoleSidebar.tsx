@@ -31,7 +31,7 @@ type RoleSidebarProps = {
   menus: RoleSidebarMenuItem[];
 };
 
-export default function RoleSidebar({ menus }: RoleSidebarProps) {
+export default function RoleSidebar({ menus, profilePath }: RoleSidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
@@ -373,10 +373,15 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
 
                 <div className="my-1 h-px bg-slate-200" />
 
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                  <span>Thông báo</span>
-                  <NotificationBell />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => { setAccountOpen(false); navigate(profilePath); }}
+                  className="flex w-full items-center rounded-md px-2 py-2 text-sm font-normal text-slate-700 hover:bg-slate-100"
+                >
+                  Thông tin cá nhân
+                </button>
+
+                <div className="my-1 h-px bg-slate-200" />
 
                 <div className="my-1 h-px bg-slate-200" />
 

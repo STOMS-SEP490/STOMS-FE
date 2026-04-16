@@ -763,7 +763,7 @@ export default function TeacherTaskReportPage() {
 
   return (
     <div
-      className="flex flex-col p-6 gap-4 app-page-bg overflow-hidden"
+      className="flex flex-col p-6 pl-8 gap-4 app-page-bg overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {/* Header + bộ lọc cùng một thẻ (đồng bộ teacher/events, teaching-history…) */}

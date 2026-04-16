@@ -168,7 +168,7 @@ export default function Sidebar() {
         icon: LayoutTemplate,
         children: [
           { label: 'Mẫu sự kiện', icon: Star, path: '/manager/events' },
-          { label: 'Khung chương trình', icon: GraduationCap, path: '/manager/courses' },
+          { label: 'Chương trình học', icon: GraduationCap, path: '/manager/courses' },
           { label: 'Môn học', icon: Layers, path: '/manager/subjects' },
         ],
       },
@@ -437,10 +437,15 @@ export default function Sidebar() {
 
               <div className="my-1 h-px bg-slate-200" />
 
-              <div className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                <span>Thông báo</span>
-                <NotificationBell />
-              </div>
+              <button
+                type="button"
+                onClick={() => { setAccountOpen(false); navigate('/manager/profile'); }}
+                className="flex w-full items-center rounded-md px-2 py-2 text-sm font-normal text-slate-700 hover:bg-slate-100"
+              >
+                Thông tin cá nhân
+              </button>
+
+              <div className="my-1 h-px bg-slate-200" />
 
               <div className="my-1 h-px bg-slate-200" />
 

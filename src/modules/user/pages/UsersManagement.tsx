@@ -278,7 +278,7 @@ export default function UserManagement() {
   ];
 
   return (
-    <div className=" p-6 space-y-6 ">
+    <div className="p-6 pl-8 space-y-6 ">
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border border-border shadow-sm items-center">
         <div>

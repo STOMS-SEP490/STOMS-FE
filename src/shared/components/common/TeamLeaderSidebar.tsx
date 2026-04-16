@@ -24,11 +24,11 @@ export default function TeamLeaderSidebar() {
       { label: 'Nhóm', icon: Users, path: '/tl/teams' },
       {
         kind: 'group',
-        label: 'Thông tin mẫu',
+        label: 'Loại yêu cầu',
         icon: LayoutTemplate,
         children: [
           { label: 'Mẫu sự kiện', icon: Star, path: '/tl/events' },
-          { label: 'Khung chương trình', icon: BookOpen, path: '/tl/courses', matchPrefixPath: '/tl/courses' },
+          { label: 'Chương trình học', icon: BookOpen, path: '/tl/courses', matchPrefixPath: '/tl/courses' },
           { label: 'Môn học', icon: Layers, path: '/tl/subjects', matchPrefixPath: '/tl/subjects' },
         ],
       },

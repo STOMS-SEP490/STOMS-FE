@@ -23,12 +23,12 @@ export default function TeacherSidebar() {
       { label: 'Hồ sơ', icon: UserCircle, path: '/teacher/profile' },
       {
         kind: 'group',
-        label: 'Thông tin mẫu',
+        label: 'Loại yêu cầu',
         icon: LayoutTemplate,
         children: [
           { label: 'Mẫu sự kiện', icon: Star, path: '/teacher/events' },
           {
-            label: 'Khung chương trình',
+            label: 'Chương trình học',
             icon: BookOpen,
             path: '/teacher/courses',
             matchPrefixPath: '/teacher/courses',

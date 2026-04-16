@@ -240,14 +240,12 @@ export const useRequestDetailManager = (params: {
     >(
         (acc, s) => {
           const teamIds = nextUiAssigned[s.sessionId] ?? [];
-          const requiredTeachers = normalizeRequiredCount((s as any).teachersRequired, 1);
           const requiredTas = normalizeRequiredCount((s as any).tasRequired, 1);
-          const teacherDist = distributeCountByTeam(teamIds, requiredTeachers);
           const taDist = distributeCountByTeam(teamIds, requiredTas);
           acc[s.sessionId] = teamIds.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>(
             (m, teamId, idx) => {
               m[teamId] = {
-                teachersRequired: teacherDist[idx]?.count ?? 0,
+              teachersRequired: 0,
                 tasRequired: taDist[idx]?.count ?? 0,
               };
               return m;
@@ -437,39 +435,28 @@ export const useRequestDetailManager = (params: {
       teamQuantities: Record<number, { teachersRequired: number; tasRequired: number }>
     ) => {
       const targetSession = sessions.find((s) => s.sessionId === sessionId);
-      const requiredTeachers = normalizeRequiredCount(
-        (targetSession as SessionWithFlags | undefined)?.teachersRequired,
-        1
-      );
       const requiredTas = normalizeRequiredCount(
         (targetSession as SessionWithFlags | undefined)?.tasRequired,
         1
-      );
-      const totalTeachers = teamIds.reduce(
-        (sum, teamId) => sum + normalizeRequiredCount(teamQuantities?.[teamId]?.teachersRequired, 0),
-        0
       );
       const totalTas = teamIds.reduce(
         (sum, teamId) => sum + normalizeRequiredCount(teamQuantities?.[teamId]?.tasRequired, 0),
         0
       );
 
-      if (totalTeachers > requiredTeachers || totalTas > requiredTas) {
-        message.error(
-          `Phân bổ vượt nhu cầu buổi (${requiredTeachers} GV / ${requiredTas} TG). Vui lòng giảm số lượng hoặc bớt nhóm.`
-        );
+      if (totalTas > requiredTas) {
+        message.error(`Phân bổ vượt nhu cầu buổi (${requiredTas} TG). Vui lòng giảm số lượng hoặc bớt nhóm.`);
         return;
       }
 
       const keptTeamIds = teamIds.filter((teamId) => {
-        const gv = normalizeRequiredCount(teamQuantities?.[teamId]?.teachersRequired, 0);
         const tg = normalizeRequiredCount(teamQuantities?.[teamId]?.tasRequired, 0);
-        return gv > 0 || tg > 0;
+        return tg > 0;
       });
       const nextQty = keptTeamIds.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>(
         (m, teamId) => {
           m[teamId] = {
-            teachersRequired: normalizeRequiredCount(teamQuantities?.[teamId]?.teachersRequired, 0),
+            teachersRequired: 0,
             tasRequired: normalizeRequiredCount(teamQuantities?.[teamId]?.tasRequired, 0),
           };
           return m;
@@ -680,10 +667,10 @@ export const useRequestDetailManager = (params: {
         const items = teamIds
           .map((teamId) => ({
             teamId,
-            teachersRequired: normalizeRequiredCount(teamQuantityMap[teamId]?.teachersRequired, 0),
+            teachersRequired: 0,
             tasRequired: normalizeRequiredCount(teamQuantityMap[teamId]?.tasRequired, 0),
           }))
-          .filter((item) => item.teachersRequired > 0 || item.tasRequired > 0);
+          .filter((item) => item.tasRequired > 0);
         if (!items.length) continue;
         await teamSessionApi.replaceForSession(s.sessionId, items);
       }
@@ -777,19 +764,14 @@ export const useRequestDetailManager = (params: {
       const teamIds = uiAssignedTeamIdsBySessionId[s.sessionId] ?? [];
       if (teamIds.length === 0) return false;
 
-      const reqTeachers = normalizeRequiredCount((s as any).teachersRequired, 1);
       const reqTas = normalizeRequiredCount((s as any).tasRequired, 1);
       const teamQuantityMap = uiTeamQuantitiesBySessionId[s.sessionId] ?? {};
-      const assignedTeachers = teamIds.reduce(
-        (sum, teamId) => sum + normalizeRequiredCount(teamQuantityMap[teamId]?.teachersRequired, 0),
-        0
-      );
       const assignedTas = teamIds.reduce(
         (sum, teamId) => sum + normalizeRequiredCount(teamQuantityMap[teamId]?.tasRequired, 0),
         0
       );
 
-      return assignedTeachers === reqTeachers && assignedTas === reqTas;
+      return assignedTas === reqTas;
     }).length;
   }, [sessions, uiAssignedTeamIdsBySessionId, uiTeamQuantitiesBySessionId]);
 
