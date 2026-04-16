@@ -8,6 +8,7 @@ export type MemberFilterParams = {
   MemberId?: number;
   TeamId?: number;
   FullName?: string;
+  RoleId?: number;
 };
 
 const memberApi = {

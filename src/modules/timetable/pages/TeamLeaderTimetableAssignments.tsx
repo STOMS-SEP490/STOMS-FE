@@ -347,7 +347,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           ? [
               {
                 id: 'actions',
-                header: 'Điểm danh',
+                header: 'Xác nhận tham gia',
                 enableSorting: false,
                 cell: ({ row }: { row: { original: TeamLeaderTimetableAssignmentRow } }) => {
                   return (() => {
@@ -378,7 +378,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                     const canCheckout =
                       isAttendanceTab && isResponsibleForSession && checkoutAt == null;
 
-                    /** Đã ủy quyền / người khác là người điểm danh: chỉ disable 2 nút (không đổi nội dung ô). */
+                    /** Đã ủy quyền / người khác là người xác nhận: chỉ disable 2 nút (không đổi nội dung ô). */
                     const someoneElseIsDelegate =
                       hasOwnerAssigned && hasValidJwtMemberId && attendanceByMemberId !== jwtMemberId;
 
@@ -400,7 +400,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                 type="button"
                                 disabled
                                 className={checkinDisabledCls}
-                                title="Bạn không còn là người điểm danh buổi này"
+                                title="Bạn không còn là người xác nhận buổi này"
                               >
                                 <LogIn className="h-3 w-3" />
                                 Giờ vào: {formatDateTime(checkinAt ?? undefined)}
@@ -412,10 +412,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               disabled
                               className={checkinDisabledCls}
-                              title="Bạn không còn là người điểm danh buổi này"
+                              title="Bạn không còn là người xác nhận buổi này"
                             >
                               <LogIn className="h-3 w-3" />
-                              Điểm danh vào
+                              Xác nhận vào
                             </button>
                           );
                         }
@@ -426,10 +426,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               onClick={() => void openPanel(row.original, 'checkin')}
                               className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
-                              title="Điểm danh vào cho buổi này"
+                              title="Xác nhận vào cho buổi này"
                             >
                               <LogIn className="h-3 w-3" />
-                              Điểm danh vào
+                              Xác nhận vào
                             </button>
                           );
                         }
@@ -445,7 +445,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         return (
                           <button type="button" disabled className={checkinDisabledCls} title="Chưa có dữ liệu giờ vào">
                             <LogIn className="h-3 w-3" />
-                            Điểm danh vào
+                            Xác nhận vào
                           </button>
                         );
                       }
@@ -476,7 +476,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                 type="button"
                                 disabled
                                 className={checkoutDisabledCls}
-                                title="Bạn không còn là người điểm danh buổi này"
+                                title="Bạn không còn là người xác nhận buổi này"
                               >
                                 <LogOut className="h-3 w-3" />
                                 Giờ ra: {formatDateTime(checkoutAt ?? undefined)}
@@ -488,10 +488,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               disabled
                               className={checkoutDisabledCls}
-                              title="Bạn không còn là người điểm danh buổi này"
+                              title="Bạn không còn là người xác nhận buổi này"
                             >
                               <LogOut className="h-3 w-3" />
-                              Điểm danh ra
+                              Xác nhận ra
                             </button>
                           );
                         }
@@ -502,10 +502,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               onClick={() => void openPanel(row.original, 'checkout')}
                               className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
-                              title="Điểm danh ra cho buổi này"
+                              title="Xác nhận ra cho buổi này"
                             >
                               <LogOut className="h-3 w-3" />
-                              Điểm danh ra
+                              Xác nhận ra
                             </button>
                           );
                         }
@@ -521,7 +521,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         return (
                           <button type="button" disabled className={checkoutDisabledCls} title="Chưa có dữ liệu giờ ra">
                             <LogOut className="h-3 w-3" />
-                            Điểm danh ra
+                            Xác nhận ra
                           </button>
                         );
                       }

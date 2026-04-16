@@ -62,7 +62,7 @@ export type MemberSkillItem = {
 export type TeamMemberItem = {
   memberId: number;
   userId: number;
-  roleId: number;
+  roleId: number | null;
   teamId: number | null;
   avatarUrl: string | null;
   fullName: string;

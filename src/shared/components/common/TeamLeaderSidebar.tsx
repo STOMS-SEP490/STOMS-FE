@@ -40,7 +40,7 @@ export default function TeamLeaderSidebar() {
         matchPrefixPath: '/tl/timetable',
       },
       { label: 'Danh sách buổi đã dạy', icon: Timer, path: '/tl/teaching-history' },
-      { label: 'Điểm danh', icon: CheckCircle2, path: '/tl/attendance' },
+      { label: 'Xác nhận tham gia', icon: CheckCircle2, path: '/tl/attendance' },
       { label: 'Báo cáo công việc', icon: ClipboardList, path: '/tl/tasks' },
       { label: 'Hợp đồng', icon: FileText, path: '/tl/contracts' },
       { label: 'Đóng góp quỹ', icon: Wallet, path: '/tl/fund-contributions' },

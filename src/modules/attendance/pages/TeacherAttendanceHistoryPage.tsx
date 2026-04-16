@@ -203,7 +203,7 @@ export default function TeacherAttendanceHistoryPage() {
               const r = row.original as TLRow;
               const hasIn = !!r.checkinAt;
               const hasOut = !!r.checkoutAt;
-              const status = !hasIn && !hasOut ? 'Chưa điểm danh' : hasIn && !hasOut ? 'Thiếu giờ ra' : 'Đúng giờ';
+              const status = !hasIn && !hasOut ? 'Chưa xác nhận' : hasIn && !hasOut ? 'Thiếu giờ ra' : 'Đúng giờ';
               return (
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold text-slate-900">{formatTime(r.checkoutAt ?? null)}</span>
@@ -301,7 +301,7 @@ export default function TeacherAttendanceHistoryPage() {
             const r = row.original as AttendanceHistoryItem;
             const hasIn = !!r.checkinAt;
             const hasOut = !!r.checkoutAt;
-            const status = !hasIn && !hasOut ? 'Chưa điểm danh' : hasIn && !hasOut ? 'Thiếu giờ ra' : 'Đúng giờ';
+            const status = !hasIn && !hasOut ? 'Chưa xác nhận' : hasIn && !hasOut ? 'Thiếu giờ ra' : 'Đúng giờ';
             return (
               <div className="flex flex-col">
                 <span className="text-sm font-semibold text-slate-900">{formatTime(r.checkoutAt)}</span>
@@ -650,12 +650,12 @@ export default function TeacherAttendanceHistoryPage() {
         <div className="mb-2 flex flex-col gap-4 rounded-xl border bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
           <div className="min-w-0">
             <h2 className="text-xl font-semibold text-black">
-              {activeTab === 'attendance' ? 'Điểm danh' : 'Lịch sử điểm danh'}
+              {activeTab === 'attendance' ? 'Xác nhận tham gia' : 'Lịch sử xác nhận tham gia'}
             </h2>
             <p className="text-xs text-gray-500">
               {activeTab === 'attendance'
-                ? 'Theo dõi buổi diễn ra hôm nay và thực hiện điểm danh vào/ra.'
-                : 'Các buổi bạn đã được điểm danh, cùng trạng thái giờ vào/giờ ra.'}
+                ? 'Theo dõi buổi diễn ra hôm nay và thực hiện xác nhận vào/ra.'
+                : 'Các buổi bạn đã được xác nhận, cùng trạng thái giờ vào/giờ ra.'}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -683,8 +683,8 @@ export default function TeacherAttendanceHistoryPage() {
             }}
           >
             <TabsList>
-              <TabsTrigger value="attendance">ĐIỂM DANH</TabsTrigger>
-              <TabsTrigger value="history">LỊCH SỬ ĐIỂM DANH</TabsTrigger>
+              <TabsTrigger value="attendance">XÁC NHẬN THAM GIA</TabsTrigger>
+              <TabsTrigger value="history">LỊCH SỬ THAM GIA</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -695,7 +695,7 @@ export default function TeacherAttendanceHistoryPage() {
           <>
             {loading && (
               <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
-                <span className="text-sm text-slate-500">Đang tải lịch sử điểm danh...</span>
+                <span className="text-sm text-slate-500">Đang tải lịch sử xác nhận tham gia...</span>
               </div>
             )}
 
@@ -790,15 +790,15 @@ export default function TeacherAttendanceHistoryPage() {
     <div className="relative p-6 space-y-6 flex flex-col min-h-0" style={{ height: 'var(--content-height, 100vh)' }}>
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
-          <span className="text-sm text-slate-500">Đang tải lịch sử điểm danh...</span>
+          <span className="text-sm text-slate-500">Đang tải lịch sử xác nhận tham gia...</span>
         </div>
       )}
 
       <div className="mb-2 flex flex-col gap-4 rounded-xl border bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-black">Lịch sử điểm danh</h2>
+          <h2 className="text-xl font-semibold text-black">Lịch sử xác nhận tham gia</h2>
           <p className="text-xs text-gray-500">
-            Các buổi bạn đã được điểm danh, cùng trạng thái giờ vào/giờ ra.
+            Các buổi bạn đã được xác nhận, cùng trạng thái giờ vào/giờ ra.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
