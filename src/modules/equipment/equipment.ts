@@ -14,6 +14,30 @@ export type EquipmentReservationItem = {
   createdByMemberId: number | null
 }
 
+export type EquipmentBorrowingHistoryItem = {
+  borrowingId?: number
+  status?: string
+  returnedDueDate?: string | null
+  createdAt?: string | null
+  description?: string | null
+  note?: string | null
+  totalEquipments?: number
+  borrowedByMemberId?: number
+  lentByMemberId?: number
+  borrowedByMember?: { fullName?: string | null; avatarUrl?: string | null; phone?: string | null } | null
+  lentByMember?: { fullName?: string | null; avatarUrl?: string | null; phone?: string | null } | null
+  borrowingEquipmentDetail?: Array<{
+    equipmentBorrowingId?: number
+    borrowingId?: number
+    equipmentId?: number
+    status?: string
+    checkoutAt?: string | null
+    checkinAt?: string | null
+    receivedByMemberId?: number | null
+    receivedByMember?: { fullName?: string | null } | null
+  }> | null
+}
+
 export type EquipmentListItem = {
   equipmentId: number
   categoryId: number
@@ -27,6 +51,10 @@ export type EquipmentListItem = {
   createdAt: string | null
   currentBorrowings?: EquipmentBorrowingItem[] | null
   upcomingReservations?: EquipmentReservationItem[] | null
+  /** BE getById bổ sung lịch sử mượn */
+  historyborrowing?: EquipmentBorrowingHistoryItem[] | null
+  historyBorrowing?: EquipmentBorrowingHistoryItem[] | null
+  historyBorrowings?: EquipmentBorrowingHistoryItem[] | null
 }
 
 export type EquipmentFilterParams = {

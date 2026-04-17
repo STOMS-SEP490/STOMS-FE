@@ -20,6 +20,10 @@ const memberApi = {
     return axiosClient.get(`/members/${id}`);
   },
 
+  assignMemberRole: async (memberId: number, roleId: number) => {
+    return axiosClient.put(`/members/${memberId}/role`, { RoleId: roleId });
+  },
+
   uploadAvatar: async (memberId: number, file: File) => {
     const formData = new FormData();
     formData.append('file', file);

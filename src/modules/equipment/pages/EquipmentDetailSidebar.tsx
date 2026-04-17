@@ -1,5 +1,5 @@
 import { Copy, X } from 'lucide-react'
-import type { EquipmentListItem } from '../equipment'
+import type { EquipmentBorrowingHistoryItem, EquipmentListItem } from '../equipment'
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/shared/lib/utils'
 import {
@@ -7,6 +7,7 @@ import {
   getEquipmentStatusDisplay,
 } from '@/constants/equipment'
 import { getEquipmentBorrowingStatusInfo } from '@/constants/status'
+import { getBorrowingStatusColor, getBorrowingStatusDisplay } from '@/constants/borrowing'
 import { Image, message } from 'antd'
 
 type Props = {
@@ -26,6 +27,14 @@ function normalizeUrl(url: string) {
   if (!u) return ''
   if (/^https?:\/\//i.test(u)) return u
   return `https://${u}`
+}
+
+function borrowingDisplayName(x: EquipmentBorrowingHistoryItem): string {
+  const name =
+    x.borrowedByMember?.fullName?.trim() ||
+    (x.borrowedByMemberId ? `Member #${x.borrowedByMemberId}` : '') ||
+    ''
+  return name || '—'
 }
 
 async function copyToClipboard(text: string) {
@@ -48,6 +57,9 @@ export default function EquipmentDetailSidebar({
   const handoverUrl = equipment.handoverMinute
     ? normalizeUrl(equipment.handoverMinute)
     : ''
+
+  const borrowingHistory =
+    equipment.historyborrowing ?? equipment.historyBorrowing ?? equipment.historyBorrowings ?? null
 
   return (
     <>
@@ -211,6 +223,69 @@ export default function EquipmentDetailSidebar({
                 </ul>
               ) : (
                 <EmptyState text="Không có lượt mượn hiện tại." />
+              )}
+            </Card>
+
+            <Card title="Lịch sử mượn">
+              {borrowingHistory && borrowingHistory.length > 0 ? (
+                <ul className="space-y-1">
+                  {borrowingHistory.map((h, idx) => {
+                    const borrowingStatusLabel = getBorrowingStatusDisplay(h.status ?? '')
+                    const borrowingStatusClass = getBorrowingStatusColor(h.status ?? '')
+
+                    const detailForThisEquipment =
+                      h.borrowingEquipmentDetail?.find((d) => Number(d.equipmentId) === Number(equipment.equipmentId)) ??
+                      (h.borrowingEquipmentDetail?.length ? h.borrowingEquipmentDetail[0] : null)
+
+                    const key =
+                      (h.borrowingId != null && h.borrowingId > 0 ? `b-${h.borrowingId}-${idx}` : `i-${idx}`)
+
+                    return (
+                      <li
+                        key={key}
+                        className="rounded-xl border bg-white px-3 py-2 flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">
+                            {h.borrowingId ? `Borrowing #${h.borrowingId}` : `Lượt mượn #${idx + 1}`}
+                          </div>
+                          {h.description?.trim() ? (
+                            <div className="text-xs text-gray-600 line-clamp-2">{h.description.trim()}</div>
+                          ) : null}
+                          {h.note?.trim() ? (
+                            <div className="text-xs text-gray-500 line-clamp-2">Ghi chú: {h.note.trim()}</div>
+                          ) : null}
+                          <div className="text-xs text-gray-500">
+                            Người mượn: {borrowingDisplayName(h)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Người cho mượn:{' '}
+                            {h.lentByMember?.fullName?.trim() ||
+                              (h.lentByMemberId ? `Member #${h.lentByMemberId}` : '') ||
+                              '—'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Hạn trả: {formatDateTime(h.returnedDueDate ?? null)} · Tạo lúc:{' '}
+                            {formatDateTime(h.createdAt ?? null)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Checkout: {formatDateTime(detailForThisEquipment?.checkoutAt ?? null)} · Checkin:{' '}
+                            {formatDateTime(detailForThisEquipment?.checkinAt ?? null)}
+                            {detailForThisEquipment?.receivedByMember?.fullName?.trim() ? (
+                              <>
+                                {' '}
+                                · Người nhận lại: {detailForThisEquipment.receivedByMember.fullName.trim()}
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                        <Badge className={cn(borrowingStatusClass, 'shrink-0')}>{borrowingStatusLabel}</Badge>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <EmptyState text="Chưa có lịch sử mượn." />
               )}
             </Card>
 
