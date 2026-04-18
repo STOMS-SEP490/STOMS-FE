@@ -4,11 +4,10 @@ import { Plus } from 'lucide-react';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import memberApi from '@/modules/member/api/memberApi';
 import memberSkillApi, { type MemberSkillItem } from '@/modules/member/api/memberSkillApi';
-import userApi from '@/modules/user/api/userApi';
 import skillApi from '@/modules/skill/api/skillApi';
 import type { MemberDetail } from '@/modules/member/member';
 import type { SkillListItem } from '@/modules/skill/skill';
-import { ROLE_MAP } from '@/constants/role';
+import { ROLE_MAP, ROLE_ID } from '@/constants/role';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Label } from '@/shared/components/ui/label';
@@ -28,7 +27,7 @@ type Props = {
   onUpdated?: () => void;
 };
 
-const ROLE_OPTIONS = [1, 2, 3, 4, 5, 6].map((id) => ({
+const ROLE_OPTIONS = [ROLE_ID.TEACHER, ROLE_ID.ASSISTANT].map((id) => ({
   value: id,
   label: ROLE_MAP[id] ?? `Vai trò ${id}`,
 }));
@@ -37,7 +36,7 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
   const [member, setMember] = useState<MemberDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [roleId, setRoleId] = useState<number>(4);
+  const [roleId, setRoleId] = useState<number>(ROLE_ID.TEACHER);
 
   const [allSkills, setAllSkills] = useState<SkillListItem[]>([]);
   /** Danh sách member-skill hiện tại (có isActive) — chỉ gọi API khi Lưu */
@@ -106,11 +105,8 @@ export default function MemberEditModal({ open, onClose, memberId, onUpdated }: 
       setSaving(true);
 
       if (member.userId) {
-        // Vai trò: dùng API mới PUT /users/assign-role
-        await userApi.assignRole({
-          roleId,
-          userIds: [member.userId],
-        });
+        // Vai trò: gán theo Member (PUT /members/{memberId}/role), không phải User.
+        await memberApi.assignMemberRole(member.memberId, roleId);
       }
 
       // 1) Bật/tắt isActive (bulk) — so với lúc mở modal; chạy trước assignBulk
