@@ -2,7 +2,8 @@ import { Navigate } from 'react-router-dom';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import EventCalendar from '@/modules/timetable/pages/EventCalendar';
 import UserProfile from '@/modules/user/pages/UserProfile';
-import TeacherTaskReportPage from '@/modules/task-report/pages/TeacherTaskReportPage';
+import MyTasksPage from '@/modules/task-report/pages/MyTasksPage';
+import TaskSessionDetailPage from '@/modules/task-report/pages/TaskSessionDetailPage';
 import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeachingHistoryPage';
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage';
@@ -29,7 +30,8 @@ const TeacherRoutes = [
   { path: 'contracts/:id', element: <ContractsManagement /> },
   { path: 'fund-contributions', element: <TeacherContributionHistoryPage /> },
   { path: 'attendance-history', element: <TeacherAttendanceHistoryPage /> },
-  { path: 'tasks', element: <TeacherTaskReportPage /> },
+  { path: 'tasks', element: <MyTasksPage /> },
+  { path: 'tasks/:sessionId', element: <TaskSessionDetailPage /> },
   { path: 'equipments', element: <AvailableEquipmentsPage /> },
   { path: 'profile', element: <UserProfile /> },
 ];

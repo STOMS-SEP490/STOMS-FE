@@ -1,0 +1,315 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+
+import dayjs from 'dayjs';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Popover, Spin, message } from 'antd';
+import {
+  X,
+  ArrowLeft,
+  MapPin,
+  AlertCircle,
+  AlertTriangle,
+  RotateCcw,
+  Plus,
+  Sparkles,
+  Briefcase,
+  Lock,
+} from 'lucide-react';
+import HoverSearch from '@/shared/components/ui/search';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Switch } from '@/shared/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
+import RequestCard from '@/shared/components/request/RequestCard';
+import { Badge } from '@/shared/components/ui/badge';
+import { Dialog } from '@/shared/components/ui/dialog';
+import { Label } from '@/shared/components/ui/label';
+import {
+  ASSIGNMENT_STATUS,
+  REQUEST_STATUS,
+  REQUEST_STATUS_LABEL,
+  SESSION_STATUS,
+  getAssignmentStatusInfo,
+  getSessionStatusCode,
+  getSessionStatusInfo,
+  getTeamLeaderRequestStatusInfo,
+  isSessionAssignmentRejectedStatus,
+} from '@/constants/status';
+import type { RequestSessionSummary } from '@/modules/request/request';
+import {
+  getSessionDisplayTitleWithDetail,
+} from '@/modules/request/utils/getSessionDisplayTitle';
+import RequestSessionDetailPanel from '@/modules/request/pages/RequestSessionDetailPanel';
+import TeamLeaderStaffAssignmentPanel from '../../attendance/components/TeamLeaderStaffAssignmentPanel';
+import ManagerSessionDetailGate from '@/modules/request/pages/ManagerSessionDetailGate';
+import { postSessionCannotBeAssigned } from '@/modules/notification/api/notificationApi';
+import type { AssignmentResponse, SessionDetail, SuggestedStaff } from '@/modules/request/type';
+import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
+import {
+  getEffectiveStaffMemberId,
+  isTeamLeaderAssignmentEditableStatus,
+  partitionTeamLeaderAssignmentSlots,
+  useTeamLeaderAssignmentsPage,
+  type TlRequestStatusFilter,
+} from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
+
+type AssignmentRow = AssignmentResponse;
+
+const DEFAULT_AVATAR_SRC = '/img/ava.png';
+
+function getAvatarSrc(src?: string | null) {
+  return src && String(src).trim() ? String(src) : DEFAULT_AVATAR_SRC;
+}
+
+function getStaffDisplayForSlot(
+  effectiveMemberId: number,
+  assignment: AssignmentRow,
+  suggested: SuggestedStaff[],
+): { fullName: string; email: string; avatarUrl?: string | null } {
+  if (!effectiveMemberId || effectiveMemberId <= 0) {
+    return {
+      fullName: 'Chưa có phân công',
+      email: '',
+      avatarUrl: null,
+    };
+  }
+  const sm = assignment.StaffMember;
+  if (sm && sm.MemberId === effectiveMemberId) {
+    return {
+      fullName: sm.FullName || '—',
+      email: sm.Email || sm.User?.Email || '',
+      avatarUrl: sm.AvatarUrl,
+    };
+  }
+  const sug = suggested.find((m) => m.memberId === effectiveMemberId);
+  if (sug) {
+    return {
+      fullName: sug.fullName || '—',
+      email: sug.email || sug.roleName || '',
+      avatarUrl: sug.avatarUrl,
+    };
+  }
+  return {
+    fullName: 'Chưa có phân công',
+    email: '',
+    avatarUrl: null,
+  };
+}
+
+/** Assignment status Rejected = 3 (manager từ chối phân công). Không dùng .includes để tránh nhầm với session AssignmentRejected. */
+function isAssignmentRejectedStatus(status: string | number | null | undefined): boolean {
+  return getAssignmentStatusInfo(status).code === ASSIGNMENT_STATUS.REJECTED;
+}
+
+function collectSessionSkillsFromDetail(detail: SessionDetail | undefined): string[] {
+  if (!detail) return [];
+  const fromSubject = (detail.SubjectSkill ?? [])
+    .filter((s) => s.IsActive !== false)
+    .map((s) => String(s.SkillName ?? '').trim())
+    .filter(Boolean);
+  const fromEvent = (detail.EventSessionSkill ?? [])
+    .filter((s) => s.IsActive !== false)
+    .map((s) => String(s.SkillName ?? '').trim())
+    .filter(Boolean);
+  return Array.from(new Set([...fromSubject, ...fromEvent]));
+}
+
+function countTeamsOnSession(detail: SessionDetail | undefined): number {
+  const raw = detail?.TeamSessions ?? [];
+  const ids = raw
+    .map((ts) => ts.TeamId)
+    .filter((id): id is number => typeof id === 'number' && id > 0);
+  return new Set(ids).size;
+}
+
+type TeamLeaderAssignmentsPageProps = {
+  tab: TeamLeaderAssignmentsTab;
+};
+
+export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignmentsPageProps) {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id?: string }>();
+  const detailRequestId = Number(id ?? 0);
+  const hasDetailRequestId = Number.isFinite(detailRequestId) && detailRequestId > 0;
+  const showRequestListSidebar = !hasDetailRequestId;
+  const {
+    loading,
+    requestSessionsLoading,
+    requests,
+    filteredRequests,
+    selectedRequestId,
+    setSelectedRequestId,
+    currentTeamId,
+    selectedRequest,
+    selectedRequestTypeInfo,
+    search,
+    setSearch,
+    onlyNeedsAction,
+    setOnlyNeedsAction,
+    typeFilter,
+    setTypeFilter,
+    statusFilter,
+    setStatusFilter,
+    activeSession,
+    setActiveSession,
+    sessionDetailsById,
+    suggestedByAssignmentId,
+    ensureSuggestedStaffForAssignments,
+    assignSelections,
+    searchByAssignmentId,
+    setSearchByAssignmentId,
+    handleSelectStaff,
+    getSessionStats,
+    handleResetFilters,
+    refetchRequestById,
+    refreshSessionDetailById,
+  } = useTeamLeaderAssignmentsPage(tab);
+
+  useEffect(() => {
+    if (!hasDetailRequestId) return;
+    const existedInRequests = requests.some((r) => r.requestId === detailRequestId);
+    // Tránh race lúc mount: có nhịp loading=false nhưng requests chưa sync xong.
+    // Chỉ điều hướng ngược khi đã có danh sách request thực tế và id không tồn tại.
+    if (!loading && requests.length > 0 && !existedInRequests) {
+      navigate('/tl/assignments');
+      return;
+    }
+    if (!existedInRequests) return;
+    setSelectedRequestId(detailRequestId);
+  }, [detailRequestId, hasDetailRequestId, loading, navigate, requests, setSelectedRequestId]);
+
+  const [reportSessionOpen, setReportSessionOpen] = useState(false);
+  const [reportSessionReason, setReportSessionReason] = useState('');
+  const [reportSessionLoading, setReportSessionLoading] = useState(false);
+
+  const [hoveredStaff, setHoveredStaff] = useState<{
+    staff: SuggestedStaff;
+    rect: DOMRect;
+  } | null>(null);
+  const [staffPickerAssignmentId, setStaffPickerAssignmentId] = useState<number | null>(null);
+  const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setStaffPickerAssignmentId(null);
+    setHoveredStaff(null);
+  }, [activeSession?.sessionId]);
+
+  useEffect(() => {
+    setHoveredStaff(null);
+  }, [selectedRequestId]);
+
+  useEffect(() => {
+    setReportSessionOpen(false);
+    setReportSessionReason('');
+  }, [activeSession?.sessionId]);
+
+  useEffect(() => {
+    if (staffPickerAssignmentId != null) return;
+    setHoveredStaff(null);
+  }, [staffPickerAssignmentId]);
+
+  useEffect(() => {
+    if (staffPickerAssignmentId == null) return;
+    // Luôn tải lại suggest khi mở ô (tránh cache []/cũ sau khi vừa assign — trước đây Array.isArray([]) vẫn coi là đã có cache).
+    void ensureSuggestedStaffForAssignments([staffPickerAssignmentId], { forceRefetch: true });
+  }, [staffPickerAssignmentId, ensureSuggestedStaffForAssignments]);
+
+  useEffect(() => {
+    const closeHover = () => setHoveredStaff(null);
+    window.addEventListener('scroll', closeHover, true);
+    window.addEventListener('resize', closeHover);
+    return () => {
+      window.removeEventListener('scroll', closeHover, true);
+      window.removeEventListener('resize', closeHover);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
+    };
+  }, []);
+
+
+  const renderMemberOption = (m: SuggestedStaff) => {
+    const subText = m.email ?? m.roleName ?? '—';
+    return (
+    <div className="flex items-center gap-2">
+      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-medium text-slate-600">
+        <img
+          src={getAvatarSrc(m.avatarUrl)}
+          alt={m.fullName}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+          }}
+        />
+      </div>
+        <div className="flex flex-row items-center gap-2 min-w-0 flex-1">
+          <span className="text-xs font-medium text-slate-900 truncate shrink-0">
+          {m.fullName || '—'}
+        </span>
+          <span className="text-[11px] text-slate-500 truncate">{subText}</span>
+      </div>
+    </div>
+  );
+  };
+
+  const handleStaffHover = useCallback(
+    (staff: SuggestedStaff, e: React.MouseEvent) => {
+      if (hoverCloseTimerRef.current) {
+        clearTimeout(hoverCloseTimerRef.current);
+        hoverCloseTimerRef.current = null;
+      }
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      setHoveredStaff({ staff, rect });
+    },
+    [],
+  );
+
+  const handleStaffHoverLeave = useCallback(() => {
+    if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
+    hoverCloseTimerRef.current = setTimeout(() => setHoveredStaff(null), 80);
+  }, []);
+
+  const openReportCannotAssignSession = useCallback(() => {
+    setReportSessionReason('');
+    setReportSessionOpen(true);
+  }, []);
+
+  const handleConfirmReportCannotAssignSession = useCallback(async () => {
+    if (!activeSession) return;
+    const trimmed = reportSessionReason.trim();
+    if (!trimmed) {
+      message.warning('Vui lòng nhập lý do.');
+      return;
+    }
+    try {
+      setReportSessionLoading(true);
+      await postSessionCannotBeAssigned({
+        sessionId: activeSession.sessionId,
+        reason: trimmed,
+      });
+      message.success('Đã gửi thông báo.');
+      setReportSessionOpen(false);
+      setReportSessionReason('');
+      await refetchRequestById(activeSession.requestId);
+      await refreshSessionDetailById(activeSession.sessionId);
+    } catch (err) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Gửi thông báo thất bại.';
+      message.error(msg);
+    } finally {
+      setReportSessionLoading(false);
+    }
+  }, [activeSession, reportSessionReason, refetchRequestById, refreshSessionDetailById]);
+

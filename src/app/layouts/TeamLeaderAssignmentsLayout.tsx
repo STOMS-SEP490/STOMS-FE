@@ -21,18 +21,19 @@ export default function TeamLeaderAssignmentsLayout() {
             <p className="text-xs text-gray-500">Quản lý phê duyệt yêu cầu và phê duyệt phân công</p>
           </div>
 
-          <div className="px-4 pb-2 mb-1 pt-0">
+          <div className="flex items-center justify-between px-4 pb-2 mb-1 pt-2">
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
                 navigate(value === 'rejected' ? '/tl/assignments/rejected' : '/tl/assignments/assigning')
               }
             >
-              <TabsList>
-                <TabsTrigger value="assigning">Tất cả yêu cầu</TabsTrigger>
-                <TabsTrigger value="rejected">Phân công bị từ chối</TabsTrigger>
+              <TabsList className="h-10">
+                <TabsTrigger value="assigning" className="h-8">Tất cả yêu cầu</TabsTrigger>
+                <TabsTrigger value="rejected" className="h-8">Phân công bị từ chối</TabsTrigger>
               </TabsList>
             </Tabs>
+            <div id="tl-assignments-filters" className="flex items-center" />
           </div>
         </>
       ) : null}

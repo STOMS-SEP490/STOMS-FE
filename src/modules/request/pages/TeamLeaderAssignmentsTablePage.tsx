@@ -1,6 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Badge } from '@/shared/components/ui/badge';
@@ -92,10 +93,12 @@ export default function TeamLeaderAssignmentsTablePage({ tab }: { tab: TeamLeade
     },
   ];
 
+  const filterSlot = document.getElementById('tl-assignments-filters');
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-      <div className="mb-1 px-1">
-        <div className="flex flex-wrap items-center justify-end gap-2.5">
+      {filterSlot ? createPortal(
+        <div className="flex flex-wrap items-center gap-2.5">
           <HoverSearch
             value={search}
             onChange={(v) => {
@@ -150,8 +153,9 @@ export default function TeamLeaderAssignmentsTablePage({ tab }: { tab: TeamLeade
           >
             <RotateCcw size={16} />
           </Button>
-        </div>
-      </div>
+        </div>,
+        filterSlot
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-white px-6 py-4 shadow-sm">
         {loading ? (

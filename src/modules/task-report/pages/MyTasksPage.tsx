@@ -1,6 +1,13 @@
+/**
+ * MyTasksPage – Trang báo cáo công việc cho Teacher / Team Leader.
+ *
+ * Thiết kế giống TaskReportsManagement (manager) nhưng:
+ * - Chỉ hiển thị buổi của chính mình (filter MemberId)
+ * - Không có nút duyệt / từ chối (isManager = false trong TaskSessionDetailPage)
+ */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { RotateCcw } from 'lucide-react';
 import { DatePicker, Spin } from 'antd';
 import dayjs from 'dayjs';
@@ -16,33 +23,43 @@ import type { SessionResponse } from '@/modules/request/session.types';
 
 const PAGE_SIZE = 15;
 
-export default function TaskReportsManagement() {
+export default function MyTasksPage() {
   const navigate = useNavigate();
-  
+  const location = useLocation();
+  const rolePrefix = location.pathname.startsWith('/teacher/') ? '/teacher' : '/tl';
+
+  // Lấy memberId từ localStorage
+  const memberId = useMemo(
+    () => Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0,
+    [],
+  );
+
   // ── filters ──
   const [search, setSearch] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
 
-  // ── fetch sessions ──
+  // ── fetch sessions của chính mình ──
   const { data: sessionsPaged, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sessions-tasks', pageNumber, search.trim(), filterStartDate, filterEndDate],
+    queryKey: ['my-sessions-tasks', memberId, pageNumber, filterStartDate, filterEndDate],
     queryFn: () =>
       sessionApi.getFilter({
-        PageNumber: pageNumber,
-        PageSize: PAGE_SIZE,
+        MemberId: memberId || undefined,
         Statuses: [9],
         StartAt: filterStartDate ? `${filterStartDate}T00:00:00` : undefined,
         EndAt: filterEndDate ? `${filterEndDate}T23:59:59` : undefined,
+        PageNumber: pageNumber,
+        PageSize: PAGE_SIZE,
       }),
+    enabled: !!memberId,
     staleTime: 30_000,
   });
 
   const sessions = useMemo(() => sessionsPaged?.Items ?? [], [sessionsPaged]);
   const totalItems = sessionsPaged?.TotalItems ?? 0;
 
-  // client-side search by request name / session no
+  // client-side search
   const filteredSessions = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return sessions;
@@ -89,7 +106,11 @@ export default function TaskReportsManagement() {
         id: 'title',
         header: 'Tiêu đề',
         cell: ({ row }) => {
-          const title = row.original.SubjectSession?.Title ?? row.original.EventSession?.Title ?? row.original.Notes ?? '—';
+          const title =
+            row.original.SubjectSession?.Title ??
+            row.original.EventSession?.Title ??
+            row.original.Notes ??
+            '—';
           return <span className="text-slate-700 break-words whitespace-normal">{title}</span>;
         },
       },
@@ -126,12 +147,17 @@ export default function TaskReportsManagement() {
         id: 'taskReports',
         header: () => <span className="block text-center">Báo cáo</span>,
         cell: ({ row }) => {
-          const count = (row.original.TaskReports as unknown[] | null | undefined)?.length ?? 0;
+          const count =
+            (row.original.TaskReports as unknown[] | null | undefined)?.length ?? 0;
           return (
             <div className="text-center">
-              {count > 0
-                ? <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100">{count}</Badge>
-                : <span className="text-xs text-slate-400">—</span>}
+              {count > 0 ? (
+                <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100">
+                  {count}
+                </Badge>
+              ) : (
+                <span className="text-xs text-slate-400">—</span>
+              )}
             </div>
           );
         },
@@ -147,18 +173,30 @@ export default function TaskReportsManagement() {
     >
       {/* HEADER */}
       <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Quản lý báo cáo công việc</h2>
-        <p className="text-xs text-gray-500">Xem danh sách buổi học, click vào buổi để xem báo cáo công việc.</p>
+        <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>
+        <p className="text-xs text-gray-500">
+          Danh sách buổi của bạn. Click vào buổi để xem và ghi báo cáo công việc.
+        </p>
       </div>
 
       {/* FILTER BAR */}
       <div className="shrink-0 flex justify-end gap-3">
-        <HoverSearch placeholder="Tìm theo tên yêu cầu, địa điểm..." value={search} onChange={(v) => { setSearch(v); setPageNumber(1); }} />
+        <HoverSearch
+          placeholder="Tìm theo tên yêu cầu, địa điểm..."
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            setPageNumber(1);
+          }}
+        />
         <DatePicker
           format="DD/MM/YYYY"
           placeholder="Từ ngày"
           value={filterStartDate ? dayjs(filterStartDate) : null}
-          onChange={(d) => { setFilterStartDate(d ? d.format('YYYY-MM-DD') : ''); setPageNumber(1); }}
+          onChange={(d) => {
+            setFilterStartDate(d ? d.format('YYYY-MM-DD') : '');
+            setPageNumber(1);
+          }}
           className="w-[140px]"
         />
         <span className="text-gray-400">→</span>
@@ -166,10 +204,18 @@ export default function TaskReportsManagement() {
           format="DD/MM/YYYY"
           placeholder="Đến ngày"
           value={filterEndDate ? dayjs(filterEndDate) : null}
-          onChange={(d) => { setFilterEndDate(d ? d.format('YYYY-MM-DD') : ''); setPageNumber(1); }}
+          onChange={(d) => {
+            setFilterEndDate(d ? d.format('YYYY-MM-DD') : '');
+            setPageNumber(1);
+          }}
           className="w-[140px]"
         />
-        <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200 bg-white" onClick={resetFilters}>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 border-slate-200 bg-white"
+          onClick={resetFilters}
+        >
           <RotateCcw size={16} />
         </Button>
       </div>
@@ -177,7 +223,9 @@ export default function TaskReportsManagement() {
       {/* TABLE */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
         {sessionsLoading ? (
-          <div className="flex flex-1 items-center justify-center py-16"><Spin /></div>
+          <div className="flex flex-1 items-center justify-center py-16">
+            <Spin />
+          </div>
         ) : (
           <DataTable
             columns={columns}
@@ -186,11 +234,11 @@ export default function TaskReportsManagement() {
             pageSize={PAGE_SIZE}
             totalItems={totalItems}
             onPageChange={setPageNumber}
-            onRowClick={(session) => navigate(`/manager/tasks/${session.SessionId}`)}
+            onRowClick={(session) => navigate(`${rolePrefix}/tasks/${session.SessionId}`)}
             comfortable
             fillHeight
             tableGap="tight"
-            showPagination={false}
+            showPagination={totalItems > PAGE_SIZE}
           />
         )}
       </div>

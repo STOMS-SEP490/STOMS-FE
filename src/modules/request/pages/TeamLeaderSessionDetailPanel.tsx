@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { Calendar, Clock, GraduationCap, Hash, List, MapPin, UserCheck, Users } from 'lucide-react';
+import { UserCheck } from 'lucide-react';
 import type { RequestSessionSummary } from '../request';
 import sessionApi from '@/modules/request/api/sessionApi';
+import type { SessionResponse } from '../session.types';
 import attendanceApi from '@/modules/attendance/api/attendanceApi';
 import type { Attendance } from '@/modules/attendance/attendance';
 import { getAttendanceOwnerId } from '@/shared/utils/attendanceOwner';
@@ -33,7 +34,6 @@ export type TeamLeaderSessionDetailPanelProps = {
 export default function TeamLeaderSessionDetailPanel({
   session,
   requestCode,
-  requestName,
   delegateColumn,
   memberDelegateColumnVisible = true,
   onOpenAttendance,
@@ -44,6 +44,26 @@ export default function TeamLeaderSessionDetailPanel({
   const [delegatingMemberId, setDelegatingMemberId] = useState<number | null>(null);
   /** Khi filter không có attendanceByMemberId, bổ sung từ GET session (sau ủy quyền). */
   const [delegateOwnerOverride, setDelegateOwnerOverride] = useState<number | null>(null);
+  const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setSessionLoading(true);
+      try {
+        const detail = await sessionApi.getById(session.sessionId);
+        if (cancelled) return;
+        setSessionDetail(detail);
+      } catch {
+        if (!cancelled) setSessionDetail(null);
+      } finally {
+        if (!cancelled) setSessionLoading(false);
+      }
+    };
+    void run();
+    return () => { cancelled = true; };
+  }, [session.sessionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,8 +113,6 @@ export default function TeamLeaderSessionDetailPanel({
 
   const canDelegateForCurrentUser = useMemo(() => {
     if (!delegateColumn || !memberDelegateColumnVisible) return false;
-    // Manager được quyền ủy quyền cho bất kỳ ai (kể cả ủy quyền lại cho chính mình),
-    // không cần phải trùng với "Người xác nhận" hiện tại.
     const uid = delegateColumn.currentMemberId;
     return uid != null;
   }, [delegateColumn, memberDelegateColumnVisible]);
@@ -108,96 +126,169 @@ export default function TeamLeaderSessionDetailPanel({
   }, [delegateColumn, resolvedAttendanceOwnerId]);
 
   const showDelegateCol = Boolean(delegateColumn) && memberDelegateColumnVisible;
-  // Thu hẹp cột giờ vào/giờ ra để nhường chỗ cho email/fullName.
-  // 1fr cho "Thông tin thành viên", các cột thời gian cố định.
   const gridClass = showDelegateCol
     ? 'grid-cols-[minmax(0,1fr)_64px_64px_112px]'
     : 'grid-cols-[minmax(0,1fr)_64px_64px]';
 
-  const topic = session.subjectSession ?? session.eventSession;
-  const sessionNotes = (session as any)?.notes as string | undefined;
-  const responseText = topic?.description?.trim() ? topic.description.trim() : sessionNotes?.trim();
-  const sessionSkills = session.sessionSkills ?? [];
+  // Derived from fetched session detail
+  const startAt = sessionDetail?.StartAt ?? session.startAt;
+  const endAt = sessionDetail?.EndAt ?? session.endAt;
+  const location = sessionDetail?.Location ?? (session as any).location ?? null;
+  const teachersRequired = sessionDetail?.TeachersRequired ?? session.teachersRequired ?? null;
+  const tasRequired = sessionDetail?.TasRequired ?? session.tasRequired ?? null;
+  const notes = String(sessionDetail?.Notes ?? (session as any)?.notes ?? '').trim();
+  const isOnlineRaw = sessionDetail?.IsOnline ?? null;
+  const createdAt = sessionDetail?.CreatedAt ?? null;
+  const updatedAt = sessionDetail?.UpdatedAt ?? null;
+  const eventSession = sessionDetail?.EventSession ?? null;
+  const subjectSession = sessionDetail?.SubjectSession ?? null;
+  const sessionDescription = String(
+    eventSession?.Description ??
+    subjectSession?.Description ?? ''
+  ).trim();
+  const sessionDuration = String(
+    eventSession?.Duration ??
+    subjectSession?.Duration ?? ''
+  ).trim();
+
+  const skills = useMemo(() => {
+    const list = [
+      ...(Array.isArray(sessionDetail?.EventSessionSkill) ? sessionDetail.EventSessionSkill : []),
+      ...(Array.isArray(sessionDetail?.SubjectSkill) ? sessionDetail.SubjectSkill : []),
+    ];
+    const names = list
+      .filter((s: any) => (s?.IsActive ?? s?.isActive ?? true) !== false)
+      .map((s: any) => String(s?.SkillName ?? s?.skillName ?? '').trim())
+      .filter(Boolean);
+    return Array.from(new Set(names));
+  }, [sessionDetail]);
+
+  const topics = useMemo(() => {
+    const d = sessionDetail as any;
+    const fromEvent = [...(Array.isArray(d?.EventSession?.Topics) ? d.EventSession.Topics : [])];
+    const fromSubject = [...(Array.isArray(d?.SubjectSession?.Topics) ? d.SubjectSession.Topics : [])];
+    const names = [...fromEvent, ...fromSubject]
+      .filter((t: any) => (t?.IsActive ?? t?.isActive ?? true) !== false)
+      .map((t: any) => String(t?.TopicName ?? t?.topicName ?? '').trim())
+      .filter(Boolean);
+    return Array.from(new Set(names));
+  }, [sessionDetail]);
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Thông tin buổi — giống phần manager nhưng không hiển thị reservation */}
-      <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
-        <div className="px-4 py-2.5 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900 text-sm">Thông tin buổi</h3>
-        </div>
-        <div className="px-4 py-3 space-y-2 text-sm">
-          {(topic?.title?.trim() || responseText || topic?.duration?.trim()) && (
-            <div className="space-y-2">
-              {topic?.title?.trim() ? (
-                <div className="flex items-start gap-3">
-                  <span className="text-xs text-gray-500 shrink-0 mt-0.5">Tiêu đề:</span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-black">{topic.title.trim()}</p>
-                  </div>
-                </div>
-              ) : null}
+      {/* Thông tin buổi — layout 2 cột giống manager/PC */}
+      <div className="bg-white">
+        <div className="pt-3 space-y-4 text-sm">
+          {sessionLoading && <p className="text-xs text-slate-500">Đang tải...</p>}
 
-             
+          <div className="grid grid-cols-1 gap-1">
+            <p className="text-xs text-slate-500">
+              {startAt && endAt
+                ? `${dayjs(startAt).format('DD/MM/YYYY HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
+                : '—'}
+            </p>
+          </div>
 
-              {topic?.duration?.trim() ? (
-                <div className="flex items-center gap-3 text-gray-600">
-                  <span className="text-xs text-gray-500">Thời lượng:</span>
-                  <span className="font-medium text-black">{topic.duration.trim()}</span>
-                </div>
-              ) : null}
-
-              {sessionSkills.length ? (
-                <div className="flex items-start gap-3">
-                  <span className="text-xs text-gray-500 shrink-0 mt-0.5">Kỹ năng:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {sessionSkills.map((name) => (
-                      <Badge key={name} className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px]">
-                        {name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+          <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã buổi</p>
+              <p className="mt-1 font-medium text-slate-900">{session.sessionId ?? '—'}</p>
             </div>
-          )}
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
+              <p className="mt-1 font-semibold">{requestCode}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Buổi số</p>
+              <p className="mt-1 font-medium text-slate-900">{session.sessionNo ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Thời lượng</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{sessionDuration || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Địa điểm</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{location || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Hình thức</p>
+              <p className="mt-1 font-medium text-slate-900">
+                {isOnlineRaw == null ? '—' : isOnlineRaw ? 'Trực tuyến' : 'Trực tiếp'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Giảng viên yêu cầu</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{teachersRequired ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Sinh viên yêu cầu</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{tasRequired ?? '—'}</p>
+            </div>
+          </div>
 
-          <div className="flex items-center gap-3 text-gray-600">
-            <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Thời gian:</span>
-            <span className="font-medium text-black">
-              {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
-            </span>
+          {(sessionDescription || notes) && <div className="border-t border-slate-100" />}
+
+          {sessionDescription ? (
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mô tả nội dung</p>
+              <p className="mt-1 text-slate-700 leading-6">{sessionDescription}</p>
+            </div>
+          ) : null}
+
+          {notes ? (
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Ghi chú</p>
+              <p className="mt-1 text-slate-700 leading-6">{notes}</p>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Chủ đề</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {topics.length === 0 ? (
+                  <span className="text-slate-700">—</span>
+                ) : (
+                  topics.map((name) => (
+                    <Badge key={name} className="bg-slate-100 text-slate-700 border-0 text-[11px] font-medium">
+                      {name}
+                    </Badge>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Ngày:</span>
-            <span className="font-medium text-black">{dayjs(session.startAt).format('DD/MM/YYYY')}</span>
+
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Kỹ năng</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {skills.length === 0 ? (
+                <span className="text-slate-700">—</span>
+              ) : (
+                skills.map((name) => (
+                  <Badge key={name} className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px] font-medium">
+                    {name}
+                  </Badge>
+                ))
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Địa điểm:</span>
-            <span className="font-medium text-black">{(session as RequestSessionSummary & { location?: string }).location || '—'}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Mã yêu cầu:</span>
-            <span className="font-semibold text-[#2197C0]">{requestCode}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <List className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Tên yêu cầu:</span>
-            <span className="font-medium text-black">{requestName?.trim() ? requestName.trim() : '—'}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Số lượng giảng viên:</span>
-            <span className="font-medium text-black">{session.teachersRequired ?? '—'}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Số lượng sinh viên:</span>
-            <span className="font-medium text-black">{session.tasRequired ?? '—'}</span>
+
+          <div className="border-t border-slate-100" />
+
+          <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2">
+            <div>
+              <span className="uppercase tracking-wide">Tạo lúc: </span>
+              <span className="text-slate-600">
+                {createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm:ss') : '—'}
+              </span>
+            </div>
+            <div>
+              <span className="uppercase tracking-wide">Cập nhật: </span>
+              <span className="text-slate-600">
+                {updatedAt ? dayjs(updatedAt).format('DD/MM/YYYY HH:mm:ss') : '—'}
+              </span>
+            </div>
           </div>
         </div>
       </div>

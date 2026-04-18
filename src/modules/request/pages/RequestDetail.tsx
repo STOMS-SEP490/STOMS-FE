@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, List, MapPin, AlertCircle, AlertTriangle, Paperclip, ArrowLeft } from 'lucide-react';
-import { message } from 'antd';
+import { Plus, X, CheckCircle2, MapPin, AlertCircle, AlertTriangle, Paperclip, ArrowLeft } from 'lucide-react';
+import { message, Modal } from 'antd';
+import { ExclamationCircleFilled } from '@ant-design/icons';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import {
@@ -23,6 +24,7 @@ import type { RequestSessionSummary } from '../request';
 import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
+import ManagerSessionDetailGate from './ManagerSessionDetailGate';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext } from '../requestDetail.types';
 import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
@@ -81,7 +83,6 @@ export default function RequestDetail() {
     uiTeamQuantitiesBySessionId,
     assignmentsBySessionId,
     approveOpen,
-    setApproveOpen,
     rejectOpen,
     setRejectOpen,
     rejectDialogAction,
@@ -97,7 +98,6 @@ export default function RequestDetail() {
     refreshDetail,
     reloadAssignmentsForSession,
     handleAssignSession,
-    handleApproveClick,
     handleOpenRejectAssignment,
     handleConfirmRejectAssignment,
     handleConfirmApprove,
@@ -225,11 +225,11 @@ export default function RequestDetail() {
   const [attachmentPreview, setAttachmentPreview] = useState<{ fileName: string; fileUrl: string } | null>(
     null
   );
-  const [approvePreviewLoading, setApprovePreviewLoading] = useState(false);
-  const [approveSessionPreviews, setApproveSessionPreviews] = useState<ApproveSessionPreview[]>([]);
+  const [openingApproveModal, setOpeningApproveModal] = useState(false);
   const [cancelSessionOpen, setCancelSessionOpen] = useState(false);
   const [cancelSessionReason, setCancelSessionReason] = useState('');
   const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
+  const [cancelTargetSessionId, setCancelTargetSessionId] = useState<number | null>(null);
   const [approvingAssignmentIds, setApprovingAssignmentIds] = useState<Record<number, boolean>>({});
   const [sessionDetailReloadKey, setSessionDetailReloadKey] = useState(0);
 
@@ -259,12 +259,10 @@ export default function RequestDetail() {
     [refreshDetail, refreshRequestSidebar, reloadAssignmentsForSession]
   );
 
-  const loadApprovePreview = useCallback(async () => {
+  const loadApprovePreview = useCallback(async (): Promise<ApproveSessionPreview[]> => {
     if (!sessions.length) {
-      setApproveSessionPreviews([]);
-      return;
+      return [];
     }
-    setApprovePreviewLoading(true);
     try {
       const detailRows = await Promise.all(
         sessions.map(async (s) => {
@@ -334,9 +332,10 @@ export default function RequestDetail() {
           }
         })
       );
-      setApproveSessionPreviews(detailRows.sort((a, b) => a.sessionNo - b.sessionNo));
+      const sorted = detailRows.sort((a, b) => a.sessionNo - b.sessionNo);
+      return sorted;
     } finally {
-      setApprovePreviewLoading(false);
+      // Cleanup if needed
     }
   }, [sessions, uiAssignedTeamIdsBySessionId]);
 
@@ -462,6 +461,177 @@ export default function RequestDetail() {
   const hasSourceDuration = Boolean(sourceDuration);
   const hasStartAt = Boolean(requestDateRange.startAt);
   const hasEndAt = Boolean(requestDateRange.endAt);
+
+  const openApproveModal = async () => {
+    setOpeningApproveModal(true);
+    let previews: ApproveSessionPreview[] = [];
+    try {
+      previews = await loadApprovePreview();
+    } finally {
+      setOpeningApproveModal(false);
+    }
+
+    const approveAccentColor = request.courseId ? '#8B5CF6' : request.eventId ? '#F59E0B' : '#2197C0';
+    const approveSourceType = request.courseId ? 'course' : request.eventId ? 'event' : 'subject';
+    const approveNote = String((request as Record<string, unknown>).note ?? '').trim();
+
+    Modal.confirm({
+      title: 'Xác nhận duyệt yêu cầu',
+      icon: <ExclamationCircleFilled className="text-[#F59E0B]" />,
+      width: 920,
+      centered: true,
+      maskClosable: true,
+      bodyStyle: {
+        maxHeight: 'calc(100vh - 220px)',
+        overflowY: 'auto',
+        scrollbarWidth: 'thin' as const,
+        scrollbarColor: '#CBD5E1 transparent',
+      },
+      style: { top: 0 },
+      wrapClassName: '[&_.ant-modal-body::-webkit-scrollbar]:w-1.5 [&_.ant-modal-body::-webkit-scrollbar-track]:bg-transparent [&_.ant-modal-body::-webkit-scrollbar-thumb]:bg-slate-300 [&_.ant-modal-body::-webkit-scrollbar-thumb]:rounded-full',
+      cancelText: 'Hủy',
+      okText: 'Duyệt yêu cầu',
+      okButtonProps: {
+        className: 'bg-emerald-600 hover:bg-emerald-700 border-0 text-white font-medium rounded-lg px-4 shadow-sm',
+        style: { backgroundColor: '#059669', borderColor: '#059669', color: '#FFFFFF', boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 3px 10px rgba(5,150,105,0.18)' },
+      },
+      cancelButtonProps: {
+        className: 'border border-gray-300 bg-white text-black hover:bg-gray-100 font-medium',
+        style: { borderColor: '#D1D5DB', color: '#111827', backgroundColor: '#FFFFFF' },
+      },
+      content: (
+        <div className="w-full">
+          <div className="bg-white">
+            <div className="p-4 pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr,1.2fr] gap-4">
+
+                {/* Cột trái: Thông tin yêu cầu */}
+                <div className="space-y-3">
+                  <div className="bg-white p-2">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="text-sm text-gray-900 font-medium">Thông tin yêu cầu</div>
+                    </div>
+                    <div className="space-y-2 text-[13px]">
+                      <div>
+                        <span className="text-gray-500">Tên yêu cầu:</span>{' '}
+                        <span className="text-gray-900 font-medium">{request.requestName ?? request.requestCode}</span>
+                      </div>
+                      {request.customerName ? (
+                        <div>
+                          <span className="text-gray-500">Khách hàng:</span>{' '}
+                          <span className="text-gray-900 font-medium">{request.customerName}</span>
+                        </div>
+                      ) : null}
+                      <div>
+                        <span className="text-gray-500">Loại:</span>{' '}
+                        <span
+                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                          style={{ borderColor: `${approveAccentColor}33`, backgroundColor: `${approveAccentColor}10`, color: approveAccentColor }}
+                        >
+                          {approveSourceType === 'subject' ? 'Môn học' : approveSourceType === 'course' ? 'Khóa học' : 'Sự kiện'}
+                        </span>
+                        {sourceName ? (
+                          <span className="ml-1 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                            {sourceNameLabel}: {sourceName}
+                          </span>
+                        ) : null}
+                      </div>
+                      {requestDateRange.startAt ? (
+                        <div>
+                          <span className="text-gray-500">Ngày bắt đầu:</span>{' '}
+                          <span className="text-gray-900 font-medium">{dayjs(requestDateRange.startAt).format('DD/MM/YYYY HH:mm')}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                    {approveNote ? (
+                      <div className="mt-3 text-[13px]">
+                        <span className="text-gray-500">Ghi chú:</span>{' '}
+                        <span className="text-gray-900">{approveNote}</span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-lg bg-[#2197C0]/5 p-3 text-[11px] text-gray-600">
+                    Yêu cầu sẽ chuyển sang trạng thái đã duyệt sau khi xác nhận.
+                  </div>
+                </div>
+
+                {/* Cột phải: Lịch các buổi */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-gray-900">Lịch các buổi</div>
+                    {previews.length > 0 ? (
+                      <div className="text-[11px] text-gray-600 rounded-full border border-gray-200 px-2 py-0.5 bg-white">
+                        {previews.length} buổi
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="divide-y divide-gray-200/60">
+                    {previews.map((preview) => {
+                      const rawSession = sessions.find((s) => s.sessionId === preview.sessionId);
+                      const sessionTitle = rawSession ? getSessionDisplayTitle(rawSession) : `Buổi ${preview.sessionNo}`;
+                      const sessionStatusInfo = rawSession ? getSessionStatusInfo(rawSession.status) : null;
+                      const duplicatedTitle = sessionTitle.toLowerCase() === `buổi ${preview.sessionNo}`.toLowerCase();
+                      const isOnline = (rawSession as Record<string, unknown> | null)?.isOnline as boolean | null | undefined;
+                      return (
+                        <div key={preview.sessionId} className="relative bg-white px-3 py-3.5">
+                          <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ backgroundColor: `${approveAccentColor}55` }} />
+
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-gray-900 truncate">
+                                {duplicatedTitle ? `Buổi ${preview.sessionNo}` : `Buổi ${preview.sessionNo}: ${sessionTitle}`}
+                              </div>
+                              {sessionStatusInfo ? (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="text-[10px] text-gray-500">Trạng thái:</span>
+                                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sessionStatusInfo.className}`}>
+                                    {sessionStatusInfo.label}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </div>
+                            {isOnline != null ? (
+                              isOnline ? (
+                                <div className="shrink-0 text-[11px] border px-2 py-0.5 rounded-full" style={{ backgroundColor: `${approveAccentColor}10`, color: approveAccentColor, borderColor: `${approveAccentColor}33` }}>
+                                  Trực tuyến
+                                </div>
+                              ) : (
+                                <div className="shrink-0 text-[11px] text-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
+                                  Trực tiếp
+                                </div>
+                              )
+                            ) : null}
+                          </div>
+
+                          <div className="mt-2 space-y-1 text-[13px] text-gray-700">
+                            <div className="text-[13px] text-gray-700">
+                              {dayjs(preview.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(preview.endAt).format('HH:mm')}
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Địa điểm:</span>{' '}
+                              <span>{preview.location || '—'}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                              <span><span className="text-gray-500">Giảng viên:</span> {preview.teachersRequired ?? 0}</span>
+                              <span><span className="text-gray-500">Sinh viên:</span> {preview.tasRequired ?? 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+      onOk: () => handleConfirmApprove(),
+    });
+  };
   const resolvedDetailSession =
     rightPanel?.mode === 'detail'
       ? (sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session)
@@ -472,29 +642,46 @@ export default function RequestDetail() {
       : null;
   const canCancelDetailSession = (() => {
     if (!resolvedDetailSession) return false;
-    const code = getSessionStatusCode((resolvedDetailSession as any).status);
-    if (code == null) return true;
-    const blocked = new Set<number>([SESSION_STATUS.ONGOING, SESSION_STATUS.COMPLETED, SESSION_STATUS.CANCELLED]);
-    return !blocked.has(code);
+    if (
+      requestStatusCode !== REQUEST_STATUS.APPROVED &&
+      requestStatusCode !== REQUEST_STATUS.ASSIGNING &&
+      requestStatusCode !== REQUEST_STATUS.PUBLISHED
+    ) return false;
+    const sc = getSessionStatusCode((resolvedDetailSession as any).status);
+    return (
+      sc === SESSION_STATUS.APPROVED ||
+      sc === SESSION_STATUS.ASSIGNING ||
+      sc === SESSION_STATUS.ASSIGNMENT_REJECTED ||
+      sc === SESSION_STATUS.ASSIGNED
+    );
   })();
   const canCancelPanelSession = (() => {
     if (!resolvedPanelSession) return false;
-    const code = getSessionStatusCode((resolvedPanelSession as any).status);
-    if (code == null) return true;
-    const blocked = new Set<number>([SESSION_STATUS.ONGOING, SESSION_STATUS.COMPLETED, SESSION_STATUS.CANCELLED]);
-    return !blocked.has(code);
+    if (
+      requestStatusCode !== REQUEST_STATUS.APPROVED &&
+      requestStatusCode !== REQUEST_STATUS.ASSIGNING &&
+      requestStatusCode !== REQUEST_STATUS.PUBLISHED
+    ) return false;
+    const sc = getSessionStatusCode((resolvedPanelSession as any).status);
+    return (
+      sc === SESSION_STATUS.APPROVED ||
+      sc === SESSION_STATUS.ASSIGNING ||
+      sc === SESSION_STATUS.ASSIGNMENT_REJECTED ||
+      sc === SESSION_STATUS.ASSIGNED
+    );
   })();
 
-  const openCancelSessionDialog = () => {
-    const sess = resolvedDetailSession ?? resolvedPanelSession;
+  const openCancelSessionDialog = (sessionId?: number) => {
+    const sess = sessionId ? { sessionId } : (resolvedDetailSession ?? resolvedPanelSession);
     if (!sess) return;
+    setCancelTargetSessionId(sess.sessionId);
     setCancelSessionReason('');
     setCancelSessionOpen(true);
   };
 
   const handleConfirmCancelSession = async () => {
-    const sess = resolvedDetailSession ?? resolvedPanelSession;
-    if (!sess) return;
+    const sessionId = cancelTargetSessionId ?? resolvedDetailSession?.sessionId ?? resolvedPanelSession?.sessionId;
+    if (!sessionId) return;
     const trimmed = cancelSessionReason.trim();
     if (!trimmed) {
       message.warning('Vui lòng nhập lý do hủy buổi.');
@@ -502,10 +689,11 @@ export default function RequestDetail() {
     }
     try {
       setCancelSessionLoading(true);
-      await sessionService.cancel({ sessionId: sess.sessionId, reason: trimmed });
+      await sessionService.cancel({ sessionId, reason: trimmed });
       message.success('Đã hủy buổi.');
       setCancelSessionOpen(false);
       setCancelSessionReason('');
+      setCancelTargetSessionId(null);
       await refreshDetail();
       refreshRequestSidebar?.();
     } catch (err) {
@@ -778,9 +966,12 @@ export default function RequestDetail() {
                     <Button
                       type="button"
                       className="h-8 rounded-md px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs disabled:opacity-60 disabled:cursor-not-allowed"
-                      onClick={handleApproveClick}
+                      disabled={openingApproveModal}
+                      onClick={() => void openApproveModal()}
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                      {openingApproveModal
+                        ? <span className="mr-1 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
                       Duyệt yêu cầu
                     </Button>
                   </>
@@ -993,10 +1184,12 @@ export default function RequestDetail() {
               <Button
                 type="button"
                 className="h-8 rounded-md px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs disabled:opacity-60 disabled:cursor-not-allowed"
-                disabled={String(request.status ?? '').toLowerCase() !== 'pending'}
-                onClick={handleApproveClick}
+                disabled={String(request.status ?? '').toLowerCase() !== 'pending' || openingApproveModal}
+                onClick={() => void openApproveModal()}
               >
-                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                {openingApproveModal
+                  ? <span className="mr-1 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
                 Duyệt yêu cầu
               </Button>
             </div>
@@ -1172,11 +1365,13 @@ export default function RequestDetail() {
 
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
-                <>
+                <ManagerSessionDetailGate
+                  key={rightPanel.session.sessionId}
+                  sessionId={rightPanel.session.sessionId}
+                  reservationId={(rightPanel.session as any).reservationId ?? null}
+                >
                   {/* Thông tin buổi luôn ở trên cùng */}
                   <RequestSessionDetailPanel
-                    // Tránh trường hợp rightPanel.session bị "chụp" lúc chưa có reservationId.
-                    // Luôn ưu tiên session mới nhất từ state `sessions`.
                     session={
                       sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
                     }
@@ -1191,9 +1386,14 @@ export default function RequestDetail() {
                     {!isApprovalView && !isPendingRequest ? (
                       <RequestDetailTeamPanel
                         session={rightPanel.session}
+                        canEdit={
+                          requestStatusCode === REQUEST_STATUS.APPROVED &&
+                          getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
+                        }
                         currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                        separateTeacherSelection={isApprovedRequest}
+                        separateTeacherSelection={requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.APPROVED}
+                        requestStatus={request.status}
                         onAssignSession={handleAssignSession}
                       />
                     ) : null}
@@ -1212,43 +1412,33 @@ export default function RequestDetail() {
                       />
                     </div>
                   ) : null}
-                  {resolvedDetailSession && !isApprovalView && !isDefaultRequestView ? (
-                    <div className="mt-6 pt-4 border-t border-slate-100">
-                      <div className="relative inline-flex group">
+                  {resolvedDetailSession ? (
+                    <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                      {canCancelDetailSession ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            if (!canCancelDetailSession) {
-                              message.info('Không đủ điều kiện hủy buổi.');
-                              return;
-                            }
-                            openCancelSessionDialog();
-                          }}
-                          className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 ${
-                            canCancelDetailSession
-                              ? 'text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2'
-                              : 'text-slate-400 cursor-not-allowed'
-                          }`}
+                          onClick={() => openCancelSessionDialog()}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1"
                         >
                           <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
                           Hủy buổi
                         </button>
-                        {!canCancelDetailSession ? (
-                          <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
-                            Không đủ điều kiện hủy
-                          </span>
-                        ) : null}
-                      </div>
+                      ) : null}
                     </div>
                   ) : null}
-                </>
+                </ManagerSessionDetailGate>
               )}
               {rightPanel.mode === 'team' && !isPendingRequest && (
                 <RequestDetailTeamPanel
                   session={rightPanel.session}
+                  canEdit={
+                    requestStatusCode === REQUEST_STATUS.APPROVED &&
+                    getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
+                  }
                   currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                  separateTeacherSelection={isApprovedRequest}
+                  separateTeacherSelection={requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.APPROVED}
+                  requestStatus={request.status}
                   onAssignSession={handleAssignSession}
                 />
               )}
@@ -1264,6 +1454,7 @@ export default function RequestDetail() {
                       showReservedEquipment={false}
                       showTeamSummary
                       reviewMode
+                      requestStatus={request.status}
                       onApproveAssignment={async (assignment) => {
                         await handleApproveSingleAssignment(
                           Number(assignment.AssignmentId ?? 0),
@@ -1651,32 +1842,17 @@ export default function RequestDetail() {
                   )}
 
                   {resolvedPanelSession ? (
-                    <div className="pt-2 border-t border-slate-100">
-                      <div className="relative inline-flex group">
+                    <div className="pt-2 border-t border-slate-100 flex justify-end">
+                      {canCancelPanelSession ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            if (!canCancelPanelSession) {
-                              message.info('Không đủ điều kiện hủy buổi.');
-                              return;
-                            }
-                            openCancelSessionDialog();
-                          }}
-                          className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 ${
-                            canCancelPanelSession
-                              ? 'text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2'
-                              : 'text-slate-400 cursor-not-allowed'
-                          }`}
+                          onClick={() => openCancelSessionDialog()}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1"
                         >
                           <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
                           Hủy buổi
                         </button>
-                        {!canCancelPanelSession ? (
-                          <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
-                            Không đủ điều kiện hủy
-                          </span>
-                        ) : null}
-                      </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -1854,181 +2030,6 @@ export default function RequestDetail() {
             }}
           >
             Xác nhận từ chối
-          </Button>
-        </div>
-      </Dialog>
-
-      {/* Duyệt yêu cầu — form gọn, cùng tone với action bar */}
-      <Dialog
-        open={approveOpen}
-        onClose={() => !actionLoading && setApproveOpen(false)}
-        title="Xác nhận duyệt yêu cầu"
-        description="Yêu cầu sẽ chuyển sang trạng thái đã duyệt."
-        titleClassName="text-xl sm:text-2xl"
-        descriptionClassName="text-sm sm:text-base text-slate-600"
-        className="mx-3 w-full max-w-[min(1200px,calc(100vw-1.5rem))] max-h-[92vh] border-0 shadow-2xl sm:mx-6"
-      >
-        {request && (
-          <div className="space-y-5 text-sm">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
-              <h4 className="text-xl font-bold text-slate-900 sm:text-2xl">
-                {request.requestName ?? request.requestCode}
-              </h4>
-              <div className="mt-2 space-y-1">
-                <p className="text-sm text-slate-700">
-                  <span className="font-medium text-slate-500">{sourceNameLabel}: </span>
-                  <span className="font-semibold text-slate-900">{sourceName || '—'}</span>
-                </p>
-                {hasSourceDescription ? (
-                  <p className="text-xs text-slate-500 line-clamp-2">{sourceDescription}</p>
-                ) : null}
-              </div>
-              <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-5">
-                <div className="flex items-center gap-3">
-                  {/* <Hash className="h-5 w-5 shrink-0 text-sky-500" /> */}
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
-                    <p className="text-base font-semibold text-slate-900">{request.requestCode}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {/* <Calendar className="h-5 w-5 shrink-0 text-sky-500" /> */}
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Ngày tạo</p>
-                    <p className="text-base font-semibold text-slate-900">
-                      {request.createdAt
-                        ? dayjs(request.createdAt).format('DD/MM/YYYY')
-                        : dayjs(request.startDate).format('DD/MM/YYYY')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {/* <Calendar className="h-5 w-5 shrink-0 text-sky-500" /> */}
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Ngày bắt đầu</p>
-                    <p className="text-base font-semibold text-slate-900">
-                      {requestDateRange.startAt ? dayjs(requestDateRange.startAt).format('DD/MM/YYYY') : '—'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {/* <Calendar className="h-5 w-5 shrink-0 text-sky-500" /> */}
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Ngày kết thúc</p>
-                    <p className="text-base font-semibold text-slate-900">
-                      {requestDateRange.endAt ? dayjs(requestDateRange.endAt).format('DD/MM/YYYY') : '—'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {/* <List className="h-5 w-5 shrink-0 text-sky-500" /> */}
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Số lượng buổi</p>
-                    <p className="text-base font-semibold text-slate-900">{sessions.length || 0} buổi</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Loại yêu cầu</p>
-                    <p className="text-base font-semibold text-slate-900">{requestTypeLabel}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Thời lượng</p>
-                    <p className="text-base font-semibold text-slate-900">{sourceDuration || '—'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 sm:px-5">
-                <span className="text-base font-semibold text-slate-900 sm:text-lg">Thông tin các buổi</span>
-                {approvePreviewLoading ? (
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
-                    Đang tải...
-                  </span>
-                ) : null}
-              </div>
-              <div className="max-h-[min(65vh,720px)] space-y-3 overflow-y-auto p-3 sm:p-4">
-                {approveSessionPreviews.map((preview) => {
-                  const rawSession = sessions.find((s) => s.sessionId === preview.sessionId);
-                  const sessionTitle = rawSession ? getSessionDisplayTitle(rawSession) : `Buổi ${preview.sessionNo}`;
-                  const sessionStatusInfo = rawSession ? getSessionStatusInfo(rawSession.status) : null;
-                  return (
-                    <div
-                      key={preview.sessionId}
-                      className="relative rounded-xl border border-gray-200 bg-white p-4 pl-5"
-                    >
-                      <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-xl bg-[#2197C0]/45" />
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center rounded-full border border-[#2197C0]/20 bg-[#2197C0]/10 px-3 py-1 text-xs font-semibold text-[#1C7FA1] sm:text-sm">
-                            Buổi {preview.sessionNo}
-                          </span>
-                          {sessionStatusInfo ? (
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}>
-                              {sessionStatusInfo.label}
-                            </span>
-                          ) : null}
-                        </div>
-                        <span className="text-xs font-medium text-slate-600 sm:text-sm">
-                          {dayjs(preview.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(preview.endAt).format('HH:mm')}
-                        </span>
-                      </div>
-                      <div className="mt-3 space-y-2 text-sm text-slate-700">
-                        <p className="flex items-start gap-2">
-                          <span className="font-medium text-slate-600">Tên buổi:</span>
-                          <span className="font-semibold text-slate-800">{sessionTitle}</span>
-                        </p>
-                        <p className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
-                          <span className="font-medium text-slate-600">Địa điểm:</span>
-                          <span className="font-semibold text-slate-800">{preview.location || '—'}</span>
-                        </p>
-                        <p className="flex items-center gap-2">
-                          <List className="h-4 w-4 shrink-0 text-slate-400" />
-                          <span className="font-medium text-slate-600">Nhu cầu:</span>
-                          <span className="font-semibold text-slate-800">
-                            {preview.teachersRequired ?? 0} GV / {preview.tasRequired ?? 0} Sinh viên
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {approvePreviewLoading && approveSessionPreviews.length === 0 ? (
-                  <div className="px-1 py-2 text-xs text-slate-500">Đang tải chi tiết các buổi...</div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        )}
-        <div className="mt-4 flex justify-end gap-3 border-t border-gray-100 pt-5">
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-xl border-gray-200 px-6 py-2.5 text-base"
-            disabled={actionLoading}
-            onClick={() => setApproveOpen(false)}
-          >
-            Hủy
-          </Button>
-          <Button
-            type="button"
-            className="rounded-xl gap-2 bg-emerald-600 px-6 py-2.5 text-base text-white shadow-sm hover:bg-emerald-700"
-            disabled={actionLoading}
-            onClick={handleConfirmApprove}
-          >
-            {actionLoading ? (
-              'Đang xử lý...'
-            ) : (
-              <>
-                <CheckCircle2 className="h-4 w-4" />
-                Duyệt
-              </>
-            )}
           </Button>
         </div>
       </Dialog>

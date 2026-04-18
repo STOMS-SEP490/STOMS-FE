@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
-import { Check, ImageOff, Search } from 'lucide-react';
+import { Check, ImageOff, Search, X } from 'lucide-react';
 import { DatePicker, Select as AntSelect, message } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -23,6 +23,7 @@ type ReservationRow = {
   startAtLocal: string;
   endAtLocal: string;
   categoryId: number | null;
+  statusFilter?: number | null;
   equipmentIds: number[];
   search: string;
 };
@@ -122,6 +123,7 @@ export default function RequestDetailEquipmentPanel({
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [reserveSubmitLoading, setReserveSubmitLoading] = useState(false);
   const [reserveSubmitError, setReserveSubmitError] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Load categories (for filter dropdown)
   useEffect(() => {
@@ -152,6 +154,7 @@ export default function RequestDetailEquipmentPanel({
       row.startAtLocal || 'none',
       row.endAtLocal || 'none',
       row.categoryId ?? 'all',
+      row.statusFilter ?? 'all',
     ].join('|');
   }, []);
 
@@ -255,7 +258,7 @@ export default function RequestDetailEquipmentPanel({
           prev.length
             ? [...prev]
             : [
-                { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' },
+                { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '', statusFilter: null },
               ];
 
         const selectedSessions = nextSessionIds
@@ -286,6 +289,7 @@ export default function RequestDetailEquipmentPanel({
           categoryId: null,
           equipmentIds: [],
           search: next[0].search ?? '',
+          statusFilter: null,
         };
         return [next[0]];
       });
@@ -295,7 +299,7 @@ export default function RequestDetailEquipmentPanel({
 
   const setReservationRowTime = useCallback((_index: number, patch: Partial<Pick<ReservationRow, 'startAtLocal' | 'endAtLocal'>>) => {
     setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' };
+      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '', statusFilter: null };
       return [{ ...base, ...patch, equipmentIds: [] }];
     });
     // Changing time invalidates availability; clear selected items to avoid stale reservations.
@@ -304,15 +308,21 @@ export default function RequestDetailEquipmentPanel({
 
   const setReservationRowCategory = useCallback((_index: number, categoryId: number | null) => {
     setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' };
-      // Changing category is only a filter; do NOT clear selected equipments.
+      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, statusFilter: null, equipmentIds: [], search: '' };
       return [{ ...base, categoryId }];
+    });
+  }, []);
+
+  const setReservationRowStatus = useCallback((_index: number, statusFilter: number | null) => {
+    setReservationRows((prev) => {
+      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, statusFilter: null, equipmentIds: [], search: '' };
+      return [{ ...base, statusFilter }];
     });
   }, []);
 
   const setReservationRowSearch = useCallback((_index: number, search: string) => {
     setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' };
+      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, statusFilter: null, equipmentIds: [], search: '' };
       return [{ ...base, search }];
     });
   }, []);
@@ -321,13 +331,13 @@ export default function RequestDetailEquipmentPanel({
     setReservationRows((prev) => {
       const next = prev.length
         ? [...prev]
-        : [{ sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' }];
+        : [{ sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '', statusFilter: null }];
       const row = next[0];
       const exists = row.equipmentIds.includes(equipment.EquipmentId);
       const ids = exists
         ? row.equipmentIds.filter((id) => id !== equipment.EquipmentId)
         : [...row.equipmentIds, equipment.EquipmentId];
-      next[0] = { ...row, equipmentIds: ids };
+      next[0] = { ...row, equipmentIds: ids, statusFilter: row.statusFilter };
       return [next[0]];
     });
     setSelectedEquipmentById((prev) => {
@@ -623,7 +633,7 @@ export default function RequestDetailEquipmentPanel({
                       value={row.categoryId != null ? String(row.categoryId) : 'all'}
                       onValueChange={(v) => setReservationRowCategory(rowIndex, v === 'all' ? null : Number(v))}
                     >
-                      <SelectTrigger className="h-9 w-[180px] text-xs font-medium bg-white text-slate-700 rounded-xl border border-slate-200/90 shadow-none ring-0 focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-white data-[state=open]:shadow-[0_0_0_2px_rgba(14,165,233,0.2)]">
+                      <SelectTrigger className="h-9 w-[160px] text-xs font-medium bg-white text-slate-700 rounded-xl border border-slate-200/90 shadow-none ring-0 focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-white data-[state=open]:shadow-[0_0_0_2px_rgba(14,165,233,0.2)]">
                         <SelectValue placeholder="Danh mục" />
                       </SelectTrigger>
                       <SelectContent>
@@ -641,6 +651,22 @@ export default function RequestDetailEquipmentPanel({
                             </SelectItem>
                           ))
                         )}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={row.statusFilter != null ? String(row.statusFilter) : 'all'}
+                      onValueChange={(v) => setReservationRowStatus(rowIndex, v === 'all' ? null : Number(v))}
+                    >
+                      <SelectTrigger className="h-9 w-[140px] text-xs font-medium bg-white text-slate-700 rounded-xl border border-slate-200/90 shadow-none ring-0 focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-white data-[state=open]:shadow-[0_0_0_2px_rgba(14,165,233,0.2)]">
+                        <SelectValue placeholder="Trạng thái" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-gray-800">Tất cả trạng thái</SelectItem>
+                        <SelectItem value="1" className="text-gray-800">Sẵn sàng</SelectItem>
+                        <SelectItem value="2" className="text-gray-800">Đang sử dụng</SelectItem>
+                        <SelectItem value="3" className="text-gray-800">Bảo trì</SelectItem>
+                        <SelectItem value="4" className="text-gray-800">Hỏng</SelectItem>
+                        <SelectItem value="5" className="text-gray-800">Ngưng hoạt động</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -699,15 +725,21 @@ export default function RequestDetailEquipmentPanel({
                             >
                               <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-100">
                                 {eq.ImgLink ? (
-                                  <img
-                                    src={eq.ImgLink}
-                                    alt={eq.EquipmentName ?? `Thiết bị #${eq.EquipmentId}`}
-                                    width={40}
-                                    height={40}
-                                    loading="lazy"
-                                    decoding="async"
-                                    className="h-10 w-10 object-cover"
-                                  />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setPreviewImage(eq.ImgLink!); }}
+                                    className="w-full h-full"
+                                  >
+                                    <img
+                                      src={eq.ImgLink}
+                                      alt={eq.EquipmentName ?? `Thiết bị #${eq.EquipmentId}`}
+                                      width={40}
+                                      height={40}
+                                      loading="lazy"
+                                      decoding="async"
+                                      className="h-10 w-10 object-cover hover:opacity-80 transition-opacity"
+                                    />
+                                  </button>
                                 ) : (
                                   <ImageOff className="w-5 h-5 text-gray-300" />
                                 )}
@@ -784,6 +816,30 @@ export default function RequestDetailEquipmentPanel({
           </div>
         </div>
       </div>
+
+      {/* Image preview popup */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw]">
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
+            >
+              <X className="h-8 w-8" />
+            </button>
+            <img
+              src={previewImage}
+              alt="Ảnh thiết bị"
+              className="max-h-[90vh] max-w-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

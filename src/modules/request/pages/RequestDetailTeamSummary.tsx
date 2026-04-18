@@ -505,7 +505,8 @@ export default function RequestDetailTeamSummary({
 
   // Với manager flow mới, nếu chưa có team được gắn thì không render block "Nhóm phụ trách"
   // để tránh trùng/loãng thông tin với panel phân công phía dưới.
-  if (!loading && !error && teams.length === 0) return null;
+  // NHƯNG nếu đang ở reviewMode (duyệt phân công), luôn hiển thị để duyệt sinh viên
+  if (!loading && !error && teams.length === 0 && !reviewMode) return null;
 
   return (
     <div className="border border-slate-200 bg-white">

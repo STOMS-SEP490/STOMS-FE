@@ -79,7 +79,6 @@ export const SESSION_STATUS_LABEL: Record<number, string> = {
   9: 'Hoàn thành',
 };
 
-/** BE có thể trả `AssignmentRejected`, `ASSIGNMENT_REJECTED`, hoặc mã 5 — không chỉ một dạng chuỗi. */
 export function isSessionAssignmentRejectedStatus(
   status: string | number | null | undefined,
 ): boolean {
