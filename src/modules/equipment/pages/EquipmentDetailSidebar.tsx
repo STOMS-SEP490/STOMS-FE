@@ -1,5 +1,7 @@
 import { Copy, X } from 'lucide-react'
-import type { EquipmentBorrowingHistoryItem, EquipmentListItem } from '../equipment'
+import { useEffect, useMemo, useState } from 'react'
+import type { EquipmentListItem } from '../equipment'
+import type { BorrowingListItem } from '@/modules/equipment/borrowing'
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/shared/lib/utils'
 import {
@@ -9,6 +11,7 @@ import {
 import { getEquipmentBorrowingStatusInfo } from '@/constants/status'
 import { getBorrowingStatusColor, getBorrowingStatusDisplay } from '@/constants/borrowing'
 import { Image, message } from 'antd'
+import borrowingApi from '@/modules/equipment/api/borrowingApi'
 
 type Props = {
   open: boolean
@@ -29,7 +32,7 @@ function normalizeUrl(url: string) {
   return `https://${u}`
 }
 
-function borrowingDisplayName(x: EquipmentBorrowingHistoryItem): string {
+function borrowingDisplayName(x: BorrowingListItem): string {
   const name =
     x.borrowedByMember?.fullName?.trim() ||
     (x.borrowedByMemberId ? `Member #${x.borrowedByMemberId}` : '') ||
@@ -54,12 +57,52 @@ export default function EquipmentDetailSidebar({
 }: Props) {
   if (!equipment) return null
 
+  const [historyBorrowings, setHistoryBorrowings] = useState<BorrowingListItem[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
   const handoverUrl = equipment.handoverMinute
     ? normalizeUrl(equipment.handoverMinute)
     : ''
 
-  const borrowingHistory =
-    equipment.historyborrowing ?? equipment.historyBorrowing ?? equipment.historyBorrowings ?? null
+  useEffect(() => {
+    if (!open) return
+    const equipmentId = Number(equipment.equipmentId)
+    if (!Number.isFinite(equipmentId) || equipmentId <= 0) return
+
+    let cancelled = false
+    setLoadingHistory(true)
+
+    const run = async () => {
+      try {
+        const res = await borrowingApi.getBorrowings({ pageNumber: 1, pageSize: 50, equipmentId })
+        if (cancelled) return
+        setHistoryBorrowings(res.items ?? [])
+      } catch {
+        if (cancelled) return
+        setHistoryBorrowings([])
+      } finally {
+        if (cancelled) return
+        setLoadingHistory(false)
+      }
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, equipment.equipmentId])
+
+  const borrowingHistory = useMemo(() => {
+    // ưu tiên mới nhất lên trước (createdAt desc)
+    const arr = historyBorrowings.slice()
+    arr.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return tb - ta
+    })
+    return arr
+  }, [historyBorrowings])
 
   return (
     <>
@@ -227,15 +270,13 @@ export default function EquipmentDetailSidebar({
             </Card>
 
             <Card title="Lịch sử mượn">
-              {borrowingHistory && borrowingHistory.length > 0 ? (
+              {loadingHistory ? (
+                <div className="rounded-xl border bg-gray-50 px-3 py-3 text-sm text-gray-600">Đang tải...</div>
+              ) : borrowingHistory.length > 0 ? (
                 <ul className="space-y-1">
                   {borrowingHistory.map((h, idx) => {
                     const borrowingStatusLabel = getBorrowingStatusDisplay(h.status ?? '')
                     const borrowingStatusClass = getBorrowingStatusColor(h.status ?? '')
-
-                    const detailForThisEquipment =
-                      h.borrowingEquipmentDetail?.find((d) => Number(d.equipmentId) === Number(equipment.equipmentId)) ??
-                      (h.borrowingEquipmentDetail?.length ? h.borrowingEquipmentDetail[0] : null)
 
                     const key =
                       (h.borrowingId != null && h.borrowingId > 0 ? `b-${h.borrowingId}-${idx}` : `i-${idx}`)
@@ -267,16 +308,6 @@ export default function EquipmentDetailSidebar({
                           <div className="text-xs text-gray-500">
                             Hạn trả: {formatDateTime(h.returnedDueDate ?? null)} · Tạo lúc:{' '}
                             {formatDateTime(h.createdAt ?? null)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Checkout: {formatDateTime(detailForThisEquipment?.checkoutAt ?? null)} · Checkin:{' '}
-                            {formatDateTime(detailForThisEquipment?.checkinAt ?? null)}
-                            {detailForThisEquipment?.receivedByMember?.fullName?.trim() ? (
-                              <>
-                                {' '}
-                                · Người nhận lại: {detailForThisEquipment.receivedByMember.fullName.trim()}
-                              </>
-                            ) : null}
                           </div>
                         </div>
                         <Badge className={cn(borrowingStatusClass, 'shrink-0')}>{borrowingStatusLabel}</Badge>
