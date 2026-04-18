@@ -144,19 +144,9 @@ export default function MembersManagement() {
     },
     { id: 'team', header: 'Nhóm', cell: ({ row }) => row.original.team?.teamName },
     {
-      id: 'status',
-      header: 'Trạng thái',
-      cell: ({ row }) =>
-        row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
-        ) : (
-          <Badge className="bg-red-100 text-red-600">Vô hiệu hóa</Badge>
-        ),
-    },
-    {
       accessorKey: 'createdAt',
       header: 'Ngày tạo',
-      cell: ({ row }) => new Date(row.original.createdAt).toLocaleString(),
+      cell: ({ row }) => new Date(row.original.createdAt).toLocaleDateString('vi-VN'),
     },
     {
       id: 'actions',

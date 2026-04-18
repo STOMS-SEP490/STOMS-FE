@@ -5,6 +5,7 @@
 export type BorrowingFilterParams = {
   pageNumber?: number
   pageSize?: number
+  equipmentId?: number
   status?: string
   description?: string
   note?: string
@@ -30,6 +31,7 @@ export type BorrowingEquipmentDetail = {
   checkoutAt: string | null
   checkinAt: string | null
   receivedByMemberId: number | null
+  receivedByMember?: MemberBorrowing | null
   equipment?: {
     equipmentId: number
     equipmentName: string

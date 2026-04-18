@@ -262,7 +262,7 @@ export default function TeacherAttendanceHistoryPage() {
         },
         {
           accessorKey: 'sessionName',
-          header: 'PHIÊN',
+          header: 'Buổi',
           enableSorting: false,
           cell: ({ row }) => {
             const r = row.original as AttendanceHistoryItem;
