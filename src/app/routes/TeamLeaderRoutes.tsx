@@ -11,10 +11,11 @@ import TopicsReadonlyPage from '@/modules/topic/pages/TopicsReadonlyPage';
 import TeacherAttendanceHistoryPage from '@/modules/attendance/pages/TeacherAttendanceHistoryPage';
 import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeachingHistoryPage';
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
-import TeacherTaskReportPage from '@/modules/task-report/pages/TeacherTaskReportPage';
+import MyTasksPage from '@/modules/task-report/pages/MyTasksPage';
+import TaskSessionDetailPage from '@/modules/task-report/pages/TaskSessionDetailPage';
 import TeamLeaderAssignmentsLayout from '@/app/layouts/TeamLeaderAssignmentsLayout';
-import TeamLeaderAssignmentsPage from '@/modules/attendance/pages/TeamLeaderAssignmentsPage';
-import TeamLeaderAssignmentsTablePage from '@/modules/attendance/pages/TeamLeaderAssignmentsTablePage';
+import TeamLeaderAssignmentsPage from '@/modules/request/pages/TeamLeaderAssignmentsPage';
+import TeamLeaderAssignmentsTablePage from '@/modules/request/pages/TeamLeaderAssignmentsTablePage';
 import TeamLeaderDashboard from '@/modules/dashboard/pages/TeamLeaderDashboard';
 
 const TeamLeaderRoutes = [
@@ -45,7 +46,8 @@ const TeamLeaderRoutes = [
   { path: 'fund-contributions', element: <TeacherContributionHistoryPage /> },
   { path: 'attendance', element: <TeacherAttendanceHistoryPage /> },
   { path: 'attendance-history', element: <TeacherAttendanceHistoryPage /> },
-  { path: 'tasks', element: <TeacherTaskReportPage /> },
+  { path: 'tasks', element: <MyTasksPage /> },
+  { path: 'tasks/:sessionId', element: <TaskSessionDetailPage /> },
   { path: 'equipments', element: <AvailableEquipmentsPage /> },
 ];
 

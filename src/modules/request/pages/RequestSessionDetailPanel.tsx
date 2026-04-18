@@ -10,7 +10,8 @@ import EditReservationModal from '@/modules/reservation/pages/EditReservationMod
 import type { RequestSessionSummary } from '../request';
 import sessionService from '../api/sessionApi';
 import type { AssignmentResponse, SessionResponse } from '../session.types';
-import RequestDetailTeamSummary from './RequestDetailTeamSummary';
+import RequestDetailTeamPanel from './RequestDetailTeamPanel';
+import { SESSION_STATUS, getSessionStatusCode } from '@/constants/status';
 
 export type SessionDetailProps = {
   session: RequestSessionSummary & {
@@ -27,6 +28,7 @@ export type SessionDetailProps = {
   canEditReservation?: boolean;
   onReservationUpdated?: () => void | Promise<void>;
   reviewMode?: boolean;
+  requestStatus?: string | number | null;
   onApproveAssignment?: (assignment: AssignmentResponse) => void | Promise<void>;
   onRejectAssignment?: (assignment: AssignmentResponse) => void | Promise<void>;
   isApprovingAssignment?: (assignmentId: number) => boolean;
@@ -42,14 +44,20 @@ export default function RequestSessionDetailPanel({
   sectionMode = 'all',
   canEditReservation = true,
   onReservationUpdated,
-  reviewMode = false,
-  onApproveAssignment,
-  onRejectAssignment,
-  isApprovingAssignment,
+  requestStatus,
 }: SessionDetailProps) {
   const renderInfoCard = sectionMode === 'all' || sectionMode === 'info';
   const renderEquipmentCard = (sectionMode === 'all' || sectionMode === 'equipment') && showReservedEquipment;
   const shouldFetchSessionDetail = renderInfoCard;
+
+  // Nút "Sửa đặt trước" chỉ hiện khi session status là 2, 4, 5, 6
+  const sessionStatusCode = getSessionStatusCode(session.status);
+  const canEditReservationByStatus =
+    sessionStatusCode === SESSION_STATUS.APPROVED ||        // 2
+    sessionStatusCode === SESSION_STATUS.ASSIGNING ||       // 4
+    sessionStatusCode === SESSION_STATUS.ASSIGNMENT_REJECTED || // 5
+    sessionStatusCode === SESSION_STATUS.ASSIGNED;          // 6
+  const effectiveCanEditReservation = canEditReservation && canEditReservationByStatus;
   const showTeamBlock = renderInfoCard && showTeamSummaryProp;
 
   const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(null);
@@ -244,8 +252,20 @@ export default function RequestSessionDetailPanel({
     [onReservationUpdated],
   );
 
+  // Chờ tất cả data load xong mới render (giống PC)
+  const isAnyLoading = sessionLoading || (renderEquipmentCard && !!resolvedReservationId && reservedLoading);
+
   return (
     <div className="space-y-4 text-sm">
+      {isAnyLoading ? (
+        <div className="flex items-center justify-center py-16 text-slate-500">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-5 h-5 border-2 border-slate-300 border-t-[#2197C0] rounded-full animate-spin" />
+            <p className="text-xs">Đang tải...</p>
+          </div>
+        </div>
+      ) : (
+      <>
       {renderInfoCard && (
         <div className="bg-white">
           <div  />
@@ -255,18 +275,16 @@ export default function RequestSessionDetailPanel({
 
             <div className="grid grid-cols-1 gap-1">
               <p className="text-xs text-slate-500">
-                {sessionLoading
-                  ? 'Đang tải...'
-                  : startAt && endAt
-                    ? `${dayjs(startAt).format('DD/MM/YYYY HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
-                    : '—'}
+                {startAt && endAt
+                  ? `${dayjs(startAt).format('DD/MM/YYYY HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
+                  : '—'}
               </p>
             </div>
 
             <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã buổi</p>
-                <p className="mt-1 font-medium text-slate-900">{sessionLoading ? 'Đang tải...' : (session.sessionId ?? '—')}</p>
+                <p className="mt-1 font-medium text-slate-900">{session.sessionId ?? '—'}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
@@ -278,26 +296,25 @@ export default function RequestSessionDetailPanel({
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Thời lượng</p>
-                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (sessionDuration || '—')}</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{sessionDuration || '—'}</p>
               </div>
-              
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Địa điểm</p>
-                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (location || '—')}</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{location || '—'}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Hình thức</p>
                 <p className="mt-1 font-medium text-slate-900">
-                  {sessionLoading ? 'Đang tải...' : isOnlineRaw == null ? '—' : isOnlineRaw ? 'Trực tuyến' : 'Trực tiếp'}
+                  {isOnlineRaw == null ? '—' : isOnlineRaw ? 'Trực tuyến' : 'Trực tiếp'}
                 </p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Giảng viên yêu cầu</p>
-                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (teachersRequired ?? '—')}</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{teachersRequired ?? '—'}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Sinh viên yêu cầu</p>
-                <p className="mt-1 font-semibold text-[#2197C0]">{sessionLoading ? 'Đang tải...' : (tasRequired ?? '—')}</p>
+                <p className="mt-1 font-semibold text-[#2197C0]">{tasRequired ?? '—'}</p>
               </div>
             </div>
 
@@ -306,14 +323,14 @@ export default function RequestSessionDetailPanel({
             {sessionDescription ? (
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Mô tả nội dung</p>
-                <p className="mt-1 text-slate-700 leading-6">{sessionLoading ? 'Đang tải...' : sessionDescription}</p>
+                <p className="mt-1 text-slate-700 leading-6">{sessionDescription}</p>
               </div>
             ) : null}
 
             {notes ? (
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Ghi chú</p>
-                <p className="mt-1 text-slate-700 leading-6">{sessionLoading ? 'Đang tải...' : notes}</p>
+                <p className="mt-1 text-slate-700 leading-6">{notes}</p>
               </div>
             ) : null}
 
@@ -321,9 +338,7 @@ export default function RequestSessionDetailPanel({
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Chủ đề</p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {sessionLoading ? (
-                    <span className="text-slate-700">Đang tải...</span>
-                  ) : topics.length === 0 ? (
+                  {topics.length === 0 ? (
                     <span className="text-slate-700">—</span>
                   ) : (
                     topics.map((name) => (
@@ -339,9 +354,7 @@ export default function RequestSessionDetailPanel({
             <div>
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Kỹ năng</p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {sessionLoading ? (
-                  <span className="text-slate-700">Đang tải...</span>
-                ) : skills.length === 0 ? (
+                {skills.length === 0 ? (
                   <span className="text-slate-700">—</span>
                 ) : (
                   skills.map((name) => (
@@ -358,39 +371,49 @@ export default function RequestSessionDetailPanel({
             <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2">
               <div>
                 <span className="uppercase tracking-wide">Tạo lúc: </span>
-                <span className="text-slate-600">
-                  {sessionLoading ? 'Đang tải...' : (createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm:ss') : '—')}
-                </span>
+                <span className="text-slate-600">{createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm:ss') : '—'}</span>
               </div>
               <div>
                 <span className="uppercase tracking-wide">Cập nhật: </span>
-                <span className="text-slate-600">
-                  {sessionLoading ? 'Đang tải...' : (updatedAt ? dayjs(updatedAt).format('DD/MM/YYYY HH:mm:ss') : '—')}
-                </span>
+                <span className="text-slate-600">{updatedAt ? dayjs(updatedAt).format('DD/MM/YYYY HH:mm:ss') : '—'}</span>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {showTeamBlock && (
+      {showTeamBlock && sessionDetail && (
         <div className="mt-6">
-          <RequestDetailTeamSummary
-            session={session}
-            assignedTeamIds={assignedTeamIds}
-            sessionDetailLoading={sessionLoading}
-            sessionTeamsEmbedded={
-              sessionDetail != null ? (sessionDetail.TeamSessions ?? []) : undefined
-            }
-            sessionAssignments={
-              sessionDetail != null
-                ? (sessionDetail.Assignments ?? []).filter((a) => a.AssignmentId > 0)
+          <RequestDetailTeamPanel
+            session={{
+              sessionId: session.sessionId,
+              sessionNo: session.sessionNo ?? 0,
+              startAt: startAt ?? '',
+              endAt: endAt ?? '',
+              teachersRequired: teachersRequired,
+              tasRequired: tasRequired,
+            }}
+            currentTeamQuantities={
+              sessionDetail.TeamSessions
+                ? sessionDetail.TeamSessions.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>((acc, ts) => {
+                    const teamId = Number(ts.TeamId ?? 0);
+                    if (teamId > 0) {
+                      acc[teamId] = {
+                        teachersRequired: Math.max(0, Number(ts.TeachersRequired ?? 0)),
+                        tasRequired: Math.max(0, Number(ts.TasRequired ?? 0)),
+                      };
+                    }
+                    return acc;
+                  }, {})
                 : undefined
             }
-            reviewMode={reviewMode}
-            onApproveAssignment={onApproveAssignment}
-            onRejectAssignment={onRejectAssignment}
-            isApprovingAssignment={isApprovingAssignment}
+            currentAssignedTeamIds={assignedTeamIds}
+            separateTeacherSelection={true}
+            canEdit={false}
+            requestStatus={requestStatus}
+            onAssignSession={() => {
+              // Read-only mode, no action needed
+            }}
           />
         </div>
       )}
@@ -400,7 +423,7 @@ export default function RequestSessionDetailPanel({
           <div className="bg-white">
             <div className="px-0 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200">
               <h3 className="font-semibold text-gray-900 text-sm">Danh sách thiết bị yêu cầu trước</h3>
-              {resolvedReservationId && canEditReservation ? (
+              {resolvedReservationId && effectiveCanEditReservation ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -416,8 +439,6 @@ export default function RequestSessionDetailPanel({
             <div className="px-0 py-3 space-y-2">
               {!resolvedReservationId ? (
                 <p className="text-xs text-gray-500">Chưa có thiết bị mượn trước cho buổi này.</p>
-              ) : reservedLoading ? (
-                <p className="text-xs text-gray-500">Đang tải danh sách thiết bị...</p>
               ) : reservedError ? (
                 <p className="text-xs text-red-600">{reservedError}</p>
               ) : reservedEquipments.length === 0 ? (
@@ -473,7 +494,7 @@ export default function RequestSessionDetailPanel({
         </>
       )}
 
-      {canEditReservation ? (
+      {effectiveCanEditReservation ? (
         <EditReservationModal
           open={editReservationOpen}
           reservation={editReservationDetail}
@@ -484,6 +505,8 @@ export default function RequestSessionDetailPanel({
           onSaved={handleEditReservationSaved}
         />
       ) : null}
+      </>
+      )}
     </div>
   );
 }

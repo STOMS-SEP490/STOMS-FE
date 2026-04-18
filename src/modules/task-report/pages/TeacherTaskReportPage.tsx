@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { taskReportApi } from '../api/taskReportApi';
@@ -117,6 +117,9 @@ function sessionInRange(startAt: string, from: Dayjs | null, to: Dayjs | null): 
 
 export default function TeacherTaskReportPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const rolePrefix = location.pathname.startsWith('/teacher/') ? '/teacher' : '/tl';
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
 
   const [sessions, setSessions] = useState<TeachingHistoryItem[]>([]);
@@ -917,18 +920,13 @@ export default function TeacherTaskReportPage() {
 
                 {/* Session cards */}
                 {selectedGroup.sessions.map((s) => {
-                  const isActive = activeTarget === s.sessionId;
                   const hasReport = hasReportForSession(s.sessionId);
                   return (
                     <button
                       key={s.sessionId}
                       type="button"
-                      onClick={() => setActiveTarget(s.sessionId)}
-                      className={`w-full text-left rounded-2xl border shadow-sm overflow-hidden transition ${
-                        isActive
-                          ? 'bg-sky-50/80 border-sky-300 shadow-md'
-                          : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
-                      }`}
+                      onClick={() => navigate(`${rolePrefix}/tasks/${s.sessionId}`)}
+                      className="w-full text-left rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden transition hover:border-sky-300 hover:shadow-md"
                     >
                       <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-slate-50/80 to-white border-b border-slate-100">
                         <div className="flex items-center gap-3">

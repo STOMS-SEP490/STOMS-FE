@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Users, Trash2, Plus, CircleHelp } from 'lucide-react';
-import { message, Popover } from 'antd';
+import { message, Popover, Checkbox } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
+import { Dialog } from '@/shared/components/ui/dialog';
+import { Label } from '@/shared/components/ui/label';
 import type { Team } from '@/modules/team/team';
 import assignmentApi from '@/modules/assignment/api/assignmentApi';
 import type { AssignmentResponse } from '../session.types';
@@ -11,6 +13,7 @@ import type { SuggestedStaff } from '../type';
 import sessionService from '../api/sessionApi';
 import { teamSessionApi } from '@/modules/team/api/teamSessionApi';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
+import { getAssignmentStatusInfo, ASSIGNMENT_STATUS, REQUEST_STATUS, getRequestStatusCode } from '@/constants/status';
 
 export type SessionForTeam = {
   sessionNo: number;
@@ -99,6 +102,9 @@ type Props = {
   currentTeamQuantities?: Record<number, { teachersRequired: number; tasRequired: number }>;
   currentAssignedTeamIds?: number[];
   separateTeacherSelection?: boolean;
+  canEdit?: boolean;
+  /** Request status để kiểm tra có hiển thị danh sách sinh viên đã phân công không */
+  requestStatus?: string | number | null;
   onAssignSession: (
     sessionId: number,
     teamIds: number[],
@@ -111,6 +117,8 @@ export default function RequestDetailTeamPanel({
   currentTeamQuantities,
   currentAssignedTeamIds,
   separateTeacherSelection = false,
+  canEdit = true,
+  requestStatus,
   onAssignSession,
 }: Props) {
   const [suggestedTeams, setSuggestedTeams] = useState<Team[]>([]);
@@ -136,6 +144,22 @@ export default function RequestDetailTeamPanel({
   const [teacherSearchByAssignmentId, setTeacherSearchByAssignmentId] = useState<Record<number, string>>({});
   const [expandedTeamIds, setExpandedTeamIds] = useState<number[]>([]);
   const [expandedAddedTeamIds, setExpandedAddedTeamIds] = useState<number[]>([]);
+  
+  // Load session detail để lấy assignments khi request status >= 4
+  const [sessionDetail, setSessionDetail] = useState<any>(null);
+  const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
+  
+  // Bulk approve/reject state for student assignments
+  const [studentApprovalMode, setStudentApprovalMode] = useState(false);
+  const [selectedStudentAssignmentIds, setSelectedStudentAssignmentIds] = useState<Set<number>>(new Set());
+  const [bulkApprovingStudents, setBulkApprovingStudents] = useState(false);
+  
+  // Individual reject modal state
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectingAssignmentId, setRejectingAssignmentId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectingStudent, setRejectingStudent] = useState(false);
+  
   const requestedTeachers = Math.max(0, Number(session.teachersRequired ?? 0) || 0);
   const requestedTas = Math.max(0, Number(session.tasRequired ?? 0) || 0);
 
@@ -216,6 +240,42 @@ export default function RequestDetailTeamPanel({
       cancelled = true;
     };
   }, [session.sessionId, separateTeacherSelection]);
+
+  // Load session detail để hiển thị sinh viên đã phân công khi request status >= 4
+  useEffect(() => {
+    const statusCode = getRequestStatusCode(requestStatus);
+    const shouldLoadAssignments = 
+      statusCode === REQUEST_STATUS.ASSIGNING ||
+      statusCode === REQUEST_STATUS.PUBLISHED ||
+      statusCode === REQUEST_STATUS.COMPLETED ||
+      statusCode === REQUEST_STATUS.CANCELLED;
+    
+    if (!shouldLoadAssignments) {
+      setSessionDetail(null);
+      setSessionDetailLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchSessionDetail = async () => {
+      setSessionDetailLoading(true);
+      try {
+        const detail = await sessionService.getById(session.sessionId);
+        if (cancelled) return;
+        setSessionDetail(detail);
+      } catch (err) {
+        if (!cancelled) {
+          setSessionDetail(null);
+        }
+      } finally {
+        if (!cancelled) setSessionDetailLoading(false);
+      }
+    };
+    void fetchSessionDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [session.sessionId, requestStatus]);
 
   const assignedIdsKey = useMemo(
     () => (currentAssignedTeamIds ?? []).slice().sort((a, b) => a - b).join(','),
@@ -539,6 +599,76 @@ export default function RequestDetailTeamPanel({
     }
   }, []);
 
+  // Bulk approval handlers
+  const handleToggleStudentApprovalMode = useCallback(() => {
+    setStudentApprovalMode((prev) => !prev);
+    setSelectedStudentAssignmentIds(new Set());
+  }, []);
+
+  const handleToggleStudentSelection = useCallback((assignmentId: number) => {
+    setSelectedStudentAssignmentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(assignmentId)) {
+        next.delete(assignmentId);
+      } else {
+        next.add(assignmentId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleBulkApproveStudents = useCallback(async () => {
+    if (selectedStudentAssignmentIds.size === 0) {
+      message.warning('Vui lòng chọn ít nhất một sinh viên để duyệt.');
+      return;
+    }
+    try {
+      setBulkApprovingStudents(true);
+      const assignmentIds = Array.from(selectedStudentAssignmentIds);
+      await assignmentApi.approve(assignmentIds);
+      message.success(`Đã duyệt ${assignmentIds.length} sinh viên.`);
+      setStudentApprovalMode(false);
+      setSelectedStudentAssignmentIds(new Set());
+      // Reload session detail
+      const detail = await sessionService.getById(session.sessionId);
+      setSessionDetail(detail);
+    } catch (err: unknown) {
+      message.error(getErrorMessage(err));
+    } finally {
+      setBulkApprovingStudents(false);
+    }
+  }, [selectedStudentAssignmentIds, session.sessionId]);
+
+  const handleOpenRejectModal = useCallback((assignmentId: number) => {
+    setRejectingAssignmentId(assignmentId);
+    setRejectReason('');
+    setRejectModalOpen(true);
+  }, []);
+
+  const handleConfirmRejectStudent = useCallback(async () => {
+    if (!rejectingAssignmentId) return;
+    const trimmed = rejectReason.trim();
+    if (!trimmed) {
+      message.warning('Vui lòng nhập lý do từ chối.');
+      return;
+    }
+    try {
+      setRejectingStudent(true);
+      await assignmentApi.reject(rejectingAssignmentId, trimmed);
+      message.success('Đã từ chối phân công sinh viên.');
+      setRejectModalOpen(false);
+      setRejectingAssignmentId(null);
+      setRejectReason('');
+      // Reload session detail
+      const detail = await sessionService.getById(session.sessionId);
+      setSessionDetail(detail);
+    } catch (err: unknown) {
+      message.error(getErrorMessage(err));
+    } finally {
+      setRejectingStudent(false);
+    }
+  }, [rejectingAssignmentId, rejectReason, session.sessionId]);
+
   return (
     <div className="space-y-5">
       {separateTeacherSelection ? (
@@ -568,15 +698,17 @@ export default function RequestDetailTeamPanel({
                 </Button>
               </div>
             ) : (
-              <Button
-                type="button"
-                size="sm"
-                className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
-                disabled={saving}
-                onClick={() => setTeacherEditMode(true)}
-              >
-                {assignedTeacherCountByAssignments > 0 ? 'Chỉnh sửa' : 'Thêm'}
-              </Button>
+              canEdit ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
+                  disabled={saving}
+                  onClick={() => setTeacherEditMode(true)}
+                >
+                  {assignedTeacherCountByAssignments > 0 ? 'Chỉnh sửa' : 'Thêm'}
+                </Button>
+              ) : null
             )}
           </div>
           {teacherAssignments.length === 0 ? (
@@ -609,115 +741,115 @@ export default function RequestDetailTeamPanel({
                       Giảng viên {index + 1}
                     </p>
                     <Popover
-                      trigger="click"
-                      open={teacherPickerAssignmentId === assignmentId}
-                      onOpenChange={(visible) => {
-                        setTeacherPickerAssignmentId(visible ? assignmentId : null);
-                        if (visible) void handleLoadTeacherSuggestions(assignmentId);
-                      }}
-                      placement="bottomLeft"
-                      destroyOnHidden
-                      content={
-                        <div className="w-[min(calc(100vw-2rem),20rem)] p-0.5">
-                          <Input
-                            className="h-8 text-xs border-slate-200"
-                            placeholder="Tìm giảng viên..."
-                            value={teacherSearchByAssignmentId[assignmentId] ?? ''}
-                            onChange={(e) =>
-                              setTeacherSearchByAssignmentId((prev) => ({
-                                ...prev,
-                                [assignmentId]: e.target.value,
-                              }))
-                            }
-                          />
-                          <div className="mt-2 max-h-56 overflow-y-auto no-scrollbar space-y-0.5">
-                            {filteredSuggestions.length === 0 ? (
-                              <p className="text-xs text-slate-500 px-2 py-3 text-center">Không có gợi ý phù hợp.</p>
-                            ) : (
-                              filteredSuggestions.map((staff) => (
-                                <button
-                                  key={staff.memberId}
-                                  type="button"
-                                  className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50 transition-colors"
-                                  onClick={() => {
-                                    handleAssignTeacherToSlot(assignmentId, staff.memberId);
-                                  }}
-                                >
-                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 shrink-0">
-                                    <img
-                                      src={getAvatarSrc(staff.avatarUrl)}
-                                      alt={staff.fullName}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium text-slate-900 truncate">{staff.fullName || '—'}</p>
-                                    <p className="text-[11px] text-slate-500 truncate">{staff.email || staff.roleName || '—'}</p>
-                                  </div>
-                                </button>
-                              ))
-                            )}
+                        trigger="click"
+                        open={teacherPickerAssignmentId === assignmentId}
+                        onOpenChange={(visible) => {
+                          setTeacherPickerAssignmentId(visible ? assignmentId : null);
+                          if (visible) void handleLoadTeacherSuggestions(assignmentId);
+                        }}
+                        placement="bottomLeft"
+                        destroyOnHidden
+                        content={
+                          <div className="w-[min(calc(100vw-2rem),20rem)] p-0.5">
+                            <Input
+                              className="h-8 text-xs border-slate-200"
+                              placeholder="Tìm giảng viên..."
+                              value={teacherSearchByAssignmentId[assignmentId] ?? ''}
+                              onChange={(e) =>
+                                setTeacherSearchByAssignmentId((prev) => ({
+                                  ...prev,
+                                  [assignmentId]: e.target.value,
+                                }))
+                              }
+                            />
+                            <div className="mt-2 max-h-56 overflow-y-auto no-scrollbar space-y-0.5">
+                              {filteredSuggestions.length === 0 ? (
+                                <p className="text-xs text-slate-500 px-2 py-3 text-center">Không có gợi ý phù hợp.</p>
+                              ) : (
+                                filteredSuggestions.map((staff) => (
+                                  <button
+                                    key={staff.memberId}
+                                    type="button"
+                                    className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50 transition-colors"
+                                    onClick={() => {
+                                      handleAssignTeacherToSlot(assignmentId, staff.memberId);
+                                    }}
+                                  >
+                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 shrink-0">
+                                      <img
+                                        src={getAvatarSrc(staff.avatarUrl)}
+                                        alt={staff.fullName}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-medium text-slate-900 truncate">{staff.fullName || '—'}</p>
+                                      <p className="text-[11px] text-slate-500 truncate">{staff.email || staff.roleName || '—'}</p>
+                                    </div>
+                                  </button>
+                                ))
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      }
-                      styles={{ content: { padding: 12 } }}
-                    >
-                      <button
-                        type="button"
-                        disabled={saving}
-                        className="w-full flex items-center justify-between gap-3 bg-white px-3 py-2 text-left hover:bg-slate-50 disabled:opacity-60"
+                        }
+                        styles={{ content: { padding: 12 } }}
                       >
-                        {Number(slot.StaffMemberId ?? 0) > 0 ? (
-                          <>
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
-                                <img
-                                  src={getAvatarSrc(slot.StaffMember?.AvatarUrl ?? null)}
-                                  alt={slot.StaffMember?.FullName || 'Giảng viên đã chọn'}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-                                  }}
-                                />
+                        <button
+                          type="button"
+                          disabled={saving}
+                          className="w-full flex items-center justify-between gap-3 bg-white px-3 py-2 text-left hover:bg-slate-50 disabled:opacity-60 rounded-lg border border-slate-200"
+                        >
+                          {Number(slot.StaffMemberId ?? 0) > 0 ? (
+                            <>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
+                                  <img
+                                    src={getAvatarSrc(slot.StaffMember?.AvatarUrl ?? null)}
+                                    alt={slot.StaffMember?.FullName || 'Giảng viên đã chọn'}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                                    }}
+                                  />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-slate-900 truncate">
+                                    {slot.StaffMember?.FullName || 'Giảng viên đã chọn'}
+                                  </p>
+                                  <p className="text-xs text-slate-500 truncate">
+                                    {slot.StaffMember?.Email || slot.StaffMember?.User?.Email || 'Nhấn để đổi giảng viên'}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-900 truncate">
-                                  {slot.StaffMember?.FullName || 'Giảng viên đã chọn'}
-                                </p>
-                                <p className="text-xs text-slate-500 truncate">
-                                  {slot.StaffMember?.Email || slot.StaffMember?.User?.Email || 'Nhấn để đổi giảng viên'}
-                                </p>
-                              </div>
-                            </div>
-                            <span className="text-xs font-medium text-slate-500 shrink-0">
-                              {saving ? 'Đang lưu...' : 'Đổi'}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-3 min-w-0">
-                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
-                                <Plus className="h-5 w-5 stroke-[2.5]" />
+                              <span className="text-xs font-medium text-slate-500 shrink-0">
+                                {saving ? 'Đang lưu...' : 'Đổi'}
                               </span>
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-900 truncate">Chưa chọn giảng viên</p>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
+                                  <Plus className="h-5 w-5 stroke-[2.5]" />
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-slate-900 truncate">Chưa chọn giảng viên</p>
+                                </div>
                               </div>
-                            </div>
-                            <span className="text-xs font-medium text-violet-700 shrink-0">
-                              {saving ? 'Đang lưu...' : 'Thêm'}
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    </Popover>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
+                              <span className="text-xs font-medium text-violet-700 shrink-0">
+                                {saving ? 'Đang lưu...' : 'Thêm'}
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      </Popover>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
             <div className="space-y-2">
               {teacherAssignments.map((slot, index) => (
                 <div key={Number(slot.AssignmentId ?? 0) || index} className="border-b border-slate-200 bg-white py-2.5 last:border-b-0">
@@ -726,29 +858,26 @@ export default function RequestDetailTeamPanel({
                   </p>
                   <div className="w-full flex items-center justify-between gap-3 bg-white px-3 py-2 text-left">
                     {Number(slot.StaffMemberId ?? 0) > 0 ? (
-                      <>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
-                            <img
-                              src={getAvatarSrc(slot.StaffMember?.AvatarUrl ?? null)}
-                              alt={slot.StaffMember?.FullName || 'Giảng viên đã chọn'}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-                              }}
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-900 truncate">
-                              {slot.StaffMember?.FullName || 'Giảng viên đã chọn'}
-                            </p>
-                            <p className="text-xs text-slate-500 truncate">
-                              {slot.StaffMember?.Email || slot.StaffMember?.User?.Email || '—'}
-                            </p>
-                          </div>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
+                          <img
+                            src={getAvatarSrc(slot.StaffMember?.AvatarUrl ?? null)}
+                            alt={slot.StaffMember?.FullName || 'Giảng viên đã chọn'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                            }}
+                          />
                         </div>
-                        <span className="text-xs font-medium text-slate-400 shrink-0">Đã lưu</span>
-                      </>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 truncate">
+                            {slot.StaffMember?.FullName || 'Giảng viên đã chọn'}
+                          </p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {slot.StaffMember?.Email || slot.StaffMember?.User?.Email || '—'}
+                          </p>
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
@@ -765,58 +894,94 @@ export default function RequestDetailTeamPanel({
               ))}
             </div>
           )}
-          <div className="flex justify-end border-t border-slate-200 pt-2">
-            <span className="text-xs text-slate-500">
-              Đã chọn: <span className="font-semibold text-sky-600">{selectedTeacherCount} Giảng viên</span>
-              {' · '}
-              Còn lại:{' '}
-              <span className="font-semibold text-amber-600">{Math.max(0, requestedTeachers - selectedTeacherCount)} Giảng viên</span>
-            </span>
-          </div>
+          {canEdit && (
+            <div className="flex justify-end border-t border-slate-200 pt-2">
+              <span className="text-xs text-slate-500">
+                Đã chọn: <span className="font-semibold text-sky-600">{selectedTeacherCount} Giảng viên</span>
+                {' · '}
+                Còn lại:{' '}
+                <span className="font-semibold text-amber-600">{Math.max(0, requestedTeachers - selectedTeacherCount)} Giảng viên</span>
+              </span>
+            </div>
+          )}
         </section>
       ) : null}
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-slate-900">Nhóm phụ trách</h3>
-        {teamEditMode ? (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 border-slate-200"
-              disabled={saving || loading}
-              onClick={handleCancelTeamEdit}
-            >
-              Hủy
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
-              disabled={saving || loading}
-              onClick={() => void handleSaveTeamsOnly()}
-            >
-              Lưu
-            </Button>
-          </div>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
-            disabled={saving || loading}
-            onClick={() => setTeamEditMode(true)}
-          >
-            {addedTeamIds.length > 0 ? 'Chỉnh sửa' : 'Thêm'}
-          </Button>
-        )}
-      </div>
+      
+      {/* Chỉ hiển thị phần "Nhóm phụ trách" khi request status < 4 (chưa đến giai đoạn phân công) */}
+      {(() => {
+        const statusCode = getRequestStatusCode(requestStatus);
+        const shouldHideTeamSection = 
+          statusCode === REQUEST_STATUS.ASSIGNING ||
+          statusCode === REQUEST_STATUS.PUBLISHED ||
+          statusCode === REQUEST_STATUS.COMPLETED ||
+          statusCode === REQUEST_STATUS.CANCELLED;
+        
+        if (shouldHideTeamSection && sessionDetail && !sessionDetailLoading) {
+          return null; // Ẩn phần "Nhóm phụ trách" khi đã có sinh viên phân công
+        }
 
-      {addedTeamIds.length === 0 && !teamEditMode && (
-        <p className="text-xs text-slate-500">Chưa có nhóm được phân công.</p>
-      )}
+        return (
+          <>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-900">Nhóm phụ trách</h3>
+              {teamEditMode ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 border-slate-200"
+                    disabled={saving || loading}
+                    onClick={handleCancelTeamEdit}
+                  >
+                    Hủy
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
+                    disabled={saving || loading}
+                    onClick={() => void handleSaveTeamsOnly()}
+                  >
+                    Lưu
+                  </Button>
+                </div>
+              ) : canEdit ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
+                  disabled={saving || loading}
+                  onClick={() => setTeamEditMode(true)}
+                >
+                  {addedTeamIds.length > 0 ? 'Chỉnh sửa' : 'Thêm'}
+                </Button>
+              ) : null}
+            </div>
 
-      {addedTeamIds.length > 0 && (
+            {addedTeamIds.length === 0 && !teamEditMode && (
+              <p className="text-xs text-slate-500">Chưa có nhóm được phân công.</p>
+            )}
+          </>
+        );
+      })()}
+
+      {/* Hiển thị danh sách nhóm đã chọn và form thêm nhóm - chỉ khi chưa đến giai đoạn phân công */}
+      {(() => {
+        const statusCode = getRequestStatusCode(requestStatus);
+        const shouldHideTeamSection = 
+          statusCode === REQUEST_STATUS.ASSIGNING ||
+          statusCode === REQUEST_STATUS.PUBLISHED ||
+          statusCode === REQUEST_STATUS.COMPLETED ||
+          statusCode === REQUEST_STATUS.CANCELLED;
+        
+        if (shouldHideTeamSection && sessionDetail && !sessionDetailLoading) {
+          return null; // Ẩn phần "Nhóm phụ trách" khi đã có sinh viên phân công
+        }
+
+        return (
+          <>
+            {addedTeamIds.length > 0 && (
         <div className="space-y-3">
           {addedTeamIds.map((tid) => {
             const team = suggestedTeams.find((t) => t.teamId === tid);
@@ -841,20 +1006,20 @@ export default function RequestDetailTeamPanel({
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
-                      type="button"
-                      aria-label="Xem chi tiết nhóm"
-                      className="flex h-7 w-7 items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-[#eef0f3] rounded-sm transition-colors"
-                      onClick={() => toggleAddedTeamExpanded(tid)}
-                    >
-                      <DownOutlined
-                        style={{
-                          fontSize: 12,
-                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                          transition: 'transform 0.2s',
-                          display: 'block',
-                        }}
-                      />
-                    </button>
+                        type="button"
+                        aria-label="Xem chi tiết nhóm"
+                        className="flex h-7 w-7 items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-[#eef0f3] rounded-sm transition-colors"
+                        onClick={() => toggleAddedTeamExpanded(tid)}
+                      >
+                        <DownOutlined
+                          style={{
+                            fontSize: 12,
+                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s',
+                            display: 'block',
+                          }}
+                        />
+                      </button>
                     {teamEditMode ? (
                       <button
                         type="button"
@@ -865,7 +1030,7 @@ export default function RequestDetailTeamPanel({
                         <Trash2 size={18} />
                       </button>
                     ) : (
-                      <span className="text-xs font-medium text-slate-400 shrink-0 pl-1">Đã lưu</span>
+                      <span></span>
                     )}
                   </div>
                 </div>
@@ -982,16 +1147,18 @@ export default function RequestDetailTeamPanel({
               </div>
             );
           })}
-          <div className="flex justify-end">
-            <span className="text-xs text-slate-500">
-              Đã chọn: <span className="font-semibold text-sky-600">{totals.tas} Sinh viên</span>
-              {' · '}
-              Còn lại:{' '}
-              <span className="font-semibold text-amber-600">
-                {Math.max(0, requestedTas - totals.tas)} Sinh viên
+          {canEdit && (
+            <div className="flex justify-end">
+              <span className="text-xs text-slate-500">
+                Đã chọn: <span className="font-semibold text-sky-600">{totals.tas} Sinh viên</span>
+                {' · '}
+                Còn lại:{' '}
+                <span className="font-semibold text-amber-600">
+                  {Math.max(0, requestedTas - totals.tas)} Sinh viên
+                </span>
               </span>
-            </span>
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1150,6 +1317,363 @@ export default function RequestDetailTeamPanel({
           )}
         </div>
       )}
+          </>
+        );
+      })()}
+
+      {/* Hiển thị danh sách sinh viên đã phân công khi request status >= 4 */}
+      {sessionDetail && !sessionDetailLoading && addedTeamIds.length > 0 && (() => {
+        const statusCode = getRequestStatusCode(requestStatus);
+        const shouldShow = 
+          statusCode === REQUEST_STATUS.ASSIGNING ||
+          statusCode === REQUEST_STATUS.PUBLISHED ||
+          statusCode === REQUEST_STATUS.COMPLETED ||
+          statusCode === REQUEST_STATUS.CANCELLED;
+        
+        if (!shouldShow) return null;
+
+        // Lấy danh sách assignments sinh viên
+        const allAssignments = (sessionDetail.Assignments ?? []).filter((a: any) => {
+          const role = String(a.StaffRole ?? '').toUpperCase();
+          return role === 'TA' || role.includes('STUDENT') || role.includes('SV') || role.includes('SINH');
+        });
+
+        // Nhóm sinh viên theo team - bao gồm CẢ những sinh viên không có team
+        const studentsByTeam: Record<number, any[]> = {};
+        const studentsWithoutTeam: any[] = [];
+        
+        allAssignments.forEach((a: any) => {
+          const teamId = Number(a.TeamId ?? a.StaffMember?.TeamId ?? 0);
+          if (teamId > 0) {
+            if (!studentsByTeam[teamId]) studentsByTeam[teamId] = [];
+            studentsByTeam[teamId].push(a);
+          } else {
+            studentsWithoutTeam.push(a);
+          }
+        });
+
+        const hasAnyStudents = allAssignments.length > 0;
+        if (!hasAnyStudents) return null;
+
+        // Count pending students - check ALL assignments, not just those in addedTeamIds
+        const allPendingStudents = allAssignments.filter((a: any) => {
+          const statusInfo = getAssignmentStatusInfo(a.Status);
+          return statusInfo.code === ASSIGNMENT_STATUS.PENDING;
+        });
+        const hasPendingStudents = allPendingStudents.length > 0;
+
+        console.log('Debug approval button:', {
+          canEdit,
+          hasPendingStudents,
+          allPendingStudents: allPendingStudents.length,
+          allAssignments: allAssignments.length,
+          studentsByTeam: Object.keys(studentsByTeam).length,
+          requestStatus,
+          statusCode,
+        });
+
+        // Manager can approve students when request status >= ASSIGNING (4)
+        const canApproveStudents = statusCode != null && statusCode >= REQUEST_STATUS.ASSIGNING;
+
+        return (
+          <div className="space-y-3 border-t border-slate-200 pt-4 mt-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-base font-semibold text-slate-900">Sinh viên tham dự</h4>
+              {canApproveStudents && hasPendingStudents && (
+                <div className="flex items-center gap-2">
+                  {studentApprovalMode ? (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 border-slate-200"
+                        disabled={bulkApprovingStudents}
+                        onClick={handleToggleStudentApprovalMode}
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 px-2 text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 border-0"
+                        disabled={bulkApprovingStudents || selectedStudentAssignmentIds.size === 0}
+                        onClick={() => void handleBulkApproveStudents()}
+                      >
+                        {bulkApprovingStudents ? 'Đang xử lý...' : `Xác nhận duyệt (${selectedStudentAssignmentIds.size})`}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
+                      onClick={handleToggleStudentApprovalMode}
+                    >
+                      Duyệt
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            {Object.keys(studentsByTeam).map((tidStr) => {
+              const tid = Number(tidStr);
+              const team = suggestedTeams.find((t) => t.teamId === tid);
+              const students = studentsByTeam[tid] ?? [];
+              
+              if (students.length === 0) return null;
+
+              return (
+                <div key={tid} className="space-y-2 border-t border-slate-200 pt-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 flex items-center justify-center shrink-0">
+                      <Users className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900">{team?.teamName ?? `Nhóm #${tid}`}</p>
+                      <p className="text-xs text-slate-500">{students.length} sinh viên</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pl-12">
+                    {students.map((student, index) => {
+                      const statusInfo = getAssignmentStatusInfo(student.Status);
+                      const isPending = statusInfo.code === ASSIGNMENT_STATUS.PENDING;
+                      const isRejected = statusInfo.code === ASSIGNMENT_STATUS.REJECTED;
+                      const assignmentId = Number(student.AssignmentId ?? 0);
+                      const isSelected = selectedStudentAssignmentIds.has(assignmentId);
+                      const showApprovalControls = studentApprovalMode && isPending;
+                      const rejectReason = student.Reason?.trim() || '';
+
+                      return (
+                        <div key={assignmentId || index} className="space-y-2">
+                          {/* Label SINH VIÊN X */}
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Sinh viên {index + 1}
+                          </p>
+                          <div
+                            className={`flex items-center justify-between gap-3 bg-white px-3 py-2.5 border rounded-lg transition-colors ${
+                              showApprovalControls && isSelected
+                                ? 'border-[#208aae] bg-[#208aae]/5'
+                                : isRejected
+                                ? 'border-rose-200 bg-rose-50/30'
+                                : 'border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
+                                <img
+                                  src={getAvatarSrc(student.StaffMember?.AvatarUrl ?? null)}
+                                  alt={student.StaffMember?.FullName || 'Sinh viên'}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                                  }}
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-900 truncate">
+                                  {student.StaffMember?.FullName || 'Sinh viên'}
+                                </p>
+                                <p className="text-xs text-slate-500 truncate">
+                                  {student.StaffMember?.Email || student.StaffMember?.User?.Email || '—'}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 shrink-0">
+                              {showApprovalControls ? (
+                                <>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-xs font-medium text-rose-600 hover:bg-rose-50 border-rose-200"
+                                    onClick={() => handleOpenRejectModal(assignmentId)}
+                                  >
+                                    Từ chối
+                                  </Button>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onChange={() => handleToggleStudentSelection(assignmentId)}
+                                  />
+                                </>
+                              ) : (
+                                <span
+                                  className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
+                                >
+                                  {statusInfo.label}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Hiển thị lịch sử từ chối (nếu có) */}
+                          {rejectReason && (
+                            <div className="border-l-2 border-l-rose-500 bg-rose-50/50 px-3 py-2">
+                              <p className="text-xs font-medium text-rose-900 mb-1">Lịch sử từ chối:</p>
+                              <p className="text-xs text-rose-950 leading-relaxed whitespace-pre-wrap">
+                                {rejectReason}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {/* Hiển thị sinh viên không có team */}
+            {studentsWithoutTeam.length > 0 && (
+              <div className="space-y-2 border-t border-slate-200 pt-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 flex items-center justify-center shrink-0">
+                    <Users className="w-4 h-4 text-slate-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">Chưa phân nhóm</p>
+                    <p className="text-xs text-slate-500">{studentsWithoutTeam.length} sinh viên</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pl-12">
+                  {studentsWithoutTeam.map((student, index) => {
+                    const statusInfo = getAssignmentStatusInfo(student.Status);
+                    const isPending = statusInfo.code === ASSIGNMENT_STATUS.PENDING;
+                    const isRejected = statusInfo.code === ASSIGNMENT_STATUS.REJECTED;
+                    const assignmentId = Number(student.AssignmentId ?? 0);
+                    const isSelected = selectedStudentAssignmentIds.has(assignmentId);
+                    const showApprovalControls = studentApprovalMode && isPending;
+                    const rejectReason = student.Reason?.trim() || '';
+
+                    return (
+                      <div key={assignmentId || index} className="space-y-2">
+                        {/* Label SINH VIÊN X */}
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                          Sinh viên {index + 1}
+                        </p>
+                        <div
+                          className={`flex items-center justify-between gap-3 bg-white px-3 py-2.5 border rounded-lg transition-colors ${
+                            showApprovalControls && isSelected
+                              ? 'border-[#208aae] bg-[#208aae]/5'
+                              : isRejected
+                              ? 'border-rose-200 bg-rose-50/30'
+                              : 'border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
+                              <img
+                                src={getAvatarSrc(student.StaffMember?.AvatarUrl ?? null)}
+                                alt={student.StaffMember?.FullName || 'Sinh viên'}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                                }}
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 truncate">
+                                {student.StaffMember?.FullName || 'Sinh viên'}
+                              </p>
+                              <p className="text-xs text-slate-500 truncate">
+                                {student.StaffMember?.Email || student.StaffMember?.User?.Email || '—'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 shrink-0">
+                            {showApprovalControls ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs font-medium text-rose-600 hover:bg-rose-50 border-rose-200"
+                                  onClick={() => handleOpenRejectModal(assignmentId)}
+                                >
+                                  Từ chối
+                                </Button>
+                                <Checkbox
+                                  checked={isSelected}
+                                  onChange={() => handleToggleStudentSelection(assignmentId)}
+                                />
+                              </>
+                            ) : (
+                              <span
+                                className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
+                              >
+                                {statusInfo.label}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Hiển thị lịch sử từ chối (nếu có) */}
+                        {rejectReason && (
+                          <div className="border-l-2 border-l-rose-500 bg-rose-50/50 px-3 py-2">
+                            <p className="text-xs font-medium text-rose-900 mb-1">Lịch sử từ chối:</p>
+                            <p className="text-xs text-rose-950 leading-relaxed whitespace-pre-wrap">
+                              {rejectReason}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Reject modal */}
+      <Dialog
+        open={rejectModalOpen}
+        onClose={() => !rejectingStudent && setRejectModalOpen(false)}
+        title="Từ chối phân công sinh viên"
+        description="Nhập lý do từ chối phân công sinh viên này."
+        className="max-w-md border-0 shadow-2xl"
+      >
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="reject-reason" className="text-black">
+              Lý do <span className="text-red-500">*</span>
+            </Label>
+            <textarea
+              id="reject-reason"
+              rows={4}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Ví dụ: Không đủ kỹ năng yêu cầu, trùng lịch..."
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-lg border-gray-200"
+              disabled={rejectingStudent}
+              onClick={() => setRejectModalOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-lg border-red-200 text-red-600 hover:bg-red-50"
+              disabled={rejectingStudent}
+              onClick={() => void handleConfirmRejectStudent()}
+            >
+              {rejectingStudent ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
     </div>
   );

@@ -3,27 +3,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import dayjs from 'dayjs';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Popover, Spin, message } from 'antd';
+import { Spin, message } from 'antd';
 import {
   X,
   ArrowLeft,
   MapPin,
-  Clock,
-  Calendar,
-  Hash,
-  GraduationCap,
-  Users,
   AlertCircle,
   AlertTriangle,
   RotateCcw,
-  Plus,
   Sparkles,
   Briefcase,
-  Lock,
 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
 import {
   Select,
@@ -52,58 +44,21 @@ import {
   getSessionDisplayTitleWithDetail,
 } from '@/modules/request/utils/getSessionDisplayTitle';
 import RequestSessionDetailPanel from '@/modules/request/pages/RequestSessionDetailPanel';
+import TeamLeaderStaffAssignmentPanel from '../../attendance/components/TeamLeaderStaffAssignmentPanel';
+import TeamLeaderSessionDetailGate from '@/modules/request/pages/TeamLeaderSessionDetailGate';
 import { postSessionCannotBeAssigned } from '@/modules/notification/api/notificationApi';
-import type { AssignmentResponse, SessionDetail, SuggestedStaff } from '@/modules/request/type';
+import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
 import {
-  getEffectiveStaffMemberId,
-  isTeamLeaderAssignmentEditableStatus,
   partitionTeamLeaderAssignmentSlots,
   useTeamLeaderAssignmentsPage,
   type TlRequestStatusFilter,
 } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
 
-type AssignmentRow = AssignmentResponse;
-
 const DEFAULT_AVATAR_SRC = '/img/ava.png';
 
 function getAvatarSrc(src?: string | null) {
   return src && String(src).trim() ? String(src) : DEFAULT_AVATAR_SRC;
-}
-
-function getStaffDisplayForSlot(
-  effectiveMemberId: number,
-  assignment: AssignmentRow,
-  suggested: SuggestedStaff[],
-): { fullName: string; email: string; avatarUrl?: string | null } {
-  if (!effectiveMemberId || effectiveMemberId <= 0) {
-    return {
-      fullName: 'Chưa có phân công',
-      email: '',
-      avatarUrl: null,
-    };
-  }
-  const sm = assignment.StaffMember;
-  if (sm && sm.MemberId === effectiveMemberId) {
-    return {
-      fullName: sm.FullName || '—',
-      email: sm.Email || sm.User?.Email || '',
-      avatarUrl: sm.AvatarUrl,
-    };
-  }
-  const sug = suggested.find((m) => m.memberId === effectiveMemberId);
-  if (sug) {
-    return {
-      fullName: sug.fullName || '—',
-      email: sug.email || sug.roleName || '',
-      avatarUrl: sug.avatarUrl,
-    };
-  }
-  return {
-    fullName: 'Chưa có phân công',
-    email: '',
-    avatarUrl: null,
-  };
 }
 
 /** Assignment status Rejected = 3 (manager từ chối phân công). Không dùng .includes để tránh nhầm với session AssignmentRejected. */
@@ -163,12 +118,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     activeSession,
     setActiveSession,
     sessionDetailsById,
-    suggestedByAssignmentId,
     ensureSuggestedStaffForAssignments,
-    assignSelections,
-    searchByAssignmentId,
-    setSearchByAssignmentId,
-    handleSelectStaff,
     getSessionStats,
     handleResetFilters,
     refetchRequestById,
@@ -240,48 +190,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     };
   }, []);
 
-
-  const renderMemberOption = (m: SuggestedStaff) => {
-    const subText = m.email ?? m.roleName ?? '—';
-    return (
-    <div className="flex items-center gap-2">
-      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center text-[10px] font-medium text-slate-600">
-        <img
-          src={getAvatarSrc(m.avatarUrl)}
-          alt={m.fullName}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-          }}
-        />
-      </div>
-        <div className="flex flex-row items-center gap-2 min-w-0 flex-1">
-          <span className="text-xs font-medium text-slate-900 truncate shrink-0">
-          {m.fullName || '—'}
-        </span>
-          <span className="text-[11px] text-slate-500 truncate">{subText}</span>
-      </div>
-    </div>
-  );
-  };
-
-  const handleStaffHover = useCallback(
-    (staff: SuggestedStaff, e: React.MouseEvent) => {
-      if (hoverCloseTimerRef.current) {
-        clearTimeout(hoverCloseTimerRef.current);
-        hoverCloseTimerRef.current = null;
-      }
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      setHoveredStaff({ staff, rect });
-    },
-    [],
-  );
-
-  const handleStaffHoverLeave = useCallback(() => {
-    if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
-    hoverCloseTimerRef.current = setTimeout(() => setHoveredStaff(null), 80);
-  }, []);
-
   const openReportCannotAssignSession = useCallback(() => {
     setReportSessionReason('');
     setReportSessionOpen(true);
@@ -315,419 +223,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
       setReportSessionLoading(false);
     }
   }, [activeSession, reportSessionReason, refetchRequestById, refreshSessionDetailById]);
-
-  const renderSlotPicker = (
-    sessionId: number,
-    slots: NonNullable<SessionDetail['Assignments']>,
-    requiredCount: number,
-    colorScheme: 'sky' | 'amber',
-    highlightRejectedSlots = false,
-    /** Member đã hủy nhận ở slot cùng vai trò — không hiện lại trong dropdown ô phân lại. */
-    excludeMemberIdsFromCancelled: number[] = [],
-    cancelledSlots: AssignmentRow[] = [],
-    lockedCount = 0,
-    lockedTeamNames: string[] = [],
-  ) => {
-    const roleLabel = colorScheme === 'sky' ? 'Giáo viên' : 'Sinh viên';
-    const accent =
-      colorScheme === 'sky'
-        ? {
-            addText: 'text-violet-700',
-            addCircle: 'bg-violet-100 text-violet-700',
-            addHover: 'hover:border-violet-300 hover:bg-violet-50/50',
-            cardBorder: 'border-violet-200',
-            cardBg: 'bg-gradient-to-br from-violet-50/80 to-white',
-            avatarBg: 'bg-violet-100 text-violet-700',
-            menuBtn: 'text-violet-600 hover:bg-violet-50 hover:text-violet-800',
-            rowStripe: 'border-l-[3px] border-l-violet-400 bg-violet-50/55',
-            rowHover: 'hover:bg-violet-100/45',
-            approvedStripe: 'border-l-[3px] border-l-violet-500 bg-violet-50/40',
-            approvedLockBox: 'bg-violet-100 text-violet-800',
-          }
-        : {
-            addText: 'text-yellow-800',
-            addCircle: 'bg-yellow-100 text-yellow-800',
-            addHover: 'hover:border-yellow-300 hover:bg-yellow-50/60',
-            cardBorder: 'border-yellow-200',
-            cardBg: 'bg-gradient-to-br from-yellow-50/85 to-white',
-            avatarBg: 'bg-yellow-100 text-yellow-800',
-            menuBtn: 'text-yellow-700 hover:bg-yellow-50/90 hover:text-yellow-900',
-            rowStripe: 'border-l-[3px] border-l-yellow-400 bg-yellow-50/60',
-            rowHover: 'hover:bg-yellow-100/50',
-            approvedStripe: 'border-l-[3px] border-l-yellow-500 bg-yellow-50/45',
-            approvedLockBox: 'bg-yellow-100 text-yellow-900',
-          };
-    const placeholder = colorScheme === 'sky' ? 'Chọn giảng viên' : 'Chọn sinh viên';
-    const searchPlaceholder = colorScheme === 'sky' ? 'Tìm giảng viên...' : 'Tìm sinh viên...';
-
-    const excludeCancelledSet = new Set(
-      excludeMemberIdsFromCancelled.map((id) => Number(id)).filter((id) => id > 0),
-    );
-
-    const buildSuggestedList = (a: AssignmentRow, selectedId: number) => {
-      const selectedSameRole = slots
-        .map((sl) =>
-          getEffectiveStaffMemberId(sl.AssignmentId, assignSelections, sl.StaffMemberId),
-        )
-        .filter((id) => id > 0);
-      const selectedOthers = selectedSameRole.filter((id) => id !== selectedId);
-      const searchText = searchByAssignmentId[a.AssignmentId]?.toLowerCase() || '';
-      return (suggestedByAssignmentId[a.AssignmentId] ?? []).filter(
-        (m: SuggestedStaff) =>
-          !excludeCancelledSet.has(m.memberId) &&
-          (!selectedOthers.includes(m.memberId) || m.memberId === selectedId) &&
-          (!searchText ||
-            m.fullName?.toLowerCase().includes(searchText) ||
-            m.roleName?.toLowerCase().includes(searchText) ||
-            m.email?.toLowerCase().includes(searchText)),
-      );
-    };
-
-    const pickerContent = (a: AssignmentRow) => {
-      const selectedId = getEffectiveStaffMemberId(
-        a.AssignmentId,
-        assignSelections,
-        a.StaffMemberId,
-      );
-      const suggestedList = buildSuggestedList(a, selectedId);
-      return (
-        <div className="w-[min(calc(100vw-2rem),18rem)] p-0.5">
-          <Input
-            className="h-8 text-xs border-slate-200"
-            placeholder={searchPlaceholder}
-            value={searchByAssignmentId[a.AssignmentId] || ''}
-            onChange={(e) =>
-              setSearchByAssignmentId((prev) => ({
-                ...prev,
-                [a.AssignmentId]: e.target.value,
-              }))
-            }
-          />
-          <div className="mt-2 max-h-52 overflow-y-auto no-scrollbar space-y-0.5">
-            {suggestedList.length === 0 ? (
-              <p className="text-xs text-slate-500 px-2 py-3 text-center">Không có gợi ý phù hợp.</p>
-            ) : (
-              suggestedList.map((m: SuggestedStaff) => (
-                <button
-                  key={m.memberId}
-                  type="button"
-                  className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50 transition-colors"
-                  onClick={() => {
-                    handleSelectStaff(sessionId, a.AssignmentId, m.memberId);
-                    setStaffPickerAssignmentId(null);
-                    setHoveredStaff(null);
-                  }}
-                  onMouseEnter={(e) => handleStaffHover(m, e)}
-                  onMouseLeave={handleStaffHoverLeave}
-                >
-                  {renderMemberOption(m)}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      );
-    };
-
-    const teamTextLocked = lockedTeamNames.length ? lockedTeamNames.join(', ') : 'nhóm khác';
-
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {roleLabel}
-          </span>
-          <span className="text-xs font-medium text-slate-500">Cần: {requiredCount}</span>
-        </div>
-        <div
-          className={`rounded-xl p-[3px] ${
-            colorScheme === 'sky' ? 'bg-violet-100/35' : 'bg-yellow-100/40'
-          }`}
-        >
-          <div
-            className={`divide-y divide-slate-200/45 overflow-hidden rounded-[10px] ${
-              colorScheme === 'sky' ? 'bg-violet-50/40' : 'bg-yellow-50/45'
-            }`}
-          >
-            {slots.length === 0 && cancelledSlots.length === 0 && lockedCount <= 0 ? (
-              <p className="px-3 py-2.5 text-xs text-slate-500">Chưa có vị trí phân công.</p>
-            ) : (
-              <>
-                {slots.map((a) => {
-                  const selectedId = getEffectiveStaffMemberId(
-                    a.AssignmentId,
-                    assignSelections,
-                    a.StaffMemberId,
-                  );
-                  const suggested = suggestedByAssignmentId[a.AssignmentId] ?? [];
-                  const display = getStaffDisplayForSlot(selectedId, a, suggested);
-                  const isOpen = staffPickerAssignmentId === a.AssignmentId;
-                  const filled = selectedId > 0;
-                  const slotEditable = isTeamLeaderAssignmentEditableStatus(a.Status);
-                  const isRejected = highlightRejectedSlots && isAssignmentRejectedStatus(a.Status);
-                  const assignmentStatusUi = getAssignmentStatusInfo(a.Status);
-                  const showAssignmentStatusBadge =
-                    filled || assignmentStatusUi.code !== ASSIGNMENT_STATUS.PENDING;
-                  const isPendingReview =
-                    filled &&
-                    slotEditable &&
-                    !isRejected &&
-                    assignmentStatusUi.code === ASSIGNMENT_STATUS.PENDING;
-                  const reasonRaw = a.Reason?.trim();
-                  const reasonLines =
-                    reasonRaw && reasonRaw.length > 0
-                      ? reasonRaw.split('\n').filter((line) => line.trim().length > 0)
-                      : [];
-                  const rejectionReasonBlock =
-                    isRejected ? (
-                      <div className="border-t border-slate-200/45 bg-rose-50/25 px-3 py-2.5">
-                        <div className="rounded-lg border border-rose-200 bg-rose-50/80 px-3 py-2.5">
-                          <p className="text-xs font-medium text-rose-900 mb-1.5">Lý do từ chối</p>
-                          {reasonLines.length > 0 ? (
-                            <ul className="space-y-1 text-xs text-rose-950 leading-relaxed list-none pl-0">
-                              {reasonLines.map((line, idx) => (
-                                <li key={idx} className="pl-3 border-l-2 border-rose-300">
-                                  {line}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-xs text-rose-700/85 italic">
-                              Chưa có lý do ghi nhận từ quản lý.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ) : null;
-                  const rejectedSlotWrapClass = isRejected
-                    ? 'relative before:pointer-events-none before:absolute before:left-0 before:top-2.5 before:bottom-1 before:w-0.5 before:rounded-full before:bg-rose-300/50 before:content-[""]'
-                    : undefined;
-
-                  let avatarCircleClass = accent.avatarBg;
-                  let rowStripe = accent.rowStripe;
-                  if (isRejected) {
-                    rowStripe = 'border-l-[3px] border-l-rose-500 bg-rose-50/30';
-                    avatarCircleClass = 'bg-rose-100 text-rose-800';
-                  } else if (isPendingReview) {
-                    rowStripe = 'border-l-[3px] border-l-orange-500 bg-orange-50/40';
-                    avatarCircleClass = 'bg-orange-100 text-orange-900';
-                  }
-
-                  const filledStaffRow = (
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <div
-                        className={`h-11 w-11 shrink-0 overflow-hidden rounded-full ${avatarCircleClass} flex items-center justify-center text-xs font-medium`}
-                      >
-                        <img
-                          src={getAvatarSrc(display.avatarUrl)}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-                          }}
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900 truncate">
-                          {display.fullName}
-                        </p>
-                        <p className="text-xs text-slate-500 truncate">{display.email || '—'}</p>
-                      </div>
-                    </div>
-                  );
-
-                  if (!slotEditable) {
-                    if (!filled) {
-                      return (
-                        <div key={a.AssignmentId} className={rejectedSlotWrapClass}>
-                          <div className={`px-3 py-2.5 ${accent.approvedStripe}`}>
-                            <div className="flex gap-3">
-                              <div
-                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accent.approvedLockBox}`}
-                              >
-                                <Lock className="h-4 w-4 opacity-90" strokeWidth={2} />
-                              </div>
-                              <div className="min-w-0 pt-0.5">
-                                <p className="text-xs font-semibold text-slate-800">
-                                  Phân công đã được duyệt
-                                </p>
-                                <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
-                                  Vị trí này không thể phân công lại.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          {rejectionReasonBlock}
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={a.AssignmentId} className={rejectedSlotWrapClass}>
-                        <div
-                          className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 ${accent.approvedStripe}`}
-                        >
-                          <div className="pointer-events-none min-w-0 flex-1">{filledStaffRow}</div>
-                          {showAssignmentStatusBadge ? (
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
-                            >
-                              {assignmentStatusUi.label}
-                            </span>
-                          ) : null}
-                        </div>
-                        {rejectionReasonBlock}
-                      </div>
-                    );
-                  }
-
-                  if (!filled) {
-                    return (
-                      <div key={a.AssignmentId} className={rejectedSlotWrapClass}>
-                        <Popover
-                          trigger="click"
-                          open={isOpen}
-                          onOpenChange={(visible) => {
-                            setStaffPickerAssignmentId(visible ? a.AssignmentId : null);
-                            if (!visible) setHoveredStaff(null);
-                          }}
-                          placement="bottomLeft"
-                          destroyOnHidden
-                          content={pickerContent(a)}
-                          styles={{ content: { padding: 12 } }}
-                        >
-                          <button
-                            type="button"
-                            className={`flex w-full min-h-[4.25rem] items-center gap-3 border-l-[3px] border-l-red-500 bg-rose-50/45 px-3 py-2.5 text-left transition-colors hover:bg-rose-50/60 ${
-                              isRejected ? 'ring-1 ring-inset ring-rose-300' : ''
-                            }`}
-                          >
-                            <span
-                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${accent.addCircle}`}
-                            >
-                              <Plus className="h-5 w-5 stroke-[2.5]" />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-slate-900">Chưa có phân công</p>
-                              <p className="text-xs text-slate-500">Phân công trống — {placeholder}</p>
-                            </div>
-                          </button>
-                        </Popover>
-                        {rejectionReasonBlock}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={a.AssignmentId} className={rejectedSlotWrapClass}>
-                      <div
-                        className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 ${rowStripe}`}
-                      >
-                        <Popover
-                          trigger="click"
-                          open={isOpen}
-                          onOpenChange={(visible) => {
-                            setStaffPickerAssignmentId(visible ? a.AssignmentId : null);
-                            if (!visible) setHoveredStaff(null);
-                          }}
-                          placement="bottomLeft"
-                          destroyOnHidden
-                          content={pickerContent(a)}
-                          styles={{ content: { padding: 12 } }}
-                        >
-                          <button
-                            type="button"
-                            className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg py-0.5 text-left transition-colors ${accent.rowHover}`}
-                          >
-                            {filledStaffRow}
-                          </button>
-                        </Popover>
-                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                          {showAssignmentStatusBadge ? (
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
-                            >
-                              {assignmentStatusUi.label}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                      {rejectionReasonBlock}
-                    </div>
-                  );
-                })}
-                {cancelledSlots.map((ca) => {
-                  const memberId = Number(ca.StaffMemberId ?? 0);
-                  const display = getStaffDisplayForSlot(memberId, ca, []);
-                  const cancelReason = ca.Reason?.trim() ?? '';
-                  const cancelledStatusUi = getAssignmentStatusInfo(ca.Status);
-                  return (
-                    <div
-                      key={ca.AssignmentId}
-                      className="flex flex-col gap-2.5 border-l-[3px] border-l-red-500 bg-red-50/90 px-3 py-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3 opacity-95 pointer-events-none">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-medium text-red-800">
-                            <img
-                              src={getAvatarSrc(display.avatarUrl)}
-                              alt=""
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-                              }}
-                            />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-slate-900 truncate">
-                              {display.fullName}
-                            </p>
-                            <p className="text-xs text-slate-500 truncate">{display.email || '—'}</p>
-                          </div>
-                        </div>
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold shrink-0 ${cancelledStatusUi.className}`}
-                        >
-                          {cancelledStatusUi.label}
-                        </span>
-                      </div>
-                      <div className="rounded-lg border border-red-200/90 bg-white/70 px-3 py-2">
-                        <p className="text-xs font-medium text-red-900 mb-1">Lý do:</p>
-                        {cancelReason ? (
-                          <p className="text-xs text-red-950 leading-relaxed whitespace-pre-wrap">
-                            {cancelReason}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-red-700/80 italic">Chưa có lý do ghi nhận.</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {lockedCount > 0
-                  ? Array.from({ length: lockedCount }).map((_, idx) => (
-                      <div
-                        key={`${roleLabel}-locked-${idx}`}
-                        className="flex min-h-[4.25rem] flex-col justify-center border-l-[3px] border-l-slate-300 bg-slate-50/80 px-3 py-2.5"
-                      >
-                        <p className="text-xs font-medium text-slate-600">Vị trí thuộc nhóm khác</p>
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          Không khả dụng cho nhóm của bạn
-                        </p>
-                      </div>
-                    ))
-                  : null}
-              </>
-            )}
-          </div>
-        </div>
-        {lockedCount > 0 ? (
-          <p className="text-[11px] text-slate-500 px-0.5">
-            {lockedCount} vị trí {roleLabel.toLowerCase()} thuộc {teamTextLocked} 
-          </p>
-        ) : null}
-      </div>
-    );
-  };
 
   return (
     <div
@@ -1120,7 +615,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                             {detailLoaded && stats.total > 0 && !fullyAssigned ? (
                               <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
                                 <AlertCircle className="w-3 h-3 shrink-0" />
-                                Chưa chọn đủ giảng viên hoặc sinh viên
+                                Chưa chọn đủ sinh viên
                               </span>
                             ) : null}
                           </div>
@@ -1147,20 +642,22 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             {/* Panel header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
-                <h2 className="text-lg font-medium text-slate-900 leading-snug">
+                <h2 className="text-lg font-bold text-slate-900 leading-snug">
                   {getSessionDisplayTitleWithDetail(
                     activeSession as RequestSessionSummary & { notes?: string | null },
                     sessionDetailsById[activeSession.sessionId],
                   )}
                 </h2>
+                <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                  <span>Buổi {activeSession.sessionNo}</span>
+                  <span className="text-slate-300">{' · '}</span>
+                  <span className="font-semibold text-[#2197C0]">
+                    {dayjs(activeSession.startAt).format('HH:mm')} – {dayjs(activeSession.endAt).format('HH:mm')}
+                  </span>
+                  <span className="text-slate-300">{' · '}</span>
+                  <span className="font-semibold text-[#2197C0]">{dayjs(activeSession.startAt).format('DD/MM/YYYY')}</span>
+                </p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <span className="text-xs font-medium text-[#2197C0]">
-                    {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
-                  </span>
-                  <span className="text-xs text-slate-300">·</span>
-                  <span className="text-xs font-medium text-slate-700 tabular-nums">
-                    {dayjs(activeSession.startAt).format('HH:mm')} - {dayjs(activeSession.endAt).format('HH:mm')}
-                  </span>
                   {(() => {
                     const d = sessionDetailsById[activeSession.sessionId];
                     const eff = String(d?.Status ?? activeSession.status ?? '').trim();
@@ -1168,17 +665,15 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     const sessionRejected = isSessionAssignmentRejectedStatus(eff);
                     return (
                       <>
+                        <span className="text-[11px] font-medium text-slate-500">Trạng thái:</span>
+                        <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold ${sessionInfo.className}`}>
+                          {sessionInfo.label}
+                        </span>
                         {tab === 'rejected' && !sessionRejected ? (
                           <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-800">
                             Yêu cầu có buổi bị từ chối
                           </span>
                         ) : null}
-                        <span
-                          className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${sessionInfo.className}`}
-                        >
-                          {sessionInfo.label}
-                        </span>
-                        
                       </>
                     );
                   })()}
@@ -1211,100 +706,30 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   editableTaSlots,
                   lockedTeacherCount: lockedTeacherSlots,
                   lockedTaCount: lockedTaSlots,
-                  cancelledTeacherSlots,
-                  cancelledTaSlots,
-                  teachersRequired,
-                  tasRequired,
                 } = partitionTeamLeaderAssignmentSlots(detail, currentTeamId);
 
-                const teamSessionsRaw = detail.TeamSessions ?? [];
-
-                const normalizedTeamSessions = teamSessionsRaw.map((ts) => ({
-                  teamId: Number(ts.TeamId ?? 0),
-                  teamName: String(ts.TeamName ?? ''),
-                  teachersRequired: Math.max(0, Number(ts.TeachersRequired ?? 0) || 0),
-                  tasRequired: Math.max(0, Number(ts.TasRequired ?? 0) || 0),
-                }));
-
-                const otherTeamSessions =
-                  currentTeamId != null
-                    ? normalizedTeamSessions.filter((ts) => ts.teamId > 0 && ts.teamId !== currentTeamId)
-                    : normalizedTeamSessions;
-                const otherTeamNames = Array.from(
-                  new Set(
-                    otherTeamSessions
-                      .map((ts) => ts.teamName?.trim())
-                      .filter((name): name is string => Boolean(name)),
-                  ),
-                );
-                const progressStats = getSessionStats(activeSession);
-                const progressTotal = progressStats.total;
-
                 const sessionInfoCard = (
-                  <div className="rounded-xl bg-white shadow-sm border border-gray-100">
-                    <div className="px-4 py-2.5 border-b border-gray-100">
-                      <h3 className="font-medium text-gray-900 text-sm">Thông tin buổi</h3>
-                    </div>
-                    <div className="px-4 py-3 space-y-3 text-sm">
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                        <span className="text-gray-500">Mã yêu cầu:</span>
-                        <span className="font-medium text-[#2197C0]">
-                          {selectedRequest?.requestCode}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                        <span className="text-gray-500">Thời gian:</span>
-                        <span className="font-medium text-black">
-                          {dayjs(activeSession.startAt).format('HH:mm')} -{' '}
-                          {dayjs(activeSession.endAt).format('HH:mm')}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                        <span className="text-gray-500">Ngày:</span>
-                        <span className="font-medium text-black">
-                          {dayjs(activeSession.startAt).format('DD/MM/YYYY')}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                        <span className="text-gray-500">Địa điểm:</span>
-                        <span className="font-medium text-black">
-                          {activeSession.location || '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                        <span className="text-gray-500">Giáo viên cần:</span>
-                        <span className="font-medium text-black">
-                          {teachersRequired}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
-                        <span className="text-gray-500">Sinh viên cần:</span>
-                        <span className="font-medium text-black">
-                          {tasRequired}
-                        </span>
-                      </div>
-                      {(lockedTeacherSlots > 0 || lockedTaSlots > 0) && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                          Buổi này cần phân công sinh viên thuộc nhóm khác, bạn chỉ phân công sinh viên thuộc nhóm của mình.
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <RequestSessionDetailPanel
+                    session={{
+                      sessionId: activeSession.sessionId,
+                      sessionNo: activeSession.sessionNo,
+                      startAt: activeSession.startAt,
+                      endAt: activeSession.endAt,
+                      status: activeSession.status,
+                      location: activeSession.location,
+                      subjectSession: activeSession.subjectSession ?? undefined,
+                      eventSession: activeSession.eventSession ?? undefined,
+                      reservationId: null,
+                    }}
+                    requestId={activeSession.requestId}
+                    requestCode={selectedRequest?.requestCode ?? ''}
+                    sectionMode="info"
+                    showTeamSummary={false}
+                    showReservedEquipment={false}
+                  />
                 );
 
                 const teamQuotaSlots = [...editableTeacherSlots, ...editableTaSlots];
-                const cancelledTeacherMemberIds = cancelledTeacherSlots
-                  .map((a) => Number(a.StaffMemberId ?? 0))
-                  .filter((id) => id > 0);
-                const cancelledTaMemberIds = cancelledTaSlots
-                  .map((a) => Number(a.StaffMemberId ?? 0))
-                  .filter((id) => id > 0);
                 const teamRejectedAssignments =
                   tab === 'rejected'
                     ? assignments.filter((a) => isAssignmentRejectedStatus(a.Status))
@@ -1329,8 +754,23 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   !blockedReportStatuses.has(sessionStatusCodeForReport);
 
                 return (
-                  <>
+                  <TeamLeaderSessionDetailGate
+                    key={activeSession.sessionId}
+                    sessionId={activeSession.sessionId}
+                    currentTeamId={currentTeamId}
+                    reservationId={
+                      detail.ReservationId != null && Number(detail.ReservationId) > 0
+                        ? Number(detail.ReservationId)
+                        : null
+                    }
+                  >
                     {sessionInfoCard}
+
+                    {(lockedTeacherSlots > 0 || lockedTaSlots > 0) && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                        Buổi này cần phân công sinh viên thuộc nhóm khác, bạn chỉ phân công sinh viên thuộc nhóm của mình.
+                      </div>
+                    )}
 
                     {tab === 'rejected' &&
                       (requestReasonLines.length > 0 ||
@@ -1381,34 +821,10 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       </div>
                     ) : (
                       <div className="space-y-6">
-                        {renderSlotPicker(
-                          activeSession.sessionId,
-                          editableTeacherSlots,
-                          teachersRequired,
-                          'sky',
-                          true,
-                          cancelledTeacherMemberIds,
-                          cancelledTeacherSlots,
-                          lockedTeacherSlots,
-                          otherTeamNames,
-                        )}
-                        {renderSlotPicker(
-                          activeSession.sessionId,
-                          editableTaSlots,
-                          tasRequired,
-                          'amber',
-                          true,
-                          cancelledTaMemberIds,
-                          cancelledTaSlots,
-                          lockedTaSlots,
-                          otherTeamNames,
-                        )}
-
-                        {progressTotal > 0 && tab !== 'rejected' && (
-                          <div className="pt-1">
-                          </div>
-                        )}
-
+                        <TeamLeaderStaffAssignmentPanel
+                          sessionId={activeSession.sessionId}
+                          canEdit
+                        />
                       </div>
                     )}
 
@@ -1466,7 +882,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         ) : null}
                       </div>
                     </div>
-                  </>
+                  </TeamLeaderSessionDetailGate>
                 );
               })()}
             </div>
