@@ -80,7 +80,7 @@ export default function ContractDetailSidebar({ open, onClose, contract, loading
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT HỢP ĐỒNG</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold text-slate-900">
+                  <h2 className="text-xl font-semibold text-[#1a7a99]">
                     Hợp đồng {contract.contractCode}
                   </h2>
                   <Badge className={cn('text-xs font-medium px-2.5 py-0.5 rounded-full', statusBadgeClass)}>

@@ -12,8 +12,8 @@ import {
 } from '@/shared/components/ui/select';
 import type { EquipmentListItem } from '@/modules/equipment/equipment';
 import type { ColumnDef, Row } from '@tanstack/react-table';
-import { CheckCircle2, CircleX, Package, PackageOpen, Pencil, Plus, RotateCcw, Trash2, Wrench, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, CircleX, Package, PackageOpen, Pencil, Plus, RotateCcw, Trash2, Wrench } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useEquipments } from '../hooks/useEquipments';
 import CreateEquipmentModal from './CreateEquipmentModal';
@@ -58,12 +58,43 @@ function formatStatValue(loading: boolean, n: number) {
   return n.toLocaleString('vi-VN');
 }
 
+const EquipmentsTable = memo(function EquipmentsTable(props: {
+  columns: ColumnDef<EquipmentListItem>[];
+  data: EquipmentListItem[];
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  loading: boolean;
+  onPageChange: (page: number) => void;
+  onRowClick: (row: EquipmentListItem) => void;
+}) {
+  const { columns, data, pageNumber, pageSize, totalItems, loading, onPageChange, onRowClick } = props;
+  return (
+    <div className="relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
+          <span className="text-sm text-muted-foreground">Đang tải...</span>
+        </div>
+      )}
+      <DataTable
+        columns={columns}
+        data={data}
+        pageNumber={pageNumber}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        onPageChange={onPageChange}
+        onRowClick={onRowClick}
+        getRowId={(row) => String(row.equipmentId)}
+      />
+    </div>
+  );
+});
+
 export default function EquipmentsManagement() {
   const context = useOutletContext<{ position?: string }>()
   const location = useLocation();
   const isEquipmentManager = location.pathname.startsWith('/em/');
   const isStandalonePage = !context?.position;
-  const [previewImgUrl, setPreviewImgUrl] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [openCreateModal, setOpenCreateModal] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -182,7 +213,7 @@ export default function EquipmentsManagement() {
       accessorKey: 'equipmentCode',
       header: 'Mã thiết bị',
       cell: ({ row }) => (
-        <span className="font-semibold text-gray-800">{row.original.equipmentCode}</span>
+        <span className="font-semibold text-[#1a7a99]">{row.original.equipmentCode}</span>
       ),
     },
     {
@@ -233,34 +264,6 @@ export default function EquipmentsManagement() {
           </span>
         )
       },
-    },
-    {
-      accessorKey: 'imgLink',
-      header: 'Hình ảnh',
-      cell: ({ row }) =>
-        row.original.imgLink ? (
-          <div
-            className="w-10 h-10 rounded-md overflow-hidden border bg-gray-50"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            <img
-              src={row.original.imgLink}
-              alt={row.original.equipmentName}
-              width={40}
-              height={40}
-              loading="lazy"
-              decoding="async"
-              className="h-10 w-10 object-cover cursor-pointer hover:opacity-90"
-              onClick={() => setPreviewImgUrl(row.original.imgLink ?? null)}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-              }}
-            />
-          </div>
-        ) : (
-          <span className="text-xs text-gray-500">Không có ảnh</span>
-        ),
     },
     ...(isEquipmentManager
       ? [
@@ -584,43 +587,18 @@ export default function EquipmentsManagement() {
                 <span className="text-sm text-muted-foreground">Đang tải...</span>
               </div>
             )}
-            <DataTable
+            <EquipmentsTable
               columns={columns}
               data={data}
               pageNumber={pageNumber}
               pageSize={pageSize}
               totalItems={totalItems}
-              onPageChange={(page) => setPageNumber(page)}
+              loading={loading}
+              onPageChange={setPageNumber}
               onRowClick={onRowClick}
             />
           </div>
         </div>
-        {previewImgUrl ? (
-          <div className="fixed inset-0 z-[90]">
-            <div
-              className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"
-              onClick={() => setPreviewImgUrl(null)}
-              aria-hidden="true"
-            />
-            <div className="absolute inset-0 flex items-center justify-center p-4">
-              <div className="relative max-h-[90vh] w-full max-w-[900px]">
-                <button
-                  type="button"
-                  className="absolute -top-3 -right-3 rounded-full bg-white/95 border border-slate-200 p-2 text-slate-700 shadow hover:bg-white"
-                  onClick={() => setPreviewImgUrl(null)}
-                  aria-label="Đóng ảnh"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-                <img
-                  src={previewImgUrl}
-                  alt="Preview"
-                  className="max-h-[90vh] w-full rounded-xl object-contain bg-black/20"
-                />
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
     )
   }
@@ -673,18 +651,14 @@ export default function EquipmentsManagement() {
           </Button>
         </div>
       </Dialog>
-      {loading && (
-        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
-          <span className="text-sm text-muted-foreground">Đang tải...</span>
-        </div>
-      )}
-      <DataTable
+      <EquipmentsTable
         columns={columns}
         data={data}
         pageNumber={pageNumber}
         pageSize={pageSize}
         totalItems={totalItems}
-        onPageChange={(page) => setPageNumber(page)}
+        loading={loading}
+        onPageChange={setPageNumber}
         onRowClick={onRowClick}
       />
     </div>

@@ -10,6 +10,7 @@ export const useRequests = (
     statuses?: string[];
     assignmentStatuses?: string[];
     programCoordinatorId?: number;
+    isAssignmentApprovalNeeded?: boolean;
   }
 ) => {
   const [data, setData] = useState<RequestListItem[]>([]);
@@ -18,6 +19,7 @@ export const useRequests = (
   const statusesKey = options?.statuses?.join('|') ?? '';
   const assignmentStatusesKey = options?.assignmentStatuses?.join('|') ?? '';
   const programCoordinatorIdKey = String(options?.programCoordinatorId ?? '');
+  const isAssignmentApprovalNeededKey = String(options?.isAssignmentApprovalNeeded ?? '');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -30,6 +32,7 @@ export const useRequests = (
           programCoordinatorId: options?.programCoordinatorId,
           statuses: options?.statuses,
           assignmentStatuses: options?.assignmentStatuses,
+          isAssignmentApprovalNeeded: options?.isAssignmentApprovalNeeded,
         });
 
         setData(res.items ?? []);
@@ -42,7 +45,15 @@ export const useRequests = (
     };
 
     fetchData();
-  }, [statusesKey, assignmentStatusesKey, programCoordinatorIdKey, pageNumber, pageSize, refreshKey]);
+  }, [
+    statusesKey,
+    assignmentStatusesKey,
+    programCoordinatorIdKey,
+    isAssignmentApprovalNeededKey,
+    pageNumber,
+    pageSize,
+    refreshKey,
+  ]);
 
   return { data, totalItems, loading };
 };

@@ -21,6 +21,8 @@ interface DataTableProps<TData, TValue> {
   showPagination?: boolean;
   /** Bấm vào hàng (không gồm control tương tác đã stopPropagation) */
   onRowClick?: (row: TData) => void;
+  /** Ổn định key của row để tránh unmount/mount lại cell (vd: ảnh). */
+  getRowId?: (originalRow: TData, index: number) => string;
   fillHeight?: boolean;
   /** Bảng full-width, padding rộng, kẻ ngang giữa các hàng — đồng bộ với trang thiết bị khả dụng */
   comfortable?: boolean;
@@ -37,6 +39,7 @@ export function DataTable<TData, TValue>({
   onPageChange,
   showPagination = true,
   onRowClick,
+  getRowId,
   fillHeight = false,
   comfortable = false,
   tableGap = 'default',
@@ -58,6 +61,7 @@ export function DataTable<TData, TValue>({
     pageCount: totalPages,
     enableSorting: false,
     getCoreRowModel: getCoreRowModel(),
+    getRowId,
   });
 
   return (

@@ -307,7 +307,7 @@ export default function TeacherDashboard() {
       <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-slate-900">Dashboard giảng viên</h2>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Dashboard giảng viên</h2>
             <p className="mt-1 text-xs text-slate-500">
               Tổng quan khối lượng giảng dạy, thu nhập ước tính và các buổi cần bạn chú ý.
             </p>
