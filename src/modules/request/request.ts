@@ -142,5 +142,6 @@ export type RequestFilterParams = {
   sessionStatuses?: string[];
   assignmentStatuses?: string[];
   requireAllAssignmentsHaveStaffMember?: boolean;
+  isAssignmentApprovalNeeded?: boolean;
   teamId?: number;
 };

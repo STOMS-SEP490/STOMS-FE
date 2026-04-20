@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, ClipboardList, Wallet, PieChart, Laptop, Calendar, ArrowLeftRight, Users } from 'lucide-react';
+import { CalendarDays, ClipboardList, Wallet, PieChart, Laptop, Calendar, ArrowLeftRight, Users, Download } from 'lucide-react';
 import {
   ResponsiveContainer,
   PieChart as RCPieChart,
@@ -10,15 +10,98 @@ import {
   Bar,
   LineChart,
   Line,
+  ComposedChart,
   XAxis,
   YAxis,
   Tooltip,
   Legend,
   CartesianGrid,
+  Brush,
+  ReferenceLine,
 } from 'recharts';
 import { dashboardApi, type DashboardRangeParams } from '@/modules/dashboard/api/dashboardApi';
+import { message, Modal, Radio } from 'antd';
 
 type KpiTone = 'sky' | 'indigo' | 'blue' | 'purple' | 'emerald' | 'amber';
+
+function formatCompactVnd(value: unknown): string {
+  const n0 = Number(value ?? 0);
+  if (!Number.isFinite(n0) || n0 === 0) return '0';
+  const sign = n0 < 0 ? '-' : '';
+  const n = Math.abs(n0);
+
+  const fmt = (x: number) => {
+    const s = x.toFixed(x >= 10 ? 0 : 1);
+    return s.replace(/\.0$/, '');
+  };
+
+  if (n >= 1_000_000_000) return `${sign}${fmt(n / 1_000_000_000)}Tỷ`;
+  if (n >= 1_000_000) return `${sign}${fmt(n / 1_000_000)}Tr`;
+  if (n >= 1_000) return `${sign}${fmt(n / 1_000)}N`;
+  return `${sign}${Math.round(n)}`;
+}
+
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+}
+
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+}
+
+function startOfWeekMonday(d: Date) {
+  const x = startOfDay(d);
+  const day = x.getDay(); // 0=Sun..6=Sat
+  const diff = (day + 6) % 7; // Monday => 0
+  x.setDate(x.getDate() - diff);
+  return x;
+}
+
+function addMonths(d: Date, months: number) {
+  const x = new Date(d);
+  x.setMonth(x.getMonth() + months);
+  return x;
+}
+
+function getRangeBounds(range: NonNullable<DashboardRangeParams['range']>): { startAt: Date; endAt: Date } {
+  const now = new Date();
+  const endAt = now;
+  switch (range) {
+    case 'today':
+      return { startAt: startOfDay(now), endAt };
+    case 'thisweek':
+      return { startAt: startOfWeekMonday(now), endAt };
+    case 'thismonth':
+      return { startAt: startOfMonth(now), endAt };
+    case 'last3months':
+      return { startAt: startOfMonth(addMonths(now, -2)), endAt };
+    case 'last6months':
+      return { startAt: startOfMonth(addMonths(now, -5)), endAt };
+    case '1year':
+      return { startAt: startOfMonth(addMonths(now, -11)), endAt };
+    default:
+      return { startAt: startOfMonth(now), endAt };
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function formatLocalDateTimeNoTz(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}
 
 function KpiCard(props: {
   title: string;
@@ -56,7 +139,20 @@ function KpiCard(props: {
 export default function ManagerDashboard() {
   const [range, setRange] = useState<NonNullable<DashboardRangeParams['range']>>('thismonth');
   const [contributorsWalletId, setContributorsWalletId] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [selectedSheetType, setSelectedSheetType] = useState<number | null>(null);
   const effectiveRange: NonNullable<DashboardRangeParams['range']> = range ?? 'thismonth';
+
+  const sheetTypeOptions: Array<{ value: number; label: string }> = [
+    { value: 1, label: 'Yêu cầu tổ chức' },
+    { value: 2, label: 'Buổi tổ chức' },
+    { value: 3, label: 'Bảng phân công' },
+    { value: 4, label: 'Bảng xác nhận tham gia' },
+    { value: 5, label: 'Bảng công việc' },
+    { value: 6, label: 'Bảng đóng góp' },
+    { value: 7, label: 'Bảng giao dịch' },
+  ];
   const { data: usersOverview } = useQuery({
     queryKey: ['dashboard', 'users-overview'],
     queryFn: () => dashboardApi.getUsersOverview(),
@@ -384,8 +480,75 @@ export default function ManagerDashboard() {
               <option value="last6months">6 tháng gần đây</option>
               <option value="1year">1 năm gần đây</option>
             </select>
+            <button
+              type="button"
+              className="h-9 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              disabled={exporting}
+              onClick={async () => {
+                setSelectedSheetType(null);
+                setExportModalOpen(true);
+              }}
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? 'Đang xuất...' : 'Xuất báo cáo'}
+            </button>
           </div>
         </div>
+
+        <Modal
+          title="Chọn loại báo cáo"
+          open={exportModalOpen}
+          okText={exporting ? 'Đang xuất...' : 'Xuất'}
+          cancelText="Hủy"
+          okButtonProps={{ disabled: exporting || selectedSheetType == null }}
+          cancelButtonProps={{ disabled: exporting }}
+          onCancel={() => {
+            if (exporting) return;
+            setExportModalOpen(false);
+          }}
+          onOk={async () => {
+            if (selectedSheetType == null) {
+              message.warning('Vui lòng chọn 1 loại báo cáo.');
+              return;
+            }
+            try {
+              setExporting(true);
+              const { startAt, endAt } = getRangeBounds(effectiveRange);
+              const blob = await dashboardApi.exportDashboard({
+                // BE dùng Postgres timestamp without time zone => tránh gửi ISO có 'Z' (UTC).
+                StartAt: formatLocalDateTimeNoTz(startAt),
+                EndAt: formatLocalDateTimeNoTz(endAt),
+                SheetTypes: [selectedSheetType],
+              });
+              downloadBlob(blob, 'STOMS_Reports.xlsx');
+              message.success('Đã xuất báo cáo');
+              setExportModalOpen(false);
+            } catch {
+              message.error('Xuất báo cáo thất bại');
+            } finally {
+              setExporting(false);
+            }
+          }}
+        >
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500">
+              Chọn 1 loại báo cáo để xuất.
+            </p>
+            <Radio.Group
+              className="w-full"
+              value={selectedSheetType ?? undefined}
+              onChange={(e) => setSelectedSheetType(Number(e.target.value))}
+            >
+              <div className="grid grid-cols-1 gap-2">
+                {sheetTypeOptions.map((opt) => (
+                  <Radio key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </Radio>
+                ))}
+              </div>
+            </Radio.Group>
+          </div>
+        </Modal>
 
         {/* STAT CARDS */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -447,7 +610,7 @@ export default function ManagerDashboard() {
                   Phân bố vai trò
                 </p>
                 <p className="text-sm text-gray-600">
-                  Số lượng user theo từng role
+                  Số lượng người dùng theo từng vai trò
                 </p>
               </div>
               <PieChart className="h-5 w-5 text-indigo-500" />
@@ -728,25 +891,67 @@ export default function ManagerDashboard() {
               <Wallet className="h-5 w-5 text-sky-500" />
             </div>
             {walletMetricsChartData.length > 0 ? (
-              <div className="h-60">
+              <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={walletMetricsChartData}>
+                  <ComposedChart
+                    data={walletMetricsChartData}
+                    margin={{ top: 8, right: 12, left: 6, bottom: 44 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
+                    <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1} />
+                    <XAxis
+                      dataKey="name"
+                      interval={0}
+                      height={58}
+                      angle={-25}
+                      textAnchor="end"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v: any) => {
+                        const s = String(v ?? '');
+                        if (s.length <= 12) return s;
+                        return `${s.slice(0, 10)}…`;
+                      }}
+                    />
+                    <YAxis
+                      width={84}
+                      tickMargin={8}
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(v: any) => formatCompactVnd(v)}
+                    />
                     <Tooltip
-                      formatter={(value: any) =>
-                        Number(value ?? 0).toLocaleString('vi-VN', {
+                      labelFormatter={(label: any) => String(label ?? '')}
+                      formatter={(value: any, name: any) => {
+                        const n = Number(value ?? 0);
+                        const display = name === 'Chi tiêu' ? Math.abs(n) : n;
+                        return Number(display).toLocaleString('vi-VN', {
                           style: 'currency',
                           currency: 'VND',
                           maximumFractionDigits: 0,
-                        })
-                      }
+                        });
+                      }}
                       wrapperClassName="text-xs"
                     />
-                    <Legend />
-                    <Bar dataKey="contribution" fill="#22c55e" radius={[4, 4, 0, 0]} name="Đóng góp" />
-                    <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]} name="Chi tiêu" />
+                    <Legend
+                      verticalAlign="bottom"
+                      align="center"
+                      wrapperStyle={{ fontSize: 12, paddingTop: 6 }}
+                    />
+                    <Bar
+                      dataKey="contribution"
+                      stackId="wallet"
+                      fill="#22c55e"
+                      radius={[4, 4, 0, 0]}
+                      name="Đóng góp"
+                      maxBarSize={28}
+                    />
+                    <Bar
+                      dataKey={(d: any) => -Math.abs(Number(d?.expense ?? 0))}
+                      stackId="wallet"
+                      fill="#ef4444"
+                      radius={[4, 4, 0, 0]}
+                      name="Chi tiêu"
+                      maxBarSize={28}
+                    />
                     <Line
                       type="monotone"
                       dataKey="net"
@@ -755,7 +960,20 @@ export default function ManagerDashboard() {
                       dot={{ r: 2 }}
                       name="Ròng"
                     />
-                  </LineChart>
+                    {walletMetricsChartData.length > 8 ? (
+                      <Brush
+                        dataKey="name"
+                        height={18}
+                        travellerWidth={10}
+                        stroke="#94a3b8"
+                        tickFormatter={(v: any) => {
+                          const s = String(v ?? '');
+                          if (s.length <= 10) return s;
+                          return `${s.slice(0, 8)}…`;
+                        }}
+                      />
+                    ) : null}
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             ) : (
@@ -995,10 +1213,10 @@ export default function ManagerDashboard() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Team theo chủ đề
+                  Các nhóm theo chủ đề
                 </p>
                 <p className="text-sm text-gray-600">
-                  Phân bố số lượng team theo từng topic
+                  Phân bố số lượng nhóm theo từng chủ đề
                 </p>
               </div>
             </div>
@@ -1023,7 +1241,7 @@ export default function ManagerDashboard() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu team/topic.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu nhóm/chủ đề.</p>
             )}
           </div>
         </div>
@@ -1071,7 +1289,7 @@ export default function ManagerDashboard() {
                 <p className="text-xs font-semibold text-gray-500 uppercase">
                   Môn học theo chủ đề
                 </p>
-                <p className="text-sm text-gray-600">Phân bố số môn học theo topic</p>
+                <p className="text-sm text-gray-600">Phân bố số môn học theo chủ đề</p>
               </div>
             </div>
             {subjectTopicData.length > 0 ? (
@@ -1090,7 +1308,7 @@ export default function ManagerDashboard() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu môn học theo topic.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu môn học theo chủ đề.</p>
             )}
           </div>
 

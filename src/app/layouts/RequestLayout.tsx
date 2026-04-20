@@ -155,12 +155,12 @@ export default function RequestLayout() {
     if (tabValue === 'assignment') {
       if (statusFilter !== 'all') {
         return {
-          assignmentStatuses: ['1'],
+          isAssignmentApprovalNeeded: true,
           statuses: [STATUS_FILTER_TO_API[statusFilter]],
         };
       }
       return {
-        assignmentStatuses: ['1'],
+        isAssignmentApprovalNeeded: true,
         statuses: [...ASSIGNMENT_TAB_REQUEST_STATUSES_API],
       };
     }

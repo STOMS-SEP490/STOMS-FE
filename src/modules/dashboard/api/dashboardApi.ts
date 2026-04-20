@@ -385,6 +385,12 @@ export type DashboardMemberContractSummaryParams = {
   pageSize?: number;
 };
 
+export type DashboardExportRequest = {
+  StartAt?: string | null;
+  EndAt?: string | null;
+  SheetTypes?: number[];
+};
+
 export const dashboardApi = {
   getUsersOverview(): Promise<DashboardUsersOverview> {
     return axiosClient.get('/dashboard/users/statistics');
@@ -493,6 +499,14 @@ export const dashboardApi = {
     params?: DashboardMemberContractSummaryParams,
   ): Promise<DashboardMemberContractSummary> {
     return axiosClient.get(`/dashboard/members/${memberId}/contracts-statistics`, { params });
+  },
+
+  exportDashboard(payload: DashboardExportRequest): Promise<Blob> {
+    return axiosClient.post('/dashboard/export', {
+      StartAt: payload.StartAt ?? null,
+      EndAt: payload.EndAt ?? null,
+      SheetTypes: payload.SheetTypes ?? [],
+    }, { responseType: 'blob' });
   },
 };
 
