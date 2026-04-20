@@ -37,7 +37,7 @@ export default function SessionDetailSidebar({ open, onClose, session }: Props) 
           <div className="sticky top-0 z-10 bg-white border-b">
             <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h2 className="text-xl font-semibold text-black truncate">
+                <h2 className="text-xl font-semibold text-[#1a7a99] truncate">
                   Buổi #{session.SessionNo} · ID {session.SessionId}
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">

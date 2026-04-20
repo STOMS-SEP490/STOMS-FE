@@ -363,7 +363,7 @@ export default function ManagerDashboard() {
         {/* HEADER */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-white px-6 py-4 rounded-xl border border-border shadow-sm">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-black">Dashboard quản lý</h2>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Dashboard quản lý</h2>
             <p className="text-xs text-gray-500 mt-1">
               Tổng quan hệ thống — số liệu người dùng, sự kiện, yêu cầu, buổi dạy và quỹ.
             </p>

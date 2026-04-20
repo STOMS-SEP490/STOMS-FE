@@ -46,8 +46,10 @@ function TeamsToolbar() {
 
   return (
     <div className="flex gap-3 items-center justify-end">
-      <HoverSearch placeholder="Tìm tên nhóm..." value={q} onChange={setSearch} />
-      <Button variant="secondary" className="bg-white" onClick={reset} title="Đặt lại bộ lọc">
+      <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+        <HoverSearch placeholder="Tìm tên nhóm..." value={q} onChange={setSearch} />
+      </div>
+      <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={reset} title="Đặt lại bộ lọc">
         <RotateCcw size={16} />
       </Button>
     </div>
@@ -372,8 +374,8 @@ export default function TeamsManagement() {
     <div className="space-y-6 p-6 pl-8 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       <div className="mb-2 flex items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý nhóm</h2>
-          <p className="text-xs text-gray-500">Quản lý nhóm trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý nhóm</h2>
+          <p className="text-xs text-slate-500">Quản lý nhóm trong hệ thống</p>
         </div>
         <Button
           onClick={() => {

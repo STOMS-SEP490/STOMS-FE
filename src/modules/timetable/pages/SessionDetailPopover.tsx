@@ -2,13 +2,14 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronRight, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 import type { SessionDetail } from '@/modules/request/type';
 import { Badge } from '@/shared/components/ui/badge';
 import { useSessionDetailPopover } from '@/modules/event/hooks/useSessionDetailPopover';
 import { useCurrentUser } from '@/shared/hooks/useCurrentUser';
 import { getSessionStatusLabel } from '@/constants/status';
-import requestApi from '@/modules/request/api/requestApi';
-import type { RequestListItem, RequestSessionSummary } from '@/modules/request/request';
+import sessionApi from '@/modules/request/api/sessionApi';
+import type { SessionResponse } from '@/modules/request/session.types';
 import TeamLeaderSessionDetailPanel from '@/modules/request/pages/TeamLeaderSessionDetailPanel';
 import { getAttendanceOwnerId } from '@/shared/utils/attendanceOwner';
 import { resolveSessionTopicTitleFromSessionLike } from '@/modules/event/utils/sessionTopicTitle';
@@ -91,11 +92,6 @@ export default function SessionDetailPopover({
     (session?.Notes ?? '').trim() ||
     'Buổi học';
 
-  const secondarySubtitle =
-    resolvedRequestName || resolvedRequestCode
-      ? `${topicTitle ? `${topicTitle} · ` : ''}Buổi ${resolvedSessionNo ?? '—'}`
-      : `Buổi ${resolvedSessionNo ?? '—'}`;
-
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
   const ownerIdFromSession = getAttendanceOwnerId(session?.Attendances ?? null);
   const canSeeAttendanceButton =
@@ -104,29 +100,21 @@ export default function SessionDetailPopover({
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [detailRequest, setDetailRequest] = useState<RequestListItem | null>(null);
-  const [detailSession, setDetailSession] = useState<
-    (RequestSessionSummary & { reservationId?: number | null; teamAssigned?: boolean }) | null
-  >(null);
+  const [detailSession, setDetailSession] = useState<SessionResponse | null>(null);
   const detailFetchSeq = useRef(0);
 
   const detailSessionTitle =
     (eventMeta?.sessionTitle ?? '').trim() ||
     resolveSessionTopicTitleFromSessionLike(session) ||
-    ((detailSession as { eventSession?: { title?: string | null } | null } | null)?.eventSession?.title ?? '').trim() ||
-    ((detailSession as { subjectSession?: { title?: string | null } | null } | null)?.subjectSession?.title ?? '').trim() ||
-    `Buổi ${detailSession?.sessionNo ?? resolvedSessionNo ?? '—'}`;
-
-  const detailSessionNotes = String((detailSession as { notes?: string | null } | null)?.notes ?? '').trim();
-  const detailIsOnline =
-    ((detailSession as { isOnline?: boolean | null } | null)?.isOnline ?? null) ?? session?.IsOnline ?? null;
+    (detailSession?.EventSession?.Title ?? '').trim() ||
+    (detailSession?.SubjectSession?.Title ?? '').trim() ||
+    `Buổi ${detailSession?.SessionNo ?? resolvedSessionNo ?? '—'}`;
 
   const closeDetail = () => {
     detailFetchSeq.current += 1;
     setDetailOpen(false);
     setDetailLoading(false);
     setDetailError(null);
-    setDetailRequest(null);
     setDetailSession(null);
   };
 
@@ -137,52 +125,12 @@ export default function SessionDetailPopover({
     setDetailOpen(true);
     setDetailLoading(true);
     setDetailError(null);
-    setDetailRequest(null);
     setDetailSession(null);
 
     try {
-      const requestDetail = await requestApi.getById(session.RequestId);
+      const sessionDetail = await sessionApi.getById(session.SessionId);
       if (seq !== detailFetchSeq.current) return;
-
-      const rawSession = (requestDetail.sessions ?? []).find(
-        (s) => Number(s.sessionId) === session.SessionId,
-      ) as (RequestSessionSummary & Record<string, unknown>) | undefined;
-
-      if (!rawSession) throw new Error('Không tìm thấy buổi trong yêu cầu.');
-
-      const anySession = rawSession as Record<string, unknown> & {
-        reservationId?: number | string | null;
-        ReservationId?: number | string | null;
-        teamSessions?: unknown[];
-        TeamSessions?: unknown[];
-        teamId?: number | null;
-        TeamId?: number | null;
-        status?: string;
-        notes?: string;
-      };
-
-      const rawReservationId = anySession.reservationId ?? anySession.ReservationId ?? null;
-      const parsed = rawReservationId != null ? Number(rawReservationId) : NaN;
-      const reservationId = !Number.isNaN(parsed) && parsed > 0 ? parsed : null;
-
-      const fromSessions = (anySession.teamSessions ?? anySession.TeamSessions ?? []) as Array<any>;
-      const backendTeamIds = Array.isArray(fromSessions)
-        ? fromSessions.map((ts) => ts?.teamId ?? ts?.TeamId).filter((id): id is number => typeof id === 'number' && id > 0)
-        : [];
-
-      const singleTeamId = anySession.teamId ?? anySession.TeamId;
-      const assignedTeamIds =
-        backendTeamIds.length > 0 ? backendTeamIds
-          : typeof singleTeamId === 'number' && singleTeamId > 0 ? [singleTeamId]
-            : [];
-
-      const statusStr = String(anySession.status ?? '').toLowerCase();
-      const teamAssigned =
-        assignedTeamIds.length > 0 || ['approved', 'assigned', 'ongoing', 'completed'].includes(statusStr);
-
-      if (seq !== detailFetchSeq.current) return;
-      setDetailRequest(requestDetail);
-      setDetailSession({ ...(rawSession as RequestSessionSummary), reservationId, teamAssigned });
+      setDetailSession(sessionDetail);
     } catch (err: unknown) {
       if (seq !== detailFetchSeq.current) return;
       const msg = err && typeof err === 'object' && 'message' in err
@@ -249,29 +197,35 @@ export default function SessionDetailPopover({
           />
           <aside className="absolute right-0 top-0 flex h-full w-full max-w-[600px] flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl">
             {/* Detail header */}
-            <div className="shrink-0 border-b border-slate-100 px-6 py-4">
+            <div className="shrink-0 border-b border-gray-100 px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT BUỔI</p>
-                  <h2 className="mt-1 text-lg font-semibold text-slate-900">{detailSessionTitle}</h2>
-                  {(detailSessionNotes || detailIsOnline === true) && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      {detailSessionNotes && <span className="text-xs text-slate-500">{detailSessionNotes}</span>}
-                      {detailIsOnline === true && (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                          Trực tuyến
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết buổi</p>
+                  <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                    {detailSessionTitle}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                    <span>Buổi {session.SessionNo}</span>
+                    <span className="text-slate-300">{' · '}</span>
+                    <span className="font-semibold text-[#2197C0]">
+                      {dayjs(session.StartAt).format('HH:mm')} – {dayjs(session.EndAt).format('HH:mm')}
+                    </span>
+                    <span className="text-slate-300">{' · '}</span>
+                    <span className="font-semibold text-[#2197C0]">{dayjs(session.StartAt).format('DD/MM/YYYY')}</span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <span className="text-[11px] font-medium text-slate-500">Trạng thái:</span>
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${statusBadgeClass(session.Status)}`}>
+                      {getSessionStatusLabel(session.Status)}
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => { closeDetail(); onClose(); }}
-                  className="shrink-0 rounded p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  aria-label="Đóng chi tiết buổi"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
                 >
-                  <X className="h-4 w-4" />
+                  <X size={18} />
                 </button>
               </div>
             </div>
@@ -281,11 +235,11 @@ export default function SessionDetailPopover({
               {detailError && (
                 <p className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">{detailError}</p>
               )}
-              {detailRequest && detailSession && !detailLoading && !detailError && (
+              {detailSession && !detailLoading && !detailError && (
                 <TeamLeaderSessionDetailPanel
                   session={detailSession}
-                  requestCode={detailRequest.requestCode ?? ''}
-                  requestName={detailRequest.requestName ?? ''}
+                  requestCode={detailSession.Request?.RequestCode ?? undefined}
+                  requestName={detailSession.Request?.RequestName ?? undefined}
                 />
               )}
             </div>
@@ -317,35 +271,43 @@ export default function SessionDetailPopover({
               <div className="text-sm font-semibold text-slate-900 leading-snug truncate">
                 {primaryHeadline}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">{secondarySubtitle}</div>
+              <div className="text-xs mt-0.5">
+                {resolvedRequestName || resolvedRequestCode ? (
+                  <>
+                    {topicTitle && <span className="text-[#2197C0] font-medium">{topicTitle}</span>}
+                    {topicTitle && <span className="text-slate-400"> · </span>}
+                    <span className="text-slate-500">Buổi {resolvedSessionNo ?? '—'}</span>
+                  </>
+                ) : (
+                  <span className="text-slate-500">Buổi {resolvedSessionNo ?? '—'}</span>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Time + Location */}
           <div className="border-b border-slate-100 px-4 py-3 space-y-1.5">
             <div className="flex items-baseline gap-2">
-              <span className="w-16 shrink-0 text-[11px] text-slate-400">Thời gian</span>
+              <span className="w-16 shrink-0 text-[11px] text-[#2197C0] font-medium">Thời gian</span>
               <span className="text-xs font-medium text-slate-900">
                 {formatDate(session.StartAt)} · {formatTimeRange(session.StartAt, session.EndAt)}
               </span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="w-16 shrink-0 text-[11px] text-slate-400">Địa điểm</span>
+              <span className="w-16 shrink-0 text-[11px] text-[#2197C0] font-medium">Địa điểm</span>
               <span className="text-xs text-slate-700 break-words">{session.Location || '—'}</span>
             </div>
           </div>
 
           {/* Staff */}
           <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-3">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nhân sự</span>
-              {session && canSeeAttendanceButton && (
+            <div className="flex items-center justify-between ">
+              {session && canSeeAttendanceButton && onOpenAttendancePanel && (
                 <button
                   type="button"
                   className="inline-flex items-center rounded px-2.5 py-1 text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition-colors"
                   onClick={() => {
-                    if (onOpenAttendancePanel) { onOpenAttendancePanel(); return; }
-                    navigate(`/tl/attendance/${session.SessionId}`);
+                    onOpenAttendancePanel();
                   }}
                 >
                   Xác nhận tham gia
@@ -357,7 +319,9 @@ export default function SessionDetailPopover({
               <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1">
                 {teachers.length > 0 && (
                   <div>
-                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Giảng viên</div>
+                    <div className="mb-2 inline-flex items-center rounded-full bg-violet-100 border border-violet-200 px-2.5 py-0.5 text-[10px] font-semibold tracking-wide text-violet-700">
+                      Giảng viên
+                    </div>
                     <div className="space-y-1.5">
                       {teachers.map((s) => (
                         <div key={s.assignmentId} className="flex items-center gap-2.5">
@@ -378,7 +342,9 @@ export default function SessionDetailPopover({
                 )}
                 {tas.length > 0 && (
                   <div>
-                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Sinh viên</div>
+                    <div className="mb-2 inline-flex items-center rounded-full bg-amber-100 border border-amber-200 px-2.5 py-0.5 text-[10px] font-semibold tracking-wide text-amber-700">
+                      Sinh viên
+                    </div>
                     <div className="space-y-1.5">
                       {tas.map((s) => (
                         <div key={s.assignmentId} className="flex items-center gap-2.5">
@@ -416,9 +382,12 @@ export default function SessionDetailPopover({
 
           {/* Footer */}
           <div className="shrink-0 flex items-center justify-between border-t border-slate-100 px-4 py-2.5">
-            <Badge className={`text-[10px] px-2 py-0.5 ${statusBadgeClass(session.Status)}`}>
-              {getSessionStatusLabel(session.Status)}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-500">Trạng thái:</span>
+              <Badge className={`text-[10px] px-2 py-0.5 ${statusBadgeClass(session.Status)}`}>
+                {getSessionStatusLabel(session.Status)}
+              </Badge>
+            </div>
             <button
               type="button"
               onClick={() => void openDetail()}

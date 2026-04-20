@@ -772,7 +772,7 @@ export default function TeacherTaskReportPage() {
       {/* Header + bộ lọc cùng một thẻ (đồng bộ teacher/events, teaching-history…) */}
       <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Báo cáo công việc</h2>
           <p className="text-xs text-gray-500">
             Ghi báo cáo cho các buổi. Chọn yêu cầu bên trái rồi bấm vào buổi để xem chi tiết.
           </p>
@@ -905,7 +905,7 @@ export default function TeacherTaskReportPage() {
                         <FileText className="text-violet-600" size={18} />
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">Báo cáo chung</div>
+                        <div className="text-sm font-semibold text-[#1a7a99]">Báo cáo chung</div>
                         <div className="text-[11px] text-slate-500 mt-0.5">Báo cáo tổng thể cho toàn bộ yêu cầu</div>
                       </div>
                     </div>
@@ -934,7 +934,7 @@ export default function TeacherTaskReportPage() {
                             <span className="text-sm font-bold text-sky-700">{s.sessionNo ?? '?'}</span>
                           </div>
                           <div>
-                            <div className="text-sm font-semibold text-slate-900">Buổi {s.sessionNo ?? s.sessionId}</div>
+                            <div className="text-sm font-semibold text-[#1a7a99]">Buổi {s.sessionNo ?? s.sessionId}</div>
                             <div className="text-[11px] text-slate-500 mt-0.5">
                               {s.sessionTitle || `ID: ${s.sessionId}`}
                             </div>
@@ -977,7 +977,7 @@ export default function TeacherTaskReportPage() {
               <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                   <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-slate-900 truncate">
+                    <h4 className="text-sm font-semibold text-[#1a7a99] truncate">
                       {isRequestLevelReport
                         ? 'Báo cáo chung'
                         : selectedSession
@@ -1029,7 +1029,7 @@ export default function TeacherTaskReportPage() {
                               <div className="text-xs font-medium text-sky-700">
                                 {formatDateRange(r.startAt, r.endAt)}
                               </div>
-                              <div className="text-sm font-semibold text-slate-900 mt-0.5">{r.title || '—'}</div>
+                              <div className="text-sm font-semibold text-[#1a7a99] mt-0.5">{r.title || '—'}</div>
                               <p className="text-xs text-slate-600 mt-1 line-clamp-3">{r.description || '—'}</p>
 
                               <div className="mt-2 flex items-center justify-between">

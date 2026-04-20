@@ -203,7 +203,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             enableSorting: false,
             cell: ({ row }) => (
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-slate-900">
+                <span className="text-sm font-semibold text-[#1a7a99]">
                   {formatDate(row.original.startAt)}
                 </span>
                 <span className="text-xs text-slate-500">{formatTimeRange(row.original.startAt, row.original.endAt)}</span>
@@ -216,7 +216,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             enableSorting: false,
             cell: ({ row }) => (
               <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
-                <div className="text-[13px] font-semibold text-slate-900 line-clamp-2">
+                <div className="text-[13px] font-semibold text-[#1a7a99] line-clamp-2">
                   {row.original.requestName || row.original.requestCode || '—'}
                 </div>
                 <div className="text-[11px] text-slate-500">{getSessionDisplayName(row.original)}</div>
@@ -230,7 +230,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             cell: ({ row }) => (
               <div className="min-w-0 max-w-[180px]">
                 <div className="text-xs text-slate-600 truncate">
-                  <span className="font-semibold text-slate-900">{row.original.requestCode ?? '—'}</span>
+                  <span className="font-semibold text-[#1a7a99]">{row.original.requestCode ?? '—'}</span>
                 </div>
               </div>
             ),
@@ -266,7 +266,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                     <MapPin className="h-4 w-4 text-sky-600 mt-0.5" />
                   )}
                   <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-slate-900 truncate">
+                    <div className="text-[13px] font-semibold text-[#1a7a99] truncate">
                       {row.original.location || '—'}
                     </div>
                     <div className="text-[11px] text-slate-500 truncate">{online ? 'Trực tuyến' : 'Trực tiếp'}</div>
@@ -313,7 +313,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           enableSorting: false,
           cell: ({ row }) => (
             <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
-              <div className="text-[13px] font-semibold text-slate-900 line-clamp-2">
+              <div className="text-[13px] font-semibold text-[#1a7a99] line-clamp-2">
                 {row.original.requestName || row.original.requestCode || '—'}
               </div>
               <div className="text-[11px] text-slate-500">{getSessionDisplayName(row.original)}</div>
@@ -335,7 +335,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           header: 'ĐỊA ĐIỂM',
           cell: ({ row }) => (
             <div className="text-sm text-gray-700">
-              <span className="font-medium text-slate-900">{row.original.location || '—'}</span>
+              <span className="font-medium text-[#1a7a99]">{row.original.location || '—'}</span>
               <span className="text-xs text-gray-500">
                 {' '}
                 • {(row.original.location ?? '').toLowerCase().includes('online') ? 'Trực tuyến' : 'Trực tiếp'}
@@ -605,7 +605,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             <div>
               <h2
                 className={cn(
-                  'font-semibold text-slate-900',
+                  'font-semibold text-[#1a7a99]',
                   isTeacherRoute ? 'text-xl' : 'text-2xl',
                 )}
               >
@@ -723,7 +723,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
               <div className="min-w-0 pr-2">
                 <div className="text-xs text-gray-400 uppercase tracking-wide">Chi tiết buổi</div>
-                <h3 className="mt-1 text-lg font-semibold text-slate-900 leading-snug">
+                <h3 className="mt-1 text-lg font-semibold text-[#1a7a99] leading-snug">
                   {getSessionPanelTitle(detailSession, detailRequest?.requestName)}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">

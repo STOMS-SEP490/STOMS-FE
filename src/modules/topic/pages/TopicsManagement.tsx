@@ -315,8 +315,8 @@ export default function TopicsManagement() {
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý chủ đề</h2>
-          <p className="text-xs text-gray-500">Quản lý các chủ đề trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý chủ đề</h2>
+          <p className="text-xs text-slate-500">Quản lý các chủ đề trong hệ thống</p>
         </div>
 
         <div className="flex gap-3 items-center">
@@ -345,28 +345,36 @@ export default function TopicsManagement() {
           <div className="text-2xl font-semibold text-slate-900">{stats.inactive}</div>
         </div>
       </div>
-      <div className="mb-2 flex items-center justify-end gap-3">
-        <HoverSearch
-          value={search}
-          onChange={handleSearchChange}
-          placeholder="Tìm theo tên chủ đề..."
-        />
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => handleStatusChange(value as 'all' | 'active' | 'inactive')}
-        >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[160px] border-slate-200">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            <SelectItem value="active">Đang hoạt động</SelectItem>
-            <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="secondary" className="bg-white" onClick={resetFilters} type="button">
-          <RotateCcw className="w-4 h-4" />
-        </Button>
+      <div className="mb-2 flex items-center justify-end gap-3 flex-wrap">
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+          <HoverSearch
+            value={search}
+            onChange={handleSearchChange}
+            placeholder="Tìm theo tên chủ đề..."
+          />
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => handleStatusChange(value as 'all' | 'active' | 'inactive')}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                <SelectValue placeholder="Chọn trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="active">Đang hoạt động</SelectItem>
+                <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFilters} type="button" title="Đặt lại bộ lọc">
+            <RotateCcw className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
       {/* TABLE CARD */}
       <div className="bg-white rounded-xl border shadow-sm p-6">

@@ -72,7 +72,7 @@ export default function TaskReportsManagement() {
           const code = row.original.Request?.RequestCode;
           return (
             <div className="min-w-0">
-              <p className="truncate font-medium text-slate-900 max-w-[200px]">{name ?? '—'}</p>
+              <p className="truncate font-medium text-[#1a7a99] max-w-[200px]">{name ?? '—'}</p>
               {code && <p className="text-[11px] text-slate-500">{code}</p>}
             </div>
           );
@@ -82,12 +82,12 @@ export default function TaskReportsManagement() {
         id: 'sessionNo',
         header: 'Buổi',
         cell: ({ row }) => (
-          <span className="font-semibold text-slate-900">Buổi {row.original.SessionNo}</span>
+          <span className="font-semibold text-[#1a7a99]">Buổi {row.original.SessionNo}</span>
         ),
       },
       {
         id: 'title',
-        header: 'Tiêu đề',
+        header: 'Tên buổi',
         cell: ({ row }) => {
           const title = row.original.SubjectSession?.Title ?? row.original.EventSession?.Title ?? row.original.Notes ?? '—';
           return <span className="text-slate-700 break-words whitespace-normal">{title}</span>;
@@ -130,7 +130,7 @@ export default function TaskReportsManagement() {
           return (
             <div className="text-center">
               {count > 0
-                ? <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100">{count}</Badge>
+                ? <Badge className="bg-[#2197C0]/10 text-[#1a7a99] border border-[#2197C0]/20 font-semibold">{count}</Badge>
                 : <span className="text-xs text-slate-400">—</span>}
             </div>
           );
@@ -147,13 +147,15 @@ export default function TaskReportsManagement() {
     >
       {/* HEADER */}
       <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Quản lý báo cáo công việc</h2>
-        <p className="text-xs text-gray-500">Xem danh sách buổi học, click vào buổi để xem báo cáo công việc.</p>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý báo cáo công việc</h2>
+        <p className="text-xs text-slate-500">Xem danh sách buổi học, click vào buổi để xem báo cáo công việc.</p>
       </div>
 
       {/* FILTER BAR */}
       <div className="shrink-0 flex justify-end gap-3">
-        <HoverSearch placeholder="Tìm theo tên yêu cầu, địa điểm..." value={search} onChange={(v) => { setSearch(v); setPageNumber(1); }} />
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+          <HoverSearch placeholder="Tìm theo tên yêu cầu, địa điểm..." value={search} onChange={(v) => { setSearch(v); setPageNumber(1); }} />
+        </div>
         <DatePicker
           format="DD/MM/YYYY"
           placeholder="Từ ngày"
@@ -161,7 +163,7 @@ export default function TaskReportsManagement() {
           onChange={(d) => { setFilterStartDate(d ? d.format('YYYY-MM-DD') : ''); setPageNumber(1); }}
           className="w-[140px]"
         />
-        <span className="text-gray-400">→</span>
+        <span className="text-slate-400">→</span>
         <DatePicker
           format="DD/MM/YYYY"
           placeholder="Đến ngày"
@@ -169,29 +171,30 @@ export default function TaskReportsManagement() {
           onChange={(d) => { setFilterEndDate(d ? d.format('YYYY-MM-DD') : ''); setPageNumber(1); }}
           className="w-[140px]"
         />
-        <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200 bg-white" onClick={resetFilters}>
+        <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFilters}>
           <RotateCcw size={16} />
         </Button>
       </div>
 
       {/* TABLE */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
+      <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
         {sessionsLoading ? (
           <div className="flex flex-1 items-center justify-center py-16"><Spin /></div>
         ) : (
-          <DataTable
-            columns={columns}
-            data={filteredSessions}
-            pageNumber={pageNumber}
-            pageSize={PAGE_SIZE}
-            totalItems={totalItems}
-            onPageChange={setPageNumber}
-            onRowClick={(session) => navigate(`/manager/tasks/${session.SessionId}`)}
-            comfortable
-            fillHeight
-            tableGap="tight"
-            showPagination={false}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <DataTable
+              columns={columns}
+              data={filteredSessions}
+              pageNumber={pageNumber}
+              pageSize={PAGE_SIZE}
+              totalItems={totalItems}
+              onPageChange={setPageNumber}
+              onRowClick={(session) => navigate(`/manager/tasks/${session.SessionId}`)}
+              comfortable
+              tableGap="tight"
+              showPagination
+            />
+          </div>
         )}
       </div>
     </div>

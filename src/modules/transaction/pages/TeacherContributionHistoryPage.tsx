@@ -148,7 +148,7 @@ export default function TeacherContributionHistoryPage() {
     >
       <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-black">Lịch sử đóng góp quỹ</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Lịch sử đóng góp quỹ</h2>
           <p className="text-xs text-gray-500">Các khoản đóng góp quỹ của bạn trong hệ thống.</p>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-start gap-3 min-[900px]:flex-nowrap min-[900px]:justify-end">

@@ -79,12 +79,12 @@ export function DataTable<TData, TValue>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className={cn(comfortable && 'border-b border-slate-200 hover:bg-transparent')}
+                className={cn(comfortable && 'border-b border-slate-200 hover:bg-transparent bg-slate-50/50')}
               >
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={cn(comfortable && 'h-auto min-h-11 px-4 py-3.5 align-middle')}
+                    className={cn(comfortable && 'h-auto min-h-11 px-4 py-3.5 align-middle font-semibold text-slate-700')}
                   >
                     {header.isPlaceholder
                       ? null
@@ -101,8 +101,8 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   className={cn(
-                    comfortable && 'border-b border-slate-100 hover:bg-slate-50/60',
-                    onRowClick && 'cursor-pointer hover:bg-slate-50/80',
+                    comfortable && 'border-b border-slate-100 hover:bg-[#2197C0]/5 transition-colors',
+                    onRowClick && 'cursor-pointer hover:bg-[#2197C0]/8 transition-colors',
                   )}
                   tabIndex={onRowClick ? 0 : undefined}
                   role={onRowClick ? 'button' : undefined}
@@ -154,7 +154,7 @@ export function DataTable<TData, TValue>({
       {/* PAGINATION */}
       {showPagination ? (
         <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-slate-600">
             Hiển thị {fromItem}
             {' - '}
             {toItem} trên {totalItems} bản ghi
@@ -166,11 +166,12 @@ export function DataTable<TData, TValue>({
               size="sm"
               onClick={() => onPageChange(pageNumber - 1)}
               disabled={pageNumber <= 1}
+              className="hover:bg-[#2197C0]/10 hover:text-[#2197C0] hover:border-[#2197C0]/30 transition-colors"
             >
               Trước
             </Button>
 
-            <div className="px-3 py-1 text-sm">
+            <div className="px-3 py-1 text-sm font-medium text-slate-700">
               {pageNumber} / {totalPages || 1}
             </div>
 
@@ -179,6 +180,7 @@ export function DataTable<TData, TValue>({
               size="sm"
               onClick={() => onPageChange(pageNumber + 1)}
               disabled={pageNumber >= totalPages}
+              className="hover:bg-[#2197C0]/10 hover:text-[#2197C0] hover:border-[#2197C0]/30 transition-colors"
             >
               Sau
             </Button>

@@ -128,7 +128,7 @@ export default function AvailableEquipmentsPage() {
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Danh sách thiết bị khả dụng</h2>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách thiết bị khả dụng</h2>
         <p className="text-xs text-gray-500">Hiển thị thiết bị có thể mượn bây giờ</p>
       </div>
 
