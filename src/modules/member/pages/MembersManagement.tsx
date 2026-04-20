@@ -124,7 +124,7 @@ export default function MembersManagement() {
             className="w-8 h-8 rounded-full object-cover"
           />
           <div>
-            <p className="font-medium text-sm">{row.original.fullName}</p>
+            <p className="font-medium text-sm text-[#1a7a99]">{row.original.fullName}</p>
             <p className="text-xs text-gray-500">{row.original.email ?? '—'}</p>
           </div>
         </div>

@@ -113,7 +113,7 @@ export default function MyTeamPage() {
             }}
           />
           <div className="min-w-0 leading-snug">
-            <div className="text-sm font-medium text-slate-900 truncate">{row.original.fullName}</div>
+            <div className="text-sm font-medium text-[#1a7a99] truncate">{row.original.fullName}</div>
             <div className="text-xs text-slate-500 truncate">{row.original.email}</div>
           </div>
         </div>

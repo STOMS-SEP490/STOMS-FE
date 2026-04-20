@@ -172,12 +172,12 @@ export default function SkillsManagement() {
     {
       accessorKey: 'skillId',
       header: 'MÃ KỸ NĂNG',
-      cell: ({ row }) => <div className="text-sm font-medium">{row.original.skillId}</div>,
+      cell: ({ row }) => <div className="text-sm font-medium text-[#1a7a99]">{row.original.skillId}</div>,
     },
     {
       accessorKey: 'skillName',
       header: 'TÊN KỸ NĂNG',
-      cell: ({ row }) => <div className="text-sm font-medium">{row.original.skillName}</div>,
+      cell: ({ row }) => <div className="text-sm font-medium text-[#1a7a99]">{row.original.skillName}</div>,
     },
     {
       accessorKey: 'description',
@@ -260,7 +260,7 @@ export default function SkillsManagement() {
       <div className="grid grid-cols-3 gap-4 mb-2">
         <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-gray-500">Tổng kỹ năng</div>
-          <div className="text-2xl font-semibold text-slate-900">{totalItems}</div>
+          <div className="text-2xl font-semibold text-[#1a7a99]">{totalItems}</div>
         </div>
         <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-gray-500">Đang hoạt động (trang hiện tại)</div>
@@ -268,7 +268,7 @@ export default function SkillsManagement() {
         </div>
         <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="text-xs text-gray-500">Vô hiệu hóa (trang hiện tại)</div>
-          <div className="text-2xl font-semibold text-slate-900">{stats.inactive}</div>
+          <div className="text-2xl font-semibold text-[#1a7a99]">{stats.inactive}</div>
         </div>
       </div>
       <div className="flex mb-2 justify-end">

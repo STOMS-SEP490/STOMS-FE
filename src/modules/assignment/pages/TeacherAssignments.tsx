@@ -53,7 +53,7 @@ export default function TeacherAssignments() {
       header: 'Buổi dạy / Yêu cầu',
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="font-semibold text-gray-900">{sessionDisplayName(row.original)}</span>
+          <span className="font-semibold text-[#1a7a99]">{sessionDisplayName(row.original)}</span>
           <span className="text-xs text-gray-500">ID: {row.original.sessionId}</span>
         </div>
       ),

@@ -505,7 +505,7 @@ export default function TeacherTeachingHistoryPage() {
 
                   <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
                     <div className="px-4 py-2.5 border-b border-gray-100">
-                      <h3 className="font-semibold text-gray-900 text-sm">Hợp đồng</h3>
+                      <h3 className="font-semibold text-[#1a7a99] text-sm">Hợp đồng</h3>
                     </div>
                     <div className="px-4 py-3 text-sm space-y-2">
                       {sessionDetailContract?.contractId ? (

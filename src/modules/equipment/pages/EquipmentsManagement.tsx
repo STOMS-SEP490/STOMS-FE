@@ -221,7 +221,7 @@ export default function EquipmentsManagement() {
       header: 'Tên thiết bị',
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="font-medium truncate">{row.original.equipmentName}</div>
+          <div className="font-medium text-[#1a7a99] truncate">{row.original.equipmentName}</div>
           <div className="text-xs text-gray-500 truncate">{row.original.description || '—'}</div>
         </div>
       ),

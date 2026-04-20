@@ -147,7 +147,7 @@ export default function ContractDetailSidebar({ open, onClose, contract, loading
             <div className="px-6 py-5">
               <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-400">Thông tin buổi</p>
               <div className="mb-3 flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-slate-900">{sessionTitle}</span>
+                <span className="text-sm font-semibold text-[#1a7a99]">{sessionTitle}</span>
                 {contract.session?.sessionNo != null && (
                   <span className="text-xs font-medium text-slate-500 tabular-nums">
                     Buổi {contract.session.sessionNo}

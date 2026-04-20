@@ -87,6 +87,7 @@ export default function CategoryDetailSidebar({ open, onClose, category }: Props
                       equipmentName={e.equipmentName}
                       equipmentCode={e.equipmentCode}
                       status={e.status}
+                      imgLink={e.imgLink}
                       // Category sidebar hiện danh mục ở trên, nên không cần bottomRow
                     />
                   </li>
