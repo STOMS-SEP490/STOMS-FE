@@ -225,7 +225,7 @@ export default function PCDashboard() {
       <div className="rounded-xl border border-slate-200/80 bg-gradient-to-br from-sky-50/90 via-white to-white px-5 py-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0 space-y-1">
-            <h2 className="text-xl font-semibold text-slate-900">Yêu cầu & tiến độ</h2>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Yêu cầu & tiến độ</h2>
             <p className="max-w-xl text-sm text-slate-600">
               Tạo yêu cầu mới và theo dõi trạng thái xử lý.
             </p>
