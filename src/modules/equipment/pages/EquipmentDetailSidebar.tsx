@@ -128,7 +128,7 @@ export default function EquipmentDetailSidebar({
               <div className="flex items-start justify-between gap-4">
                 {/* Left: title + code (code always right under title) */}
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-semibold text-black truncate">
+                  <h2 className="text-xl font-semibold text-[#1a7a99] truncate">
                     {equipment.equipmentName}
                   </h2>
 

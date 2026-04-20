@@ -9,7 +9,7 @@ export default function TeacherScheduleLayout() {
       {/* HEADER */}
       <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold text-black">Thời khóa biểu & phân công</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Thời khóa biểu & phân công</h2>
           <p className="text-xs text-gray-500">Nội dung lịch hoặc danh sách tùy trang con.</p>
         </div>
         <div className="flex items-center gap-2">

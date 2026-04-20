@@ -2,8 +2,6 @@ import { Navigate } from 'react-router-dom';
 import EventsManagement from '@/modules/event/pages/EventsManagement';
 import EventCalendar from '@/modules/timetable/pages/EventCalendar';
 import UserProfile from '@/modules/user/pages/UserProfile';
-import MyTasksPage from '@/modules/task-report/pages/MyTasksPage';
-import TaskSessionDetailPage from '@/modules/task-report/pages/TaskSessionDetailPage';
 import TeacherTeachingHistoryPage from '@/modules/contract/pages/TeacherTeachingHistoryPage';
 import ContractsManagement from '@/modules/contract/pages/ContractsManagement';
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage';
@@ -14,6 +12,8 @@ import SubjectsReadonlyPage from '@/modules/subject/pages/SubjectsReadonlyPage';
 import TopicsReadonlyPage from '@/modules/topic/pages/TopicsReadonlyPage';
 import TeacherDashboard from '@/modules/dashboard/pages/TeacherDashboard';
 import MyTeamPage from '@/modules/team/pages/MyTeamPage';
+import TaskReportsManagement from '@/modules/task-report/pages/TaskReportsManagement';
+import TeacherTaskSessionPage from '@/modules/task-report/pages/TeacherTaskSessionPage';
 
 const TeacherRoutes = [
   { index: true, element: <Navigate to="dashboard" replace /> },
@@ -26,12 +26,12 @@ const TeacherRoutes = [
   { path: 'timetable', element: <EventCalendar /> },
   { path: 'timetable/assignments', element: <Navigate to="/teacher/timetable" replace /> },
   { path: 'teaching-history', element: <TeacherTeachingHistoryPage /> },
+  { path: 'task-reports', element: <TaskReportsManagement /> },
+  { path: 'tasks/:sessionId', element: <TeacherTaskSessionPage /> },
   { path: 'contracts', element: <ContractsManagement /> },
   { path: 'contracts/:id', element: <ContractsManagement /> },
   { path: 'fund-contributions', element: <TeacherContributionHistoryPage /> },
   { path: 'attendance-history', element: <TeacherAttendanceHistoryPage /> },
-  { path: 'tasks', element: <MyTasksPage /> },
-  { path: 'tasks/:sessionId', element: <TaskSessionDetailPage /> },
   { path: 'equipments', element: <AvailableEquipmentsPage /> },
   { path: 'profile', element: <UserProfile /> },
 ];

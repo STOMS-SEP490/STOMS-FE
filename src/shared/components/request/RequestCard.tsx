@@ -96,7 +96,7 @@ export default function RequestCard({
       />
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-slate-900 truncate">
+          <div className="text-sm font-semibold text-[#1a7a99] truncate">
             {requestName || requestCode || '—'}
           </div>
           {requestCode && (

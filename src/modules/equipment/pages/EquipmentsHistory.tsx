@@ -63,7 +63,7 @@ const columns = (
     accessorKey: 'borrowingId',
     header: 'Mã phiếu',
     cell: ({ row }) => (
-      <span className="font-medium">#{row.original.borrowingId}</span>
+      <span className="font-semibold text-[#1a7a99]">#{row.original.borrowingId}</span>
     ),
   },
   {
@@ -400,8 +400,8 @@ export default function EquipmentsHistory({
     >
       <div className="mb-2 flex items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold text-black">Phiếu mượn thiết bị</h2>
-          <p className="text-xs text-gray-500">
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Phiếu mượn thiết bị</h2>
+          <p className="text-xs text-slate-500">
             Quản lý phiếu mượn, theo dõi trạng thái trả thiết bị
           </p>
         </div>
@@ -431,31 +431,39 @@ export default function EquipmentsHistory({
       </div>
 
       <div className="mb-1 px-6 py-2">
-        <div className="flex items-center justify-end gap-3">
-          <HoverSearch
-            placeholder="Tìm theo mô tả, ghi chú..."
-            value={searchValue}
-            onChange={(v) => setSearchQuery(v)}
-          />
-          <Select
-            value={statusValue ?? 'all'}
-            onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}
-          >
-            <SelectTrigger className="w-[140px] gap-2 bg-white text-sm text-gray-500">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              {BORROWING_STATUS_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="secondary" className="bg-white" onClick={resetFiltersQuery} type="button">
-            <RotateCcw className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center justify-end gap-3 flex-wrap">
+          <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+            <HoverSearch
+              placeholder="Tìm theo mô tả, ghi chú..."
+              value={searchValue}
+              onChange={(v) => setSearchQuery(v)}
+            />
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
+              <Select
+                value={statusValue ?? 'all'}
+                onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}
+              >
+                <SelectTrigger className="w-[180px] gap-2 bg-white text-sm text-gray-500">
+                  <SelectValue placeholder="Chọn trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  {BORROWING_STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFiltersQuery} type="button" title="Đặt lại bộ lọc">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 

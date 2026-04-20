@@ -36,3 +36,24 @@ export function getRoleBadgeClass(roleId: number | null | undefined): string {
   if (roleId == null) return 'bg-slate-100 text-slate-600 border-slate-200';
   return ROLE_BADGE_CLASS[roleId] ?? 'bg-slate-100 text-slate-600 border-slate-200';
 }
+
+/**
+ * Maps staffRole string to roleId number for use with role utilities.
+ * Used to convert assignment staffRole strings to standardized role IDs.
+ */
+export function getStaffRoleId(staffRole: string | null | undefined): number | null {
+  if (!staffRole) return null;
+  const normalized = String(staffRole).toLowerCase().trim();
+  
+  // Teacher patterns
+  if (normalized.includes('teacher') || normalized.includes('giảng viên') || normalized.includes('gv')) {
+    return ROLE_ID.TEACHER;
+  }
+  
+  // Assistant/Student patterns
+  if (normalized.includes('ta') || normalized.includes('trợ giảng') || normalized.includes('sinh viên') || normalized.includes('assistant')) {
+    return ROLE_ID.ASSISTANT;
+  }
+  
+  return null;
+}

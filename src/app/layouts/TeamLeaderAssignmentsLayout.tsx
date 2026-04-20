@@ -17,7 +17,7 @@ export default function TeamLeaderAssignmentsLayout() {
       {!isDetailRoute ? (
         <>
           <div className="bg-white px-6 py-4 mb-0 rounded-2xl border border-slate-200 shadow-sm">
-            <h2 className="text-xl font-semibold text-black">Trung tâm phê duyệt</h2>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Trung tâm phê duyệt</h2>
             <p className="text-xs text-gray-500">Quản lý phê duyệt yêu cầu và phê duyệt phân công</p>
           </div>
 

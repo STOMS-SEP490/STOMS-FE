@@ -102,14 +102,17 @@ export default function WalletsManagement() {
   if (context.position === 'toolbar') {
     return (
       <div className="flex gap-3">
-        <HoverSearch
-          placeholder="Tìm theo tên quỹ..."
-          value={search}
-          onChange={setSearch}
-        />
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+          <HoverSearch
+            placeholder="Tìm theo tên quỹ..."
+            value={search}
+            onChange={setSearch}
+          />
+        </div>
         <Button
-          variant="secondary"
-          className="bg-white"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
           onClick={() => {
             setSearch('');
             setPageNumber(1);

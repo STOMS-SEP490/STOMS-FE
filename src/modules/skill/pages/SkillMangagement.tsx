@@ -241,7 +241,7 @@ export default function SkillsManagement() {
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý kỹ năng</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý kỹ năng</h2>
           <p className="text-xs text-gray-500">Quản lý các kỹ năng trong hệ thống</p>
         </div>
 
