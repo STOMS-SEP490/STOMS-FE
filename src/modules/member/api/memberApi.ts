@@ -120,6 +120,31 @@ const memberApi = {
       taxNumber: payload.taxNumber ?? '',
     });
   },
+
+  /** POST /members (admin) — tạo member + user từ email */
+  createMemberAdmin: async (payload: {
+    email: string;
+    fullName: string;
+    roleId: number;
+    phone?: string;
+    address?: string;
+    cin?: string;
+    bankCode?: string;
+    bankName?: string;
+    taxNumber?: string;
+  }) => {
+    return axiosClient.post('/members', {
+      Email: payload.email,
+      FullName: payload.fullName,
+      RoleId: payload.roleId,
+      Phone: payload.phone ?? null,
+      Address: payload.address ?? null,
+      Cin: payload.cin ?? null,
+      BankCode: payload.bankCode ?? null,
+      BankName: payload.bankName ?? null,
+      TaxNumber: payload.taxNumber ?? null,
+    });
+  },
 };
 
 export default memberApi;
