@@ -121,7 +121,7 @@ export default function TopicsReadonlyPage() {
       {
         accessorKey: 'topicName',
         header: 'Tên chủ đề',
-        cell: ({ row }) => <div className="font-medium text-gray-900 truncate">{row.original.topicName || '—'}</div>,
+        cell: ({ row }) => <div className="font-medium text-[#1a7a99] truncate">{row.original.topicName || '—'}</div>,
       },
       {
         accessorKey: 'description',

@@ -123,7 +123,7 @@ export default function CategoriesManagement() {
       header: 'Tên danh mục',
       cell: ({ row }) => (
         <div>
-          <div className="font-medium">{row.original.categoryName}</div>
+          <div className="font-medium text-[#1a7a99]">{row.original.categoryName}</div>
         </div>
       ),
     },
@@ -137,7 +137,7 @@ export default function CategoriesManagement() {
       cell: ({ row }) => {
         const item = row.original;
         const count = Number(item.totalEquipment ?? 0);
-        return <span className="font-semibold">{count}</span>;
+        return <span className="font-semibold text-[#1a7a99]">{count}</span>;
       },
     },
     {

@@ -34,13 +34,13 @@ export default function CoursesReadonlyPage() {
       {
         accessorKey: 'courseCode',
         header: 'Mã khóa học',
-        cell: ({ row }) => <span className="font-semibold text-slate-900">{row.original.courseCode}</span>,
+        cell: ({ row }) => <span className="font-semibold text-[#1a7a99]">{row.original.courseCode}</span>,
       },
       {
         accessorKey: 'courseName',
         header: 'Tên khóa học',
         cell: ({ row }) => (
-          <div className="min-w-0 truncate font-medium text-slate-900">{row.original.courseName}</div>
+          <div className="min-w-0 truncate font-medium text-[#1a7a99]">{row.original.courseName}</div>
         ),
       },
       {

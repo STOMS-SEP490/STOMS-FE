@@ -153,7 +153,7 @@ export default function TaskReportsManagement() {
 
       {/* FILTER BAR */}
       <div className="shrink-0 flex justify-end gap-3">
-        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+        <div>
           <HoverSearch placeholder="Tìm theo tên yêu cầu, địa điểm..." value={search} onChange={(v) => { setSearch(v); setPageNumber(1); }} />
         </div>
         <DatePicker
@@ -171,7 +171,7 @@ export default function TaskReportsManagement() {
           onChange={(d) => { setFilterEndDate(d ? d.format('YYYY-MM-DD') : ''); setPageNumber(1); }}
           className="w-[140px]"
         />
-        <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFilters}>
+        <Button variant="outline" size="icon" className="h-9 w-9" onClick={resetFilters}>
           <RotateCcw size={16} />
         </Button>
       </div>

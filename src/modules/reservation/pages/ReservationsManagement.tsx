@@ -217,7 +217,7 @@ export default function ReservationsManagement() {
       {
         accessorKey: 'ReservationId',
         header: 'Mã đặt trước',
-        cell: ({ row }) => <span className="font-medium">#{row.original.ReservationId}</span>,
+        cell: ({ row }) => <span className="font-medium text-[#1a7a99]">#{row.original.ReservationId}</span>,
       },
       {
         id: 'createdBy',
@@ -241,7 +241,7 @@ export default function ReservationsManagement() {
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-medium text-slate-900 truncate">{u?.FullName ?? '—'}</div>
+                <div className="font-medium text-[#1a7a99] truncate">{u?.FullName ?? '—'}</div>
                 <div className="text-xs text-muted-foreground truncate" title={sub}>
                   {sub}
                 </div>
@@ -296,7 +296,7 @@ export default function ReservationsManagement() {
 
           return (
             <div>
-              <div className="font-medium">{formatDateOnly(due)}</div>
+              <div className="font-medium text-[#1a7a99]">{formatDateOnly(due)}</div>
               <div className={`text-xs ${subClass}`}>{subLine}</div>
             </div>
           );
@@ -312,14 +312,14 @@ export default function ReservationsManagement() {
             const totalNum = Number(totalRaw);
             if (Number.isFinite(totalNum) && totalNum >= 0) {
               return (
-                <span className="font-medium tabular-nums text-slate-900">{totalNum}</span>
+                <span className="font-medium tabular-nums text-[#1a7a99]">{totalNum}</span>
               );
             }
           }
           const list = r.EquipmentReservations;
           if (Array.isArray(list)) {
             return (
-              <span className="font-medium tabular-nums text-slate-900">{list.length}</span>
+              <span className="font-medium tabular-nums text-[#1a7a99]">{list.length}</span>
             );
           }
           return (

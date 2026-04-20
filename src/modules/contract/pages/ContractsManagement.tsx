@@ -36,7 +36,7 @@ const columns: ColumnDef<ContractListItem>[] = [
     accessorKey: 'contractCode',
     header: 'Mã hợp đồng',
     cell: ({ row }) => (
-      <span className="font-semibold text-gray-900">
+      <span className="font-semibold text-[#1a7a99]">
         {row.original.contractCode}
       </span>
     ),
@@ -71,7 +71,7 @@ const columns: ColumnDef<ContractListItem>[] = [
     cell: ({ row }) => {
       const code = row.original.request?.requestCode;
       return code ? (
-        <span className="font-semibold text-gray-900">{code}</span>
+        <span className="font-semibold text-[#1a7a99]">{code}</span>
       ) : (
         '—'
       );

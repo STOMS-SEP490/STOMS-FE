@@ -155,7 +155,7 @@ export default function UserProfile() {
           </CardHeader>
           <CardContent>
             <Button
-              className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+              className="bg-[#1a7a99] hover:bg-[#156a85] text-white"
               onClick={() => navigate('/login')}
             >
               Đăng nhập
@@ -471,7 +471,7 @@ export default function UserProfile() {
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="rounded-2xl border border-teal-800 bg-teal-700 shadow-sm px-6 py-5">
+        <div className="rounded-2xl border border-[#156a85] bg-[#1a7a99] shadow-sm px-6 py-5">
           <h1 className="text-xl sm:text-2xl font-semibold text-white">Hồ sơ người dùng</h1>
           <p className="mt-1 text-sm text-white/80">
             Quản lý thông tin cá nhân và bảo mật tài khoản.
@@ -667,7 +667,7 @@ export default function UserProfile() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Member ID" value={memberDetail.memberId} />
+                <Field label="Mã thành viên" value={memberDetail.memberId} />
                 <div>
                   <Label className="text-xs text-slate-500 mb-1">Họ và tên</Label>
                   {editingMember ? (
