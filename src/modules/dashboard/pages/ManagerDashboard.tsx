@@ -610,7 +610,7 @@ export default function ManagerDashboard() {
                   Phân bố vai trò
                 </p>
                 <p className="text-sm text-gray-600">
-                  Số lượng user theo từng role
+                  Số lượng người dùng theo từng vai trò
                 </p>
               </div>
               <PieChart className="h-5 w-5 text-indigo-500" />
@@ -1213,10 +1213,10 @@ export default function ManagerDashboard() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Team theo chủ đề
+                  Các nhóm theo chủ đề
                 </p>
                 <p className="text-sm text-gray-600">
-                  Phân bố số lượng team theo từng topic
+                  Phân bố số lượng nhóm theo từng chủ đề
                 </p>
               </div>
             </div>
@@ -1241,7 +1241,7 @@ export default function ManagerDashboard() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu team/topic.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu nhóm/chủ đề.</p>
             )}
           </div>
         </div>
@@ -1289,7 +1289,7 @@ export default function ManagerDashboard() {
                 <p className="text-xs font-semibold text-gray-500 uppercase">
                   Môn học theo chủ đề
                 </p>
-                <p className="text-sm text-gray-600">Phân bố số môn học theo topic</p>
+                <p className="text-sm text-gray-600">Phân bố số môn học theo chủ đề</p>
               </div>
             </div>
             {subjectTopicData.length > 0 ? (
@@ -1308,7 +1308,7 @@ export default function ManagerDashboard() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu môn học theo topic.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu môn học theo chủ đề.</p>
             )}
           </div>
 
