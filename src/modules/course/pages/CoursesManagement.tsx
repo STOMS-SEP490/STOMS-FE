@@ -443,8 +443,8 @@ export default function CoursesManagement({ readOnly = false }: Props) {
     <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
       <div className="flex shrink-0 items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý giáo trình</h2>
-          <p className="text-xs text-gray-500">Quản lý khóa học trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý giáo trình</h2>
+          <p className="text-xs text-slate-500">Quản lý khóa học trong hệ thống</p>
         </div>
         {canEdit && (
           <Button
@@ -491,30 +491,38 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       <div className="shrink-0 px-2 py-1">
         {!isManager ? (
           <div className="flex gap-3 items-center justify-end">
-            <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
+            <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+              <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={(value) => setSearch(value)} />
-            <div className="flex items-center gap-3">
-              <Select
-                value={statusFilter}
-                onValueChange={(v) =>
-                  setFiltersAndResetPage({
-                    statusFilter: v as CourseListStatusFilter,
-                  })
-                }
-              >
-                <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px] border-slate-200">
-                  <SelectValue placeholder="Tất cả trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                  <SelectItem value="active">Đang hoạt động</SelectItem>
-                  <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="secondary" className="bg-white h-9 border-slate-200" onClick={resetFilters} type="button">
+            <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+              <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={(value) => setSearch(value)} />
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
+                <Select
+                  value={statusFilter}
+                  onValueChange={(v) =>
+                    setFiltersAndResetPage({
+                      statusFilter: v as CourseListStatusFilter,
+                    })
+                  }
+                >
+                  <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                    <SelectItem value="active">Đang hoạt động</SelectItem>
+                    <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFilters} type="button" title="Đặt lại bộ lọc">
                 <RotateCcw className="w-4 h-4" />
               </Button>
             </div>

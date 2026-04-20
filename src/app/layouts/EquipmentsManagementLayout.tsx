@@ -33,7 +33,7 @@ export default function EquipmentsLayout() {
       {/* HEADER */}
       <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý thiết bị</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý thiết bị</h2>
           <p className="text-xs text-gray-500">Quản lý thiết bị và loại thiết bị trong hệ thống</p>
         </div>
         <div className="flex gap-3 items-center">

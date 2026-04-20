@@ -176,7 +176,7 @@ export default function RoleSidebar({ menus, profilePath }: RoleSidebarProps) {
               <LayoutGrid className="h-[18px] w-[18px]" />
             </Button>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">STOMS</p>
+              <p className="truncate text-sm font-semibold text-[#1a7a99]">STOMS</p>
             </div>
             <div className="ml-auto">
               <NotificationBell />
@@ -346,7 +346,7 @@ export default function RoleSidebar({ menus, profilePath }: RoleSidebarProps) {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 text-left">
-                <p className="truncate text-sm font-medium text-slate-900">{memberName || 'Tài khoản'}</p>
+                <p className="truncate text-sm font-medium text-[#1a7a99]">{memberName || 'Tài khoản'}</p>
                 <p className="truncate text-xs text-slate-500">
                   {userEmail || 'Chưa cập nhật email'}
                 </p>

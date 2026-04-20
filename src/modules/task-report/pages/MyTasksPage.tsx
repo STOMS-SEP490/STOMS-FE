@@ -89,7 +89,7 @@ export default function MyTasksPage() {
           const code = row.original.Request?.RequestCode;
           return (
             <div className="min-w-0">
-              <p className="truncate font-medium text-slate-900 max-w-[200px]">{name ?? '—'}</p>
+              <p className="truncate font-medium text-[#1a7a99] max-w-[200px]">{name ?? '—'}</p>
               {code && <p className="text-[11px] text-slate-500">{code}</p>}
             </div>
           );
@@ -99,7 +99,7 @@ export default function MyTasksPage() {
         id: 'sessionNo',
         header: 'Buổi',
         cell: ({ row }) => (
-          <span className="font-semibold text-slate-900">Buổi {row.original.SessionNo}</span>
+          <span className="font-semibold text-[#1a7a99]">Buổi {row.original.SessionNo}</span>
         ),
       },
       {
@@ -173,7 +173,7 @@ export default function MyTasksPage() {
     >
       {/* HEADER */}
       <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">Báo cáo công việc</h2>
         <p className="text-xs text-gray-500">
           Danh sách buổi của bạn. Click vào buổi để xem và ghi báo cáo công việc.
         </p>

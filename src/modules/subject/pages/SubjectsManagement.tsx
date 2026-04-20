@@ -584,8 +584,8 @@ export default function SubjectsManagement() {
     <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
       <div className="flex shrink-0 items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý môn học</h2>
-          <p className="text-xs text-gray-500">Quản lý môn học và buổi học trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý môn học</h2>
+          <p className="text-xs text-slate-500">Quản lý môn học và buổi học trong hệ thống</p>
         </div>
         {isManager ? (
           <Button
@@ -631,11 +631,13 @@ export default function SubjectsManagement() {
 
       <div className="shrink-0 px-2 py-1">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-          <HoverSearch
-            placeholder="Tìm môn học..."
-            value={search}
-            onChange={(value) => setSearch(value)}
-          />
+          <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+            <HoverSearch
+              placeholder="Tìm môn học..."
+              value={search}
+              onChange={(value) => setSearch(value)}
+            />
+          </div>
           <Select
             value={topicFilterId == null ? 'all' : String(topicFilterId)}
             onValueChange={(v) => {
@@ -670,8 +672,9 @@ export default function SubjectsManagement() {
               </SelectContent>
             </Select>
             <Button
-              variant="secondary"
-              className="bg-white h-9 border-slate-200"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
               type="button"
               onClick={() => {
                 setSearch('')

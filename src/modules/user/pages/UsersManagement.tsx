@@ -282,8 +282,8 @@ export default function UserManagement() {
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border border-border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý tài khoản</h2>
-          <p className="text-xs text-gray-500">Quản lý tài khoản người dùng trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý tài khoản</h2>
+          <p className="text-xs text-slate-500">Quản lý tài khoản người dùng trong hệ thống</p>
         </div>
 
         <div className="flex gap-3 items-center">
@@ -328,13 +328,14 @@ export default function UserManagement() {
         />
       </div>
 
-      {/* Filter Bar — nhãn rõ Vai trò / Trạng thái (đồng bộ cách đặt tên như trang thành viên: Tất cả nhóm) */}
       <div className="flex justify-end gap-3 mb-2 flex-wrap">
-        <HoverSearch
-          placeholder="Tìm theo email..."
-          value={filterEmail}
-          onChange={setFilterEmailAndResetPage}
-        />
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+          <HoverSearch
+            placeholder="Tìm theo email..."
+            value={filterEmail}
+            onChange={setFilterEmailAndResetPage}
+          />
+        </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Vai trò</span>
@@ -367,7 +368,7 @@ export default function UserManagement() {
             </Select>
           </div>
 
-          <Button variant="secondary" className="bg-white" onClick={handleResetFilters} title="Đặt lại bộ lọc">
+          <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={handleResetFilters} title="Đặt lại bộ lọc">
             <RotateCcw size={16} />
           </Button>
         </div>

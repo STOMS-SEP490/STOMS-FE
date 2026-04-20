@@ -186,7 +186,7 @@ export default function MyTeamPage() {
   return (
     <div className="relative flex flex-col gap-2 p-6 pl-8 pb-8 app-page-bg">
       <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">{teamDetail.teamName}</h2>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">{teamDetail.teamName}</h2>
         <p className="text-xs text-gray-500">
           {teamDetail.members.length} thành viên
           {teamDetail.leaderMemberName ? (

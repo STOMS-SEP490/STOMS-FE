@@ -34,7 +34,7 @@ export function StatCard({ icon, label, value, sub, variant = 'blue', className 
 
       <div>
         <p className="text-xs text-gray-500 uppercase font-semibold">{label}</p>
-        <h2 className="text-xl font-semibold text-black">{value}</h2>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">{value}</h2>
         {sub && <p className="text-xs text-gray-500">{sub}</p>}
       </div>
     </div>

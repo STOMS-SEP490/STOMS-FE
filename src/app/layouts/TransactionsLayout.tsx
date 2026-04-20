@@ -54,7 +54,7 @@ export default function TransactionLayout() {
     <div className="p-6 pl-8 space-y-2 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {/* HEADER */}
       <div className="bg-white px-6 py-4 rounded-xl border shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Quản lý giao dịch</h2>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý giao dịch</h2>
         <p className="text-xs text-gray-500">Quản lý các giao dịch trong hệ thống</p>
       </div>
 

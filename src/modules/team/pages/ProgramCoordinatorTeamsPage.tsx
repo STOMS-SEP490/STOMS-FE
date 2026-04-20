@@ -120,7 +120,7 @@ export default function ProgramCoordinatorTeamsPage() {
     >
       <div className="shrink-0 flex justify-between bg-white px-6 py-4 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Danh sách nhóm</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách nhóm</h2>
           <p className="text-xs text-gray-500">
             Xem toàn bộ nhóm trong hệ thống (chỉ có quyền xem, không thêm/sửa/xóa)
           </p>

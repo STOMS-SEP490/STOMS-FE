@@ -123,7 +123,7 @@ export default function UserDetailDrawer({ open, onClose, userId }: Props) {
                   />
                   <div className="min-w-0 flex-1 space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="truncate text-lg font-semibold tracking-tight text-slate-900">
+                      <h2 className="truncate text-lg font-semibold tracking-tight text-[#1a7a99]">
                         {detail.email}
                       </h2>
                       <Badge
@@ -344,7 +344,7 @@ function Section({
     <section className="space-y-3">
       <div className="flex items-center gap-2.5">
         <Icon className="h-5 w-5 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+        <h3 className="text-sm font-semibold text-[#1a7a99]">{title}</h3>
       </div>
       <div>{children}</div>
     </section>
@@ -391,7 +391,7 @@ function MetaRow({
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#2197C0]/90" aria-hidden />
       <div className="min-w-0 flex-1">
         <div className="text-xs font-medium text-slate-500">{label}</div>
-        <div className="mt-0.5 break-words text-sm font-medium text-slate-900">{value}</div>
+        <div className="mt-0.5 break-words text-sm font-medium text-[#1a7a99]">{value}</div>
       </div>
     </div>
   );

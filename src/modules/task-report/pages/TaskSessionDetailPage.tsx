@@ -12,6 +12,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { getExpenseStatusInfo, EXPENSE_STATUS } from '@/constants/status';
+import { getStaffRoleId, getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 
 import sessionApi from '@/modules/request/api/sessionApi';
 import type { SessionResponse } from '@/modules/request/session.types';
@@ -56,6 +57,7 @@ type MemberSlot = {
   email: string;
   avatarUrl: string | null;
   role: string;
+  roleLabel?: string; // Giảng viên, Sinh viên, TA
 };
 
 type ReportFormState = {
@@ -100,12 +102,18 @@ export default function TaskSessionDetailPage() {
       const mid = sm.MemberId;
       if (!mid || seen.has(mid)) continue;
       seen.add(mid);
+      
+      // Determine role using centralized utilities
+      const roleId = getStaffRoleId(a.StaffRole);
+      const roleLabel = getRoleLabel(roleId);
+      
       result.push({
         memberId: mid,
         fullName: sm.FullName ?? '—',
         email: sm.Email ?? sm.User?.Email ?? '',
         avatarUrl: sm.AvatarUrl ?? null,
         role: a.StaffRole ?? '',
+        roleLabel,
       });
     }
     return result;
@@ -496,7 +504,7 @@ export default function TaskSessionDetailPage() {
             <div className="h-5 w-48 animate-pulse rounded bg-slate-200" />
           ) : (
             <>
-              <h2 className="text-lg font-semibold text-slate-900 truncate">
+              <h2 className="text-lg font-semibold text-[#1a7a99] truncate">
                 Buổi {session?.SessionNo ?? '—'} — {sessionTitle}
               </h2>
               <div className="flex flex-wrap items-center gap-3 mt-0.5 text-xs text-slate-500">
@@ -529,31 +537,55 @@ export default function TaskSessionDetailPage() {
         {/* Left: Reports area */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
           {/* Selected member header + add button */}
-          <div className="shrink-0 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 shadow-sm">
-            <div className="flex items-center gap-3 min-w-0">
-              {selectedMember ? (
-                <>
-                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-sky-100">
-                    <img
-                      src={getAvatarSrc(selectedMember.avatarUrl)}
-                      alt={selectedMember.fullName}
-                      className="h-full w-full object-cover"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR; }}
-                    />
+          {!isManager && rolePrefix !== '/teacher' && (
+            <div className="shrink-0 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 shadow-sm">
+              <div className="flex items-center gap-3 min-w-0">
+                {selectedMember ? (
+                  <>
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-sky-100">
+                      <img
+                        src={getAvatarSrc(selectedMember.avatarUrl)}
+                        alt={selectedMember.fullName}
+                        className="h-full w-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR; }}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#1a7a99] truncate">{selectedMember.fullName}</p>
+                      <p className="text-xs text-slate-500 truncate">{selectedMember.email || selectedMember.role || '—'}</p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Users className="h-5 w-5" />
+                    <span className="text-sm">Chọn thành viên bên phải để xem báo cáo</span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">{selectedMember.fullName}</p>
-                    <p className="text-xs text-slate-500 truncate">{selectedMember.email || selectedMember.role || '—'}</p>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center gap-2 text-slate-400">
-                  <Users className="h-5 w-5" />
-                  <span className="text-sm">Chọn thành viên bên phải để xem báo cáo</span>
-                </div>
+                )}
+              </div>
+              {selectedMember && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="shrink-0 gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white text-xs"
+                  onClick={openAddModal}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Tạo báo cáo
+                </Button>
               )}
             </div>
-            {selectedMember && !isManager && (
+          )}
+
+          {/* Teacher: Simple header with create button */}
+          {rolePrefix === '/teacher' && (
+            <div className="shrink-0 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 shadow-sm">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText className="h-5 w-5 text-sky-600" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[#1a7a99]">Báo cáo công việc của tôi</p>
+                  <p className="text-xs text-slate-500">Quản lý các báo cáo công việc cho buổi này</p>
+                </div>
+              </div>
               <Button
                 type="button"
                 size="sm"
@@ -563,12 +595,12 @@ export default function TaskSessionDetailPage() {
                 <Plus className="h-3.5 w-3.5" />
                 Tạo báo cáo
               </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Reports list */}
           <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
-            {!selectedMember ? (
+            {!selectedMember && rolePrefix !== '/teacher' ? (
               <div className="flex h-full items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="text-center py-12">
                   <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
@@ -587,14 +619,14 @@ export default function TaskSessionDetailPage() {
                 {/* Common Tasks from Request */}
                 {request?.Tasks && request.Tasks.length > 0 && (
                   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-5 py-4">
-                    <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-[#1a7a99] mb-3 flex items-center gap-2">
                       <FileText className="h-4 w-4 text-sky-600" />
                       Công việc chung
                     </h3>
                     <div className="space-y-2">
                       {request.Tasks.map((task, idx) => (
                         <div key={task.TaskId ?? idx} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                          <div className="text-sm font-semibold text-slate-900">{task.Title || '—'}</div>
+                          <div className="text-sm font-semibold text-[#1a7a99]">{task.Title || '—'}</div>
                           {task.Description && (
                             <p className="mt-1 text-xs text-slate-600">{task.Description}</p>
                           )}
@@ -623,7 +655,7 @@ export default function TaskSessionDetailPage() {
                   </div>
                 ) : sortedReports.length > 0 ? (
                   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-5 py-4">
-                    <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-[#1a7a99] mb-3 flex items-center gap-2">
                       <FileText className="h-4 w-4 text-sky-600" />
                       Báo cáo công việc cá nhân
                     </h3>
@@ -639,7 +671,7 @@ export default function TaskSessionDetailPage() {
                                 <div className="text-xs font-medium text-sky-700">
                                   {formatDateRange(r.startAt, r.endAt)}
                                 </div>
-                                <div className="mt-0.5 text-sm font-semibold text-slate-900">{r.title || '—'}</div>
+                                <div className="mt-0.5 text-sm font-semibold text-[#1a7a99]">{r.title || '—'}</div>
                                 <p className="mt-1 text-xs text-slate-600 line-clamp-3">{r.description || '—'}</p>
 
                                 <div className="mt-3 flex items-center justify-between">
@@ -700,7 +732,7 @@ export default function TaskSessionDetailPage() {
                                         >
                                           <div className="flex items-center justify-between gap-3">
                                             <div className="min-w-0 flex-1">
-                                              <p className="text-sm font-medium text-slate-900">{exp.description || `Khoản chi ${idx + 1}`}</p>
+                                              <p className="text-sm font-medium text-[#1a7a99]">{exp.description || `Khoản chi ${idx + 1}`}</p>
                                               <div className="mt-1 flex items-center gap-2">
                                                 <span className="text-xs text-slate-600">Trạng thái:</span>
                                                 <Badge className={`text-[10px] px-2 py-0.5 ${info.className}`}>{info.label}</Badge>
@@ -735,7 +767,7 @@ export default function TaskSessionDetailPage() {
           <div className="shrink-0 border-b border-slate-100 px-4 py-3">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-slate-500" />
-              <h3 className="text-sm font-semibold text-slate-900">Thành viên buổi</h3>
+              <h3 className="text-sm font-semibold text-[#1a7a99]">Thành viên buổi</h3>
               {members.length > 0 && (
                 <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
                   {members.length}
@@ -755,6 +787,9 @@ export default function TaskSessionDetailPage() {
             ) : (
               members.map((m) => {
                 const isSelected = m.memberId === selectedMemberId;
+                const roleId = getStaffRoleId(m.role);
+                const badgeClass = getRoleBadgeClass(roleId);
+                
                 return (
                   <button
                     key={m.memberId}
@@ -775,10 +810,19 @@ export default function TaskSessionDetailPage() {
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-sm font-semibold truncate ${isSelected ? 'text-sky-800' : 'text-slate-900'}`}>
+                      <p className={`text-sm font-semibold truncate ${isSelected ? 'text-sky-800' : 'text-[#1a7a99]'}`}>
                         {m.fullName}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate">{m.email || '—'}</p>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                        {m.email || '—'}
+                      </p>
+                      {!isManager && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${badgeClass}`}>
+                            {m.roleLabel}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </button>
                 );
@@ -820,10 +864,9 @@ export default function TaskSessionDetailPage() {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Tiêu đề *</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Tên công việc*</label>
             <input
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-              placeholder="Ví dụ: Chuẩn bị bài, Giảng phần 1..."
               value={formState.title}
               onChange={(e) => setFormState((p) => ({ ...p, title: e.target.value }))}
             />
@@ -832,7 +875,6 @@ export default function TaskSessionDetailPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700">Mô tả *</label>
             <textarea
               className="w-full min-h-[80px] resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-              placeholder="Nội dung công việc đã làm..."
               value={formState.description}
               onChange={(e) => setFormState((p) => ({ ...p, description: e.target.value }))}
             />

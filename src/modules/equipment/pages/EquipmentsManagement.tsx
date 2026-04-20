@@ -320,60 +320,74 @@ export default function EquipmentsManagement() {
 
   if (context?.position === 'toolbar') {
     return (
-      <div className="flex gap-3 items-center">
-        <HoverSearch
-          placeholder="Tìm tên hoặc mã thiết bị..."
-          value={search}
-          onChange={(value) => setSearch(value)}
-        />
-        <Select
-          value={categoryId?.toString() ?? 'all'}
-          onValueChange={(v) =>
-            setFiltersAndResetPage({
-              categoryId: v === 'all' ? undefined : Number(v),
-            })
-          }
-        >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px] min-w-[180px] max-w-[180px] [&>span]:min-w-0">
-            <SelectValue placeholder="Danh mục" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả danh mục</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.categoryId} value={String(c.categoryId)}>
-                {c.categoryName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={status ?? 'all'}
-          onValueChange={(v) =>
-            setFiltersAndResetPage({
-              status: v === 'all' ? undefined : v,
-            })
-          }
-        >
-          <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px] min-w-[140px] max-w-[140px] [&>span]:min-w-0">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả trạng thái</SelectItem>
-            {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant="secondary"
-          className="bg-white"
-          onClick={resetFilters}
-          type="button"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </Button>
+      <div className="flex gap-3 items-center flex-wrap">
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+          <HoverSearch
+            placeholder="Tìm tên hoặc mã thiết bị..."
+            value={search}
+            onChange={(value) => setSearch(value)}
+          />
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Danh mục</span>
+            <Select
+              value={categoryId?.toString() ?? 'all'}
+              onValueChange={(v) =>
+                setFiltersAndResetPage({
+                  categoryId: v === 'all' ? undefined : Number(v),
+                })
+              }
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                <SelectValue placeholder="Chọn danh mục" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả danh mục</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.categoryId} value={String(c.categoryId)}>
+                    {c.categoryName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
+            <Select
+              value={status ?? 'all'}
+              onValueChange={(v) =>
+                setFiltersAndResetPage({
+                  status: v === 'all' ? undefined : v,
+                })
+              }
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                <SelectValue placeholder="Chọn trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
+            onClick={resetFilters}
+            type="button"
+            title="Đặt lại bộ lọc"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
     )
   }
@@ -383,8 +397,8 @@ export default function EquipmentsManagement() {
       <div className="p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
         <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
           <div>
-            <h2 className="text-xl font-semibold text-black">Quản lý thiết bị</h2>
-            <p className="text-xs text-gray-500">Quản lý thiết bị và loại thiết bị trong hệ thống</p>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý thiết bị</h2>
+            <p className="text-xs text-slate-500">Quản lý thiết bị và loại thiết bị trong hệ thống</p>
           </div>
           <div className="flex gap-3 items-center">
             {isEquipmentManager ? (
@@ -447,60 +461,74 @@ export default function EquipmentsManagement() {
           />
         </div>
 
-        <div className="mb-2 flex items-center justify-end gap-3">
-          <HoverSearch
-            placeholder="Tìm tên hoặc mã thiết bị..."
-            value={search}
-            onChange={(value) => setSearch(value)}
-          />
-          <Select
-            value={categoryId?.toString() ?? 'all'}
-            onValueChange={(v) =>
-              setFiltersAndResetPage({
-                categoryId: v === 'all' ? undefined : Number(v),
-              })
-            }
-          >
-            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px] min-w-[180px] max-w-[180px] [&>span]:min-w-0">
-              <SelectValue placeholder="Danh mục" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả danh mục</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c.categoryId} value={String(c.categoryId)}>
-                  {c.categoryName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={status ?? 'all'}
-            onValueChange={(v) =>
-              setFiltersAndResetPage({
-                status: v === 'all' ? undefined : v,
-              })
-            }
-          >
-            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[140px] min-w-[140px] max-w-[140px] [&>span]:min-w-0">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="secondary"
-            className="bg-white"
-            onClick={resetFilters}
-            type="button"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </Button>
+        <div className="mb-2 flex items-center justify-end gap-3 flex-wrap">
+          <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+            <HoverSearch
+              placeholder="Tìm tên hoặc mã thiết bị..."
+              value={search}
+              onChange={(value) => setSearch(value)}
+            />
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Danh mục</span>
+              <Select
+                value={categoryId?.toString() ?? 'all'}
+                onValueChange={(v) =>
+                  setFiltersAndResetPage({
+                    categoryId: v === 'all' ? undefined : Number(v),
+                  })
+                }
+              >
+                <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                  <SelectValue placeholder="Chọn danh mục" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả danh mục</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.categoryId} value={String(c.categoryId)}>
+                      {c.categoryName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
+              <Select
+                value={status ?? 'all'}
+                onValueChange={(v) =>
+                  setFiltersAndResetPage({
+                    status: v === 'all' ? undefined : v,
+                  })
+                }
+              >
+                <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                  <SelectValue placeholder="Chọn trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
+              onClick={resetFilters}
+              type="button"
+              title="Đặt lại bộ lọc"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border shadow-sm px-6 py-4">

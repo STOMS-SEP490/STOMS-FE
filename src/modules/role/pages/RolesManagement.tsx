@@ -137,8 +137,8 @@ export default function RolesManagement() {
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý vai trò</h2>
-          <p className="text-xs text-gray-500">
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý vai trò</h2>
+          <p className="text-xs text-slate-500">
             Quản lý danh sách vai trò trong hệ thống để gán cho người dùng.
           </p>
         </div>
@@ -165,16 +165,17 @@ export default function RolesManagement() {
         />
       </div>
 
-      {/* FILTER BAR */}
       <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch
-          placeholder="Tìm theo tên vai trò..."
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            setPageNumber(1);
-          }}
-        />
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+          <HoverSearch
+            placeholder="Tìm theo tên vai trò..."
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPageNumber(1);
+            }}
+          />
+        </div>
       </div>
 
       {/* TABLE */}
