@@ -24,6 +24,7 @@ import RequestDetail from '@/modules/request/pages/RequestDetail';
 import MembersManagement from '@/modules/member/pages/MembersManagement';
 import UserProfile from '@/modules/user/pages/UserProfile';
 import TaskReportsManagement from '@/modules/task-report/pages/TaskReportsManagement';
+import TaskSessionDetailPage from '@/modules/task-report/pages/TaskSessionDetailPage';
 import ManagerDashboard from '@/modules/dashboard/pages/ManagerDashboard';
 
 const RequestPlaceholder = () => (
@@ -62,6 +63,7 @@ const ManagerRoutes = [
   { path: 'users', element: <UserManagement /> },
   { path: 'members', element: <MembersManagement /> },
   { path: 'tasks', element: <TaskReportsManagement /> },
+  { path: 'tasks/:sessionId', element: <TaskSessionDetailPage /> },
   { path: 'roles', element: <RolesManagement /> },
   // { path: 'teams', element: <TeamsManagement /> },
   { path: 'contracts', element: <ContractsManagement /> },

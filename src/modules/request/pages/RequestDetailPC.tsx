@@ -21,7 +21,7 @@ import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
-import RequestSessionDetailPanel from './RequestSessionDetailPanel';
+import PCSessionDetailTeamPanel from './PCSessionDetailTeamPanel';
 import sessionService from '../api/sessionApi';
 import requestService from '../api/requestApi';
 
@@ -168,10 +168,19 @@ export default function RequestDetailPC() {
       : null;
   const canCancelDetailSession = (() => {
     if (!resolvedDetailSession) return false;
-    const code = getSessionStatusCode((resolvedDetailSession as any).status);
-    if (code == null) return true;
-    const blocked = new Set<number>([SESSION_STATUS.ONGOING, SESSION_STATUS.COMPLETED, SESSION_STATUS.CANCELLED]);
-    return !blocked.has(code);
+    const reqCode = requestStatusCode;
+    if (
+      reqCode !== REQUEST_STATUS.APPROVED &&
+      reqCode !== REQUEST_STATUS.ASSIGNING &&
+      reqCode !== REQUEST_STATUS.PUBLISHED
+    ) return false;
+    const sc = getSessionStatusCode((resolvedDetailSession as any).status);
+    return (
+      sc === SESSION_STATUS.APPROVED ||
+      sc === SESSION_STATUS.ASSIGNING ||
+      sc === SESSION_STATUS.ASSIGNMENT_REJECTED ||
+      sc === SESSION_STATUS.ASSIGNED
+    );
   })();
 
   const openCancelSessionDialog = () => {
@@ -452,7 +461,7 @@ export default function RequestDetailPC() {
           <TabsContent value="overview" className="space-y-4 mb-0">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-semibold text-slate-900">Danh sách buổi học</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
               </div>
 
               {loading ? (
@@ -715,44 +724,24 @@ export default function RequestDetailPC() {
               <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
                 {request && (
                   <>
-                    <RequestSessionDetailPanel
-                      session={
-                        sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
-                      }
-                      requestId={Number(request.requestId)}
-                      requestCode={request.requestCode ?? ''}
+                    <PCSessionDetailTeamPanel
+                      sessionId={rightPanel.session.sessionId}
+                      requestStatus={request.status}
                       assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
-                      showReservedEquipment={false}
+                      requestCode={request.requestCode ?? ''}
                     />
                   </>
                 )}
-                {resolvedDetailSession ? (
-                  <div className="mt-6 pt-4 border-t border-slate-100">
-                    <div className="relative inline-flex group">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!canCancelDetailSession) {
-                            message.info('Không đủ điều kiện hủy buổi.');
-                            return;
-                          }
-                          openCancelSessionDialog();
-                        }}
-                        className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 ${
-                          canCancelDetailSession
-                            ? 'text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2'
-                            : 'text-slate-400 cursor-not-allowed'
-                        }`}
-                      >
-                        <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
-                        Hủy buổi
-                      </button>
-                      {!canCancelDetailSession ? (
-                        <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
-                          Không đủ điều kiện hủy
-                        </span>
-                      ) : null}
-                    </div>
+                {resolvedDetailSession && canCancelDetailSession ? (
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => openCancelSessionDialog()}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium rounded-sm py-0.5 text-[#7f1d1d] hover:text-[#991b1b] hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1"
+                    >
+                      <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
+                      Hủy buổi
+                    </button>
                   </div>
                 ) : null}
               </div>

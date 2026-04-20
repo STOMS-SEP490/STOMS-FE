@@ -203,7 +203,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             enableSorting: false,
             cell: ({ row }) => (
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-slate-900">
+                <span className="text-sm font-semibold text-[#1a7a99]">
                   {formatDate(row.original.startAt)}
                 </span>
                 <span className="text-xs text-slate-500">{formatTimeRange(row.original.startAt, row.original.endAt)}</span>
@@ -216,7 +216,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             enableSorting: false,
             cell: ({ row }) => (
               <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
-                <div className="text-[13px] font-semibold text-slate-900 line-clamp-2">
+                <div className="text-[13px] font-semibold text-[#1a7a99] line-clamp-2">
                   {row.original.requestName || row.original.requestCode || '—'}
                 </div>
                 <div className="text-[11px] text-slate-500">{getSessionDisplayName(row.original)}</div>
@@ -230,7 +230,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             cell: ({ row }) => (
               <div className="min-w-0 max-w-[180px]">
                 <div className="text-xs text-slate-600 truncate">
-                  <span className="font-semibold text-slate-900">{row.original.requestCode ?? '—'}</span>
+                  <span className="font-semibold text-[#1a7a99]">{row.original.requestCode ?? '—'}</span>
                 </div>
               </div>
             ),
@@ -266,7 +266,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                     <MapPin className="h-4 w-4 text-sky-600 mt-0.5" />
                   )}
                   <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-slate-900 truncate">
+                    <div className="text-[13px] font-semibold text-[#1a7a99] truncate">
                       {row.original.location || '—'}
                     </div>
                     <div className="text-[11px] text-slate-500 truncate">{online ? 'Trực tuyến' : 'Trực tiếp'}</div>
@@ -284,7 +284,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                 type="button"
                 onClick={() => void openDetail(row.original)}
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-sky-600 underline-offset-2 hover:text-sky-800 hover:underline whitespace-nowrap"
-                title="Xem chi tiết buổi học"
+                title="Xem chi tiết buổi"
               >
                 Xem chi tiết
                 <ChevronRight className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
@@ -313,7 +313,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           enableSorting: false,
           cell: ({ row }) => (
             <div className="min-w-0 max-w-[260px] md:max-w-[320px]">
-              <div className="text-[13px] font-semibold text-slate-900 line-clamp-2">
+              <div className="text-[13px] font-semibold text-[#1a7a99] line-clamp-2">
                 {row.original.requestName || row.original.requestCode || '—'}
               </div>
               <div className="text-[11px] text-slate-500">{getSessionDisplayName(row.original)}</div>
@@ -335,7 +335,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           header: 'ĐỊA ĐIỂM',
           cell: ({ row }) => (
             <div className="text-sm text-gray-700">
-              <span className="font-medium text-slate-900">{row.original.location || '—'}</span>
+              <span className="font-medium text-[#1a7a99]">{row.original.location || '—'}</span>
               <span className="text-xs text-gray-500">
                 {' '}
                 • {(row.original.location ?? '').toLowerCase().includes('online') ? 'Trực tuyến' : 'Trực tiếp'}
@@ -347,7 +347,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           ? [
               {
                 id: 'actions',
-                header: 'Điểm danh',
+                header: 'Xác nhận tham gia',
                 enableSorting: false,
                 cell: ({ row }: { row: { original: TeamLeaderTimetableAssignmentRow } }) => {
                   return (() => {
@@ -378,7 +378,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                     const canCheckout =
                       isAttendanceTab && isResponsibleForSession && checkoutAt == null;
 
-                    /** Đã ủy quyền / người khác là người điểm danh: chỉ disable 2 nút (không đổi nội dung ô). */
+                    /** Đã ủy quyền / người khác là người xác nhận: chỉ disable 2 nút (không đổi nội dung ô). */
                     const someoneElseIsDelegate =
                       hasOwnerAssigned && hasValidJwtMemberId && attendanceByMemberId !== jwtMemberId;
 
@@ -400,7 +400,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                 type="button"
                                 disabled
                                 className={checkinDisabledCls}
-                                title="Bạn không còn là người điểm danh buổi này"
+                                title="Bạn không còn là người xác nhận buổi này"
                               >
                                 <LogIn className="h-3 w-3" />
                                 Giờ vào: {formatDateTime(checkinAt ?? undefined)}
@@ -412,10 +412,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               disabled
                               className={checkinDisabledCls}
-                              title="Bạn không còn là người điểm danh buổi này"
+                              title="Bạn không còn là người xác nhận buổi này"
                             >
                               <LogIn className="h-3 w-3" />
-                              Điểm danh vào
+                              Xác nhận vào
                             </button>
                           );
                         }
@@ -426,10 +426,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               onClick={() => void openPanel(row.original, 'checkin')}
                               className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
-                              title="Điểm danh vào cho buổi này"
+                              title="Xác nhận vào cho buổi này"
                             >
                               <LogIn className="h-3 w-3" />
-                              Điểm danh vào
+                              Xác nhận vào
                             </button>
                           );
                         }
@@ -445,7 +445,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         return (
                           <button type="button" disabled className={checkinDisabledCls} title="Chưa có dữ liệu giờ vào">
                             <LogIn className="h-3 w-3" />
-                            Điểm danh vào
+                            Xác nhận vào
                           </button>
                         );
                       }
@@ -476,7 +476,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                                 type="button"
                                 disabled
                                 className={checkoutDisabledCls}
-                                title="Bạn không còn là người điểm danh buổi này"
+                                title="Bạn không còn là người xác nhận buổi này"
                               >
                                 <LogOut className="h-3 w-3" />
                                 Giờ ra: {formatDateTime(checkoutAt ?? undefined)}
@@ -488,10 +488,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               disabled
                               className={checkoutDisabledCls}
-                              title="Bạn không còn là người điểm danh buổi này"
+                              title="Bạn không còn là người xác nhận buổi này"
                             >
                               <LogOut className="h-3 w-3" />
-                              Điểm danh ra
+                              Xác nhận ra
                             </button>
                           );
                         }
@@ -502,10 +502,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                               type="button"
                               onClick={() => void openPanel(row.original, 'checkout')}
                               className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
-                              title="Điểm danh ra cho buổi này"
+                              title="Xác nhận ra cho buổi này"
                             >
                               <LogOut className="h-3 w-3" />
-                              Điểm danh ra
+                              Xác nhận ra
                             </button>
                           );
                         }
@@ -521,7 +521,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
                         return (
                           <button type="button" disabled className={checkoutDisabledCls} title="Chưa có dữ liệu giờ ra">
                             <LogOut className="h-3 w-3" />
-                            Điểm danh ra
+                            Xác nhận ra
                           </button>
                         );
                       }
@@ -573,7 +573,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
               type="button"
               onClick={() => void openDetail(row.original)}
               className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:underline underline-offset-2 whitespace-nowrap"
-              title="Xem chi tiết buổi học"
+              title="Xem chi tiết buổi"
             >
               Xem chi tiết
               <ChevronRight className="h-4 w-4 shrink-0 text-sky-700 opacity-80" aria-hidden />
@@ -605,7 +605,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             <div>
               <h2
                 className={cn(
-                  'font-semibold text-slate-900',
+                  'font-semibold text-[#1a7a99]',
                   isTeacherRoute ? 'text-xl' : 'text-2xl',
                 )}
               >
@@ -723,7 +723,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
               <div className="min-w-0 pr-2">
                 <div className="text-xs text-gray-400 uppercase tracking-wide">Chi tiết buổi</div>
-                <h3 className="mt-1 text-lg font-semibold text-slate-900 leading-snug">
+                <h3 className="mt-1 text-lg font-semibold text-[#1a7a99] leading-snug">
                   {getSessionPanelTitle(detailSession, detailRequest?.requestName)}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">

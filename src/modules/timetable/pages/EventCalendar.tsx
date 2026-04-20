@@ -475,7 +475,7 @@ export default function EventCalendar() {
   return (
     <div
       ref={calendarContainerRef}
-      className="event-calendar-page flex flex-col app-page-bg overflow-hidden p-3 md:p-4"
+      className="event-calendar-page flex flex-col app-page-bg overflow-hidden p-3 pl-8 md:p-4 md:pl-8"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       <div className="relative flex flex-1 min-h-0 gap-4">
@@ -581,10 +581,10 @@ export default function EventCalendar() {
         >
             <div className="mb-3 flex w-full min-w-0 items-center justify-between">
               <div className="flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-sky-700" />
+              <CalendarClock className="h-4 w-4 text-[#2197C0]" />
               <h3 className="text-sm font-semibold text-slate-900">Lịch sắp tới</h3>
               </div>
-              <span className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
+              <span className="inline-flex items-center rounded-full bg-[#2197C0]/10 px-2.5 py-1 text-[11px] font-semibold text-[#2197C0]">
                 {isTeacherTimetable ? teacherUpcomingCards.length : upcomingSessions.length}
               </span>
               <button
@@ -730,7 +730,7 @@ export default function EventCalendar() {
                         className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
                           session.isOngoing
                             ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : 'border-sky-200 bg-sky-50 text-sky-700'
+                            : 'border-[#2197C0]/30 bg-[#2197C0]/10 text-[#2197C0]'
                         }`}
                       >
                         {session.isOngoing ? 'Đang diễn ra' : 'Sắp tới'}

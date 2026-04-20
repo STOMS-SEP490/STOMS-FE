@@ -496,12 +496,12 @@ export default function ReservationsManagement() {
 
   return (
     <div
-      className="space-y-6 p-6 app-page-bg"
+      className="space-y-6 p-6 pl-8 app-page-bg"
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
       <div className="mb-2 rounded-xl border bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Đơn yêu cầu thiết bị</h2>
-        <p className="text-xs text-gray-500">
+        <h2 className="text-xl font-semibold text-[#1a7a99]">Đơn yêu cầu thiết bị</h2>
+        <p className="text-xs text-slate-500">
           Quản lý đơn yêu cầu thiết bị trong hệ thống
         </p>
       </div>
@@ -520,22 +520,29 @@ export default function ReservationsManagement() {
       </div>
 
       <div className="mb-1 px-6 py-2">
-        <div className="flex items-center justify-end gap-3">
-          <HoverSearch
-            placeholder="Tìm theo mã đặt trước..."
-            value={reservationIdSearch}
-            onChange={(value) => setReservationIdSearch(value)}
-          />
-          <Select value={cancelFilter} onValueChange={(v) => setCancelFilter(v as typeof cancelFilter)}>
-            <SelectTrigger className="w-[190px] gap-2 bg-white text-sm text-gray-500">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="active">Đang hoạt động</SelectItem>
-              <SelectItem value="cancelled">Tạm hủy</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center justify-end gap-3 flex-wrap">
+          <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+            <HoverSearch
+              placeholder="Tìm theo mã đặt trước..."
+              value={reservationIdSearch}
+              onChange={(value) => setReservationIdSearch(value)}
+            />
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
+              <Select value={cancelFilter} onValueChange={(v) => setCancelFilter(v as typeof cancelFilter)}>
+                <SelectTrigger className="w-[180px] gap-2 bg-white text-sm text-gray-500">
+                  <SelectValue placeholder="Chọn trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="active">Đang hoạt động</SelectItem>
+                  <SelectItem value="cancelled">Tạm hủy</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       </div>
 

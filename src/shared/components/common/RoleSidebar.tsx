@@ -31,7 +31,7 @@ type RoleSidebarProps = {
   menus: RoleSidebarMenuItem[];
 };
 
-export default function RoleSidebar({ menus }: RoleSidebarProps) {
+export default function RoleSidebar({ menus, profilePath }: RoleSidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
@@ -176,7 +176,7 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
               <LayoutGrid className="h-[18px] w-[18px]" />
             </Button>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">STOMS</p>
+              <p className="truncate text-sm font-semibold text-[#1a7a99]">STOMS</p>
             </div>
             <div className="ml-auto">
               <NotificationBell />
@@ -346,7 +346,7 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 text-left">
-                <p className="truncate text-sm font-medium text-slate-900">{memberName || 'Tài khoản'}</p>
+                <p className="truncate text-sm font-medium text-[#1a7a99]">{memberName || 'Tài khoản'}</p>
                 <p className="truncate text-xs text-slate-500">
                   {userEmail || 'Chưa cập nhật email'}
                 </p>
@@ -373,10 +373,15 @@ export default function RoleSidebar({ menus }: RoleSidebarProps) {
 
                 <div className="my-1 h-px bg-slate-200" />
 
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                  <span>Thông báo</span>
-                  <NotificationBell />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => { setAccountOpen(false); navigate(profilePath); }}
+                  className="flex w-full items-center rounded-md px-2 py-2 text-sm font-normal text-slate-700 hover:bg-slate-100"
+                >
+                  Thông tin cá nhân
+                </button>
+
+                <div className="my-1 h-px bg-slate-200" />
 
                 <div className="my-1 h-px bg-slate-200" />
 

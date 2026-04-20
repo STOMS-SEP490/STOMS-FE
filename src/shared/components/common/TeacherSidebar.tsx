@@ -6,7 +6,6 @@ import {
   CalendarDays,
   Star,
   LayoutTemplate,
-  ClipboardList,
   Timer,
   FileText,
   Package,
@@ -23,12 +22,12 @@ export default function TeacherSidebar() {
       { label: 'Hồ sơ', icon: UserCircle, path: '/teacher/profile' },
       {
         kind: 'group',
-        label: 'Thông tin mẫu',
+        label: 'Loại yêu cầu',
         icon: LayoutTemplate,
         children: [
           { label: 'Mẫu sự kiện', icon: Star, path: '/teacher/events' },
           {
-            label: 'Khung chương trình',
+            label: 'Chương trình học',
             icon: BookOpen,
             path: '/teacher/courses',
             matchPrefixPath: '/teacher/courses',
@@ -44,7 +43,6 @@ export default function TeacherSidebar() {
         matchPrefixPath: '/teacher/timetable',
       },
       { label: 'Danh sách buổi đã dạy', icon: Timer, path: '/teacher/teaching-history' },
-      { label: 'Báo cáo công việc', icon: ClipboardList, path: '/teacher/tasks' },
       { label: 'Hợp đồng', icon: FileText, path: '/teacher/contracts' },
       { label: 'Đóng góp quỹ', icon: Wallet, path: '/teacher/fund-contributions' },
       { label: 'Thiết bị', icon: Package, path: '/teacher/equipments' },

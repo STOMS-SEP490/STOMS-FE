@@ -144,9 +144,9 @@ export default function TopicsReadonlyPage() {
   const teamsCount = detailTopic?.teams?.length ?? detailTopic?.teamTopics?.length ?? 0;
 
   return (
-    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
       <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Danh sách chủ đề</h2>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách chủ đề</h2>
         <p className="text-xs text-gray-500">Xem thông tin các chủ đề trong hệ thống</p>
       </div>
 
@@ -211,7 +211,7 @@ export default function TopicsReadonlyPage() {
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <h2 className="truncate text-lg font-semibold tracking-tight text-slate-900">
+                    <h2 className="truncate text-lg font-semibold tracking-tight text-[#1a7a99]">
                       {detailTopic.topicName || '—'}
                     </h2>
                     <Badge

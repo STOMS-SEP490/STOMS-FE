@@ -135,9 +135,9 @@ function SessionAssignmentRow({
                 <span className="text-base font-semibold leading-none">?</span>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-900">Chưa có nhân sự</p>
+                <p className="truncate text-sm font-semibold text-slate-900">Chưa có sinh viên</p>
               <p className="mt-0.5 truncate text-xs text-slate-500">
-                Phân công trống — chờ Trưởng nhóm xử lý
+                Chờ Trưởng nhóm xử lý
               </p>
               </div>
             </div>
@@ -277,7 +277,7 @@ function initialsFromName(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-type TeamSlotLists = { teachers: AssignmentResponse[]; tas: AssignmentResponse[] };
+type TeamSlotLists = { tas: AssignmentResponse[] };
 
 function sortAssignmentsByDisplayOrder(list: AssignmentResponse[]) {
   return [...list].sort((x, y) => {
@@ -293,58 +293,41 @@ function sortAssignmentsByDisplayOrder(list: AssignmentResponse[]) {
 }
 
 function TeamAssignmentsSection({
-  teachers,
   tas,
+  heading = 'Sinh viên',
   reviewMode = false,
   selectedAssignmentIds = [],
   onToggleSelect,
   onRejectAssignment,
-}: TeamSlotLists & {
+}: {
+  tas: AssignmentResponse[];
+  heading?: string;
   reviewMode?: boolean;
   selectedAssignmentIds?: number[];
   onToggleSelect?: (assignment: AssignmentResponse) => void;
   onRejectAssignment?: (assignment: AssignmentResponse) => void;
 }) {
-  if (!teachers.length && !tas.length) return null;
+  if (!tas.length) return null;
   return (
-    <div className="px-3 pb-3 pt-2.5 bg-white/80 space-y-3 border-t border-slate-100/90">
+    <div className="space-y-2 border-t border-slate-200 px-3 pb-3 pt-2.5">
       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
         Nhân sự được phân công
       </p>
-      {teachers.length > 0 ? (
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">Giảng viên</p>
-          <ul className="space-y-2">
-            {teachers.map((a) => (
-              <SessionAssignmentRow
-                key={a.AssignmentId}
-                assignment={a}
-                reviewMode={reviewMode}
-                selected={selectedAssignmentIds.includes(a.AssignmentId)}
-                onToggleSelect={onToggleSelect}
-                onRejectAssignment={onRejectAssignment}
-              />
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {tas.length > 0 ? (
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">Sinh viên</p>
-          <ul className="space-y-2">
-            {tas.map((a) => (
-              <SessionAssignmentRow
-                key={a.AssignmentId}
-                assignment={a}
-                reviewMode={reviewMode}
-                selected={selectedAssignmentIds.includes(a.AssignmentId)}
-                onToggleSelect={onToggleSelect}
-                onRejectAssignment={onRejectAssignment}
-              />
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <div className="space-y-2">
+        <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">{heading}</p>
+        <ul className="space-y-2">
+          {tas.map((a) => (
+            <SessionAssignmentRow
+              key={a.AssignmentId}
+              assignment={a}
+              reviewMode={reviewMode}
+              selected={selectedAssignmentIds.includes(a.AssignmentId)}
+              onToggleSelect={onToggleSelect}
+              onRejectAssignment={onRejectAssignment}
+            />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -419,41 +402,43 @@ export default function RequestDetailTeamSummary({
     void fetchTeams();
   }, [assignedTeamIds, sessionTeamsEmbedded, sessionDetailLoading]);
 
-  const { byTeamId, orphans } = useMemo(() => {
+  const { byTeamId, orphans, teachers } = useMemo(() => {
     const list = sessionAssignments ?? [];
     const byTeamId: Record<number, TeamSlotLists> = {};
-    const orphans: TeamSlotLists = { teachers: [], tas: [] };
+    const orphans: TeamSlotLists = { tas: [] };
+    const teachers: AssignmentResponse[] = [];
 
     for (const t of teams) {
-      byTeamId[t.teamId] = { teachers: [], tas: [] };
+      byTeamId[t.teamId] = { tas: [] };
     }
 
     for (const a of list) {
       const tid = getAssignmentTeamId(a);
-      const slot = isTeacherAssignmentRole(a.StaffRole) ? 'teachers' : 'tas';
+      if (isTeacherAssignmentRole(a.StaffRole)) {
+        teachers.push(a);
+        continue;
+      }
       if (tid != null && byTeamId[tid]) {
-        byTeamId[tid][slot].push(a);
+        byTeamId[tid].tas.push(a);
       } else {
-        orphans[slot].push(a);
+        orphans.tas.push(a);
       }
     }
 
     for (const tid of Object.keys(byTeamId)) {
       const b = byTeamId[Number(tid)];
-      b.teachers = sortAssignmentsByDisplayOrder(b.teachers);
       b.tas = sortAssignmentsByDisplayOrder(b.tas);
     }
-    orphans.teachers = sortAssignmentsByDisplayOrder(orphans.teachers);
+    const sortedTeachers = sortAssignmentsByDisplayOrder(teachers);
     orphans.tas = sortAssignmentsByDisplayOrder(orphans.tas);
 
-    return { byTeamId, orphans };
+    return { byTeamId, orphans, teachers: sortedTeachers };
   }, [sessionAssignments, teams]);
 
   const singleTeamMode = teams.length === 1;
-  const gvFallback = singleTeamMode ? (session.teachersRequired ?? '—') : '—';
   const taFallback = singleTeamMode ? (session.tasRequired ?? '—') : '—';
 
-  const hasOrphans = orphans.teachers.length > 0 || orphans.tas.length > 0;
+  const hasOrphans = orphans.tas.length > 0;
 
   const reviewableAssignments = useMemo(() => {
     if (!reviewMode) return [];
@@ -518,10 +503,15 @@ export default function RequestDetailTeamSummary({
     }
   }, [onApproveAssignment, reviewableAssignments, selectedAssignmentIds]);
 
+  // Với manager flow mới, nếu chưa có team được gắn thì không render block "Nhóm phụ trách"
+  // để tránh trùng/loãng thông tin với panel phân công phía dưới.
+  // NHƯNG nếu đang ở reviewMode (duyệt phân công), luôn hiển thị để duyệt sinh viên
+  if (!loading && !error && teams.length === 0 && !reviewMode) return null;
+
   return (
-    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70 overflow-hidden">
-      <div className="px-4 py-2.5 bg-slate-50/70 flex items-center justify-between gap-3 flex-wrap">
-        <h3 className="font-semibold text-gray-900 text-sm">Nhóm phụ trách</h3>
+    <div className="border border-slate-200 bg-white">
+      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="font-semibold text-gray-900 text-base">Nhóm phụ trách</h3>
         {reviewMode ? (
           <div className="flex items-center gap-3">
             <label className="inline-flex items-center gap-2 cursor-pointer select-none text-[11px] text-slate-600">
@@ -559,40 +549,48 @@ export default function RequestDetailTeamSummary({
           <p className="text-xs text-gray-500">Chưa có thông tin nhóm.</p>
         ) : (
           <>
+            {teachers.length > 0 ? (
+              <div className="border border-slate-200 bg-white">
+                <div className="px-3 py-2 bg-slate-50 border-b border-slate-200">
+                  <p className="text-sm font-semibold text-slate-900"></p>
+                </div>
+                <TeamAssignmentsSection
+                  tas={teachers}
+                  heading="Giảng viên"
+                  reviewMode={reviewMode}
+                  selectedAssignmentIds={selectedAssignmentIds}
+                  onToggleSelect={toggleSelectAssignment}
+                  onRejectAssignment={onRejectAssignment}
+                />
+              </div>
+            ) : null}
             {teams.map((team) => {
-              const slots = byTeamId[team.teamId] ?? { teachers: [], tas: [] };
+              const slots = byTeamId[team.teamId] ?? { tas: [] };
               return (
                 <div
                   key={team.teamId}
-                  className="rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-sm"
+                  className="border border-slate-200 bg-white"
                 >
-                  <div className="flex items-center justify-between gap-3 text-sm text-gray-800 bg-gradient-to-r from-slate-50/90 to-sky-50/30 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3 text-sm text-gray-800 bg-slate-50 px-3 py-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80 text-sky-600 shadow-sm">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-white text-slate-600 border border-slate-200">
                         <Users className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-black truncate">{team.teamName}</p>
-                        <p className="text-xs text-gray-500">Nhóm đã gắn</p>
+                        <p className="font-semibold text-slate-900 truncate">{team.teamName}</p>
+                        <p className="text-xs text-slate-500">Nhóm phụ trách</p>
                       </div>
                     </div>
-                    <div className="text-right text-xs text-gray-600 shrink-0">
-                      <p>
-                        Giảng viên:{' '}
-                        <span className="font-semibold text-black">
-                          {team.embedTeachers ?? gvFallback}
-                        </span>
-                      </p>
+                    <div className="text-right text-xs text-slate-600 shrink-0">
                       <p>
                         Sinh viên:{' '}
-                        <span className="font-semibold text-black">
+                        <span className="font-semibold text-slate-900">
                           {team.embedTas ?? taFallback}
                         </span>
                       </p>
                     </div>
                   </div>
                   <TeamAssignmentsSection
-                    teachers={slots.teachers}
                     tas={slots.tas}
                     reviewMode={reviewMode}
                     selectedAssignmentIds={selectedAssignmentIds}
@@ -603,9 +601,11 @@ export default function RequestDetailTeamSummary({
               );
             })}
             {hasOrphans ? (
-              <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/20 overflow-hidden">
+              <div className="border border-dashed border-amber-300 bg-amber-50/30 overflow-hidden">
+                <div className="px-3 py-2 border-b border-amber-200/80">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Sinh viên chưa gắn nhóm</p>
+                </div>
                 <TeamAssignmentsSection
-                  teachers={orphans.teachers}
                   tas={orphans.tas}
                   reviewMode={reviewMode}
                   selectedAssignmentIds={selectedAssignmentIds}

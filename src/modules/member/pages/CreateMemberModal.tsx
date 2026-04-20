@@ -2,9 +2,6 @@ import { useState, useEffect } from 'react';
 import { message } from 'antd';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import memberApi from '@/modules/member/api/memberApi';
-import { teamApi } from '@/modules/team/api/teamApi';
-import type { Team } from '@/modules/team/team';
-import type { Member } from '@/modules/member/member';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Label } from '@/shared/components/ui/label';
@@ -16,13 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select';
-import { cn } from '@/shared/lib/utils';
-import { Check, Square } from 'lucide-react';
-
-/** Tài khoản đang hoạt động: BE trả `false` khi đã vô hiệu hóa; thiếu field coi như active (giống MembersManagement). */
-function isMemberAccountActive(m: Member): boolean {
-  return m.isActive !== false;
-}
+import { ROLE_ID, ROLE_MAP } from '@/constants/role';
 
 type Props = {
   open: boolean;
@@ -31,71 +22,66 @@ type Props = {
 };
 
 export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
-  const [teamId, setTeamId] = useState<string>('');
-  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [memberSearch, setMemberSearch] = useState('');
   const [error, setError] = useState('');
 
+  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [roleId, setRoleId] = useState<number>(ROLE_ID.TEACHER);
+
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [cin, setCin] = useState('');
+  const [bankCode, setBankCode] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [taxNumber, setTaxNumber] = useState('');
+
   useEffect(() => {
-    if (open) {
-      teamApi.getTeams({ pageSize: 500 }).then((res) => setTeams(res.items ?? []));
-      memberApi
-        .getMembers({ pageSize: 500 })
-        .then((res) => setMembers((res.items ?? []).filter(isMemberAccountActive)));
-    }
+    if (!open) return;
+    // reset mỗi lần mở modal để tránh lưu state cũ
+    setError('');
+    setEmail('');
+    setFullName('');
+    setRoleId(ROLE_ID.TEACHER);
+    setPhone('');
+    setAddress('');
+    setCin('');
+    setBankCode('');
+    setBankName('');
+    setTaxNumber('');
   }, [open]);
-
-  const handleToggleMember = (memberId: number) => {
-    setSelectedMemberIds((prev) =>
-      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
-    );
-  };
-
-  const filteredMembers = memberSearch.trim()
-    ? members.filter(
-        (m) =>
-          m.fullName?.toLowerCase().includes(memberSearch.toLowerCase()) ||
-          m.email?.toLowerCase().includes(memberSearch.toLowerCase())
-      )
-    : members;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!teamId) {
-      setError('Vui lòng chọn nhóm');
-      return;
-    }
-    if (selectedMemberIds.length === 0) {
-      setError('Vui lòng chọn ít nhất một thành viên');
-      return;
-    }
+    const e1 = email.trim();
+    const n1 = fullName.trim();
+    if (!e1) return setError('Vui lòng nhập email');
+    if (!n1) return setError('Vui lòng nhập họ tên');
     try {
       setLoading(true);
-      await teamApi.addMembers(Number(teamId), selectedMemberIds);
-      message.success('Thêm thành viên vào nhóm thành công');
-      resetForm();
+      await memberApi.createMemberAdmin({
+        email: e1,
+        fullName: n1,
+        roleId,
+        phone: phone.trim() || undefined,
+        address: address.trim() || undefined,
+        cin: cin.trim() || undefined,
+        bankCode: bankCode.trim() || undefined,
+        bankName: bankName.trim() || undefined,
+        taxNumber: taxNumber.trim() || undefined,
+      });
+      message.success('Tạo thành viên thành công');
       onClose();
       onCreated?.();
     } catch (err: unknown) {
-      message.error(getErrorMessage(err) || 'Thêm thành viên vào nhóm thất bại');
+      message.error(getErrorMessage(err) || 'Tạo thành viên thất bại');
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setTeamId('');
-    setSelectedMemberIds([]);
-    setMemberSearch('');
-    setError('');
-  };
-
   const handleClose = () => {
-    resetForm();
     onClose();
   };
 
@@ -103,76 +89,114 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Thêm thành viên vào nhóm"
-      description="Chọn nhóm và các thành viên cần thêm"
-      className="max-w-md"
+      title="Tạo thành viên"
+      description="Nhập thông tin và chọn vai trò"
+      className="max-w-lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <Label className="text-black font-medium">
-            Nhóm <span className="text-red-500">*</span>
+            Email <span className="text-red-500">*</span>
           </Label>
-          <Select value={teamId || undefined} onValueChange={setTeamId}>
-            <SelectTrigger className="h-9 w-full text-black border-gray-200">
-              <SelectValue placeholder="Chọn nhóm" />
-            </SelectTrigger>
-            <SelectContent>
-              {teams.map((t) => (
-                <SelectItem key={t.teamId} value={String(t.teamId)} className="text-black">
-                  {t.teamName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="vd: user@gmail.com"
+            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+          />
         </div>
 
         <div className="space-y-1.5">
           <Label className="text-black font-medium">
-            Thành viên <span className="text-red-500">*</span>
+            Họ tên <span className="text-red-500">*</span>
           </Label>
           <Input
-            placeholder="Tìm theo tên hoặc email..."
-            value={memberSearch}
-            onChange={(e) => setMemberSearch(e.target.value)}
-            className="h-9 text-black placeholder:text-gray-500 border-gray-200 mb-1"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="vd: Nguyễn Văn A"
+            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
           />
-          <div
-            className={cn(
-              'border border-gray-200 rounded-md overflow-hidden max-h-[min(280px,45vh)] overflow-y-auto no-scrollbar'
-            )}
-          >
-            {filteredMembers.length === 0 ? (
-              <p className="p-3 text-sm text-gray-500 text-center">Không có thành viên</p>
-            ) : (
-              filteredMembers.map((m) => {
-                const isSelected = selectedMemberIds.includes(m.memberId);
-                return (
-                  <button
-                    key={m.memberId}
-                    type="button"
-                    onClick={() => handleToggleMember(m.memberId)}
-                    className={cn(
-                      'flex items-center gap-2 px-3 py-2 w-full text-left border-b border-gray-100 last:border-0',
-                      isSelected ? 'bg-[#2197C0]/10' : 'hover:bg-gray-50'
-                    )}
-                  >
-                    {isSelected ? (
-                      <Check size={16} className="text-[#2197C0] shrink-0" />
-                    ) : (
-                      <Square size={16} className="text-gray-400 shrink-0" />
-                    )}
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm text-black truncate">{m.fullName}</span>
-                      <span className="text-xs text-gray-500 truncate">{m.email}</span>
-                    </div>
-                  </button>
-                );
-              })
-            )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-black font-medium">
+            Vai trò <span className="text-red-500">*</span>
+          </Label>
+          <Select value={String(roleId)} onValueChange={(v) => setRoleId(Number(v))}>
+            <SelectTrigger className="h-9 w-full text-black border-gray-200">
+              <SelectValue placeholder="Chọn vai trò" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={String(ROLE_ID.TEACHER)} className="text-black">
+                {ROLE_MAP[ROLE_ID.TEACHER]}
+              </SelectItem>
+              <SelectItem value={String(ROLE_ID.ASSISTANT)} className="text-black">
+                {ROLE_MAP[ROLE_ID.ASSISTANT]}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-black font-medium">SĐT</Label>
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Nhập số điện thoại"
+              className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            />
           </div>
-          {selectedMemberIds.length > 0 && (
-            <p className="text-xs text-gray-500">Đã chọn {selectedMemberIds.length} thành viên</p>
-          )}
+          <div className="space-y-1.5">
+            <Label className="text-black font-medium">CCCD/CMND</Label>
+            <Input
+              value={cin}
+              onChange={(e) => setCin(e.target.value)}
+              placeholder="Nhập CCCD/CMND"
+              className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-black font-medium">Địa chỉ</Label>
+          <Input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Nhập địa chỉ"
+            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-black font-medium">Số tài khoản</Label>
+            <Input
+              value={bankCode}
+              onChange={(e) => setBankCode(e.target.value)}
+              placeholder="Nhập số tài khoản"
+              className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-black font-medium">Tên ngân hàng</Label>
+            <Input
+              value={bankName}
+              onChange={(e) => setBankName(e.target.value)}
+              placeholder="Nhập tên ngân hàng"
+              className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-black font-medium">Mã số thuế</Label>
+          <Input
+            value={taxNumber}
+            onChange={(e) => setTaxNumber(e.target.value)}
+            placeholder="Nhập mã số thuế"
+            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+          />
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -185,7 +209,7 @@ export default function CreateMemberModal({ open, onClose, onCreated }: Props) {
             className="flex-1 bg-[#2197C0] hover:bg-[#208AAE] text-white"
             disabled={loading}
           >
-            {loading ? 'Đang thêm...' : 'Thêm vào nhóm'}
+            {loading ? 'Đang tạo...' : 'Tạo thành viên'}
           </Button>
         </div>
       </form>

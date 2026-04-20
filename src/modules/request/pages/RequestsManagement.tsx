@@ -59,7 +59,7 @@ export default function RequestsManagement() {
       accessorKey: 'requestCode',
       header: 'Mã yêu cầu',
       cell: ({ row }) => (
-        <span className="font-semibold">{row.original.requestCode}</span>
+        <span className="font-semibold text-[#1a7a99]">{row.original.requestCode}</span>
       ),
     },
     { accessorKey: 'requestName', header: 'Tên yêu cầu' },
@@ -173,13 +173,13 @@ export default function RequestsManagement() {
   ];
 
   return (
-    <div className="p-6 flex flex-col gap-3 min-h-0 h-full">
+    <div className="p-6 pl-8 flex flex-col gap-3 min-h-0 h-full">
       <div className="flex justify-between bg-white px-6 py-4 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">
+          <h2 className="text-xl font-semibold text-[#1a7a99]">
             Quản lý yêu cầu
           </h2>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500">
             Quản lý danh sách yêu cầu giảng dạy và sự kiện
           </p>
         </div>

@@ -71,9 +71,9 @@ export default function CoursesReadonlyPage() {
   );
 
   return (
-    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+    <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
       <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">Danh sách khóa học</h2>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách khóa học</h2>
         <p className="text-xs text-gray-500">Xem thông tin các khóa học trong hệ thống</p>
       </div>
 

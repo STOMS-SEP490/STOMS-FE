@@ -1,5 +1,7 @@
 import { Copy, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import type { EquipmentListItem } from '../equipment'
+import type { BorrowingListItem } from '@/modules/equipment/borrowing'
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/shared/lib/utils'
 import {
@@ -7,7 +9,9 @@ import {
   getEquipmentStatusDisplay,
 } from '@/constants/equipment'
 import { getEquipmentBorrowingStatusInfo } from '@/constants/status'
+import { getBorrowingStatusColor, getBorrowingStatusDisplay } from '@/constants/borrowing'
 import { Image, message } from 'antd'
+import borrowingApi from '@/modules/equipment/api/borrowingApi'
 
 type Props = {
   open: boolean
@@ -28,6 +32,14 @@ function normalizeUrl(url: string) {
   return `https://${u}`
 }
 
+function borrowingDisplayName(x: BorrowingListItem): string {
+  const name =
+    x.borrowedByMember?.fullName?.trim() ||
+    (x.borrowedByMemberId ? `Member #${x.borrowedByMemberId}` : '') ||
+    ''
+  return name || '—'
+}
+
 async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text)
@@ -45,9 +57,52 @@ export default function EquipmentDetailSidebar({
 }: Props) {
   if (!equipment) return null
 
+  const [historyBorrowings, setHistoryBorrowings] = useState<BorrowingListItem[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
   const handoverUrl = equipment.handoverMinute
     ? normalizeUrl(equipment.handoverMinute)
     : ''
+
+  useEffect(() => {
+    if (!open) return
+    const equipmentId = Number(equipment.equipmentId)
+    if (!Number.isFinite(equipmentId) || equipmentId <= 0) return
+
+    let cancelled = false
+    setLoadingHistory(true)
+
+    const run = async () => {
+      try {
+        const res = await borrowingApi.getBorrowings({ pageNumber: 1, pageSize: 50, equipmentId })
+        if (cancelled) return
+        setHistoryBorrowings(res.items ?? [])
+      } catch {
+        if (cancelled) return
+        setHistoryBorrowings([])
+      } finally {
+        if (cancelled) return
+        setLoadingHistory(false)
+      }
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, equipment.equipmentId])
+
+  const borrowingHistory = useMemo(() => {
+    // ưu tiên mới nhất lên trước (createdAt desc)
+    const arr = historyBorrowings.slice()
+    arr.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return tb - ta
+    })
+    return arr
+  }, [historyBorrowings])
 
   return (
     <>
@@ -73,7 +128,7 @@ export default function EquipmentDetailSidebar({
               <div className="flex items-start justify-between gap-4">
                 {/* Left: title + code (code always right under title) */}
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-semibold text-black truncate">
+                  <h2 className="text-xl font-semibold text-[#1a7a99] truncate">
                     {equipment.equipmentName}
                   </h2>
 
@@ -211,6 +266,57 @@ export default function EquipmentDetailSidebar({
                 </ul>
               ) : (
                 <EmptyState text="Không có lượt mượn hiện tại." />
+              )}
+            </Card>
+
+            <Card title="Lịch sử mượn">
+              {loadingHistory ? (
+                <div className="rounded-xl border bg-gray-50 px-3 py-3 text-sm text-gray-600">Đang tải...</div>
+              ) : borrowingHistory.length > 0 ? (
+                <ul className="space-y-1">
+                  {borrowingHistory.map((h, idx) => {
+                    const borrowingStatusLabel = getBorrowingStatusDisplay(h.status ?? '')
+                    const borrowingStatusClass = getBorrowingStatusColor(h.status ?? '')
+
+                    const key =
+                      (h.borrowingId != null && h.borrowingId > 0 ? `b-${h.borrowingId}-${idx}` : `i-${idx}`)
+
+                    return (
+                      <li
+                        key={key}
+                        className="rounded-xl border bg-white px-3 py-2 flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">
+                            {h.borrowingId ? `Borrowing #${h.borrowingId}` : `Lượt mượn #${idx + 1}`}
+                          </div>
+                          {h.description?.trim() ? (
+                            <div className="text-xs text-gray-600 line-clamp-2">{h.description.trim()}</div>
+                          ) : null}
+                          {h.note?.trim() ? (
+                            <div className="text-xs text-gray-500 line-clamp-2">Ghi chú: {h.note.trim()}</div>
+                          ) : null}
+                          <div className="text-xs text-gray-500">
+                            Người mượn: {borrowingDisplayName(h)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Người cho mượn:{' '}
+                            {h.lentByMember?.fullName?.trim() ||
+                              (h.lentByMemberId ? `Member #${h.lentByMemberId}` : '') ||
+                              '—'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Hạn trả: {formatDateTime(h.returnedDueDate ?? null)} · Tạo lúc:{' '}
+                            {formatDateTime(h.createdAt ?? null)}
+                          </div>
+                        </div>
+                        <Badge className={cn(borrowingStatusClass, 'shrink-0')}>{borrowingStatusLabel}</Badge>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <EmptyState text="Chưa có lịch sử mượn." />
               )}
             </Card>
 

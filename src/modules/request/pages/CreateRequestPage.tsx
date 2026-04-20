@@ -398,7 +398,7 @@ export default function CreateRequestPage() {
       return
     }
     if (sessions.length > 0 && missingSessionTime) {
-      message.error('Vui lòng chọn ngày giờ bắt đầu cho tất cả các buổi học.')
+      message.error('Vui lòng chọn ngày giờ bắt đầu cho tất cả các buổi.')
       return
     }
     const hasPastSessionDate = sessions.some(
@@ -407,12 +407,12 @@ export default function CreateRequestPage() {
         (s.endAt && s.endAt.isBefore(dayjs(), 'minute'))
     )
     if (hasPastSessionDate) {
-      message.error('Ngày giờ của các buổi học không được ở quá khứ.')
+      message.error('Ngày giờ của các buổi không được ở quá khứ.')
       return
     }
     const hasInvalidSessionRange = sessions.some((s) => s.startAt && s.endAt && s.endAt.isBefore(s.startAt))
     if (hasInvalidSessionRange) {
-      message.error('Giờ kết thúc của buổi học không được nhỏ hơn giờ bắt đầu.')
+      message.error('Giờ kết thúc của buổi không được nhỏ hơn giờ bắt đầu.')
       return
     }
 
@@ -467,8 +467,10 @@ export default function CreateRequestPage() {
       bodyStyle: {
         maxHeight: 'calc(100vh - 220px)',
         overflowY: 'auto',
+        scrollbarWidth: 'thin' as const,
+        scrollbarColor: '#CBD5E1 transparent',
       },
-      okText: isEditMode ? 'Cập nhật yêu cầu' : 'Tạo yêu cầu',
+      wrapClassName: '[&_.ant-modal-body::-webkit-scrollbar]:w-1.5 [&_.ant-modal-body::-webkit-scrollbar-track]:bg-transparent [&_.ant-modal-body::-webkit-scrollbar-thumb]:bg-slate-300 [&_.ant-modal-body::-webkit-scrollbar-thumb]:rounded-full',
       cancelText: 'Chỉnh sửa',
       okButtonProps: {
         className:
@@ -611,7 +613,7 @@ export default function CreateRequestPage() {
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                         <span><span className="text-gray-500">Giảng viên:</span> {s.teachersRequired}</span>
-                        <span><span className="text-gray-500">Trợ giảng:</span> {s.tasRequired}</span>
+                        <span><span className="text-gray-500">Sinh viên:</span> {s.tasRequired}</span>
                       </div>
                       {s.notes?.trim() ? (
                         <div className="min-w-0">
@@ -1100,7 +1102,7 @@ export default function CreateRequestPage() {
                   </div>
                   <span className="text-sm font-medium text-gray-400">Chưa có buổi</span>
                   <span className="text-xs text-gray-400 mt-1">
-                    Chọn loại và ngày bắt đầu để sinh các buổi học
+                    Chọn loại và ngày bắt đầu để sinh các buổi
                   </span>
                 </div>
               )}
@@ -1167,7 +1169,7 @@ export default function CreateRequestPage() {
                             // Khi đổi startAt -> tự điền endAt dự tính theo duration.
                             if (!value) return
                             if (value.isBefore(dayjs(), 'minute')) {
-                              message.error('Giờ bắt đầu của buổi học không được ở quá khứ.')
+                              message.error('Giờ bắt đầu của buổi không được ở quá khứ.')
                               return
                             }
                             const end = calculateEndTime(value, s.duration)

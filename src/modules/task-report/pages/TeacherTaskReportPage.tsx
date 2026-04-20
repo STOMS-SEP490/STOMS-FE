@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { taskReportApi } from '../api/taskReportApi';
@@ -117,6 +117,9 @@ function sessionInRange(startAt: string, from: Dayjs | null, to: Dayjs | null): 
 
 export default function TeacherTaskReportPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const rolePrefix = location.pathname.startsWith('/teacher/') ? '/teacher' : '/tl';
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
 
   const [sessions, setSessions] = useState<TeachingHistoryItem[]>([]);
@@ -763,13 +766,13 @@ export default function TeacherTaskReportPage() {
 
   return (
     <div
-      className="flex flex-col p-6 gap-4 app-page-bg overflow-hidden"
+      className="flex flex-col p-6 pl-8 gap-4 app-page-bg overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {/* Header + bộ lọc cùng một thẻ (đồng bộ teacher/events, teaching-history…) */}
       <div className="flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-black">Báo cáo công việc</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Báo cáo công việc</h2>
           <p className="text-xs text-gray-500">
             Ghi báo cáo cho các buổi. Chọn yêu cầu bên trái rồi bấm vào buổi để xem chi tiết.
           </p>
@@ -902,7 +905,7 @@ export default function TeacherTaskReportPage() {
                         <FileText className="text-violet-600" size={18} />
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">Báo cáo chung</div>
+                        <div className="text-sm font-semibold text-[#1a7a99]">Báo cáo chung</div>
                         <div className="text-[11px] text-slate-500 mt-0.5">Báo cáo tổng thể cho toàn bộ yêu cầu</div>
                       </div>
                     </div>
@@ -917,18 +920,13 @@ export default function TeacherTaskReportPage() {
 
                 {/* Session cards */}
                 {selectedGroup.sessions.map((s) => {
-                  const isActive = activeTarget === s.sessionId;
                   const hasReport = hasReportForSession(s.sessionId);
                   return (
                     <button
                       key={s.sessionId}
                       type="button"
-                      onClick={() => setActiveTarget(s.sessionId)}
-                      className={`w-full text-left rounded-2xl border shadow-sm overflow-hidden transition ${
-                        isActive
-                          ? 'bg-sky-50/80 border-sky-300 shadow-md'
-                          : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
-                      }`}
+                      onClick={() => navigate(`${rolePrefix}/tasks/${s.sessionId}`)}
+                      className="w-full text-left rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden transition hover:border-sky-300 hover:shadow-md"
                     >
                       <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-slate-50/80 to-white border-b border-slate-100">
                         <div className="flex items-center gap-3">
@@ -936,7 +934,7 @@ export default function TeacherTaskReportPage() {
                             <span className="text-sm font-bold text-sky-700">{s.sessionNo ?? '?'}</span>
                           </div>
                           <div>
-                            <div className="text-sm font-semibold text-slate-900">Buổi {s.sessionNo ?? s.sessionId}</div>
+                            <div className="text-sm font-semibold text-[#1a7a99]">Buổi {s.sessionNo ?? s.sessionId}</div>
                             <div className="text-[11px] text-slate-500 mt-0.5">
                               {s.sessionTitle || `ID: ${s.sessionId}`}
                             </div>
@@ -979,7 +977,7 @@ export default function TeacherTaskReportPage() {
               <div className="rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                   <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-slate-900 truncate">
+                    <h4 className="text-sm font-semibold text-[#1a7a99] truncate">
                       {isRequestLevelReport
                         ? 'Báo cáo chung'
                         : selectedSession
@@ -1031,7 +1029,7 @@ export default function TeacherTaskReportPage() {
                               <div className="text-xs font-medium text-sky-700">
                                 {formatDateRange(r.startAt, r.endAt)}
                               </div>
-                              <div className="text-sm font-semibold text-slate-900 mt-0.5">{r.title || '—'}</div>
+                              <div className="text-sm font-semibold text-[#1a7a99] mt-0.5">{r.title || '—'}</div>
                               <p className="text-xs text-slate-600 mt-1 line-clamp-3">{r.description || '—'}</p>
 
                               <div className="mt-2 flex items-center justify-between">

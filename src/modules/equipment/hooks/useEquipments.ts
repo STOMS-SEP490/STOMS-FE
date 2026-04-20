@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EquipmentListItem } from '../equipment'
-import equipmentApi from '../api/equipmentApi'
 import type { PaginationResponse } from '@/shared/types/api'
+import { getEquipmentsListCached } from '@/modules/equipment/utils/equipmentListCache'
 
 const SEARCH_DEBOUNCE_MS = 400
 
@@ -15,63 +15,24 @@ function searchLooksLikeEquipmentCode(q: string): boolean {
   return false
 }
 
-type EquipmentListKey = string
-
-function equipmentListKey(
-  pageNumber: number,
-  pageSize: number,
-  equipmentName?: string,
-  equipmentCode?: string,
-  status?: string,
-  categoryId?: number
-): EquipmentListKey {
-  const n = (equipmentName ?? '').trim().toLowerCase()
-  const c = (equipmentCode ?? '').trim().toLowerCase()
-  const st = (status ?? '').trim().toUpperCase()
-  const cat = categoryId ?? ''
-  return `${pageNumber}|${pageSize}|n:${n}|c:${c}|${st}|${cat}`
-}
-
-/** Deduplicate concurrent list requests with the same params (e.g. React StrictMode). */
-const equipmentListInflight = new Map<
-  EquipmentListKey,
-  Promise<PaginationResponse<EquipmentListItem>>
->()
-
 function getEquipmentsListDeduped(
   pageNumber: number,
   pageSize: number,
   equipmentName?: string,
   equipmentCode?: string,
   status?: string,
-  categoryId?: number
+  categoryId?: number,
+  force?: boolean
 ): Promise<PaginationResponse<EquipmentListItem>> {
-  const nameTrim = equipmentName?.trim()
-  const codeTrim = equipmentCode?.trim()
-  const key = equipmentListKey(
+  return getEquipmentsListCached({
     pageNumber,
     pageSize,
-    nameTrim,
-    codeTrim,
+    equipmentName,
+    equipmentCode,
     status,
-    categoryId
-  )
-  const existing = equipmentListInflight.get(key)
-  if (existing) return existing
-  const p = equipmentApi
-    .getEquipments({
-      pageNumber,
-      pageSize,
-      equipmentName: nameTrim || undefined,
-      equipmentCode: codeTrim || undefined,
-      status: status || undefined,
-      categoryId: categoryId ?? undefined,
-    })
-    .finally(() => {
-      equipmentListInflight.delete(key)
-    })
-  equipmentListInflight.set(key, p)
-  return p
+    categoryId,
+    force,
+  })
 }
 
 export function useEquipments() {
@@ -117,12 +78,13 @@ export function useEquipments() {
     (
       mode: 'name' | 'code',
       q: string,
-      page: number
+      page: number,
+      force?: boolean
     ): Promise<PaginationResponse<EquipmentListItem>> => {
       if (mode === 'code') {
-        return getEquipmentsListDeduped(page, pageSize, undefined, q, status, categoryId)
+        return getEquipmentsListDeduped(page, pageSize, undefined, q, status, categoryId, force)
       }
-      return getEquipmentsListDeduped(page, pageSize, q, undefined, status, categoryId)
+      return getEquipmentsListDeduped(page, pageSize, q, undefined, status, categoryId, force)
     },
     [pageSize, status, categoryId]
   )
@@ -218,7 +180,7 @@ export function useEquipments() {
     }
   }, [pageNumber, pageSize, search, status, categoryId, fetchWithMode])
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (force?: boolean) => {
     const qRaw = search.trim()
     const q = qRaw
 
@@ -232,7 +194,8 @@ export function useEquipments() {
           undefined,
           undefined,
           status,
-          categoryId
+          categoryId,
+          force
         )
         setData(res.items ?? [])
         setTotalItems(res.totalItems ?? 0)
@@ -241,9 +204,9 @@ export function useEquipments() {
 
       if (pageNumber === 1) {
         if (searchLooksLikeEquipmentCode(qRaw)) {
-          let res = await fetchWithMode('code', q, 1)
+          let res = await fetchWithMode('code', q, 1, force)
           if (res.totalItems === 0 && (res.items?.length ?? 0) === 0) {
-            res = await fetchWithMode('name', q, 1)
+            res = await fetchWithMode('name', q, 1, force)
             searchModeRef.current = 'name'
           } else {
             searchModeRef.current = 'code'
@@ -253,9 +216,9 @@ export function useEquipments() {
           return
         }
 
-        let res = await fetchWithMode('name', q, 1)
+        let res = await fetchWithMode('name', q, 1, force)
         if (res.totalItems === 0 && (res.items?.length ?? 0) === 0) {
-          res = await fetchWithMode('code', q, 1)
+          res = await fetchWithMode('code', q, 1, force)
           searchModeRef.current = 'code'
         } else {
           searchModeRef.current = 'name'
@@ -266,7 +229,7 @@ export function useEquipments() {
       }
 
       const mode = searchModeRef.current ?? 'name'
-      const res = await fetchWithMode(mode, q, pageNumber)
+      const res = await fetchWithMode(mode, q, pageNumber, force)
       setData(res.items ?? [])
       setTotalItems(res.totalItems ?? 0)
     } catch (err) {

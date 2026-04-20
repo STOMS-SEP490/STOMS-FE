@@ -26,7 +26,7 @@ import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import { useMyTeam } from '../hooks/useMyTeam';
 import type { MemberSkillItem, TeamMemberItem, TeamTopicItem } from '../team';
 
-function roleBadge(roleId: number) {
+function roleBadge(roleId: number | null | undefined) {
   return (
     <Badge className={`${getRoleBadgeClass(roleId)} text-[10px] px-1.5 py-0 leading-normal border`}>
       {getRoleLabel(roleId)}
@@ -142,7 +142,7 @@ export default function MyTeamPage() {
   if (loading) {
     return (
       <div
-        className="flex items-center justify-center p-6 app-page-bg"
+        className="flex items-center justify-center p-6 pl-8 app-page-bg"
         style={{ height: 'var(--content-height, 100vh)' }}
       >
         <Spin size="large" />
@@ -153,7 +153,7 @@ export default function MyTeamPage() {
   if (error) {
     return (
       <div
-        className="p-6 app-page-bg flex flex-col items-center justify-center gap-4"
+        className="p-6 pl-8 app-page-bg flex flex-col items-center justify-center gap-4"
         style={{ height: 'var(--content-height, 100vh)' }}
       >
         <p className="text-sm text-red-600">{error}</p>
@@ -167,7 +167,7 @@ export default function MyTeamPage() {
   if (!teamDetail) {
     return (
       <div
-        className="p-6 app-page-bg flex flex-col min-h-0 overflow-hidden"
+        className="p-6 pl-8 app-page-bg flex flex-col min-h-0 overflow-hidden"
         style={{ height: 'var(--content-height, 100vh)' }}
       >
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center max-w-md mx-auto">
@@ -184,9 +184,9 @@ export default function MyTeamPage() {
   }
 
   return (
-    <div className="relative flex flex-col gap-2 p-6 pb-8 app-page-bg">
+    <div className="relative flex flex-col gap-2 p-6 pl-8 pb-8 app-page-bg">
       <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-black">{teamDetail.teamName}</h2>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">{teamDetail.teamName}</h2>
         <p className="text-xs text-gray-500">
           {teamDetail.members.length} thành viên
           {teamDetail.leaderMemberName ? (

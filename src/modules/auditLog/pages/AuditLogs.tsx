@@ -23,7 +23,7 @@ import { auditLogApi } from '../api/auditLogApi';
 
 const entityTypeLabelMap: Record<string, string> = {
   '1': 'Phân công',
-  '2': 'Điểm danh',
+  '2': 'Xác nhận tham gia',
   '3': 'Buổi đăng nhập',
   '4': 'Phiếu mượn',
   '5': 'Danh mục',
@@ -188,15 +188,14 @@ export default function AuditLogs() {
         return;
       }
 
-      // Attendance / Điểm danh
-      if (
-        normalizedEntityType === '2' ||
-        normalizedEntityType === 'attendance' 
-     
-      ) {
-        navigate(`/tl/attendance/${entityId}`);
-        return;
-      }
+      // Attendance / Xác nhận tham gia - route removed
+      // if (
+      //   normalizedEntityType === '2' ||
+      //   normalizedEntityType === 'attendance' 
+      // ) {
+      //   navigate(`/tl/attendance/${entityId}`);
+      //   return;
+      // }
 
       if (
         normalizedEntityType === '9' ||
@@ -342,11 +341,11 @@ export default function AuditLogs() {
   }, [error]);
 
   return (
-    <div className=" p-6 space-y-6 ">
+    <div className="p-6 pl-8 space-y-6">
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý nhật ký hoạt động</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý nhật ký hoạt động</h2>
           <p className="text-xs text-gray-500">Quản lý nhật ký hoạt động của người dùng</p>
         </div>
 
@@ -429,7 +428,7 @@ export default function AuditLogs() {
             <SelectContent className="max-h-64 overflow-y-auto">
               <SelectItem value="all">Tất cả loại</SelectItem>
               <SelectItem value="1">Phân công</SelectItem>
-              <SelectItem value="2">Điểm danh</SelectItem>
+              <SelectItem value="2">Xác nhận tham gia</SelectItem>
               <SelectItem value="3">Buổi đăng nhập</SelectItem>
               <SelectItem value="4">Phiếu mượn</SelectItem>
               <SelectItem value="5">Danh mục</SelectItem>

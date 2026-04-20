@@ -200,22 +200,24 @@ export default function CategoriesManagement() {
   if (context?.position === 'toolbar') {
     return (
       <div className="flex gap-3">
-        <HoverSearch
-          placeholder="Tìm tên danh mục..."
-          value={search}
-          onChange={(value) => setSearch(value)}
-        />
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+          <HoverSearch
+            placeholder="Tìm tên danh mục..."
+            value={search}
+            onChange={(value) => setSearch(value)}
+          />
+        </div>
       </div>
     );
   }
 
   if (isStandalonePage) {
     return (
-      <div className="p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+      <div className="p-6 pl-8 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
         <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
           <div>
-            <h2 className="text-xl font-semibold text-black">Quản lý danh mục thiết bị</h2>
-            <p className="text-xs text-gray-500">Quản lý danh mục và phân loại thiết bị trong hệ thống</p>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý danh mục thiết bị</h2>
+            <p className="text-xs text-slate-500">Quản lý danh mục và phân loại thiết bị trong hệ thống</p>
           </div>
           <div className="flex gap-3 items-center">
             {isEquipmentManager ? (
@@ -241,11 +243,13 @@ export default function CategoriesManagement() {
         </div>
 
         <div className="mb-2 flex justify-end">
-          <HoverSearch
-            placeholder="Tìm tên danh mục..."
-            value={search}
-            onChange={(value) => setSearch(value)}
-          />
+          <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+            <HoverSearch
+              placeholder="Tìm tên danh mục..."
+              value={search}
+              onChange={(value) => setSearch(value)}
+            />
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border shadow-sm px-6 py-4">

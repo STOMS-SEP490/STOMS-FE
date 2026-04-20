@@ -263,7 +263,7 @@ export default function ContractsManagement() {
   );
 
   return (
-    <div className="relative p-6 space-y-6">
+    <div className="relative p-6 pl-8 space-y-6">
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
           <span className="text-sm text-muted-foreground">Đang tải hợp đồng...</span>
@@ -272,8 +272,8 @@ export default function ContractsManagement() {
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý hợp đồng</h2>
-          <p className="text-xs text-gray-500">Quản lý hợp đồng giảng viên và sinh viên</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý hợp đồng</h2>
+          <p className="text-xs text-slate-500">Quản lý hợp đồng giảng viên và sinh viên</p>
         </div>
 
         {!isManagerPage && (
@@ -318,49 +318,53 @@ export default function ContractsManagement() {
         />
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch
-          value={search}
-          onChange={setSearch}
-          placeholder="Tìm mã hợp đồng/yêu cầu..."
-        />
-        <div className="flex items-center gap-3">
-          {/* Status Filter */}
-          <Select
-            value={
-              isPaid === undefined ? 'all' : isPaid === true ? 'paid' : 'unpaid'
-            }
-            onValueChange={(value) => {
-              if (value === 'all') {
-                setIsPaid(undefined);
-              } else if (value === 'paid') {
-                setIsPaid(true);
-              } else {
-                setIsPaid(false);
+      <div className="flex justify-end gap-3 mb-2 flex-wrap">
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+          <HoverSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Tìm mã hợp đồng/yêu cầu..."
+          />
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
+            <Select
+              value={
+                isPaid === undefined ? 'all' : isPaid === true ? 'paid' : 'unpaid'
               }
-            }}
-          >
-            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white">
-              <SelectValue placeholder="Trạng thái thanh toán" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="paid">Đã thanh toán</SelectItem>
-              <SelectItem value="unpaid">Chưa thanh toán</SelectItem>
-            </SelectContent>
-          </Select>
+              onValueChange={(value) => {
+                if (value === 'all') {
+                  setIsPaid(undefined);
+                } else if (value === 'paid') {
+                  setIsPaid(true);
+                } else {
+                  setIsPaid(false);
+                }
+              }}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                <SelectValue placeholder="Chọn trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="paid">Đã thanh toán</SelectItem>
+                <SelectItem value="unpaid">Chưa thanh toán</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          {/* Reset Button */}
           <Button
-            variant="secondary"
-            className="bg-white"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
             onClick={() => {
               setIsPaid(undefined);
               setPageNumber(1);
             }}
+            title="Đặt lại bộ lọc"
           >
-            <RotateCcw />
+            <RotateCcw size={16} />
           </Button>
         </div>
       </div>

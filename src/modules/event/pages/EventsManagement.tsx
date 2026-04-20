@@ -730,9 +730,9 @@ export default function EventsManagement() {
   return (
     <>
       {readOnly ? (
-        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pb-8">
+        <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
           <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-            <h2 className="text-xl font-semibold text-black">Danh sách sự kiện</h2>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách sự kiện</h2>
             <p className="text-xs text-gray-500">Xem thông tin các sự kiện trong hệ thống</p>
           </div>
 
@@ -778,12 +778,12 @@ export default function EventsManagement() {
           </div>
         </div>
       ) : (
-        <div className="p-6 space-y-6">
+        <div className="p-6 pl-8 space-y-6">
       {/* HEADER */}
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý sự kiện</h2>
-          <p className="text-xs text-gray-500">Quản lý các sự kiện trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý sự kiện</h2>
+          <p className="text-xs text-slate-500">Quản lý các sự kiện trong hệ thống</p>
         </div>
 
         <Button
@@ -827,43 +827,49 @@ export default function EventsManagement() {
         />
       </div>
 
-      {/* FILTER BAR */}
-      <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch
-          value={search}
-          onChange={(v) => {
-            setSearch(v);
-            setPageNumber(1);
-          }}
-          placeholder="Tìm theo tên hoặc mã sự kiện..."
-        />
-        <div className="flex items-center gap-3">
-          <Select
-            value={statusFilter}
-            onValueChange={(v: 'all' | 'active' | 'inactive') => {
-              setStatusFilter(v);
+      <div className="flex justify-end gap-3 mb-2 flex-wrap">
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+          <HoverSearch
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
               setPageNumber(1);
             }}
-          >
-            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[190px] border-slate-200">
-              <SelectValue placeholder="Tất cả trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              <SelectItem value="active">Hoạt động</SelectItem>
-              <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
-            </SelectContent>
-          </Select>
+            placeholder="Tìm theo tên hoặc mã sự kiện..."
+          />
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
+            <Select
+              value={statusFilter}
+              onValueChange={(v: 'all' | 'active' | 'inactive') => {
+                setStatusFilter(v);
+                setPageNumber(1);
+              }}
+            >
+              <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
+                <SelectValue placeholder="Chọn trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="active">Hoạt động</SelectItem>
+                <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <Button
-            variant="secondary"
-            className="bg-white"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
             type="button"
             onClick={() => {
               setSearch('');
               setStatusFilter('all');
               setPageNumber(1);
             }}
+            title="Đặt lại bộ lọc"
           >
             <RotateCcw size={16} />
           </Button>
@@ -911,7 +917,7 @@ export default function EventsManagement() {
                 <h2 className="text-lg font-semibold text-black">
                   {mode === 'create' ? 'Thêm sự kiện' : 'Cập nhật sự kiện'}
                 </h2>
-                <p className="mt-0.5 text-sm text-gray-500">Thiết lập thông tin chung và các buổi học của sự kiện.</p>
+                <p className="mt-0.5 text-sm text-gray-500">Thiết lập thông tin chung và các buổi của sự kiện.</p>
               </div>
               <button
                 onClick={closeUpsert}

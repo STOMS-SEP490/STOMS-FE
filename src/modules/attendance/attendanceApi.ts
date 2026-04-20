@@ -8,6 +8,7 @@ import type {
   AttendanceFilterParams,
   AttendanceFilterResponse,
 } from '@/modules/request/attendance';
+import type { AttendanceResponse } from '@/modules/request/session.types';
 
 const attendanceApi = {
   delegate: (payload: AttendanceDelegatePayload): Promise<void> => {
@@ -25,6 +26,11 @@ const attendanceApi = {
       })),
     });
   },
+  checkInWithImages: (form: FormData): Promise<AttendanceBatchResponse> => {
+    return axiosClient.post<AttendanceBatchResponse, AttendanceBatchResponse>('/attendances/checkin', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   checkOut: (payload: AttendanceCheckOutPayload): Promise<AttendanceBatchResponse> => {
     return axiosClient.post<AttendanceBatchResponse, AttendanceBatchResponse>('/attendances/checkout', {
       SessionId: payload.sessionId,
@@ -32,6 +38,17 @@ const attendanceApi = {
         MemberId: x.memberId,
         Note: x.note ?? null,
       })),
+    });
+  },
+  checkOutWithImages: (form: FormData): Promise<AttendanceBatchResponse> => {
+    return axiosClient.post<AttendanceBatchResponse, AttendanceBatchResponse>('/attendances/checkout', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  reset: (attendanceId: number, payload: { isCheckIn: boolean; note?: string | null }): Promise<AttendanceResponse> => {
+    return axiosClient.post<AttendanceResponse, AttendanceResponse>(`/attendances/${attendanceId}/reset`, {
+      IsCheckIn: payload.isCheckIn,
+      Note: payload.note ?? null,
     });
   },
   getFilter: (params: AttendanceFilterParams = {}): Promise<AttendanceFilterResponse> => {

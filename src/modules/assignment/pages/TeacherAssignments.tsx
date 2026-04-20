@@ -124,7 +124,7 @@ export default function TeacherAssignments() {
   }, [search, pageNumber, pageSize]);
 
   return (
-    <div className="relative p-6 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+    <div className="relative p-6 pl-8 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
       {loading && (
         <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
           <span className="text-sm text-muted-foreground">Đang tải phân công...</span>
@@ -133,7 +133,7 @@ export default function TeacherAssignments() {
 
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Thời khóa biểu & phân công</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Thời khóa biểu & phân công</h2>
           <p className="text-xs text-gray-500">Danh sách phân công; mở lịch khi cần xem dạng lịch.</p>
         </div>
         <div className="flex items-center gap-2">

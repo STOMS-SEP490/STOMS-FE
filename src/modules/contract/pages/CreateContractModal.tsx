@@ -68,7 +68,7 @@ export default function CreateContractModal({
         console.error('fetch sessions for contract error', err);
         const apiMsg = getErrorMessage(err);
         message.error(
-          apiMsg === 'Có lỗi xảy ra' ? 'Không tải được danh sách buổi học phù hợp' : apiMsg,
+          apiMsg === 'Có lỗi xảy ra' ? 'Không tải được danh sách buổi phù hợp' : apiMsg,
         );
       } finally {
         setSessionsLoading(false);
@@ -105,7 +105,7 @@ export default function CreateContractModal({
     }
 
     if (!sessionId) {
-      setError('Vui lòng chọn buổi học để tạo hợp đồng');
+      setError('Vui lòng chọn buổi để tạo hợp đồng');
       return;
     }
 
@@ -148,7 +148,7 @@ export default function CreateContractModal({
       open={open}
       onClose={handleClose}
       title="Tạo hợp đồng"
-      description="Thêm hợp đồng mới cho giảng viên/buổi học"
+      description="Thêm hợp đồng mới"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
@@ -185,10 +185,10 @@ export default function CreateContractModal({
             <Select
               value={sessionId ?? undefined}
               onChange={(value: number) => setSessionId(value)}
-              placeholder="Chọn buổi học"
+              placeholder="Chọn buổi"
               loading={sessionsLoading}
               className="w-full"
-              notFoundContent={sessionsLoading ? <Spin size="small" /> : 'Không có buổi học phù hợp'}
+              notFoundContent={sessionsLoading ? <Spin size="small" /> : 'Không có buổi phù hợp'}
             >
               {sessionOptions.map((item) => (
                 <Select.Option key={item.SessionId} value={item.SessionId}>

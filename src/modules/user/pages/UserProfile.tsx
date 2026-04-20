@@ -455,7 +455,7 @@ export default function UserProfile() {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] text-slate-500 font-medium">{props.label}</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900 truncate">{props.value}</p>
+            <p className="mt-1 text-2xl font-semibold text-[#1a7a99] truncate">{props.value}</p>
             <span className={`mt-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${toneMap[props.tone]}`}>
               {formatPercent(props.changePercent)}
             </span>
@@ -467,7 +467,7 @@ export default function UserProfile() {
 
   return (
     <div
-      className="app-page-bg p-6"
+      className="app-page-bg p-6 pl-8"
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
       <div className="max-w-6xl mx-auto space-y-6">
@@ -646,7 +646,7 @@ export default function UserProfile() {
                     alt=""
                   />
                   <div className="min-w-0 flex-1 space-y-1">
-                    <div className="text-sm font-medium text-slate-900">Ảnh đại diện</div>
+                    <div className="text-sm font-medium text-[#1a7a99]">Ảnh đại diện</div>
                     <div className="text-xs text-slate-500">
                       Hỗ trợ JPG/PNG/WebP · Tối đa 5MB
                     </div>

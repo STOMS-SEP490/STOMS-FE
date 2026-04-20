@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { Calendar, Clock, GraduationCap, Hash, List, MapPin, UserCheck, Users } from 'lucide-react';
-import type { RequestSessionSummary } from '../request';
+import { UserCheck } from 'lucide-react';
 import sessionApi from '@/modules/request/api/sessionApi';
+import type { SessionResponse } from '../session.types';
 import attendanceApi from '@/modules/attendance/api/attendanceApi';
 import type { Attendance } from '@/modules/attendance/attendance';
 import { getAttendanceOwnerId } from '@/shared/utils/attendanceOwner';
 import { Badge } from '@/shared/components/ui/badge';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import { message } from 'antd';
+import { getStaffRoleId, getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 
 export type TeamLeaderSessionDetailPanelProps = {
-  session: RequestSessionSummary;
-  requestCode: string;
+  session: SessionResponse | { sessionId: number; sessionNo?: number; startAt?: string; endAt?: string; teachersRequired?: number | null; tasRequired?: number | null };
+  requestCode?: string;
   requestName?: string;
   /** Cột "Ủy quyền" sau giờ ra; chỉ truyền khi cần (vd. team leader). */
   delegateColumn?: {
@@ -23,17 +24,16 @@ export type TeamLeaderSessionDetailPanelProps = {
   };
   /**
    * Hiển thị cột "Ủy quyền" trong bảng thành viên. Giáo viên (teacher) không được ủy quyền — chỉ TL.
-   * Khi false, vẫn dùng delegateColumn cho "Người điểm danh" / nút Điểm danh nếu cần.
+   * Khi false, vẫn dùng delegateColumn cho "Người xác nhận" / nút Xác nhận tham gia nếu cần.
    */
   memberDelegateColumnVisible?: boolean;
-  /** Mở nhanh panel điểm danh (khi user là người điểm danh của buổi). */
+  /** Mở nhanh panel xác nhận tham gia (khi user là người xác nhận của buổi). */
   onOpenAttendance?: () => void;
 };
 
 export default function TeamLeaderSessionDetailPanel({
   session,
   requestCode,
-  requestName,
   delegateColumn,
   memberDelegateColumnVisible = true,
   onOpenAttendance,
@@ -44,6 +44,27 @@ export default function TeamLeaderSessionDetailPanel({
   const [delegatingMemberId, setDelegatingMemberId] = useState<number | null>(null);
   /** Khi filter không có attendanceByMemberId, bổ sung từ GET session (sau ủy quyền). */
   const [delegateOwnerOverride, setDelegateOwnerOverride] = useState<number | null>(null);
+  const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setSessionLoading(true);
+      try {
+        const sessionId = 'SessionId' in session ? session.SessionId : session.sessionId;
+        const detail = await sessionApi.getById(sessionId);
+        if (cancelled) return;
+        setSessionDetail(detail);
+      } catch {
+        if (!cancelled) setSessionDetail(null);
+      } finally {
+        if (!cancelled) setSessionLoading(false);
+      }
+    };
+    void run();
+    return () => { cancelled = true; };
+  }, ['SessionId' in session ? session.SessionId : session.sessionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +75,8 @@ export default function TeamLeaderSessionDetailPanel({
         setAttendances([]);
         setDelegateOwnerOverride(null);
 
-        const res = await attendanceApi.getBySession(session.sessionId);
+        const sessionId = 'SessionId' in session ? session.SessionId : session.sessionId;
+        const res = await attendanceApi.getBySession(sessionId);
         if (cancelled) return;
         setAttendances(res.items ?? []);
       } catch (err: unknown) {
@@ -74,9 +96,9 @@ export default function TeamLeaderSessionDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [session.sessionId]);
+  }, ['SessionId' in session ? session.SessionId : session.sessionId]);
 
-  /** Người được giao điểm danh: ưu tiên dữ liệu mới từ GET filter (sau ủy quyền), không dùng mỗi prop từ parent (dễ stale). */
+  /** Người được giao xác nhận: ưu tiên dữ liệu mới từ GET filter (sau ủy quyền), không dùng mỗi prop từ parent (dễ stale). */
   const resolvedAttendanceOwnerId = useMemo(() => {
     for (const a of attendances) {
       if (a.attendanceByMemberId != null && Number(a.attendanceByMemberId) > 0) {
@@ -91,10 +113,24 @@ export default function TeamLeaderSessionDetailPanel({
       : null;
   }, [attendances, delegateOwnerOverride, delegateColumn?.sessionAttendanceByMemberId]);
 
+  // Map memberId -> staffRole from session assignments
+  const memberRoleMap = useMemo(() => {
+    const map = new Map<number, string>();
+    const assignments = sessionDetail?.Assignments ?? (sessionDetail as any)?.assignments;
+    if (assignments && Array.isArray(assignments)) {
+      for (const assignment of assignments) {
+        const memberId = assignment.StaffMemberId ?? assignment.staffMemberId;
+        const staffRole = assignment.StaffRole ?? assignment.staffRole;
+        if (memberId && staffRole) {
+          map.set(memberId, staffRole);
+        }
+      }
+    }
+    return map;
+  }, [sessionDetail]);
+
   const canDelegateForCurrentUser = useMemo(() => {
     if (!delegateColumn || !memberDelegateColumnVisible) return false;
-    // Manager được quyền ủy quyền cho bất kỳ ai (kể cả ủy quyền lại cho chính mình),
-    // không cần phải trùng với "Người điểm danh" hiện tại.
     const uid = delegateColumn.currentMemberId;
     return uid != null;
   }, [delegateColumn, memberDelegateColumnVisible]);
@@ -108,142 +144,238 @@ export default function TeamLeaderSessionDetailPanel({
   }, [delegateColumn, resolvedAttendanceOwnerId]);
 
   const showDelegateCol = Boolean(delegateColumn) && memberDelegateColumnVisible;
-  // Thu hẹp cột giờ vào/giờ ra để nhường chỗ cho email/fullName.
-  // 1fr cho "Thông tin thành viên", các cột thời gian cố định.
   const gridClass = showDelegateCol
-    ? 'grid-cols-[minmax(0,1fr)_64px_64px_112px]'
-    : 'grid-cols-[minmax(0,1fr)_64px_64px]';
+    ? 'grid-cols-[minmax(0,1fr)_120px_64px_64px_112px]'
+    : 'grid-cols-[minmax(0,1fr)_120px_64px_64px]';
 
-  const topic = session.subjectSession ?? session.eventSession;
-  const sessionNotes = (session as any)?.notes as string | undefined;
-  const responseText = topic?.description?.trim() ? topic.description.trim() : sessionNotes?.trim();
-  const sessionSkills = session.sessionSkills ?? [];
+  // Derived from fetched session detail
+  const sessionId = 'SessionId' in session ? session.SessionId : session.sessionId;
+  const startAt = sessionDetail?.StartAt ?? ('StartAt' in session ? session.StartAt : session.startAt);
+  const endAt = sessionDetail?.EndAt ?? ('EndAt' in session ? session.EndAt : session.endAt);
+  const location = sessionDetail?.Location ?? ('Location' in session ? session.Location : (session as any).location) ?? null;
+  const teachersRequired = sessionDetail?.TeachersRequired ?? ('TeachersRequired' in session ? session.TeachersRequired : ((session as any).teachersRequired ?? null)) ?? null;
+  const tasRequired = sessionDetail?.TasRequired ?? ('TasRequired' in session ? session.TasRequired : ((session as any).tasRequired ?? null)) ?? null;
+  const notes = String(sessionDetail?.Notes ?? ('Notes' in session ? session.Notes : (session as any)?.notes) ?? '').trim();
+  const sessionNo = sessionDetail?.SessionNo ?? ('SessionNo' in session ? session.SessionNo : session.sessionNo) ?? null;
+  const isOnlineRaw = sessionDetail?.IsOnline ?? null;
+  const createdAt = sessionDetail?.CreatedAt ?? null;
+  const updatedAt = sessionDetail?.UpdatedAt ?? null;
+  const eventSession = sessionDetail?.EventSession ?? null;
+  const subjectSession = sessionDetail?.SubjectSession ?? null;
+  const sessionDescription = String(
+    eventSession?.Description ??
+    subjectSession?.Description ?? ''
+  ).trim();
+  const sessionDuration = String(
+    eventSession?.Duration ??
+    subjectSession?.Duration ?? ''
+  ).trim();
+
+  const skills = useMemo(() => {
+    const list = [
+      ...(Array.isArray(sessionDetail?.EventSessionSkill) ? sessionDetail.EventSessionSkill : []),
+      ...(Array.isArray(sessionDetail?.SubjectSkill) ? sessionDetail.SubjectSkill : []),
+    ];
+    const names = list
+      .filter((s: any) => (s?.IsActive ?? s?.isActive ?? true) !== false)
+      .map((s: any) => String(s?.SkillName ?? s?.skillName ?? '').trim())
+      .filter(Boolean);
+    return Array.from(new Set(names));
+  }, [sessionDetail]);
+
+  const topics = useMemo(() => {
+    const d = sessionDetail as any;
+    const fromEvent = [...(Array.isArray(d?.EventSession?.Topics) ? d.EventSession.Topics : [])];
+    const fromSubject = [...(Array.isArray(d?.SubjectSession?.Topics) ? d.SubjectSession.Topics : [])];
+    const names = [...fromEvent, ...fromSubject]
+      .filter((t: any) => (t?.IsActive ?? t?.isActive ?? true) !== false)
+      .map((t: any) => String(t?.TopicName ?? t?.topicName ?? '').trim())
+      .filter(Boolean);
+    return Array.from(new Set(names));
+  }, [sessionDetail]);
+
+  const teamNames = useMemo(() => {
+    const teamSessions = sessionDetail?.TeamSessions ?? [];
+    return teamSessions
+      .map((ts) => String(ts?.TeamName ?? '').trim())
+      .filter(Boolean);
+  }, [sessionDetail]);
 
   return (
     <div className="space-y-4 text-sm">
-      {/* Thông tin buổi — giống phần manager nhưng không hiển thị reservation */}
-      <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
-        <div className="px-4 py-2.5 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900 text-sm">Thông tin buổi</h3>
-        </div>
-        <div className="px-4 py-3 space-y-2 text-sm">
-          {(topic?.title?.trim() || responseText || topic?.duration?.trim()) && (
-            <div className="space-y-2">
-              {topic?.title?.trim() ? (
-                <div className="flex items-start gap-3">
-                  <span className="text-xs text-gray-500 shrink-0 mt-0.5">Tiêu đề:</span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-black">{topic.title.trim()}</p>
-                  </div>
-                </div>
-              ) : null}
+      {/* Thông tin buổi — layout 2 cột giống manager/PC */}
+      <div className="bg-white">
+        <div className="pt-3 space-y-4 text-sm">
+          {sessionLoading && <p className="text-xs text-slate-500">Đang tải...</p>}
 
-             
+          <div className="grid grid-cols-1 gap-1">
+            <p className="text-xs text-slate-500">
+              {startAt && endAt
+                ? `${dayjs(startAt).format('DD/MM/YYYY HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
+                : '—'}
+            </p>
+          </div>
 
-              {topic?.duration?.trim() ? (
-                <div className="flex items-center gap-3 text-gray-600">
-                  <span className="text-xs text-gray-500">Thời lượng:</span>
-                  <span className="font-medium text-black">{topic.duration.trim()}</span>
-                </div>
-              ) : null}
+          <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã buổi</p>
+              <p className="mt-1 font-medium text-slate-900">{sessionId ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
+              <p className="mt-1 font-semibold">{requestCode || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Buổi số</p>
+              <p className="mt-1 font-medium text-slate-900">{sessionNo ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Thời lượng</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{sessionDuration || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Địa điểm</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{location || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Hình thức</p>
+              <p className="mt-1 font-medium text-slate-900">
+                {isOnlineRaw == null ? '—' : isOnlineRaw ? 'Trực tuyến' : 'Trực tiếp'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Giảng viên yêu cầu</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{teachersRequired ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Sinh viên yêu cầu</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{tasRequired ?? '—'}</p>
+            </div>
+          </div>
 
-              {sessionSkills.length ? (
-                <div className="flex items-start gap-3">
-                  <span className="text-xs text-gray-500 shrink-0 mt-0.5">Kỹ năng:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {sessionSkills.map((name) => (
-                      <Badge key={name} className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px]">
-                        {name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+          {teamNames.length > 0 && (
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Nhóm phụ trách</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {teamNames.map((name, idx) => (
+                  <Badge key={idx} className="bg-orange-100 text-orange-700 border-0 text-[11px] font-medium">
+                    {name}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
 
-          <div className="flex items-center gap-3 text-gray-600">
-            <Clock className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Thời gian:</span>
-            <span className="font-medium text-black">
-              {dayjs(session.startAt).format('HH:mm')} - {dayjs(session.endAt).format('HH:mm')}
-            </span>
+          {(sessionDescription || notes) && <div className="border-t border-slate-100" />}
+
+          {sessionDescription ? (
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mô tả nội dung</p>
+              <p className="mt-1 text-slate-700 leading-6">{sessionDescription}</p>
+            </div>
+          ) : null}
+
+          {notes ? (
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Ghi chú</p>
+              <p className="mt-1 text-slate-700 leading-6">{notes}</p>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Chủ đề</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {topics.length === 0 ? (
+                  <span className="text-slate-700">—</span>
+                ) : (
+                  topics.map((name) => (
+                    <Badge key={name} className="bg-slate-100 text-slate-700 border-0 text-[11px] font-medium">
+                      {name}
+                    </Badge>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <Calendar className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Ngày:</span>
-            <span className="font-medium text-black">{dayjs(session.startAt).format('DD/MM/YYYY')}</span>
+
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Kỹ năng</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {skills.length === 0 ? (
+                <span className="text-slate-700">—</span>
+              ) : (
+                skills.map((name) => (
+                  <Badge key={name} className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px] font-medium">
+                    {name}
+                  </Badge>
+                ))
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <MapPin className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Địa điểm:</span>
-            <span className="font-medium text-black">{(session as RequestSessionSummary & { location?: string }).location || '—'}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Mã yêu cầu:</span>
-            <span className="font-semibold text-[#2197C0]">{requestCode}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <List className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Tên yêu cầu:</span>
-            <span className="font-medium text-black">{requestName?.trim() ? requestName.trim() : '—'}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <GraduationCap className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Số lượng giảng viên:</span>
-            <span className="font-medium text-black">{session.teachersRequired ?? '—'}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-600">
-            <Users className="h-4 w-4 shrink-0 text-[#2197C0]" />
-            <span className="text-gray-500">Số lượng sinh viên:</span>
-            <span className="font-medium text-black">{session.tasRequired ?? '—'}</span>
+
+          <div className="border-t border-slate-100" />
+
+          <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2">
+            <div>
+              <span className="uppercase tracking-wide">Tạo lúc: </span>
+              <span className="text-slate-600">
+                {createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm:ss') : '—'}
+              </span>
+            </div>
+            <div>
+              <span className="uppercase tracking-wide">Cập nhật: </span>
+              <span className="text-slate-600">
+                {updatedAt ? dayjs(updatedAt).format('DD/MM/YYYY HH:mm:ss') : '—'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Danh sách thành viên tham dự (giờ vào / giờ ra theo từng thành viên) */}
-      <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
-        <div className="px-4 py-2.5 border-b border-gray-100">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="font-semibold text-gray-900 text-sm">Danh sách thành viên</h3>
-              <p className="text-xs text-gray-500 mt-1">
+      <div className="bg-white border-t border-b border-gray-200">
+        <div className="py-3 border-b border-gray-200">
+          <div className="flex items-center justify-between gap-3 px-4">
+            <div className="flex items-center gap-3">
+              <h3 className="font-semibold text-[#2197C0] text-sm">Danh sách thành viên</h3>
+              <span className="text-xs text-gray-500">
                 {attLoading ? 'Đang tải...' : `${attendances.length} thành viên`}
-              </p>
+              </span>
             </div>
             {isAttendanceOwner && onOpenAttendance && (
               <button
                 type="button"
                 onClick={onOpenAttendance}
                 className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
-                title="Mở nhanh panel điểm danh"
+                title="Mở nhanh panel xác nhận tham gia"
               >
-                Điểm danh
+                Xác nhận tham gia
               </button>
             )}
           </div>
         </div>
 
-        <div className="px-4 py-3 space-y-2">
+        <div className="space-y-2">
           {attLoading ? (
-            <p className="text-xs text-gray-500">Đang tải dữ liệu điểm danh...</p>
+            <p className="text-xs text-gray-500 px-4">Đang tải dữ liệu xác nhận tham gia...</p>
           ) : attError ? (
-            <p className="text-xs text-red-600">{attError}</p>
+            <p className="text-xs text-red-600 px-4">{attError}</p>
           ) : attendances.length === 0 ? (
-            <p className="text-xs text-gray-500">Không có dữ liệu điểm danh cho buổi này.</p>
+            <p className="text-xs text-gray-500 px-4">Không có dữ liệu xác nhận tham gia cho buổi này.</p>
           ) : (
-            <div className="overflow-hidden rounded-xl bg-white">
+            <div className="overflow-hidden bg-white">
               <div
-                className={`grid ${gridClass} gap-2 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600`}
+                className={`grid ${gridClass} gap-2 bg-gray-50 px-4 py-2.5 text-xs font-semibold text-gray-600`}
               >
                 <div>Thông tin thành viên</div>
+                <div className="text-center">Vai trò</div>
                 <div className="text-center">Giờ vào</div>
                 <div className="text-center">Giờ ra</div>
                 {showDelegateCol ? <div className="text-center">Ủy quyền</div> : null}
               </div>
 
-              <div className="divide-y divide-gray-100">
+              <div className="space-y-2 mt-2 px-4 pb-3">
                 {attendances.map((a) => (
                   <div
                     key={a.attendanceId}
@@ -265,10 +397,25 @@ export default function TeamLeaderSessionDetailPanel({
                         <p className="font-medium text-gray-900 truncate">
                           {a.member?.fullName || `Thành viên #${a.memberId}`}
                         </p>
-                        <p className="text-[11px] text-gray-500 truncate">
-                          {a.member?.email ?? '—'}
+                        <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                          {a.member?.email || '—'}
                         </p>
                       </div>
+                    </div>
+
+                    <div className="flex justify-center items-center">
+                      {(() => {
+                        const staffRole = memberRoleMap.get(a.memberId);
+                        const roleId = getStaffRoleId(staffRole);
+                        const roleLabel = getRoleLabel(roleId);
+                        const badgeClass = getRoleBadgeClass(roleId);
+                        
+                        return (
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${badgeClass}`}>
+                            {roleLabel}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     <div
@@ -295,7 +442,7 @@ export default function TeamLeaderSessionDetailPanel({
                             return (
                               <span className="inline-flex w-fit items-center gap-0.5 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 whitespace-nowrap">
                                 <UserCheck className="h-3 w-3 shrink-0" />
-                                Người điểm danh
+                                Người xác nhận
                               </span>
                             );
                           }
@@ -314,10 +461,10 @@ export default function TeamLeaderSessionDetailPanel({
                                   setDelegatingMemberId(a.memberId);
                                   try {
                                     await attendanceApi.delegateAttendance(
-                                      session.sessionId,
+                                      sessionId,
                                       a.memberId,
                                     );
-                                    const res = await attendanceApi.getBySession(session.sessionId);
+                                    const res = await attendanceApi.getBySession(sessionId);
                                     const nextItems = res.items ?? [];
                                     setAttendances(nextItems);
                                     let ownerFromItems: number | null = null;
@@ -333,7 +480,7 @@ export default function TeamLeaderSessionDetailPanel({
                                     if (ownerFromItems != null) {
                                       setDelegateOwnerOverride(ownerFromItems);
                                     } else {
-                                      const detail = await sessionApi.getById(session.sessionId);
+                                      const detail = await sessionApi.getById(sessionId);
                                       setDelegateOwnerOverride(
                                         getAttendanceOwnerId(detail.Attendances ?? null),
                                       );
@@ -349,8 +496,8 @@ export default function TeamLeaderSessionDetailPanel({
                               className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
                               title={
                                 hasCheckedIn
-                                  ? 'Không thể ủy quyền sau khi thành viên đã điểm danh vào'
-                                  : 'Ủy quyền điểm danh cho thành viên này'
+                                  ? 'Không thể ủy quyền sau khi thành viên đã xác nhận vào'
+                                  : 'Ủy quyền xác nhận tham gia cho thành viên này'
                               }
                             >
                               <UserCheck className="h-3 w-3 shrink-0 text-[#2197C0]" />

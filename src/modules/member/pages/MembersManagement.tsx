@@ -35,6 +35,8 @@ export default function MembersManagement() {
     setFilterFullName,
     filterTeamId,
     setFilterTeamId,
+    filterRole,
+    setFilterRole,
     resetFilters,
   } = useMembers();
 
@@ -132,27 +134,19 @@ export default function MembersManagement() {
       id: 'role',
       header: 'Vai trò',
       cell: ({ row }) => {
-        const roleId = Number(row.original.roleId ?? 0);
-        return (
-          <Badge className={`${getRoleBadgeClass(roleId)} border`}>{getRoleLabel(roleId)}</Badge>
-        );
+        const rawRoleId = row.original.roleId;
+        const roleId = rawRoleId == null ? null : Number(rawRoleId);
+        if (roleId == null || !Number.isFinite(roleId) || roleId <= 0) {
+          return <Badge className="bg-slate-100 text-slate-600 border border-slate-200">Chưa có vai trò</Badge>;
+        }
+        return <Badge className={`${getRoleBadgeClass(roleId)} border`}>{getRoleLabel(roleId)}</Badge>;
       },
     },
     { id: 'team', header: 'Nhóm', cell: ({ row }) => row.original.team?.teamName },
     {
-      id: 'status',
-      header: 'Trạng thái',
-      cell: ({ row }) =>
-        row.original.isActive ? (
-          <Badge className="bg-green-100 text-green-700">Hoạt động</Badge>
-        ) : (
-          <Badge className="bg-red-100 text-red-600">Vô hiệu hóa</Badge>
-        ),
-    },
-    {
       accessorKey: 'createdAt',
       header: 'Ngày tạo',
-      cell: ({ row }) => new Date(row.original.createdAt).toLocaleString(),
+      cell: ({ row }) => new Date(row.original.createdAt).toLocaleDateString('vi-VN'),
     },
     {
       id: 'actions',
@@ -200,11 +194,11 @@ export default function MembersManagement() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 pl-8 space-y-6">
       <div className="flex justify-between bg-white px-6 py-4 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-black">Quản lý thành viên</h2>
-          <p className="text-xs text-gray-500">Quản lý thông tin cá nhân thành viên trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý thành viên</h2>
+          <p className="text-xs text-slate-500">Quản lý thông tin cá nhân thành viên trong hệ thống</p>
         </div>
         <Button
           onClick={() => setOpenCreate(true)}
@@ -216,8 +210,20 @@ export default function MembersManagement() {
       </div>
 
       <div className="flex justify-end gap-3 mb-2">
-        <HoverSearch placeholder="Tìm theo tên..." value={filterFullName} onChange={setFilterFullName} />
+        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+          <HoverSearch placeholder="Tìm theo tên..." value={filterFullName} onChange={setFilterFullName} />
+        </div>
         <div className="flex items-center gap-3">
+          <Select value={filterRole} onValueChange={(v) => setFilterRole(v as 'all' | 'teacher' | 'student')}>
+            <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[220px]">
+              <SelectValue placeholder="Vai trò" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="teacher">Giảng viên</SelectItem>
+              <SelectItem value="student">Sinh viên</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={filterTeamId || 'all'} onValueChange={setFilterTeamId}>
             <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[160px]">
               <SelectValue placeholder="Nhóm" />
@@ -231,8 +237,8 @@ export default function MembersManagement() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="secondary" className="bg-white" onClick={resetFilters} title="Đặt lại bộ lọc">
-            <RotateCcw />
+          <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFilters} title="Đặt lại bộ lọc">
+            <RotateCcw size={16} />
           </Button>
         </div>
       </div>
