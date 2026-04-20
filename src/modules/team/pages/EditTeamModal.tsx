@@ -270,7 +270,7 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         <div className="flex flex-col h-full overflow-y-auto no-scrollbar text-gray-700">
           <div className="px-6 py-5 app-page-bg border-b border-gray-200 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-black">Chỉnh sửa nhóm</h2>
+              <h2 className="text-lg font-semibold text-[#1a7a99]">Chỉnh sửa nhóm</h2>
               <p className="mt-0.5 text-sm text-gray-500">
                 Cập nhật thông tin nhóm {team.teamName}
               </p>

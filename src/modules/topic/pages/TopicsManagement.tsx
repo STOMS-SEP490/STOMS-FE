@@ -244,7 +244,7 @@ export default function TopicsManagement() {
       header: 'TÊN CHỦ ĐỀ',
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="text-sm font-medium text-gray-900">{row.original.topicName}</div>
+          <div className="text-sm font-medium text-[#1a7a99]">{row.original.topicName}</div>
           <div className="text-xs text-gray-500 truncate">{row.original.description?.trim() || '—'}</div>
         </div>
       ),

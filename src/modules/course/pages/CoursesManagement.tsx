@@ -331,14 +331,14 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         accessorKey: 'courseCode',
         header: 'Mã khóa học',
         cell: ({ row }) => (
-          <span className="text-sm font-semibold text-slate-900">{row.original.courseCode}</span>
+          <span className="text-sm font-semibold text-[#1a7a99]">{row.original.courseCode}</span>
         ),
       },
       {
         accessorKey: 'courseName',
         header: 'Tên khóa học',
         cell: ({ row }) => (
-          <div className="min-w-0 truncate text-sm font-medium text-slate-900">{row.original.courseName}</div>
+          <div className="min-w-0 truncate text-sm font-medium text-[#1a7a99]">{row.original.courseName}</div>
         ),
       },
       {
@@ -679,7 +679,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                               className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/40"
                             >
                               <div className="flex flex-col min-w-0">
-                                <span className="truncate text-sm font-medium text-slate-900">{name}</span>
+                                <span className="truncate text-sm font-medium text-[#1a7a99]">{name}</span>
                                 <span className="text-xs text-slate-500">Mã môn: {cs.subjectId}</span>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">

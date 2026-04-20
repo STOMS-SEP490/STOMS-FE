@@ -623,7 +623,7 @@ export default function EventsManagement() {
       accessorKey: 'eventCode',
       header: 'Mã sự kiện',
       cell: ({ row }) => (
-        <span className="font-semibold text-gray-900">
+        <span className="font-semibold text-[#1a7a99]">
           {row.original.eventCode}
         </span>
       ),
@@ -914,7 +914,7 @@ export default function EventsManagement() {
           <div className="border-b border-slate-200/80 bg-gradient-to-b from-slate-50 to-white px-6 py-5">
             <div className="flex justify-between items-start">
               <div>
-                <h2 className="text-lg font-semibold text-black">
+                <h2 className="text-lg font-semibold text-[#1a7a99]">
                   {mode === 'create' ? 'Thêm sự kiện' : 'Cập nhật sự kiện'}
                 </h2>
                 <p className="mt-0.5 text-sm text-gray-500">Thiết lập thông tin chung và các buổi của sự kiện.</p>
@@ -971,7 +971,7 @@ export default function EventsManagement() {
             <div className="space-y-2 rounded-2xl bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Các buổi trong sự kiện</p>
+                  <p className="text-sm font-semibold text-[#1a7a99]">Các buổi trong sự kiện</p>
                   <p className="text-xs text-slate-500">Thiết kế nội dung từng buổi, kỹ năng và chủ đề liên quan.</p>
                 </div>
                 <Button
@@ -1011,7 +1011,7 @@ export default function EventsManagement() {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <h4 className="text-sm font-semibold text-slate-900 truncate">
+                                  <h4 className="text-sm font-semibold text-[#1a7a99] truncate">
                                     {s.title?.trim() ? s.title : `Buổi ${s.sessionNo}`}
                                   </h4>
                                   {s.description?.trim() ? (
@@ -1186,7 +1186,7 @@ export default function EventsManagement() {
                               <div className="rounded-xl bg-white p-3 shadow-sm">
                                 <div className="flex items-center justify-between gap-2">
                                   <div>
-                                    <p className="text-xs font-semibold text-slate-700">Kỹ năng</p>
+                                    <p className="text-xs font-semibold text-[#1a7a99]">Kỹ năng</p>
                                     <p className="text-[11px] text-slate-500">Chọn các kỹ năng cần có cho buổi này.</p>
                                   </div>
                                   <Button
@@ -1290,7 +1290,7 @@ export default function EventsManagement() {
                               <div className="rounded-xl bg-white p-3 shadow-sm">
                                 <div className="flex items-center justify-between gap-2">
                                   <div>
-                                    <p className="text-xs font-semibold text-slate-700">Chủ đề</p>
+                                    <p className="text-xs font-semibold text-[#1a7a99]">Chủ đề</p>
                                     <p className="text-[11px] text-slate-500">Chọn chủ đề liên quan cho buổi này.</p>
                                   </div>
                                   <Button

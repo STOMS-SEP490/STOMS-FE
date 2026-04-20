@@ -404,7 +404,7 @@ export default function Sidebar() {
                   img.src = '/img/ava.png';
                 }}
               />
-              <AvatarFallback className="text-[10px] font-semibold text-slate-800">{userInitial}</AvatarFallback>
+              <AvatarFallback className="text-[10px] font-semibold text-[#1a7a99]">{userInitial}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 text-left">
               <p className="truncate text-sm font-medium text-[#1a7a99]">{memberName || 'Tài khoản'}</p>

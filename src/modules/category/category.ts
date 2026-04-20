@@ -3,6 +3,7 @@ export type CategoryEquipmentItem = {
   equipmentName: string
   equipmentCode: string
   status: string
+  imgLink?: string | null
 }
 
 export type CategoryListItem = {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, ClipboardList, Wallet, PieChart, Laptop, Calendar, ArrowLeftRight, Users, Download } from 'lucide-react';
+import dayjs from 'dayjs';
 import {
   ResponsiveContainer,
   PieChart as RCPieChart,
@@ -20,7 +21,8 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { dashboardApi, type DashboardRangeParams } from '@/modules/dashboard/api/dashboardApi';
-import { message, Modal, Radio } from 'antd';
+import { Checkbox, DatePicker, message, Modal } from 'antd';
+import { getRoleLabel } from '@/constants/role';
 
 type KpiTone = 'sky' | 'indigo' | 'blue' | 'purple' | 'emerald' | 'amber';
 
@@ -141,7 +143,9 @@ export default function ManagerDashboard() {
   const [contributorsWalletId, setContributorsWalletId] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [selectedSheetType, setSelectedSheetType] = useState<number | null>(null);
+  const [selectedSheetTypes, setSelectedSheetTypes] = useState<number[]>([]);
+  const [exportStartAt, setExportStartAt] = useState<Date | null>(null);
+  const [exportEndAt, setExportEndAt] = useState<Date | null>(null);
   const effectiveRange: NonNullable<DashboardRangeParams['range']> = range ?? 'thismonth';
 
   const sheetTypeOptions: Array<{ value: number; label: string }> = [
@@ -322,7 +326,7 @@ export default function ManagerDashboard() {
 
   const roleDistributionData =
     usersOverview?.roleDistribution?.map((r) => ({
-      name: r.roleName,
+      name: getRoleLabel(r.roleId) || r.roleName,
       value: r.userCount,
     })) ?? [];
 
@@ -459,7 +463,7 @@ export default function ManagerDashboard() {
         {/* HEADER */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-white px-6 py-4 rounded-xl border border-border shadow-sm">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-[#1a7a99]">Dashboard quản lý</h2>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý thống kê</h2>
             <p className="text-xs text-gray-500 mt-1">
               Tổng quan hệ thống — số liệu người dùng, sự kiện, yêu cầu, buổi dạy và quỹ.
             </p>
@@ -485,7 +489,10 @@ export default function ManagerDashboard() {
               className="h-9 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
               disabled={exporting}
               onClick={async () => {
-                setSelectedSheetType(null);
+                const { startAt, endAt } = getRangeBounds(effectiveRange);
+                setSelectedSheetTypes([]);
+                setExportStartAt(startAt);
+                setExportEndAt(endAt);
                 setExportModalOpen(true);
               }}
             >
@@ -500,25 +507,34 @@ export default function ManagerDashboard() {
           open={exportModalOpen}
           okText={exporting ? 'Đang xuất...' : 'Xuất'}
           cancelText="Hủy"
-          okButtonProps={{ disabled: exporting || selectedSheetType == null }}
+          okButtonProps={{
+            disabled:
+              exporting ||
+              selectedSheetTypes.length === 0 ||
+              exportStartAt == null ||
+              exportEndAt == null,
+          }}
           cancelButtonProps={{ disabled: exporting }}
           onCancel={() => {
             if (exporting) return;
             setExportModalOpen(false);
           }}
           onOk={async () => {
-            if (selectedSheetType == null) {
-              message.warning('Vui lòng chọn 1 loại báo cáo.');
+            if (selectedSheetTypes.length === 0) {
+              message.warning('Vui lòng chọn ít nhất 1 loại báo cáo.');
+              return;
+            }
+            if (!exportStartAt || !exportEndAt) {
+              message.warning('Vui lòng chọn thời gian xuất báo cáo.');
               return;
             }
             try {
               setExporting(true);
-              const { startAt, endAt } = getRangeBounds(effectiveRange);
               const blob = await dashboardApi.exportDashboard({
                 // BE dùng Postgres timestamp without time zone => tránh gửi ISO có 'Z' (UTC).
-                StartAt: formatLocalDateTimeNoTz(startAt),
-                EndAt: formatLocalDateTimeNoTz(endAt),
-                SheetTypes: [selectedSheetType],
+                StartAt: formatLocalDateTimeNoTz(exportStartAt),
+                EndAt: formatLocalDateTimeNoTz(exportEndAt),
+                SheetTypes: selectedSheetTypes,
               });
               downloadBlob(blob, 'STOMS_Reports.xlsx');
               message.success('Đã xuất báo cáo');
@@ -532,21 +548,43 @@ export default function ManagerDashboard() {
         >
           <div className="space-y-2">
             <p className="text-xs text-slate-500">
-              Chọn 1 loại báo cáo để xuất.
+              Chọn thời gian và ít nhất 1 loại báo cáo để xuất.
             </p>
-            <Radio.Group
-              className="w-full"
-              value={selectedSheetType ?? undefined}
-              onChange={(e) => setSelectedSheetType(Number(e.target.value))}
-            >
-              <div className="grid grid-cols-1 gap-2">
-                {sheetTypeOptions.map((opt) => (
-                  <Radio key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </Radio>
-                ))}
-              </div>
-            </Radio.Group>
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-slate-600">Thời gian</div>
+              <DatePicker.RangePicker
+                className="w-full"
+                showTime
+                allowClear
+                format="DD/MM/YYYY HH:mm"
+                value={
+                  exportStartAt && exportEndAt ? ([dayjs(exportStartAt), dayjs(exportEndAt)] as any) : null
+                }
+                onChange={(values) => {
+                  const v0 = values?.[0] ?? null;
+                  const v1 = values?.[1] ?? null;
+                  setExportStartAt(v0 ? v0.toDate() : null);
+                  setExportEndAt(v1 ? v1.toDate() : null);
+                }}
+              />
+            </div>
+
+            <div className="space-y-1 pt-2">
+              <div className="text-xs font-medium text-slate-600">Loại báo cáo</div>
+              <Checkbox.Group
+                className="w-full"
+                value={selectedSheetTypes}
+                onChange={(vals) => setSelectedSheetTypes(vals.map((x) => Number(x)).filter((n) => Number.isFinite(n)))}
+              >
+                <div className="grid grid-cols-1 gap-2">
+                  {sheetTypeOptions.map((opt) => (
+                    <Checkbox key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </Checkbox>
+                  ))}
+                </div>
+              </Checkbox.Group>
+            </div>
           </div>
         </Modal>
 

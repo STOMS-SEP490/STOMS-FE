@@ -76,7 +76,7 @@ export default function SubjectsReadonlyPage() {
       {
         accessorKey: 'subjectCode',
         header: 'Mã môn học',
-        cell: ({ row }) => <span className="font-semibold text-gray-900">{row.original.subjectCode}</span>,
+        cell: ({ row }) => <span className="font-semibold text-[#1a7a99]">{row.original.subjectCode}</span>,
       },
       {
         accessorKey: 'subjectName',

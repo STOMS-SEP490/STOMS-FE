@@ -501,14 +501,14 @@ export default function SubjectsManagement() {
       accessorKey: 'subjectCode',
       header: 'Mã môn học',
       cell: ({ row }) => (
-        <span className="text-sm font-semibold text-slate-900">{row.original.subjectCode}</span>
+        <span className="text-sm font-semibold text-[#1a7a99]">{row.original.subjectCode}</span>
       ),
     },
     {
       accessorKey: 'subjectName',
       header: 'Tên môn học',
       cell: ({ row }) => (
-        <div className="min-w-0 truncate text-sm font-medium text-slate-900">
+        <div className="min-w-0 truncate text-sm font-medium text-[#1a7a99]">
           {row.original.subjectName}
         </div>
       ),
@@ -827,7 +827,7 @@ export default function SubjectsManagement() {
                             className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
                           >
                             <div className="flex flex-col">
-                              <span className="text-sm font-medium text-black">{skillName}</span>
+                              <span className="text-sm font-medium text-[#1a7a99]">{skillName}</span>
                               <span className="text-xs text-gray-500">ID: {ss.skillId}</span>
                             </div>
                             <div className="flex items-center gap-2">
