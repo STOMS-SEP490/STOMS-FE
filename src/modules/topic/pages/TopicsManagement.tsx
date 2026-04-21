@@ -13,51 +13,16 @@ import {
 } from '@/shared/components/ui/select';
 import HoverSearch from '@/shared/components/ui/search';
 import { message, Modal } from 'antd';
+import TopicDetailPanel from './TopicDetailPanel';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Pencil, Plus, Power, PowerOff, RotateCcw } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import topicApi from '../api/topicApi';
 import { useTopics } from '../hooks/useTopics';
 import type { TopicListItem, TopicUpsertPayload } from '../topic';
 
-function TopicDetailBody({ t }: { t: TopicListItem }) {
-  const subjectsCount = t.subjects?.length ?? 0;
-  // BE GET by id trả `events` / `teams`; fallback tên cũ nếu có
-  const eventsCount = t.events?.length ?? t.eventSessionTopics?.length ?? 0;
-  const groupsCount = t.teams?.length ?? t.teamTopics?.length ?? 0;
-  return (
-    <div className="space-y-2">
-      <div>
-        <div className="text-xs text-gray-500">Tên chủ đề</div>
-        <div className="text-sm font-medium">{t.topicName || '—'}</div>
-      </div>
-      <div>
-        <div className="text-xs text-gray-500">Mô tả</div>
-        <div className="text-sm">{t.description || '—'}</div>
-      </div>
-      <div className="grid grid-cols-3 gap-3 pt-2">
-        <div className="rounded-md border p-2">
-          <div className="text-xs text-gray-500">Môn học</div>
-          <div className="text-sm font-medium">{subjectsCount}</div>
-        </div>
-        <div className="rounded-md border p-2">
-          <div className="text-xs text-gray-500">Sự kiện</div>
-          <div className="text-sm font-medium">{eventsCount}</div>
-        </div>
-        <div className="rounded-md border p-2">
-          <div className="text-xs text-gray-500">Nhóm</div>
-          <div className="text-sm font-medium">{groupsCount}</div>
-        </div>
-      </div>
-      <div className="pt-2">
-        <div className="text-xs text-gray-500">Trạng thái</div>
-        <div className="text-sm">{t.isActive ? 'Đang hoạt động' : 'Vô hiệu hóa'}</div>
-      </div>
-    </div>
-  );
-}
 
 export default function TopicsManagement() {
   const {
@@ -88,14 +53,12 @@ export default function TopicsManagement() {
   const [description, setDescription] = useState('');
 
   const [detailOpen, setDetailOpen] = useState(false);
-  const [detailTopic, setDetailTopic] = useState<TopicListItem | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailTopicId, setDetailTopicId] = useState<number | null>(null);
 
   const closeTopicDetail = () => {
     skipNextAutoOpenRef.current = openDetailFromUrl === '1';
     setDetailOpen(false);
-    setDetailTopic(null);
-    setDetailLoading(false);
+    setDetailTopicId(null);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('openDetail');
@@ -104,20 +67,9 @@ export default function TopicsManagement() {
     });
   };
 
-  const loadTopicDetailById = async (id: number) => {
-    try {
-      setDetailLoading(true);
-      setDetailOpen(true);
-      setDetailTopic(null);
-      const t = await topicApi.getById(id);
-      setDetailTopic(t);
-    } catch {
-      message.error('Không tải được chi tiết chủ đề');
-      setDetailOpen(false);
-      setDetailTopic(null);
-    } finally {
-      setDetailLoading(false);
-    }
+  const openTopicDetail = (id: number) => {
+    setDetailTopicId(id);
+    setDetailOpen(true);
   };
 
   useEffect(() => {
@@ -131,11 +83,11 @@ export default function TopicsManagement() {
     const id = Number(topicIdFromUrl);
     if (!id || Number.isNaN(id)) return;
 
-    if (detailOpen && detailTopic?.topicId === id) return;
+    if (detailOpen && detailTopicId === id) return;
 
-    void loadTopicDetailById(id);
+    openTopicDetail(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openDetailFromUrl, topicIdFromUrl, detailOpen, detailTopic?.topicId]);
+  }, [openDetailFromUrl, topicIdFromUrl, detailOpen, detailTopicId]);
 
   const openCreate = () => {
     setMode('create');
@@ -213,14 +165,10 @@ export default function TopicsManagement() {
   };
 
   const handleView = (t: TopicListItem) => {
-    void loadTopicDetailById(t.topicId);
+    openTopicDetail(t.topicId);
   };
 
-  const stats = useMemo(() => {
-    const active = data.filter((x) => x.isActive).length;
-    const inactive = data.length - active;
-    return { active, inactive };
-  }, [data]);
+
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -330,21 +278,7 @@ export default function TopicsManagement() {
         </div>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-3 gap-4 mb-2">
-        <div className="bg-white rounded-xl border shadow-sm p-4">
-          <div className="text-xs text-gray-500">Tổng chủ đề</div>
-          <div className="text-2xl font-semibold text-slate-900">{totalItems}</div>
-        </div>
-        <div className="bg-white rounded-xl border shadow-sm p-4">
-          <div className="text-xs text-gray-500">Đang hoạt động (trang hiện tại)</div>
-          <div className="text-2xl font-semibold text-green-700">{stats.active}</div>
-        </div>
-        <div className="bg-white rounded-xl border shadow-sm p-4">
-          <div className="text-xs text-gray-500">Vô hiệu hóa (trang hiện tại)</div>
-          <div className="text-2xl font-semibold text-slate-900">{stats.inactive}</div>
-        </div>
-      </div>
+
       <div className="mb-2 flex items-center justify-end gap-3 flex-wrap">
         <HoverSearch
           value={search}
@@ -387,21 +321,11 @@ export default function TopicsManagement() {
         />
       </div>
 
-      <Modal
-        title={detailTopic ? `Chủ đề #${detailTopic.topicId}` : 'Chi tiết chủ đề'}
+      <TopicDetailPanel
         open={detailOpen}
-        onCancel={closeTopicDetail}
-        footer={null}
-        destroyOnClose
-      >
-        {detailLoading ? (
-          <div className="text-sm text-gray-500 py-4">Đang tải chi tiết...</div>
-        ) : detailTopic ? (
-          <TopicDetailBody t={detailTopic} />
-        ) : (
-          <div className="text-sm text-gray-500">Không có dữ liệu.</div>
-        )}
-      </Modal>
+        onClose={closeTopicDetail}
+        topicId={detailTopicId}
+      />
 
       <Dialog
         open={openUpsert}

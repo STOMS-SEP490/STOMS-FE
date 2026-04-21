@@ -9,6 +9,10 @@ type SubjectSessionCreatePayload = {
 }
 
 const subjectSessionApi = {
+  update: (id: number, data: { title: string; description: string; duration: string }) => {
+    return axiosClient.put(`/subject-sessions/${id}`, data)
+  },
+
   create: (data: SubjectSessionCreatePayload) => {
     return axiosClient.post('/subject-sessions', data)
   },

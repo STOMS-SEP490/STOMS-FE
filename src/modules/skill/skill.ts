@@ -4,7 +4,23 @@ export type SkillListItem = {
   description: string
   isActive: boolean
   createdAt: string | null
-  // Các quan hệ chi tiết (eventSessionSkills, subjectSkills) sẽ bổ sung khi FE cần dùng
+  membersWithSkill?: {
+    memberId: number
+    fullName: string
+    avatarUrl: string | null
+    email: string
+    roleName: string
+  }[] | null
+  subjectsRequiringSkill?: {
+    subjectId: number
+    subjectCode: string
+    subjectName: string
+  }[] | null
+  eventsRequiringSkill?: {
+    eventId: number
+    eventCode: string
+    eventName: string
+  }[] | null
 }
 
 export type SkillUpsertPayload = {
