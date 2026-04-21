@@ -1,5 +1,4 @@
 import { DataTable } from '@/shared/components/common/DataTable';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import {
@@ -396,6 +395,7 @@ export default function EquipmentsHistory({
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(page) => setPageQuery(page)}
+          onRowClick={handleView}
           fillHeight
         />
       </div>

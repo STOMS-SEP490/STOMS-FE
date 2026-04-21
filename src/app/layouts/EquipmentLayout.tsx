@@ -8,7 +8,7 @@ export default function EquipmentLayout() {
     { label: 'Thống kê', icon: BarChart3, path: '/em/dashboard' },
     { label: 'Phiếu mượn', icon: ClipboardList, path: '/em/borrowings' },
     { label: 'Thiết bị', icon: Laptop, path: '/em/equipments', matchPrefixPath: '/em/equipments' },
-    { label: 'Đơn yêu cầu thiết bị', icon: CalendarClock, path: '/em/borrowings/reservations' },
+    { label: 'Đơn yêu cầu thiết bị', icon: CalendarClock, path: '/em/reservations' },
     { label: 'Đóng góp quỹ', icon: Wallet, path: '/em/fund-contributions' },
   ];
 

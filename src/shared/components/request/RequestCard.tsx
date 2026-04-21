@@ -44,6 +44,8 @@ export type RequestCardProps = {
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   hintText?: string;
+  /** Hình thức tham gia: true = Liên tục, false = Từng buổi */
+  isContinuous?: boolean | null;
 };
 
 export default function RequestCard({

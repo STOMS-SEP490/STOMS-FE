@@ -18,7 +18,7 @@ import {
 dayjs.extend(relativeTime);
 dayjs.locale('vi');
 
-const POLL_UNREAD_MS = 25_000;
+const POLL_UNREAD_MS = 60_000; // Giảm từ 25s xuống 60s để giảm tải
 
 type NotificationBellProps = {
   /** Sidebar thu gọn: popover mở xuống giữa, tránh tràn khi cột hẹp */
@@ -60,6 +60,7 @@ export default function NotificationBell({ variant = 'default' }: NotificationBe
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const loadIdRef = useRef(0);
 
   /** Số badge luôn lấy từ API — tránh lệch khi chỉ cộng tay */
@@ -181,21 +182,28 @@ export default function NotificationBell({ variant = 'default' }: NotificationBe
     }
   };
 
+  const toggleExpand = (notificationId: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(notificationId)) {
+        next.delete(notificationId);
+      } else {
+        next.add(notificationId);
+      }
+      return next;
+    });
+  };
+
   const handleMarkAllRead = async () => {
     const unreadItems = items.filter((x) => !x.readAt);
     if (unreadItems.length === 0 || markingAll) return;
 
     setMarkingAll(true);
     try {
-      const updates = await Promise.all(
-        unreadItems.map((x) => notificationApi.markNotificationRead(x.notificationId))
-      );
-      const readMap = new Map(updates.map((u) => [u.notificationId, u.readAt ?? new Date().toISOString()]));
+      await notificationApi.markAllNotificationsRead();
+      const now = new Date().toISOString();
       setItems((prev) =>
-        prev.map((x) => {
-          const nextReadAt = readMap.get(x.notificationId);
-          return nextReadAt ? { ...x, readAt: nextReadAt } : x;
-        })
+        prev.map((x) => (x.readAt ? x : { ...x, readAt: now }))
       );
       await refreshUnreadOnly();
     } catch {
@@ -220,11 +228,15 @@ export default function NotificationBell({ variant = 'default' }: NotificationBe
             const vis = getNotificationVisual(n.type);
             const Icon = vis.Icon;
             const unread = !n.readAt;
+            const isExpanded = expandedIds.has(n.notificationId);
             return (
               <li key={n.notificationId} className="relative">
                 <button
                   type="button"
-                  onClick={() => void handleMarkRead(n)}
+                  onClick={() => {
+                    toggleExpand(n.notificationId);
+                    void handleMarkRead(n);
+                  }}
                   className={cn(
                     'w-full text-left px-1 py-2 transition',
                     unread ? 'bg-white hover:bg-slate-50/80' : 'bg-white/90 hover:bg-slate-50/70'
@@ -248,7 +260,10 @@ export default function NotificationBell({ variant = 'default' }: NotificationBe
                       </Typography.Text>
                       <Typography.Paragraph
                         type="secondary"
-                        className="!mb-0 !mt-0.5 !text-[10px] !leading-4 !text-slate-500 line-clamp-1"
+                        className={cn(
+                          '!mb-0 !mt-0.5 !text-[10px] !leading-4 !text-slate-500',
+                          isExpanded ? '' : 'line-clamp-1'
+                        )}
                       >
                         {n.message}
                       </Typography.Paragraph>

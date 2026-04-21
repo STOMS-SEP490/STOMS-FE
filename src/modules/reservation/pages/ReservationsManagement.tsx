@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { BookOpen, CheckCircle, Clock, Eye, Pencil, Trash2, XCircle } from 'lucide-react';
+import { BookOpen, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Modal, message } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import HoverSearch from '@/shared/components/ui/search';
@@ -32,13 +32,6 @@ function formatDateOnly(dateStr: string | null): string {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('vi-VN');
-}
-
-/** Cùng điều kiện với sidebar: chưa kết thúc và không ở trạng thái tạm hủy toàn bộ. */
-function canEditReservationRow(item: ReservationListItem): boolean {
-  if (!item.EndAt) return false;
-  if (item.IsTemporarilyCancelled === true) return false;
-  return dayjs(item.EndAt).isAfter(dayjs());
 }
 
 /** BE: chưa bắt đầu (StartAt > now) và user hiện tại là người tạo. */
@@ -212,6 +205,10 @@ export default function ReservationsManagement() {
     [currentMemberId, detailReservation?.ReservationId, fetchReservations, closeDetail],
   );
 
+  const handleRowClick = useCallback((item: ReservationListItem) => {
+    void handleView(item);
+  }, [handleView]);
+
   const columns: ColumnDef<ReservationListItem>[] = useMemo(
     () => [
       {
@@ -355,72 +352,6 @@ export default function ReservationsManagement() {
           );
         },
       },
-      {
-        id: 'actions',
-        header: () => <span className="block w-full text-center">Thao tác</span>,
-        enableSorting: false,
-        cell: ({ row }) => {
-          const item = row.original;
-          const canEdit = canEditReservationRow(item);
-          const canDelete = canDeleteReservationRow(item, currentMemberId);
-          return (
-            <div className="flex items-center gap-3">
-              <Eye
-                size={16}
-                className="text-black cursor-pointer shrink-0"
-                onClick={() => void handleView(item)}
-                aria-label="Xem chi tiết"
-              />
-              <span
-                title={
-                  canEdit
-                    ? 'Sửa'
-                    : item.IsTemporarilyCancelled === true
-                      ? 'Không sửa khi đặt trước đang tạm hủy'
-                      : 'Không sửa khi đã kết thúc'
-                }
-              >
-                <Pencil
-                  size={16}
-                  className={
-                    canEdit
-                      ? 'text-blue-600 cursor-pointer shrink-0'
-                      : 'text-gray-300 cursor-not-allowed shrink-0'
-                  }
-                  onClick={() => {
-                    if (!canEdit) return;
-                    void handleEditFromList(item);
-                  }}
-                  aria-label="Sửa đặt trước"
-                />
-              </span>
-              <span
-                title={
-                  canDelete
-                    ? 'Xóa'
-                    : currentMemberId == null || item.CreatedByMemberId !== currentMemberId
-                      ? 'Chỉ người tạo mới được xóa'
-                      : 'Không xóa khi đặt trước đã bắt đầu'
-                }
-              >
-                <Trash2
-                  size={16}
-                  className={
-                    canDelete
-                      ? 'text-red-500 cursor-pointer shrink-0'
-                      : 'text-red-300 cursor-not-allowed shrink-0'
-                  }
-                  onClick={() => {
-                    if (!canDelete) return;
-                    handleDelete(item);
-                  }}
-                  aria-label="Xóa đặt trước"
-                />
-              </span>
-            </div>
-          );
-        },
-      },
     ],
     [handleView, handleEditFromList, handleDelete, currentMemberId],
   );
@@ -558,6 +489,7 @@ export default function ReservationsManagement() {
             pageSize={PAGE_SIZE}
             totalItems={totalItems}
             onPageChange={(p) => setPageNumber(p)}
+            onRowClick={handleRowClick}
             fillHeight={false}
           />
         </div>
@@ -568,6 +500,19 @@ export default function ReservationsManagement() {
         onClose={closeDetail}
         reservation={detailReservation}
         onEditReservation={detailReservation ? () => setEditOpen(true) : undefined}
+        onEquipmentsApproved={async () => {
+          if (detailReservation) {
+            try {
+              const updated = normalizeReservationResponse(
+                await reservationApi.getById(detailReservation.ReservationId)
+              );
+              setDetailReservation(updated);
+            } catch {
+              // Ignore error, just don't update
+            }
+          }
+          await fetchReservations();
+        }}
       />
 
       <EditReservationModal

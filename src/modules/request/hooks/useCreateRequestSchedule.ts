@@ -33,10 +33,10 @@ export function useCreateRequestSchedule() {
       return baseSessions.map((s, idx) => {
         const date = baseDate.add(idx * gap, 'day')
         // Nếu session đã có startAt (khi edit), giữ nguyên phần giờ/phút/giây đó.
-        // Khi tạo mới, startAt thường chưa tồn tại => mặc định 08:00:00.
-        const preservedHour = s.startAt?.hour() ?? 8
-        const preservedMinute = s.startAt?.minute() ?? 0
-        const preservedSecond = s.startAt?.second() ?? 0
+        // Khi tạo mới, lấy giờ từ baseDate (giờ user chọn ở "Ngày bắt đầu").
+        const preservedHour = s.startAt?.hour() ?? baseDate.hour()
+        const preservedMinute = s.startAt?.minute() ?? baseDate.minute()
+        const preservedSecond = s.startAt?.second() ?? baseDate.second()
         const start = date.hour(preservedHour).minute(preservedMinute).second(preservedSecond)
         const end = calculateEndTime(start, s.duration)
         return {

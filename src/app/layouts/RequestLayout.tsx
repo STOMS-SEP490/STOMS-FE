@@ -280,6 +280,18 @@ export default function RequestLayout() {
         },
       },
       {
+        id: 'participationType',
+        header: 'Hình thức',
+        cell: ({ row }) => {
+          const isContinuous = (row.original as any).isContinuous;
+          return (
+            <span className="text-sm text-slate-700">
+              {isContinuous ? 'Liên tục' : 'Từng buổi'}
+            </span>
+          );
+        },
+      },
+      {
         id: 'status',
         header: 'Trạng thái',
         cell: ({ row }) => {

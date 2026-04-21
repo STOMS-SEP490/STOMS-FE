@@ -26,11 +26,11 @@ const EquipmentManagerRoutes = [
   },
   {
     path: 'equipments/reservations',
-    element: <Navigate to="/em/borrowings/reservations" replace />,
+    element: <Navigate to="/em/reservations" replace />,
   },
   {
     path: 'equipments/history/reservations',
-    element: <Navigate to="/em/borrowings/reservations" replace />,
+    element: <Navigate to="/em/reservations" replace />,
   },
   {
     path: 'equipments',
@@ -40,7 +40,7 @@ const EquipmentManagerRoutes = [
       { path: 'categories', element: <CategoriesManagement /> },
     ],
   },
-  { path: 'borrowings/reservations', element: <ReservationsManagement /> },
+  { path: 'reservations', element: <ReservationsManagement /> },
   { path: 'borrowings', element: <EquipmentsHistory /> },
   {
     path: 'fund-contributions',
