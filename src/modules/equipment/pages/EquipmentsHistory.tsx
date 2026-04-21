@@ -55,7 +55,12 @@ function parsePositiveInt(v: string | null, fallback: number): number {
   return i > 0 ? i : fallback;
 }
 
-const columns: ColumnDef<BorrowingListItem>[] = [
+const columns = (
+  onView: (item: BorrowingListItem) => void,
+  embedded: boolean,
+  /** Chỉ bật trên /manager/borrowings (không embedded) */
+  brandBorrowerName: boolean,
+): ColumnDef<BorrowingListItem>[] => [
   {
     accessorKey: 'borrowingId',
     header: 'Mã phiếu',
@@ -85,7 +90,15 @@ const columns: ColumnDef<BorrowingListItem>[] = [
             />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate font-medium text-slate-900">{m?.fullName ?? '—'}</div>
+            <div
+              className={
+                !embedded && brandBorrowerName
+                  ? 'truncate font-medium text-[#1a7a99]'
+                  : 'truncate font-medium text-slate-900'
+              }
+            >
+              {m?.fullName ?? '—'}
+            </div>
             <div className="truncate text-xs text-muted-foreground" title={sub}>
               {sub}
             </div>
@@ -146,6 +159,14 @@ const columns: ColumnDef<BorrowingListItem>[] = [
         </span>
       );
     },
+  },
+  {
+    id: 'actions',
+    header: () => <span className="block w-full text-center">Thao tác</span>,
+    enableSorting: false,
+    cell: ({ row }) => (
+      <TableTextAction onClick={() => void onView(row.original)} />
+    ),
   },
 ];
 
@@ -307,6 +328,8 @@ export default function EquipmentsHistory({
 
   const isEquipmentManager = location.pathname.startsWith('/em/');
   const showFullShell = !embedded && (standalone || !borrowedByMemberId);
+  const brandBorrowerNameOnPage =
+    !embedded && location.pathname.startsWith('/manager/borrowings');
 
   const statCards = useMemo(
     () => [
@@ -366,7 +389,7 @@ export default function EquipmentsHistory({
           </div>
         )}
         <DataTable
-          columns={columns}
+          columns={columns(handleView, embedded, brandBorrowerNameOnPage)}
           data={data}
           pageNumber={pageFromUrl}
           pageSize={pageSize}
@@ -422,13 +445,11 @@ export default function EquipmentsHistory({
 
       <div className="mb-1 px-6 py-2">
         <div className="flex items-center justify-end gap-3 flex-wrap">
-          <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
-            <HoverSearch
-              placeholder="Tìm theo mô tả, ghi chú..."
-              value={searchValue}
-              onChange={(v) => setSearchQuery(v)}
-            />
-          </div>
+          <HoverSearch
+            placeholder="Tìm theo mô tả, ghi chú..."
+            value={searchValue}
+            onChange={(v) => setSearchQuery(v)}
+          />
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
@@ -450,7 +471,7 @@ export default function EquipmentsHistory({
               </Select>
             </div>
 
-            <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFiltersQuery} type="button" title="Đặt lại bộ lọc">
+            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50" onClick={resetFiltersQuery} type="button" title="Đặt lại bộ lọc">
               <RotateCcw className="h-4 w-4" />
             </Button>
           </div>

@@ -8,6 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Button } from '../ui/button';
 import { cn } from '@/shared/lib/utils';
 
+/** Cột nút thao tác (Thao tác / THAO TÁC) — căn giữa header + cell. */
+function isOperationsColumn(columnId: string) {
+  return columnId === 'actions' || columnId === 'operation';
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -21,6 +26,8 @@ interface DataTableProps<TData, TValue> {
   showPagination?: boolean;
   /** Bấm vào hàng (không gồm control tương tác đã stopPropagation) */
   onRowClick?: (row: TData) => void;
+  /** Ổn định key của row để tránh unmount/mount lại cell (vd: ảnh). */
+  getRowId?: (originalRow: TData, index: number) => string;
   fillHeight?: boolean;
   /** Bảng full-width, padding rộng, kẻ ngang giữa các hàng — đồng bộ với trang thiết bị khả dụng */
   comfortable?: boolean;
@@ -37,6 +44,7 @@ export function DataTable<TData, TValue>({
   onPageChange,
   showPagination = true,
   onRowClick,
+  getRowId,
   fillHeight = false,
   comfortable = false,
   tableGap = 'default',
@@ -58,6 +66,7 @@ export function DataTable<TData, TValue>({
     pageCount: totalPages,
     enableSorting: false,
     getCoreRowModel: getCoreRowModel(),
+    getRowId,
   });
 
   return (
@@ -84,7 +93,10 @@ export function DataTable<TData, TValue>({
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={cn(comfortable && 'h-auto min-h-11 px-4 py-3.5 align-middle font-semibold text-slate-700')}
+                    className={cn(
+                      comfortable && 'h-auto min-h-11 px-4 py-3.5 align-middle font-semibold text-slate-700',
+                      isOperationsColumn(header.column.id) && 'text-center',
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -127,7 +139,11 @@ export function DataTable<TData, TValue>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className={cn('text-gray-700', comfortable && 'px-4 py-4 align-middle')}
+                      className={cn(
+                        'text-gray-700',
+                        comfortable && 'px-4 py-4 align-middle',
+                        isOperationsColumn(cell.column.id) && 'text-center [&>*]:inline-flex',
+                      )}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>

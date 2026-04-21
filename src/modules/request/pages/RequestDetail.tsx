@@ -580,7 +580,7 @@ export default function RequestDetail() {
 
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <div className="text-xs font-semibold text-gray-900 truncate">
+                              <div className="text-xs font-semibold text-[#1a7a99] truncate">
                                 {duplicatedTitle ? `Buổi ${preview.sessionNo}` : `Buổi ${preview.sessionNo}: ${sessionTitle}`}
                               </div>
                               {sessionStatusInfo ? (
@@ -723,12 +723,12 @@ export default function RequestDetail() {
             </button>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <h5 className="truncate text-xl font-bold text-slate-900">
+                <h5 className="truncate text-xl font-bold text-[#1a7a99]">
                   Chi tiết {request.requestName || request.requestCode}
                 </h5>
                 <p className="text-xs text-slate-700">
                   <span className="text-slate-500">Mã yêu cầu: </span>
-                  <span className="font-semibold text-slate-900">{request.requestCode}</span>
+                  <span className="font-semibold text-[#1a7a99]">{request.requestCode}</span>
                 </p>
               </div>
             </div>
@@ -780,14 +780,14 @@ export default function RequestDetail() {
                 <span className={dotClass} aria-hidden />
                 Loại yêu cầu
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-900">{requestTypeLabel}</p>
+              <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">{requestTypeLabel}</p>
             </div>
             <div className="min-w-0">
               <p className={metaLabelClass}>
                 <span className={dotClass} aria-hidden />
                 Ngày gửi
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-900">
+              <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">
                 {request.createdAt
                   ? dayjs(request.createdAt).format('DD/MM/YYYY')
                   : dayjs(request.startDate).format('DD/MM/YYYY')}
@@ -798,7 +798,7 @@ export default function RequestDetail() {
                 <span className={dotClass} aria-hidden />
                 Số lượng buổi
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-900">{sessionCount} buổi</p>
+              <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">{sessionCount} buổi</p>
             </div>
             {hasSourceDuration || hasStartAt || hasEndAt ? (
               <>
@@ -807,14 +807,14 @@ export default function RequestDetail() {
                     <span className={dotClass} aria-hidden />
                     Thời lượng
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">{sourceDuration || '—'}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">{sourceDuration || '—'}</p>
                 </div>
                 <div className="min-w-0">
                   <p className={metaLabelClass}>
                     <span className={dotClass} aria-hidden />
                     Ngày bắt đầu
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                  <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">
                     {requestDateRange.startAt ? dayjs(requestDateRange.startAt).format('DD/MM/YYYY HH:mm') : '—'}
                   </p>
                 </div>
@@ -823,7 +823,7 @@ export default function RequestDetail() {
                     <span className={dotClass} aria-hidden />
                     Ngày kết thúc
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                  <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">
                     {requestDateRange.endAt ? dayjs(requestDateRange.endAt).format('DD/MM/YYYY HH:mm') : '—'}
                   </p>
                 </div>
@@ -921,7 +921,7 @@ export default function RequestDetail() {
                           Chi tiết
                         </span>
                       </div>
-                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
+                      <p className="mt-1 text-sm font-semibold text-[#1a7a99] leading-snug line-clamp-2">
                         {sessionTitle}
                       </p>
                       <div className="mt-1 flex items-center justify-between gap-1.5 text-xs flex-wrap">
@@ -1123,7 +1123,7 @@ export default function RequestDetail() {
                           Chi tiết
                         </span>
                       </div>
-                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug line-clamp-2">{sessionTitle}</p>
+                      <p className="mt-1 text-sm font-semibold text-[#1a7a99] leading-snug line-clamp-2">{sessionTitle}</p>
                       {topic?.description?.trim() ? (
                         <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{topic.description.trim()}</p>
                       ) : null}
@@ -1243,7 +1243,7 @@ export default function RequestDetail() {
 
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-semibold text-slate-900 truncate" title={fileLabel}>
+                                  <span className="text-xs font-semibold text-[#1a7a99] truncate" title={fileLabel}>
                                     {fileLabel}
                                   </span>
                                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${meta.badgeClass}`}>
@@ -1297,14 +1297,14 @@ export default function RequestDetail() {
                 )}
                 {rightPanel.mode === 'equipment' ? (
                   <>
-                    <h2 className="text-base font-semibold text-black">Chọn buổi & thiết bị</h2>
+                    <h2 className="text-base font-semibold text-[#1a7a99]">Chọn buổi & thiết bị</h2>
                     <p className="text-xs text-gray-500 mt-1">
                       Yêu cầu thiết bị cho một hoặc nhiều buổi
                     </p>
                   </>
                 ) : rightPanel.mode === 'detail' && resolvedDetailSession ? (
                   <>
-                    <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                    <h2 className="text-lg font-bold text-[#1a7a99] leading-snug">
                       {getSessionDisplayTitle(resolvedDetailSession)}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1 tabular-nums">
@@ -1332,7 +1332,7 @@ export default function RequestDetail() {
                   </>
                 ) : rightPanel.mode === 'assignment' && resolvedPanelSession ? (
                   <>
-                    <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                    <h2 className="text-lg font-bold text-[#1a7a99] leading-snug">
                       {getSessionDisplayTitle(resolvedPanelSession)}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1 tabular-nums">
@@ -1360,7 +1360,7 @@ export default function RequestDetail() {
                   </>
                 ) : (
                   <>
-                    <h2 className="text-base font-semibold text-black">
+                    <h2 className="text-base font-semibold text-[#1a7a99]">
                       Buổi {rightPanel.session.sessionNo}
                     </h2>
                     <p className="text-xs text-gray-500 mt-1">
@@ -1514,7 +1514,7 @@ export default function RequestDetail() {
                   <div className="rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden">
                     <div className="px-4 py-2.5 bg-slate-50/70 flex items-center justify-between gap-2 flex-wrap">
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-gray-900 text-sm">Danh sách phân công</h3>
+                        <h3 className="font-semibold text-[#1a7a99] text-sm">Danh sách phân công</h3>
                         {hasUnfilledSlot && rows.length > 0 ? (
                           <p className="text-[11px] text-red-600 mt-0.5">
                             Chưa được phân công đủ
@@ -1637,7 +1637,7 @@ export default function RequestDetail() {
                                       )}
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                      <p className="truncate text-sm font-semibold text-slate-900">
+                                      <p className="truncate text-sm font-semibold text-[#1a7a99]">
                                         {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
                                       </p>
                                       <p className="truncate text-xs text-slate-500">
@@ -1732,7 +1732,7 @@ export default function RequestDetail() {
                                     )}
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-slate-900">
+                                    <p className="truncate text-sm font-semibold text-[#1a7a99]">
                                       {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
                                     </p>
                                     <p className="truncate text-xs text-slate-500">

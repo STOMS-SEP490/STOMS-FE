@@ -331,14 +331,14 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         accessorKey: 'courseCode',
         header: 'Mã khóa học',
         cell: ({ row }) => (
-          <span className="text-sm font-semibold text-slate-900">{row.original.courseCode}</span>
+          <span className="text-sm font-semibold text-[#1a7a99]">{row.original.courseCode}</span>
         ),
       },
       {
         accessorKey: 'courseName',
         header: 'Tên khóa học',
         cell: ({ row }) => (
-          <div className="min-w-0 truncate text-sm font-medium text-slate-900">{row.original.courseName}</div>
+          <div className="min-w-0 truncate text-sm font-medium text-[#1a7a99]">{row.original.courseName}</div>
         ),
       },
       {
@@ -378,7 +378,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       },
       {
         id: 'actions',
-        header: 'Thao tác',
+        header: () => <span className="block w-full text-center">Thao tác</span>,
         enableSorting: false,
         cell: ({ row }) => {
           const c = row.original;
@@ -491,15 +491,11 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       <div className="shrink-0 px-2 py-1">
         {!isManager ? (
           <div className="flex gap-3 items-center justify-end">
-            <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
-              <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
-            </div>
+            <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
           </div>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
-              <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={(value) => setSearch(value)} />
-            </div>
+            <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={(value) => setSearch(value)} />
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
@@ -522,7 +518,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                 </Select>
               </div>
 
-              <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFilters} type="button" title="Đặt lại bộ lọc">
+              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50" onClick={resetFilters} type="button" title="Đặt lại bộ lọc">
                 <RotateCcw className="w-4 h-4" />
               </Button>
             </div>
@@ -679,7 +675,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                               className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/40"
                             >
                               <div className="flex flex-col min-w-0">
-                                <span className="truncate text-sm font-medium text-slate-900">{name}</span>
+                                <span className="truncate text-sm font-medium text-[#1a7a99]">{name}</span>
                                 <span className="text-xs text-slate-500">Mã môn: {cs.subjectId}</span>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">

@@ -36,7 +36,7 @@ const columns: ColumnDef<ContractListItem>[] = [
     accessorKey: 'contractCode',
     header: 'Mã hợp đồng',
     cell: ({ row }) => (
-      <span className="font-semibold text-gray-900">
+      <span className="font-semibold text-[#1a7a99]">
         {row.original.contractCode}
       </span>
     ),
@@ -71,7 +71,7 @@ const columns: ColumnDef<ContractListItem>[] = [
     cell: ({ row }) => {
       const code = row.original.request?.requestCode;
       return code ? (
-        <span className="font-semibold text-gray-900">{code}</span>
+        <span className="font-semibold text-[#1a7a99]">{code}</span>
       ) : (
         '—'
       );
@@ -223,7 +223,7 @@ export default function ContractsManagement() {
     ...columns,
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
       cell: ({ row }) => {
         const contract = row.original;
@@ -319,13 +319,11 @@ export default function ContractsManagement() {
       </div>
 
       <div className="flex justify-end gap-3 mb-2 flex-wrap">
-        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
-          <HoverSearch
-            value={search}
-            onChange={setSearch}
-            placeholder="Tìm mã hợp đồng/yêu cầu..."
-          />
-        </div>
+        <HoverSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Tìm mã hợp đồng/yêu cầu..."
+        />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
@@ -357,7 +355,7 @@ export default function ContractsManagement() {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
+            className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
             onClick={() => {
               setIsPaid(undefined);
               setPageNumber(1);

@@ -136,7 +136,7 @@ export default function TeacherAttendanceHistoryPage() {
       },
       {
         id: 'actions',
-        header: 'THAO TÁC',
+        header: () => <span className="block w-full text-center">THAO TÁC</span>,
         enableSorting: false,
         cell: ({ row }) => {
           const r = row.original as AttendanceHistoryItem;

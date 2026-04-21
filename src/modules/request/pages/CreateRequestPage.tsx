@@ -583,7 +583,7 @@ export default function CreateRequestPage() {
 
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-gray-900 truncate">
+                        <div className="text-xs font-semibold text-[#1a7a99] truncate">
                           {duplicatedSessionTitle ? `Buổi ${s.sessionNo}` : `Buổi ${s.sessionNo}: ${s.title}`}
                         </div>
                        
@@ -693,7 +693,7 @@ export default function CreateRequestPage() {
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">{isEditMode ? 'Chỉnh sửa yêu cầu' : 'Tạo yêu cầu mới'}</h2>
+              <h2 className="text-lg font-semibold text-[#1a7a99]">{isEditMode ? 'Chỉnh sửa yêu cầu' : 'Tạo yêu cầu mới'}</h2>
               <p className="text-xs text-gray-500">
                 Điền thông tin yêu cầu giảng dạy hoặc sự kiện {isEditMode ? '(từ bản ghi cũ)' : ''}
               </p>
@@ -777,7 +777,7 @@ export default function CreateRequestPage() {
             <div className="px-6 py-4 border-b bg-gray-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#2197C0]" />
-                <h3 className="text-sm font-semibold text-gray-800">Thông tin yêu cầu</h3>
+                <h3 className="text-sm font-semibold text-[#1a7a99]">Thông tin yêu cầu</h3>
               </div>
             </div>
 
@@ -1094,7 +1094,7 @@ export default function CreateRequestPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Calendar className={cn('w-4 h-4', accentTextClass)} />
-                  <h3 className="text-sm font-semibold text-gray-800">Lịch các buổi</h3>
+                  <h3 className="text-sm font-semibold text-[#1a7a99]">Lịch các buổi</h3>
                 </div>
                 {sessions.length > 0 && (
                   <Badge className={cn(accentSoftBgClass, accentTextClass, 'border-0 text-[11px]')}>

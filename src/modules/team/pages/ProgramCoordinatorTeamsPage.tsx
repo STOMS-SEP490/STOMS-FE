@@ -78,7 +78,7 @@ export default function ProgramCoordinatorTeamsPage() {
     {
       accessorKey: 'teamName',
       header: 'Tên nhóm',
-      cell: ({ row }) => <span className="font-semibold text-gray-900">{row.original.teamName}</span>,
+      cell: ({ row }) => <span className="font-semibold text-[#1a7a99]">{row.original.teamName}</span>,
     },
     {
       id: 'leader',
@@ -98,7 +98,7 @@ export default function ProgramCoordinatorTeamsPage() {
     },
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
       cell: ({ row }) => (
         <button

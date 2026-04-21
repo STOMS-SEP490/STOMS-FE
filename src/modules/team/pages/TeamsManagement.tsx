@@ -46,10 +46,10 @@ function TeamsToolbar() {
 
   return (
     <div className="flex gap-3 items-center justify-end">
-      <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
+      <div>
         <HoverSearch placeholder="Tìm tên nhóm..." value={q} onChange={setSearch} />
       </div>
-      <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={reset} title="Đặt lại bộ lọc">
+      <Button variant="outline" size="icon" className="h-9 w-9" onClick={reset} title="Đặt lại bộ lọc">
         <RotateCcw size={16} />
       </Button>
     </div>
@@ -192,7 +192,7 @@ function TeamsContent() {
       {
         accessorKey: 'teamName',
         header: 'Tên nhóm',
-        cell: ({ row }) => <span className="font-semibold text-gray-900">{row.original.teamName}</span>,
+        cell: ({ row }) => <span className="font-semibold text-[#1a7a99]">{row.original.teamName}</span>,
       },
       {
         id: 'leader',
@@ -229,7 +229,7 @@ function TeamsContent() {
       },
       {
         id: 'actions',
-        header: 'Thao tác',
+        header: () => <span className="block w-full text-center">Thao tác</span>,
         enableSorting: false,
         cell: ({ row }) => {
           const team = row.original;

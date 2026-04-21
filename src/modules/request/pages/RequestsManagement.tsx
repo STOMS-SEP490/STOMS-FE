@@ -101,7 +101,7 @@ export default function RequestsManagement() {
 
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: () => <span className="block w-full text-center">Thao tác</span>,
       cell: ({ row }) => (
         <div className="flex gap-3">
             {(() => {

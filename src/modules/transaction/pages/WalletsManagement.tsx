@@ -102,7 +102,7 @@ export default function WalletsManagement() {
   if (context.position === 'toolbar') {
     return (
       <div className="flex gap-3">
-        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
+        <div>
           <HoverSearch
             placeholder="Tìm theo tên quỹ..."
             value={search}
@@ -112,7 +112,7 @@ export default function WalletsManagement() {
         <Button
           variant="outline"
           size="icon"
-          className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
+          className="h-9 w-9"
           onClick={() => {
             setSearch('');
             setPageNumber(1);
@@ -129,7 +129,7 @@ export default function WalletsManagement() {
     () => [
       ...baseColumns,
       {
-        id: 'actions',
+        id: 'walletDetail',
         header: 'Chi tiết',
         enableSorting: false,
         cell: ({ row }) => (
@@ -168,7 +168,7 @@ export default function WalletsManagement() {
   return (
     <div className="px-6 pt-2 pb-4 space-y-4">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-semibold text-black">Quản lý quỹ</h2>
+        <h2 className="text-lg font-semibold text-[#1a7a99]">Quản lý quỹ</h2>
         <div className="flex items-center gap-2">
           {loading && (
             <span className="text-xs text-gray-500">Đang tải dữ liệu...</span>

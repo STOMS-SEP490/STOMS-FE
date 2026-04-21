@@ -123,7 +123,7 @@ export default function CategoriesManagement() {
       header: 'Tên danh mục',
       cell: ({ row }) => (
         <div>
-          <div className="font-medium">{row.original.categoryName}</div>
+          <div className="font-medium text-[#1a7a99]">{row.original.categoryName}</div>
         </div>
       ),
     },
@@ -137,7 +137,7 @@ export default function CategoriesManagement() {
       cell: ({ row }) => {
         const item = row.original;
         const count = Number(item.totalEquipment ?? 0);
-        return <span className="font-semibold">{count}</span>;
+        return <span className="font-semibold text-gray-900">{count}</span>;
       },
     },
     {
@@ -150,7 +150,7 @@ export default function CategoriesManagement() {
     },
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
       cell: ({ row }) => {
         const category = row.original;
@@ -200,13 +200,11 @@ export default function CategoriesManagement() {
   if (context?.position === 'toolbar') {
     return (
       <div className="flex gap-3">
-        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
-          <HoverSearch
-            placeholder="Tìm tên danh mục..."
-            value={search}
-            onChange={(value) => setSearch(value)}
-          />
-        </div>
+        <HoverSearch
+          placeholder="Tìm tên danh mục..."
+          value={search}
+          onChange={(value) => setSearch(value)}
+        />
       </div>
     );
   }
@@ -243,13 +241,11 @@ export default function CategoriesManagement() {
         </div>
 
         <div className="mb-2 flex justify-end">
-          <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
-            <HoverSearch
-              placeholder="Tìm tên danh mục..."
-              value={search}
-              onChange={(value) => setSearch(value)}
-            />
-          </div>
+          <HoverSearch
+            placeholder="Tìm tên danh mục..."
+            value={search}
+            onChange={(value) => setSearch(value)}
+          />
         </div>
 
         <div className="bg-white rounded-xl border shadow-sm px-6 py-4">

@@ -138,7 +138,7 @@ export default function CoursesLayout({ variant }: Props) {
       {/* HEADER */}
       <div className="bg-white flex justify-between px-4 py-3 mb-2 rounded-xl border shadow-sm items-center">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">{pageTitle}</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">{pageTitle}</h2>
           <p className="text-xs text-slate-500">{pageSubtitle}</p>
         </div>
         {canEdit && currentTab === 'courses' && (

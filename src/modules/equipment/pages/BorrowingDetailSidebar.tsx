@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { X, ImageOff } from 'lucide-react'
 import type { BorrowingListItem } from '../borrowing'
 import { Badge } from '@/shared/components/ui/badge'
@@ -9,6 +9,7 @@ import { cn } from '@/shared/lib/utils'
 import { Checkbox, Image, message } from 'antd'
 import { Button } from '@/shared/components/ui/button'
 import borrowingApi from '../api/borrowingApi'
+import equipmentApi from '../api/equipmentApi'
 
 type Props = {
   open: boolean
@@ -42,8 +43,60 @@ export default function BorrowingDetailSidebar({
   const [returning, setReturning] = useState(false)
   const [localReturnedAtById, setLocalReturnedAtById] = useState<Record<number, string>>({})
   const [localStatusById, setLocalStatusById] = useState<Record<number, string>>({})
+  const [imgLinkByEquipmentId, setImgLinkByEquipmentId] = useState<Record<number, string>>({})
 
   const details = borrowing.borrowingEquipmentDetail ?? []
+
+  // Fallback: một số API phiếu mượn có thể không trả kèm equipment.imgLink.
+  // Khi mở sidebar, fetch bổ sung theo equipmentId để hiển thị ảnh đúng.
+  useEffect(() => {
+    if (!open) return
+    if (!details.length) return
+
+    const missingIds = Array.from(
+      new Set(
+        details
+          .map((d) => Number(d.equipmentId))
+          .filter((id) => Number.isFinite(id) && id > 0)
+          .filter((id) => !imgLinkByEquipmentId[id])
+          .filter((id) => {
+            const hasInline = details.some((x) => x.equipmentId === id && x.equipment?.imgLink)
+            return !hasInline
+          }),
+      ),
+    )
+
+    if (missingIds.length === 0) return
+
+    let cancelled = false
+    ;(async () => {
+      const results = await Promise.allSettled(
+        missingIds.map(async (id) => {
+          const eq = await equipmentApi.getById(id)
+          const link = eq?.imgLink
+          return { id, link: typeof link === 'string' ? link : null }
+        }),
+      )
+
+      if (cancelled) return
+
+      const next: Record<number, string> = {}
+      results.forEach((r) => {
+        if (r.status !== 'fulfilled') return
+        if (!r.value.link) return
+        next[r.value.id] = r.value.link
+      })
+      if (Object.keys(next).length > 0) {
+        setImgLinkByEquipmentId((prev) => ({ ...prev, ...next }))
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, borrowing.borrowingId])
+
   const actionableItems = useMemo(
     () =>
       details.filter((item) => {
@@ -265,6 +318,10 @@ export default function BorrowingDetailSidebar({
                     const statusMeta = getEquipmentBorrowingStatusInfo(
                       localStatusById[item.equipmentBorrowingId] ?? item.status
                     )
+                    const imgLink =
+                      item.equipment?.imgLink ??
+                      imgLinkByEquipmentId[Number(item.equipmentId)] ??
+                      null
                     return (
                       <li
                         key={item.equipmentBorrowingId}
@@ -280,13 +337,13 @@ export default function BorrowingDetailSidebar({
                           />
                         ) : null}
                         <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
-                          {item.equipment?.imgLink ? (
+                          {imgLink ? (
                             <Image
-                              src={item.equipment.imgLink}
-                              alt={item.equipment.equipmentName}
+                              src={imgLink}
+                              alt={item.equipment?.equipmentName ?? `Thiết bị #${item.equipmentId}`}
                               width={40}
                               height={40}
-                              className="object-contain"
+                              style={{ width: 40, height: 40, objectFit: 'cover' }}
                               preview={{ mask: 'Xem ảnh' }}
                             />
                           ) : (
@@ -448,9 +505,9 @@ export default function BorrowingDetailSidebar({
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white border-t border-b border-gray-200">
-      <div className="px-5 py-3 border-b border-gray-100 bg-sky-50/30">
-        <h3 className="font-semibold text-[#2197C0] text-sm">{title}</h3>
+    <div className="rounded-2xl bg-white shadow-sm">
+      <div className="px-4 py-2.5 border-b">
+        <h3 className="font-semibold text-[#1a7a99] text-sm">{title}</h3>
       </div>
       <div className="px-5 py-4">{children}</div>
     </div>

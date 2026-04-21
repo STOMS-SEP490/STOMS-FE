@@ -124,7 +124,7 @@ export default function MembersManagement() {
             className="w-8 h-8 rounded-full object-cover"
           />
           <div>
-            <p className="font-medium text-sm">{row.original.fullName}</p>
+            <p className="font-medium text-sm text-[#1a7a99]">{row.original.fullName}</p>
             <p className="text-xs text-gray-500">{row.original.email ?? '—'}</p>
           </div>
         </div>
@@ -150,7 +150,7 @@ export default function MembersManagement() {
     },
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
       cell: ({ row }) => {
         const m = row.original;
@@ -210,9 +210,7 @@ export default function MembersManagement() {
       </div>
 
       <div className="flex justify-end gap-3 mb-2">
-        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
-          <HoverSearch placeholder="Tìm theo tên..." value={filterFullName} onChange={setFilterFullName} />
-        </div>
+        <HoverSearch placeholder="Tìm theo tên..." value={filterFullName} onChange={setFilterFullName} />
         <div className="flex items-center gap-3">
           <Select value={filterRole} onValueChange={(v) => setFilterRole(v as 'all' | 'teacher' | 'student')}>
             <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[220px]">
@@ -237,7 +235,7 @@ export default function MembersManagement() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFilters} title="Đặt lại bộ lọc">
+          <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50" onClick={resetFilters} title="Đặt lại bộ lọc">
             <RotateCcw size={16} />
           </Button>
         </div>

@@ -21,6 +21,7 @@ const requestApi = {
           SessionStatuses: params?.sessionStatuses,
           AssignmentStatuses: params?.assignmentStatuses,
           RequireAllAssignmentsHaveStaffMember: params?.requireAllAssignmentsHaveStaffMember,
+          IsAssignmentApprovalNeeded: params?.isAssignmentApprovalNeeded,
           TeamId: params?.teamId,
           PageNumber: params?.pageNumber,
           PageSize: params?.pageSize,

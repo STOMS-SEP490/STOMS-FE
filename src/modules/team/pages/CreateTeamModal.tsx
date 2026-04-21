@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { message } from 'antd';
-import memberApi from '@/modules/member/api/memberApi';
 import { teamApi } from '@/modules/team/api/teamApi';
-import type { Member } from '@/modules/member/member';
+import userApi from '@/modules/user/api/userApi';
+import type { User } from '@/modules/user/user';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -22,41 +22,53 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
   const [leaderMemberId, setLeaderMemberId] = useState<number | null>(null);
   const [searchValue, setSearchValue] = useState('');
   const [searching, setSearching] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const TEAM_LEADER_ROLE_ID = 2;
+
+  const getUserDisplayName = (u: User): string => {
+    const m = u.member as unknown as { fullName?: string | null } | null | undefined;
+    return (m?.fullName ?? '').trim() || u.email || `User #${u.userId}`;
+  };
 
   const handleSearch = async () => {
     if (!searchValue.trim()) return;
     try {
       setSearching(true);
       const isNumber = !isNaN(Number(searchValue));
-      const res = await memberApi.getMembers({
-        MemberId: isNumber ? Number(searchValue) : undefined,
-        FullName: !isNumber ? searchValue : undefined,
+      const res = await userApi.getUsers({
+        UserId: isNumber ? Number(searchValue) : undefined,
+        Email: !isNumber ? searchValue.trim() : undefined,
+        RoleId: TEAM_LEADER_ROLE_ID,
+        pageNumber: 1,
+        pageSize: 20,
       });
-      const all = res.items ?? [];
-      const onlyTeamLeaders = all.filter((m) => m.roleId === TEAM_LEADER_ROLE_ID);
-      setMembers(onlyTeamLeaders);
-      if (all.length > 0 && onlyTeamLeaders.length === 0) {
-        message.warning('Không tìm thấy thành viên có vai trò Trưởng nhóm.');
+      const items = (res.items ?? []).filter((u) => u.roleId === TEAM_LEADER_ROLE_ID);
+      setUsers(items);
+      if ((res.items ?? []).length > 0 && items.length === 0) {
+        message.warning('Không tìm thấy user có vai trò Trưởng nhóm.');
       }
     } catch {
       message.error('Tìm kiếm thất bại');
-      setMembers([]);
+      setUsers([]);
     } finally {
       setSearching(false);
     }
   };
 
-  const handleSelect = (member: Member) => {
-    if (member.roleId !== TEAM_LEADER_ROLE_ID) {
-      message.warning('Chỉ được chọn thành viên có vai trò Trưởng nhóm.');
+  const handleSelect = (u: User) => {
+    if (u.roleId !== TEAM_LEADER_ROLE_ID) {
+      message.warning('Chỉ được chọn user có vai trò Trưởng nhóm.');
       return;
     }
-    setLeaderMemberId(member.memberId);
+    const memberId = u.memberId ?? null;
+    if (!memberId || !Number.isFinite(Number(memberId))) {
+      message.error('User này chưa được liên kết Member.');
+      return;
+    }
+    setLeaderMemberId(Number(memberId));
     message.success('Đã chọn trưởng nhóm');
   };
 
@@ -78,7 +90,7 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
       message.success('Tạo nhóm thành công');
       setTeamName('');
       setLeaderMemberId(null);
-      setMembers([]);
+      setUsers([]);
       setSearchValue('');
       onClose();
       onCreated?.();
@@ -92,7 +104,7 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
   const handleClose = () => {
     setTeamName('');
     setLeaderMemberId(null);
-    setMembers([]);
+    setUsers([]);
     setSearchValue('');
     setError('');
     onClose();
@@ -124,7 +136,7 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
           </Label>
           <div className="flex gap-2">
             <Input
-              placeholder="Nhập ID hoặc tên thành viên"
+              placeholder="Nhập UserId hoặc Email"
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
@@ -135,32 +147,37 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
             </Button>
           </div>
         </div>
-        {members.length > 0 && (
+        {users.length > 0 && (
           <div className="space-y-2 max-h-48 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {members.map((m) => (
+            {users.map((u) => {
+              const displayName = getUserDisplayName(u);
+              const email = (u.email ?? '').trim() || '—';
+              const selected = leaderMemberId != null && Number(u.memberId ?? 0) === leaderMemberId;
+              return (
               <button
-                key={m.memberId}
+                key={u.userId}
                 type="button"
-                onClick={() => handleSelect(m)}
+                onClick={() => handleSelect(u)}
                 className={cn(
                   'w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
-                  leaderMemberId === m.memberId
+                  selected
                     ? 'border-[#2197C0] bg-[#2197C0]/10'
                     : 'border-gray-200 hover:bg-gray-50'
                 )}
               >
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={m.avatarUrl ?? undefined} />
+                  <AvatarImage src={u.avatarUrl ?? undefined} />
                   <AvatarFallback className="bg-gray-200 text-black">
-                    {m.fullName?.charAt(0) ?? '?'}
+                    {displayName.charAt(0) ?? '?'}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <div className="font-medium text-black">{m.fullName}</div>
-                  <div className="text-xs text-black/60">{m.email ?? '—'}</div>
+                  <div className="font-medium text-black">{displayName}</div>
+                  <div className="text-xs text-black/60">{email}</div>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
         {error && <p className="text-sm text-red-600">{error}</p>}

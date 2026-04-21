@@ -85,12 +85,12 @@ export default function PCRequestsIndex() {
     {
       accessorKey: 'requestCode',
       header: 'Mã yêu cầu',
-      cell: ({ row }) => <span className="font-semibold">{row.original.requestCode}</span>,
+      cell: ({ row }) => <span className="font-semibold text-[#1a7a99]">{row.original.requestCode}</span>,
     },
     {
       accessorKey: 'requestName',
       header: 'Tên yêu cầu',
-      cell: ({ row }) => <span className="font-semibold text-slate-800">{row.original.requestName}</span>,
+      cell: ({ row }) => <span className="font-semibold text-[#1a7a99]">{row.original.requestName}</span>,
     },
     { accessorKey: 'customerName', header: 'Khách hàng' },
     {
