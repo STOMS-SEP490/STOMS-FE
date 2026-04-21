@@ -8,7 +8,6 @@ import { getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/
 import { useCategories } from '@/modules/category/hooks/useCategories';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory';
-import { X } from 'lucide-react';
 import { getEquipmentsListCached } from '@/modules/equipment/utils/equipmentListCache';
 
 export default function AvailableEquipmentsPage() {
@@ -19,7 +18,6 @@ export default function AvailableEquipmentsPage() {
   const [pageSize] = useState(8);
   const [totalItems, setTotalItems] = useState(0);
   const [activeTab, setActiveTab] = useState<'list' | 'borrowings'>('list');
-  const [previewImgUrl, setPreviewImgUrl] = useState<string | null>(null);
   const borrowedByMemberId = useMemo(() => {
     try {
       const raw = JSON.parse(localStorage.getItem('user') || '{}') as { memberId?: number };
@@ -60,7 +58,9 @@ export default function AvailableEquipmentsPage() {
         accessorKey: 'equipmentCode',
         header: 'Mã thiết bị',
         enableSorting: false,
-        cell: ({ row }) => <span className="font-semibold">{row.original.equipmentCode}</span>,
+        cell: ({ row }) => (
+          <span className="font-semibold text-[#1a7a99]">{row.original.equipmentCode}</span>
+        ),
       },
       {
         accessorKey: 'equipmentName',
@@ -68,7 +68,9 @@ export default function AvailableEquipmentsPage() {
         enableSorting: false,
         cell: ({ row }) => (
           <div className="min-w-0">
-            <div className="font-medium truncate">{row.original.equipmentName}</div>
+            <div className="font-medium truncate text-[#1a7a99]">
+              {row.original.equipmentName}
+            </div>
             <div className="text-xs text-gray-500 truncate">{row.original.description || '—'}</div>
           </div>
         ),
@@ -92,31 +94,6 @@ export default function AvailableEquipmentsPage() {
             {getEquipmentStatusDisplay(row.original.status)}
           </Badge>
         ),
-      },
-      {
-        accessorKey: 'imgLink',
-        header: 'Hình ảnh',
-        enableSorting: false,
-        cell: ({ row }) =>
-          row.original.imgLink ? (
-            <div className="w-10 h-10 rounded-md overflow-hidden border bg-gray-50">
-              <img
-                src={row.original.imgLink}
-                alt={row.original.equipmentName}
-                width={40}
-                height={40}
-                loading="lazy"
-                decoding="async"
-                className="h-10 w-10 object-cover cursor-pointer hover:opacity-90"
-                onClick={() => setPreviewImgUrl(row.original.imgLink ?? null)}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            </div>
-          ) : (
-            <span className="text-xs text-gray-500">Không có ảnh</span>
-          ),
       },
     ],
     [categoryNameById],
@@ -180,32 +157,6 @@ export default function AvailableEquipmentsPage() {
           </div>
         )}
       </div>
-      {previewImgUrl ? (
-        <div className="fixed inset-0 z-[90]">
-          <div
-            className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"
-            onClick={() => setPreviewImgUrl(null)}
-            aria-hidden="true"
-          />
-          <div className="absolute inset-0 flex items-center justify-center p-4">
-            <div className="relative max-h-[90vh] w-full max-w-[900px]">
-              <button
-                type="button"
-                className="absolute -top-3 -right-3 rounded-full bg-white/95 border border-slate-200 p-2 text-slate-700 shadow hover:bg-white"
-                onClick={() => setPreviewImgUrl(null)}
-                aria-label="Đóng ảnh"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <img
-                src={previewImgUrl}
-                alt="Preview"
-                className="max-h-[90vh] w-full rounded-xl object-contain bg-black/20"
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

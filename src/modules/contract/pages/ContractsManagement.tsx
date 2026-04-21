@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { message, Modal } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -13,16 +13,13 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import {
-  BookOpen,
   CheckCircle,
-  Clock,
-  Eye,
-  GraduationCap,
+  FileText,
   Pencil,
   Plus,
   RotateCcw,
-} from 'lucide-react';
-import type { ContractListItem } from '../contract';
+  XCircle,
+} from 'lucide-react';import type { ContractListItem } from '../contract';
 import { useContracts } from '../hooks/useContracts';
 import contractApi from '../api/contractApi';
 import ContractDetailSidebar from './ContractDetailSidebar';
@@ -30,6 +27,7 @@ import CreateContractModal from './CreateContractModal';
 import EditContractModal from './EditContractModal';
 import { useLocation } from 'react-router-dom';
 import sessionApi from '@/modules/request/api/sessionApi';
+import { dashboardApi, type DashboardContractSummary } from '@/modules/dashboard/api/dashboardApi';
 
 const columns: ColumnDef<ContractListItem>[] = [
   {
@@ -145,6 +143,19 @@ export default function ContractsManagement() {
     refetch,
   } = useContracts();
 
+  const [contractSummary, setContractSummary] = useState<DashboardContractSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSummaryLoading(true);
+    dashboardApi.getContractSummary()
+      .then((res) => { if (!cancelled) setContractSummary(res); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setSummaryLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContract, setDetailContract] = useState<ContractListItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -157,13 +168,11 @@ export default function ContractsManagement() {
   const handleViewDetail = async (contract: ContractListItem) => {
     setDetailOpen(true);
     setDetailRoleLabel(null);
-    setDetailContract(contract); // show quickly with list data
+    setDetailContract(contract);
     try {
       setDetailLoading(true);
       const full = await contractApi.getById(contract.contractId);
       setDetailContract(full);
-
-      // contracts/{id} response doesn't include assignment role, so resolve it from session detail
       try {
         const sessionDetail = await sessionApi.getById(full.sessionId);
         const assignments = sessionDetail.Assignments ?? [];
@@ -173,9 +182,7 @@ export default function ContractsManagement() {
         });
         const rawRole = String(matched?.StaffRole ?? '').toLowerCase();
         const roleLabel = rawRole
-          ? rawRole.includes('ta') || rawRole.includes('trợ')
-            ? 'Sinh viên'
-            : 'Giáo viên'
+          ? rawRole.includes('ta') || rawRole.includes('trợ') ? 'Sinh viên' : 'Giáo viên'
           : null;
         setDetailRoleLabel(roleLabel);
       } catch (roleErr) {
@@ -200,9 +207,7 @@ export default function ContractsManagement() {
       content: `Hợp đồng ${contract.contractCode} sẽ được đánh dấu là ĐÃ THANH TOÁN. Thao tác này không hoàn tác được.`,
       okText: 'Xác nhận',
       cancelText: 'Hủy',
-      okButtonProps: {
-        className: 'bg-red-600 hover:bg-red-700 text-white border-none',
-      },
+      okButtonProps: { className: 'bg-red-600 hover:bg-red-700 text-white border-none' },
       onOk: async () => {
         try {
           setMarking(true);
@@ -219,48 +224,28 @@ export default function ContractsManagement() {
     });
   };
 
-  const enhancedColumns: ColumnDef<ContractListItem>[] = [
+  // columns without actions
+  const tableColumns: ColumnDef<ContractListItem>[] = [
     ...columns,
-    {
-      id: 'actions',
+    ...(!isManagerPage ? [{
+      id: 'rowActions',
       header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
-      cell: ({ row }) => {
+      cell: ({ row }: { row: { original: ContractListItem } }) => {
         const contract = row.original;
-        const canMarkPaid = contract.isPaid === false;
-
         return (
-          <div className="flex items-center gap-2">
-            <Eye
-              size={16}
-              className="text-gray-800 cursor-pointer"
-              onClick={() => handleViewDetail(contract)}
-            />
-            {!isManagerPage && contract.isPaid !== true && (
-              <Pencil
-                size={16}
-                className="text-blue-600 cursor-pointer"
-                onClick={() => handleEdit(contract)}
-              />
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            {contract.isPaid !== true && (
+              <Pencil size={16} className="text-blue-600 cursor-pointer" onClick={() => handleEdit(contract)} />
             )}
-            {canMarkPaid && !isManagerPage && (
-              <CheckCircle
-                size={16}
-                className="text-green-600 cursor-pointer"
-                onClick={() => handleMarkAsPaid(contract)}
-              />
+            {contract.isPaid === false && (
+              <CheckCircle size={16} className="text-green-600 cursor-pointer" onClick={() => handleMarkAsPaid(contract)} />
             )}
           </div>
         );
       },
-    },
+    } as ColumnDef<ContractListItem>] : []),
   ];
-
-  const paidOnPage = data.filter((c) => c.isPaid === true).length;
-  const totalAmountOnPage = data.reduce(
-    (sum, c) => sum + (typeof c.amount === 'number' ? c.amount : 0),
-    0
-  );
 
   return (
     <div className="relative p-6 pl-8 space-y-6">
@@ -275,13 +260,9 @@ export default function ContractsManagement() {
           <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý hợp đồng</h2>
           <p className="text-xs text-slate-500">Quản lý hợp đồng giảng viên và sinh viên</p>
         </div>
-
         {!isManagerPage && (
           <div className="flex gap-3 items-center">
-            <Button
-              className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
-              onClick={() => setCreateOpen(true)}
-            >
+            <Button className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md" onClick={() => setCreateOpen(true)}>
               <Plus size={16} />
               Thêm hợp đồng
             </Button>
@@ -290,55 +271,41 @@ export default function ContractsManagement() {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-2">
+      <div className="grid grid-cols-3 gap-4 mb-2">
         <StatCard
-          icon={<GraduationCap />}
+          icon={<FileText />}
           label="Tổng hợp đồng"
-          value={totalItems.toString()}
+          value={summaryLoading ? '—' : (contractSummary?.totalContracts ?? totalItems).toString()}
           sub="hợp đồng trong hệ thống"
+          variant="blue"
         />
         <StatCard
           icon={<CheckCircle />}
           label="Đã thanh toán"
-          value={paidOnPage.toString()}
-          sub="trên trang hiện tại"
+          value={summaryLoading ? '—' : (contractSummary?.paidContracts ?? 0).toString()}
+          sub="hợp đồng đã thanh toán"
           variant="green"
         />
         <StatCard
-          icon={<BookOpen />}
+          icon={<XCircle />}
           label="Chưa thanh toán"
-          value={(data.length - paidOnPage).toString()}
-          sub="trên trang hiện tại"
-        />
-        <StatCard
-          icon={<Clock />}
-          label="Tổng số tiền"
-          value={totalAmountOnPage.toLocaleString('vi-VN')}
-          sub="trên trang hiện tại (đ)"
+          value={summaryLoading ? '—' : (contractSummary?.unpaidContracts ?? 0).toString()}
+          sub="hợp đồng chưa thanh toán"
+          variant="amber"
         />
       </div>
 
       <div className="flex justify-end gap-3 mb-2 flex-wrap">
-        <HoverSearch
-          value={search}
-          onChange={setSearch}
-          placeholder="Tìm mã hợp đồng/yêu cầu..."
-        />
+        <HoverSearch value={search} onChange={setSearch} placeholder="Tìm mã hợp đồng/yêu cầu..." />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
             <Select
-              value={
-                isPaid === undefined ? 'all' : isPaid === true ? 'paid' : 'unpaid'
-              }
+              value={isPaid === undefined ? 'all' : isPaid === true ? 'paid' : 'unpaid'}
               onValueChange={(value) => {
-                if (value === 'all') {
-                  setIsPaid(undefined);
-                } else if (value === 'paid') {
-                  setIsPaid(true);
-                } else {
-                  setIsPaid(false);
-                }
+                if (value === 'all') setIsPaid(undefined);
+                else if (value === 'paid') setIsPaid(true);
+                else setIsPaid(false);
               }}
             >
               <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
@@ -351,55 +318,36 @@ export default function ContractsManagement() {
               </SelectContent>
             </Select>
           </div>
-
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
-            onClick={() => {
-              setIsPaid(undefined);
-              setPageNumber(1);
-            }}
-            title="Đặt lại bộ lọc"
-          >
+          <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50" onClick={() => { setIsPaid(undefined); setPageNumber(1); }} title="Đặt lại bộ lọc">
             <RotateCcw size={16} />
           </Button>
         </div>
       </div>
-      {/* TABLE CARD */}
+
+      {/* TABLE */}
       <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
         <DataTable
-          columns={enhancedColumns}
+          columns={tableColumns}
           data={data}
           pageNumber={pageNumber}
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(page) => setPageNumber(page)}
+          onRowClick={handleViewDetail}
         />
       </div>
+
       <ContractDetailSidebar
         open={detailOpen}
-        onClose={() => {
-          setDetailOpen(false);
-          setDetailContract(null);
-          setDetailLoading(false);
-          setDetailRoleLabel(null);
-        }}
+        onClose={() => { setDetailOpen(false); setDetailContract(null); setDetailLoading(false); setDetailRoleLabel(null); }}
         contract={detailContract}
         loading={detailLoading}
         roleLabel={detailRoleLabel}
       />
-      <CreateContractModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={refetch}
-      />
+      <CreateContractModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={refetch} />
       <EditContractModal
         open={editOpen}
-        onClose={() => {
-          setEditOpen(false);
-          setEditContract(null);
-        }}
+        onClose={() => { setEditOpen(false); setEditContract(null); }}
         contract={editContract}
         onUpdated={refetch}
       />

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { Bookmark, Users, X } from 'lucide-react';
 import type { Team, TeamMemberItem } from '../team';
-import { Badge } from '@/shared/components/ui/badge';
+import { cn } from '@/shared/lib/utils';
 import memberApi from '@/modules/member/api/memberApi';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,25 +17,15 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN');
 }
 
-/** Chỉ hiển thị topic đang active (isActive === false → ẩn; thiếu field → coi như active, giống MyTeamPage). */
 function isTopicActive(isActive?: boolean) {
   return isActive !== false;
 }
 
-/** Topic để hiển thị: ưu tiên topics từ GET /teams/:id, không thì teamTopics; cả hai đều lọc active. */
-function getDisplayTopics(team: Team): Array<{
-  topicId: number;
-  topicName: string;
-  createdAt?: string | null;
-}> {
+function getDisplayTopics(team: Team) {
   if (team.topics && team.topics.length > 0) {
     return team.topics
       .filter((t) => isTopicActive(t.isActive))
-      .map((t) => ({
-        topicId: t.topicId,
-        topicName: t.topicName,
-        createdAt: t.createdAt,
-      }));
+      .map((t) => ({ topicId: t.topicId, topicName: t.topicName, createdAt: t.createdAt }));
   }
   return (team.teamTopics ?? [])
     .filter((tt) => isTopicActive(tt.isActive))
@@ -46,22 +37,14 @@ function getDisplayTopics(team: Team): Array<{
 }
 
 function roleLabel(roleId: number | null | undefined) {
-  if (roleId == null) return 'Chưa có vai trò';
   switch (roleId) {
-    case 6:
-      return 'Quản lý thiết bị';
-    case 5:
-      return 'Sinh viên';
-    case 4:
-      return 'Giảng viên';
-    case 3:
-      return 'Điều phối chương trình';
-    case 2:
-      return 'Trưởng nhóm';
-    case 1:
-      return 'Quản lý';
-    default:
-      return '—';
+    case 6: return 'Quản lý thiết bị';
+    case 5: return 'Sinh viên';
+    case 4: return 'Giảng viên';
+    case 3: return 'Điều phối chương trình';
+    case 2: return 'Trưởng nhóm';
+    case 1: return 'Quản lý';
+    default: return '—';
   }
 }
 
@@ -71,23 +54,18 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
   const [loadingMembers, setLoadingMembers] = useState(false);
 
   useEffect(() => {
-    if (!open || !team) {
-      setMembers([]);
-      return;
-    }
+    if (!open || !team) { setMembers([]); return; }
     if (team.members && team.members.length > 0) {
       setMembers(team.members);
       setLoadingMembers(false);
       return;
     }
-
     const fetchMembers = async () => {
       try {
         setLoadingMembers(true);
         const res = await memberApi.getMembers({ TeamId: team.teamId, pageSize: 100 });
-        const items = res.items ?? [];
         setMembers(
-          items.map((m) => ({
+          (res.items ?? []).map((m) => ({
             memberId: m.memberId,
             userId: m.userId,
             roleId: m.roleId ?? null,
@@ -109,116 +87,126 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
         setLoadingMembers(false);
       }
     };
-
     void fetchMembers();
   }, [open, team]);
 
-  if (!team) return null;
+  if (!open || !team) return null;
 
   const displayTopics = getDisplayTopics(team);
 
   return (
     <>
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40 h-full"
-          onClick={onClose}
-          aria-hidden
-        />
-      )}
+      <div className="fixed inset-0 z-40 h-full bg-black/35" onClick={onClose} aria-hidden />
+
       <div
-        className={`fixed top-0 right-0 h-full w-[480px] app-page-bg z-50
-        transition-transform duration-300
-        ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        className={cn(
+          'fixed right-0 top-0 z-50 h-full w-[720px] max-w-[96vw]',
+          'border-l border-slate-200 bg-white shadow-2xl',
+          'translate-x-0 transition-transform duration-300 ease-out',
+        )}
       >
-        <div className="flex flex-col h-full overflow-y-auto no-scrollbar text-gray-700">
-          <div className="px-6 py-5 app-page-bg">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-lg font-semibold text-black">{team.teamName}</h2>
+        <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
+          {/* ── HEADER ── */}
+          <header className="w-full shrink-0 border-b border-slate-200 bg-white">
+            <div className="flex w-full items-start justify-between gap-3 px-5 pb-3 pt-4">
+              <div className="min-w-0 flex-1 space-y-1">
+                <h2 className="truncate text-base font-semibold text-black">{team.teamName}</h2>
                 {team.leaderMemberName && (
-                  <Badge className="mt-2 bg-[#2197C0]/10 text-[#2197C0]">
-                    Trưởng nhóm: {team.leaderMemberName}
-                  </Badge>
+                  <p className="text-sm text-[#2197C0]">Trưởng nhóm: {team.leaderMemberName}</p>
                 )}
               </div>
               <button
+                type="button"
                 onClick={onClose}
-                className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                className="shrink-0 p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Đóng"
               >
-                <X size={20} />
+                <X className="h-5 w-5" />
               </button>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mt-4">
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">NGÀY TẠO</p>
-                <p>{formatDateTime(team.createdAt)}</p>
+            <div className="flex w-full flex-col divide-y divide-slate-200 border-t border-slate-200 bg-white sm:flex-row sm:divide-x sm:divide-y-0">
+              <div className="min-w-0 flex-1 px-5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#2197C0]">Số thành viên</p>
+                <p className="mt-0.5 text-sm font-medium text-black">
+                  {members.length > 0 ? members.length : (team.totalMembers ?? '—')}
+                </p>
               </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">CẬP NHẬT LẦN CUỐI</p>
-                <p>{formatDateTime(team.updatedAt)}</p>
+              <div className="min-w-0 flex-1 px-5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#2197C0]">Ngày tạo</p>
+                <p className="mt-0.5 text-sm font-medium text-black">{formatDateTime(team.createdAt)}</p>
+              </div>
+              <div className="min-w-0 flex-1 px-5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#2197C0]">Cập nhật lần cuối</p>
+                <p className="mt-0.5 break-words text-sm font-medium text-black">{formatDateTime(team.updatedAt)}</p>
               </div>
             </div>
-          </div>
+          </header>
 
-          <Section title="Thành viên trong nhóm">
-            {loadingMembers ? (
-              <p className="text-sm text-gray-500">Đang tải thành viên...</p>
-            ) : members.length > 0 ? (
-              <ul className="space-y-2 text-sm">
-                {members.map((m) => (
-                  <li
-                    key={m.memberId}
-                    className="flex justify-between items-center bg-white rounded-md px-3 py-2 border border-gray-100 hover:bg-slate-50"
-                  >
-                    <button
-                      type="button"
-                      className="flex flex-1 min-w-0 items-center gap-3 text-left"
-                      onClick={() => {
-                        onClose();
-                        navigate(`/manager/members?openDetail=1&memberId=${m.memberId}`);
-                      }}
-                      title="Xem chi tiết thành viên"
-                    >
-                      <img
-                        src={m.avatarUrl || '/img/ava.png'}
-                        alt=""
-                        className="h-9 w-9 rounded-full object-cover border border-gray-200 bg-white shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{m.fullName}</p>
-                        <p className="text-xs text-gray-500 truncate">{m.email}</p>
+          {/* ── BODY ── */}
+          <div className="relative min-h-0 w-full flex-1 overflow-y-auto bg-white px-5 py-4">
+            <div className="space-y-4">
+
+              {/* Thành viên */}
+              <Section icon={Users} title="Thành viên trong nhóm">
+                {loadingMembers ? (
+                  <div className="pl-4 py-2">
+                    <p className="text-sm text-slate-500">Đang tải thành viên...</p>
+                  </div>
+                ) : members.length > 0 ? (
+                  <div className="pl-4 divide-y divide-slate-200">
+                    {members.map((m) => (
+                      <button
+                        key={m.memberId}
+                        type="button"
+                        className="flex w-full items-center gap-3 py-2 text-left hover:bg-slate-50 transition-colors"
+                        onClick={() => {
+                          onClose();
+                          navigate(`/manager/members?openDetail=1&memberId=${m.memberId}`);
+                        }}
+                        title="Xem chi tiết thành viên"
+                      >
+                        <img
+                          src={m.avatarUrl || '/img/ava.png'}
+                          alt=""
+                          className="h-8 w-8 shrink-0 rounded-full object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-black">{m.fullName}</p>
+                          <p className="truncate text-xs text-[#2197C0]">{m.email}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-slate-500">{roleLabel(m.roleId)}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="pl-4 py-2">
+                    <p className="text-sm text-slate-500">Chưa có thành viên nào trong nhóm.</p>
+                  </div>
+                )}
+              </Section>
+
+              {/* Chủ đề */}
+              <Section icon={Bookmark} title="Chủ đề">
+                {displayTopics.length > 0 ? (
+                  <div className="pl-4 divide-y divide-slate-200">
+                    {displayTopics.map((row) => (
+                      <div key={row.topicId} className="py-1.5">
+                        <p className="text-sm font-medium text-black">{row.topicName}</p>
+                        {row.createdAt && (
+                          <p className="text-xs text-slate-500">{formatDateTime(row.createdAt)}</p>
+                        )}
                       </div>
-                    </button>
-                    <span className="text-xs text-gray-500 shrink-0 pl-3">{roleLabel(m.roleId)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">Chưa có thành viên nào trong nhóm.</p>
-            )}
-          </Section>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="pl-4 py-2">
+                    <p className="text-sm text-slate-500">Chưa có chủ đề nào.</p>
+                  </div>
+                )}
+              </Section>
 
-          <Section title="Chủ đề">
-            {displayTopics.length > 0 ? (
-              <ul className="space-y-2 text-sm">
-                {displayTopics.map((row) => (
-                  <li key={row.topicId} className="bg-gray-50 rounded-md px-3 py-2">
-                    <span className="font-medium">{row.topicName}</span>
-                    {row.createdAt ? (
-                      <span className="text-gray-500 text-xs ml-2">
-                        ({formatDateTime(row.createdAt)})
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">Chưa có chủ đề nào</p>
-            )}
-          </Section>
+            </div>
+          </div>
         </div>
       </div>
     </>
@@ -226,16 +214,21 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
 }
 
 function Section({
+  icon: Icon,
   title,
   children,
 }: {
+  icon: LucideIcon;
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <div className="p-6 bg-white rounded-xl shadow-sm mx-6 mb-4 space-y-4">
-      <h3 className="font-semibold text-black">{title}</h3>
-      {children}
-    </div>
+    <section className="space-y-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
+        <Icon className="h-4 w-4 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
+        <h3 className="text-sm font-semibold text-black">{title}</h3>
+      </div>
+      <div>{children}</div>
+    </section>
   );
 }

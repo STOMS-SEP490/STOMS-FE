@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Button } from '@/shared/components/ui/button';
@@ -58,13 +58,7 @@ export default function CategoriesManagement() {
     refetch,
   } = useCategories();
 
-  const handleEdit = (category: CategoryListItem) => {
-    if (!isEquipmentManager) return;
-    setEditCategory(category);
-    setEditOpen(true);
-  };
-
-  const handleView = async (category: CategoryListItem) => {
+  const handleRowClick = async (category: CategoryListItem) => {
     try {
       const full = await categoryApi.getById(category.categoryId);
       setDetailCategory(full);
@@ -147,30 +141,6 @@ export default function CategoriesManagement() {
         row.original.createdAt
           ? new Date(row.original.createdAt).toLocaleDateString('vi-VN')
           : '—',
-    },
-    {
-      id: 'actions',
-      header: () => <span className="block w-full text-center">Thao tác</span>,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const category = row.original;
-        return (
-          <div className="flex items-center gap-3">
-            {isEquipmentManager ? (
-              <Pencil
-                size={16}
-                className="text-blue-600 cursor-pointer"
-                onClick={() => handleEdit(category)}
-              />
-            ) : null}
-            <Eye
-              size={16}
-              className="text-gray-800 cursor-pointer"
-              onClick={() => handleView(category)}
-            />
-          </div>
-        );
-      },
     },
   ];
 
@@ -307,6 +277,7 @@ export default function CategoriesManagement() {
               pageSize={pageSize}
               totalItems={totalItems}
               onPageChange={(page) => setPageNumber(page)}
+              onRowClick={handleRowClick}
             />
           </div>
         </div>
@@ -373,6 +344,7 @@ export default function CategoriesManagement() {
         pageSize={pageSize}
         totalItems={totalItems}
         onPageChange={(page) => setPageNumber(page)}
+        onRowClick={handleRowClick}
       />
     </div>
   );

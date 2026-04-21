@@ -10,11 +10,9 @@ import {
 } from '@/shared/components/ui/select';
 import type { BorrowingListItem } from '@/modules/equipment/borrowing';
 import type { ColumnDef } from '@tanstack/react-table';
-import { BookOpen, CheckCircle, Clock, GraduationCap, Plus, RotateCcw } from 'lucide-react';
+import { Plus, RotateCcw } from 'lucide-react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { useBorrowings } from '../hooks/useBorrowings';
-import { useBorrowingsListStats } from '../hooks/useBorrowingsListStats';
-import { StatCard } from '@/shared/components/common/StatCard';
 import {
   BORROWING_STATUS_OPTIONS,
   getBorrowingStatusDisplay,
@@ -91,7 +89,7 @@ const columns = (
           <div className="min-w-0 flex-1">
             <div
               className={
-                !embedded && brandBorrowerName
+                embedded || (!embedded && brandBorrowerName)
                   ? 'truncate font-medium text-[#1a7a99]'
                   : 'truncate font-medium text-slate-900'
               }
@@ -175,7 +173,6 @@ export default function EquipmentsHistory({
   embedded = false,
 }: Props = {}) {
   const location = useLocation();
-  const { loading: loadingStats, stats: borrowingsStats } = useBorrowingsListStats();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const searchValue = searchParams.get(QP_SEARCH) ?? '';
@@ -322,40 +319,6 @@ export default function EquipmentsHistory({
   const brandBorrowerNameOnPage =
     !embedded && location.pathname.startsWith('/manager/borrowings');
 
-  const statCards = useMemo(
-    () => [
-      {
-        icon: <GraduationCap />,
-        label: 'Tổng phiếu mượn',
-        value: loadingStats ? '—' : borrowingsStats.total,
-        sub: '',
-        variant: 'blue' as const,
-      },
-      {
-        icon: <CheckCircle />,
-        label: 'Đang hoạt động',
-        value: loadingStats ? '—' : borrowingsStats.active,
-        sub: '',
-        variant: 'green' as const,
-      },
-      {
-        icon: <BookOpen />,
-        label: 'Đã trả',
-        value: loadingStats ? '—' : borrowingsStats.returned,
-        sub: '',
-        variant: 'violet' as const,
-      },
-      {
-        icon: <Clock />,
-        label: 'Phiếu quá hạn',
-        value: loadingStats ? '—' : borrowingsStats.overdue,
-        sub: '',
-        variant: 'amber' as const,
-      },
-    ],
-    [borrowingsStats, loadingStats],
-  );
-
   const contentNode = (
     <>
       <BorrowingDetailSidebar
@@ -421,18 +384,6 @@ export default function EquipmentsHistory({
         ) : null}
       </div>
 
-      <div className="mb-0 grid grid-cols-4 gap-4">
-        {statCards.map((c) => (
-          <StatCard
-            key={c.label}
-            icon={c.icon}
-            label={c.label}
-            value={c.value}
-            sub={c.sub}
-            variant={c.variant}
-          />
-        ))}
-      </div>
 
       <div className="mb-1 px-6 py-2">
         <div className="flex items-center justify-end gap-3 flex-wrap">
