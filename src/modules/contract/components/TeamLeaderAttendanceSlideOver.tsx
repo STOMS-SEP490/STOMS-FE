@@ -77,7 +77,7 @@ export default function TeamLeaderAttendanceSlideOver({
   const [previewImgUrl, setPreviewImgUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // Reset ảnh khi đổi mode/phiên để tránh gửi nhầm.
+    // Reset ảnh khi đổi mode/buổi để tránh gửi nhầm.
     if (actionMode !== 'checkin' || !activeSession?.sessionId) {
       setCheckinImagesByMemberId({});
       setPendingCheckinResetByMemberId({});
@@ -175,7 +175,7 @@ export default function TeamLeaderAttendanceSlideOver({
     }
     if (actionMode !== 'checkin' && actionMode !== 'checkout') return;
     if (!canSaveAttendance) {
-      message.warning('Bạn không có quyền lưu xác nhận tham gia cho phiên này.');
+      message.warning('Bạn không có quyền lưu xác nhận tham gia cho buổi này.');
       return;
     }
 
