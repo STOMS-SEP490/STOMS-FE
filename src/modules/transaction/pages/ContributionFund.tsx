@@ -135,7 +135,7 @@ export default function ContributionFund() {
   return (
     <div className="px-6 pt-2 pb-4 space-y-4">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-semibold text-black">Quản lý đóng góp</h2>
+        <h2 className="text-lg font-semibold text-[#1a7a99]">Quản lý đóng góp</h2>
         {loading && (
           <span className="text-xs text-gray-500">Đang tải dữ liệu...</span>
         )}

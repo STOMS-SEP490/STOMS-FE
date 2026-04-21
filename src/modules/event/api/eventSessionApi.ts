@@ -11,6 +11,7 @@ export type EventSessionCreatePayload = {
 export type EventSessionUpdatePayload = {
   title: string
   description: string
+  duration?: string // "HH:mm:ss"
 }
 
 const eventSessionApi = {
@@ -28,6 +29,7 @@ const eventSessionApi = {
     return axiosClient.put(`/event-sessions/${id}`, {
       title: data.title,
       description: data.description,
+      duration: data.duration,
     })
   },
 

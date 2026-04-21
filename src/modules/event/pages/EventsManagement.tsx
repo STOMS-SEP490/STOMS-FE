@@ -493,6 +493,44 @@ export default function EventsManagement() {
       } else {
         if (!editingEvent?.eventId) return;
 
+        if (sessions.length === 0) {
+          message.warning('Vui lòng thêm ít nhất 1 buổi cho sự kiện.');
+          return;
+        }
+
+        const missingSessionTitle = sessions
+          .slice()
+          .sort((a, b) => a.sessionNo - b.sessionNo)
+          .find((s) => !String(s.title ?? '').trim());
+        if (missingSessionTitle) {
+          message.warning(`Vui lòng nhập tiêu đề cho Buổi ${missingSessionTitle.sessionNo}.`);
+          return;
+        }
+
+        const missingSessionDesc = sessions
+          .slice()
+          .sort((a, b) => a.sessionNo - b.sessionNo)
+          .find((s) => !String(s.description ?? '').trim());
+        if (missingSessionDesc) {
+          message.warning(`Vui lòng nhập mô tả cho Buổi ${missingSessionDesc.sessionNo}.`);
+          return;
+        }
+
+        const missingOrInvalidDuration = sessions
+          .slice()
+          .sort((a, b) => a.sessionNo - b.sessionNo)
+          .find((s) => {
+            const d = String(s.duration ?? '').trim();
+            if (!d) return true;
+            return !/^\d{1,2}:\d{2}:\d{2}$/.test(d);
+          });
+        if (missingOrInvalidDuration) {
+          message.warning(
+            `Vui lòng nhập thời lượng hợp lệ (HH:mm:ss) cho Buổi ${missingOrInvalidDuration.sessionNo}.`,
+          );
+          return;
+        }
+
         const payload: EventUpdatePayload = { ...base };
         await eventApi.update(editingEvent.eventId, payload);
 
@@ -501,12 +539,17 @@ export default function EventsManagement() {
           await eventSessionApi.remove(id);
         }
 
-        // 2) update existing sessions (title/description only - BE update request chỉ có 2 field)
+        // 2) update existing sessions
         const existing = sessions.filter((s) => s.eventSessionId);
         for (const s of existing) {
+          const durationForApi =
+            typeof s.duration === 'string' && /^\d{1,2}:\d{2}:\d{2}$/.test(s.duration)
+              ? s.duration
+              : '01:00:00';
           await eventSessionApi.update(s.eventSessionId!, {
             title: s.title || `Buổi ${s.sessionNo}`,
             description: s.description ?? '',
+            duration: durationForApi,
           });
         }
 
@@ -952,8 +995,7 @@ export default function EventsManagement() {
                 />
               </div>
             </div>
-            {/* BE không cho update numberOfSession/duration trực tiếp.
-                Số buổi được quản lý bằng danh sách EventSessions bên dưới. */}
+            {/* Số buổi được quản lý bằng danh sách EventSessions bên dưới. */}
             <div className="space-y-2 rounded-2xl bg-white p-4 shadow-sm">
               <Label>
                 Mô tả <span className="text-red-500">*</span>
@@ -1138,7 +1180,7 @@ export default function EventsManagement() {
                                   </Label>
                                   <Input
                                     value={s.duration}
-                                    disabled={Boolean(s.eventSessionId)}
+                                    disabled={submitting}
                                     onChange={(e) =>
                                       setSessions((prev) =>
                                         prev.map((it) => (it === s ? { ...it, duration: e.target.value } : it)),
