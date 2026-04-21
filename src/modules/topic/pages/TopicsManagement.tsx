@@ -346,13 +346,11 @@ export default function TopicsManagement() {
         </div>
       </div>
       <div className="mb-2 flex items-center justify-end gap-3 flex-wrap">
-        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-normal [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-normal">
-          <HoverSearch
-            value={search}
-            onChange={handleSearchChange}
-            placeholder="Tìm theo tên chủ đề..."
-          />
-        </div>
+        <HoverSearch
+          value={search}
+          onChange={handleSearchChange}
+          placeholder="Tìm theo tên chủ đề..."
+        />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
@@ -371,7 +369,7 @@ export default function TopicsManagement() {
             </Select>
           </div>
 
-          <Button variant="outline" size="icon" className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" onClick={resetFilters} type="button" title="Đặt lại bộ lọc">
+          <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50" onClick={resetFilters} type="button" title="Đặt lại bộ lọc">
             <RotateCcw className="w-4 h-4" />
           </Button>
         </div>
