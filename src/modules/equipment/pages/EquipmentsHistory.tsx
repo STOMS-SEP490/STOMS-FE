@@ -93,7 +93,7 @@ const columns = (
           <div className="min-w-0 flex-1">
             <div
               className={
-                !embedded && brandBorrowerName
+                embedded || (!embedded && brandBorrowerName)
                   ? 'truncate font-medium text-[#1a7a99]'
                   : 'truncate font-medium text-slate-900'
               }
