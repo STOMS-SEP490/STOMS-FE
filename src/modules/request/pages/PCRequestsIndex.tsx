@@ -101,6 +101,17 @@ export default function PCRequestsIndex() {
       },
     },
     {
+      header: 'Hình thức',
+      cell: ({ row }) => {
+        const isContinuous = (row.original as any).isContinuous;
+        return (
+          <span className="text-sm text-slate-700">
+            {isContinuous ? 'Liên tục' : 'Từng buổi'}
+          </span>
+        );
+      },
+    },
+    {
       accessorKey: 'startDate',
       header: 'Ngày bắt đầu',
       cell: ({ row }) => dayjs(row.original.startDate).format('DD/MM/YYYY'),

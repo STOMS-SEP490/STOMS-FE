@@ -170,7 +170,7 @@ export default function TeamLeaderAttendanceSlideOver({
 
   const handleSave = async () => {
     if (!activeSession?.sessionId) {
-      message.error('Không tìm thấy thông tin phiên để xác nhận tham gia.');
+      message.error('Không tìm thấy thông tin buổi để xác nhận tham gia.');
       return;
     }
     if (actionMode !== 'checkin' && actionMode !== 'checkout') return;

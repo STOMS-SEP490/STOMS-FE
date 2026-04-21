@@ -20,11 +20,14 @@ export function useTeacherTaskSession(sessionId: number) {
   const [sessionLoading, setSessionLoading] = useState(true);
 
   // ── Task reports ──
-  const [reports, setReports] = useState<TaskReport[]>([]);
-  const [reportsLoading, setReportsLoading] = useState(false);
+  const [requestReports, setRequestReports] = useState<TaskReport[]>([]);
+  const [sessionReports, setSessionReports] = useState<TaskReport[]>([]);
+  const [requestReportsLoading, setRequestReportsLoading] = useState(false);
+  const [sessionReportsLoading, setSessionReportsLoading] = useState(false);
 
   // ── Expanded expenses ──
   const [expandedExpensesReportId, setExpandedExpensesReportId] = useState<number | null>(null);
+  const [searchTitle, setSearchTitle] = useState('');
 
   // ── Create/Edit modal ──
   const [openModal, setOpenModal] = useState(false);
@@ -73,13 +76,42 @@ export function useTeacherTaskSession(sessionId: number) {
     return () => { cancelled = true; };
   }, [sessionId]);
 
-  // ── Load reports ──
+  // ── Load request reports ──
+  useEffect(() => {
+    if (!session?.RequestId) return;
+    let cancelled = false;
+    const run = async () => {
+      setRequestReportsLoading(true);
+      setRequestReports([]);
+      try {
+        const res = await taskReportApi.getAll({
+          requestId: session.RequestId,
+          pageNumber: 1,
+          pageSize: 100,
+        });
+        if (cancelled) return;
+        // Filter to only get reports that have requestId but no sessionId
+        const filteredReports = (res.items ?? []).filter(r => r.requestId && !r.sessionId);
+        setRequestReports(filteredReports);
+      } catch {
+        if (cancelled) return;
+        message.error('Không tải được báo cáo cho yêu cầu.');
+      } finally {
+        if (cancelled) return;
+        setRequestReportsLoading(false);
+      }
+    };
+    void run();
+    return () => { cancelled = true; };
+  }, [session?.RequestId]);
+
+  // ── Load session reports ──
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
     const run = async () => {
-      setReportsLoading(true);
-      setReports([]);
+      setSessionReportsLoading(true);
+      setSessionReports([]);
       try {
         const res = await taskReportApi.getAll({
           sessionId,
@@ -87,13 +119,13 @@ export function useTeacherTaskSession(sessionId: number) {
           pageSize: 100,
         });
         if (cancelled) return;
-        setReports(res.items ?? []);
+        setSessionReports(res.items ?? []);
       } catch {
         if (cancelled) return;
-        message.error('Không tải được báo cáo.');
+        message.error('Không tải được báo cáo cho buổi.');
       } finally {
         if (cancelled) return;
-        setReportsLoading(false);
+        setSessionReportsLoading(false);
       }
     };
     void run();
@@ -239,7 +271,13 @@ export function useTeacherTaskSession(sessionId: number) {
           startAt: formState.startAt || null,
           endAt: formState.endAt || null,
         });
-        setReports((prev) => prev.map((r) => (r.taskReportId === editingId ? updated : r)));
+        // Update in the correct list based on the report type
+        const isRequestReport = !updated.sessionId && updated.requestId;
+        if (isRequestReport) {
+          setRequestReports((prev) => prev.map((r) => (r.taskReportId === editingId ? updated : r)));
+        } else {
+          setSessionReports((prev) => prev.map((r) => (r.taskReportId === editingId ? updated : r)));
+        }
         message.success('Đã cập nhật báo cáo.');
       } else {
         const expensesInput =
@@ -264,7 +302,7 @@ export function useTeacherTaskSession(sessionId: number) {
           endAt: formState.endAt || null,
           ...(expensesInput && paymentImages ? { expenses: expensesInput, paymentImages } : {}),
         });
-        setReports((prev) => [...prev, created]);
+        setSessionReports((prev) => [...prev, created]);
         message.success('Đã tạo báo cáo.');
       }
       closeModal();
@@ -334,7 +372,7 @@ export function useTeacherTaskSession(sessionId: number) {
         endAt: formState.endAt || null,
         ...(expensesInput && paymentImages ? { expenses: expensesInput, paymentImages } : {}),
       });
-      setReports((prev) => [...prev, created]);
+      setRequestReports((prev) => [...prev, created]);
       message.success('Đã tạo báo cáo cho yêu cầu.');
       closeModal();
     } catch (err) {
@@ -347,7 +385,9 @@ export function useTeacherTaskSession(sessionId: number) {
   const handleDelete = useCallback(async (taskReportId: number) => {
     try {
       await taskReportApi.remove(taskReportId);
-      setReports((prev) => prev.filter((r) => r.taskReportId !== taskReportId));
+      // Remove from both lists
+      setRequestReports((prev) => prev.filter((r) => r.taskReportId !== taskReportId));
+      setSessionReports((prev) => prev.filter((r) => r.taskReportId !== taskReportId));
       message.success('Đã xóa báo cáo.');
     } catch (err) {
       message.error(getErrorMessage(err));
@@ -358,13 +398,17 @@ export function useTeacherTaskSession(sessionId: number) {
     // Data
     session,
     request,
-    reports,
+    requestReports,
+    sessionReports,
     sessionLoading,
-    reportsLoading,
+    requestReportsLoading,
+    sessionReportsLoading,
     
     // Expense expansion
     expandedExpensesReportId,
     setExpandedExpensesReportId,
+    searchTitle,
+    setSearchTitle,
     
     // Modal state
     openModal,

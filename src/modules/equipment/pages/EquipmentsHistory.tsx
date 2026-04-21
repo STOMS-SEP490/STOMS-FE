@@ -1,5 +1,4 @@
 import { DataTable } from '@/shared/components/common/DataTable';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
 import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import {
@@ -56,9 +55,7 @@ function parsePositiveInt(v: string | null, fallback: number): number {
   return i > 0 ? i : fallback;
 }
 
-const columns = (
-  onView: (item: BorrowingListItem) => void
-): ColumnDef<BorrowingListItem>[] => [
+const columns: ColumnDef<BorrowingListItem>[] = [
   {
     accessorKey: 'borrowingId',
     header: 'Mã phiếu',
@@ -149,14 +146,6 @@ const columns = (
         </span>
       );
     },
-  },
-  {
-    id: 'actions',
-    header: 'Thao tác',
-    enableSorting: false,
-    cell: ({ row }) => (
-      <TableTextAction onClick={() => void onView(row.original)} />
-    ),
   },
 ];
 
@@ -377,12 +366,13 @@ export default function EquipmentsHistory({
           </div>
         )}
         <DataTable
-          columns={columns(handleView)}
+          columns={columns}
           data={data}
           pageNumber={pageFromUrl}
           pageSize={pageSize}
           totalItems={totalItems}
           onPageChange={(page) => setPageQuery(page)}
+          onRowClick={handleView}
           fillHeight
         />
       </div>

@@ -27,6 +27,7 @@ export type CreateRequestPayload = {
   requestName: string;
   customerName: string;
   note: string;
+  isContinuous?: boolean;
 
   sessions: CreateRequestSession[];
 };

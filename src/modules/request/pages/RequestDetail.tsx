@@ -848,9 +848,17 @@ export default function RequestDetail() {
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-            <div className="mb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">{sessions.length} buổi trong yêu cầu này</p>
+            <div className="mb-3 flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">{sessions.length} buổi trong yêu cầu này</p>
+              </div>
+              <div className="text-xs text-slate-600">
+                <span className="font-medium">Hình thức tham gia:</span>{' '}
+                <span className="text-slate-900">
+                  {(request as any).isContinuous ? 'Liên tục' : 'Từng buổi'}
+                </span>
+              </div>
             </div>
             {sessions.length === 0 ? (
               <p className="text-xs text-gray-500">
@@ -901,7 +909,7 @@ export default function RequestDetail() {
                           </span>
                           <span className="text-slate-300">·</span>
                           <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="text-xs text-slate-500">Địa chỉ:</span>
+                          <span className="text-xs text-slate-500">Địa điểm:</span>
                           <span className="truncate text-xs text-slate-600">{location}</span>
                         </div>
                         <span
@@ -1041,16 +1049,24 @@ export default function RequestDetail() {
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
-              {!isApprovalView && !isPendingRequest && canReserveEquipment ? (
-                <Button
-                  onClick={() => hasUnreservedEquipmentSlot && setRightPanel({ mode: 'equipment' })}
-                  disabled={!hasUnreservedEquipmentSlot}
-                  className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50 text-[11px] h-8 rounded-lg px-3"
-                >
-                  <Plus size={14} />
-                  Đơn yêu cầu thiết bị
-                </Button>
-              ) : null}
+              <div className="flex items-center gap-3">
+                <div className="text-xs text-slate-600">
+                  <span className="font-medium">Hình thức tham gia:</span>{' '}
+                  <span className="text-slate-900">
+                    {(request as any).isContinuous ? 'Liên tục' : 'Từng buổi'}
+                  </span>
+                </div>
+                {!isApprovalView && !isPendingRequest && canReserveEquipment ? (
+                  <Button
+                    onClick={() => hasUnreservedEquipmentSlot && setRightPanel({ mode: 'equipment' })}
+                    disabled={!hasUnreservedEquipmentSlot}
+                    className="gap-1.5 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50 text-[11px] h-8 rounded-lg px-3"
+                  >
+                    <Plus size={14} />
+                    Đơn yêu cầu thiết bị
+                  </Button>
+                ) : null}
+              </div>
             </div>
             {sessions.length === 0 ? (
               <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách buổi chi tiết.</p>
@@ -1097,7 +1113,7 @@ export default function RequestDetail() {
                           </span>
                           <span className="text-slate-300">·</span>
                           <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="text-xs text-slate-500">Địa chỉ:</span>
+                          <span className="text-xs text-slate-500">Địa điểm: </span>
                           <span className="truncate text-xs text-slate-600">{location}</span>
                         </div>
                         <span

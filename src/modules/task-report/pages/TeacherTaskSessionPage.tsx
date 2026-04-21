@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, Clock, FileText, MapPin, Plus, Trash2, Wallet, X, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, FileText, MapPin, Plus, RotateCcw, Trash2, Wallet, X, Image as ImageIcon } from 'lucide-react';
 import { Spin, Timeline } from 'antd';
 import dayjs from 'dayjs';
 import { format } from 'date-fns';
@@ -11,6 +11,7 @@ import type { Dayjs } from 'dayjs';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog } from '@/shared/components/ui/dialog';
+import HoverSearch from '@/shared/components/ui/search';
 import { getExpenseStatusInfo, EXPENSE_STATUS } from '@/constants/status';
 import { useTeacherTaskSession } from '../hooks/useTeacherTaskSession';
 
@@ -34,11 +35,15 @@ export default function TeacherTaskSessionPage() {
   const {
     session,
     request,
-    reports,
+    requestReports,
+    sessionReports,
     sessionLoading,
-    reportsLoading,
+    requestReportsLoading,
+    sessionReportsLoading,
     expandedExpensesReportId,
     setExpandedExpensesReportId,
+    searchTitle,
+    setSearchTitle,
     openModal,
     editingId,
     isCreatingForRequest,
@@ -61,33 +66,47 @@ export default function TeacherTaskSessionPage() {
     setCreateExpenses,
   } = useTeacherTaskSession(parsedSessionId);
 
-  const sortedReports = useMemo(
-    () => [...reports].sort((a, b) => {
-      const t1 = a.startAt ? new Date(a.startAt).getTime() : 0;
-      const t2 = b.startAt ? new Date(b.startAt).getTime() : 0;
-      return t1 - t2;
-    }),
-    [reports],
-  );
+  const { requestReports: sortedRequestReports, sessionReports: sortedSessionReports } = useMemo(() => {
+    const filterByTitle = (reports: typeof requestReports) => {
+      if (!searchTitle.trim()) return reports;
+      return reports.filter(r => 
+        r.title?.toLowerCase().includes(searchTitle.toLowerCase()) ||
+        r.description?.toLowerCase().includes(searchTitle.toLowerCase())
+      );
+    };
+
+    return {
+      requestReports: filterByTitle(requestReports).sort((a, b) => {
+        const t1 = a.startAt ? new Date(a.startAt).getTime() : 0;
+        const t2 = b.startAt ? new Date(b.startAt).getTime() : 0;
+        return t1 - t2;
+      }),
+      sessionReports: filterByTitle(sessionReports).sort((a, b) => {
+        const t1 = a.startAt ? new Date(a.startAt).getTime() : 0;
+        const t2 = b.startAt ? new Date(b.startAt).getTime() : 0;
+        return t1 - t2;
+      })
+    };
+  }, [requestReports, sessionReports, searchTitle]);
 
   const sessionTitle = session
     ? (session.SubjectSession?.Title ?? session.EventSession?.Title ?? session.Notes ?? `Buổi ${session.SessionNo}`)
     : '—';
 
-  // Check if session ended more than 48 hours ago
+  // Check if session ended more than 48 hours ago - REMOVED RESTRICTION
   const isExpired = useMemo(() => {
-    if (!session?.EndAt) return false;
-    const endTime = new Date(session.EndAt).getTime();
-    const now = Date.now();
-    const hoursPassed = (now - endTime) / (1000 * 60 * 60);
-    return hoursPassed > 48;
-  }, [session?.EndAt]);
+    return false; // Always allow creating reports
+  }, []);
 
-  const expiredTooltip = 'Không thể tạo báo cáo sau 48 giờ kể từ khi buổi kết thúc';
+  const expiredTooltip = 'Tính năng tạo báo cáo luôn khả dụng';
+
+  const resetFilters = () => {
+    setSearchTitle('');
+  };
 
   return (
     <div
-      className="flex flex-col gap-4 p-6 app-page-bg overflow-hidden"
+      className="flex flex-col gap-2 p-6 app-page-bg overflow-hidden"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {/* Header */}
@@ -185,61 +204,46 @@ export default function TeacherTaskSessionPage() {
         </div>
       </div>
 
+      {/* Search bar */}
+      <div className="shrink-0 flex items-center justify-end gap-3">
+        <HoverSearch 
+          placeholder="Tìm theo tiêu đề, mô tả..." 
+          value={searchTitle} 
+          onChange={(v) => setSearchTitle(v)} 
+        />
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]" 
+          onClick={resetFilters}
+        >
+          <RotateCcw size={16} />
+        </Button>
+      </div>
+
       {/* Main content */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         {/* Reports list */}
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
-          {reportsLoading ? (
+          {requestReportsLoading || sessionReportsLoading ? (
             <div className="flex h-full items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
               <Spin />
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Common Tasks from Request */}
-              {request?.Tasks && request.Tasks.length > 0 && (
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-5 py-4">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-[#1a7a99]" />
-                    Báo cáo công việc chung cho yêu cầu
-                  </h3>
-                  <div className="space-y-2">
-                    {request.Tasks.map((task, idx) => (
-                      <div key={task.TaskId ?? idx} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                        <div className="text-sm font-semibold text-slate-900">{task.Title || '—'}</div>
-                        {task.Description && (
-                          <p className="mt-1 text-xs text-slate-600">{task.Description}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Individual Task Reports */}
-              {sortedReports.length === 0 && (!request?.Tasks || request.Tasks.length === 0) ? (
-                <div className="flex h-full items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="text-center py-12">
-                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-                      <FileText className="h-7 w-7 text-slate-400" />
-                    </div>
-                    <p className="text-sm font-medium text-slate-700">Chưa có báo cáo nào</p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Nhấn <strong className="text-[#1a7a99]">Tạo báo cáo</strong> để thêm
-                    </p>
-                  </div>
-                </div>
-              ) : sortedReports.length > 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-5 py-4">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-[#1a7a99]" />
-                    Báo cáo công việc trong buổi
-                  </h3>
+              {/* Request-level Task Reports */}
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-5 py-4">
+                <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-[#1a7a99]" />
+                  Báo cáo công việc cho yêu cầu
+                </h3>
+                {sortedRequestReports.length > 0 ? (
                   <Timeline
                     className="mt-4"
-                    items={sortedReports.map((r) => {
+                    items={sortedRequestReports.map((r) => {
                       const hasExpenses = (r.expenses?.length ?? 0) > 0;
                       return {
-                        dot: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm mt-1" />,
+                        dot: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
                         children: (
                           <div className="pb-2">
                             <div className="border-l-4 border-l-[#1a7a99] bg-white px-4 py-3 shadow-sm">
@@ -255,7 +259,7 @@ export default function TeacherTaskSessionPage() {
                                     <button
                                       type="button"
                                       onClick={() => setExpandedExpensesReportId((prev) => prev === r.taskReportId ? null : r.taskReportId)}
-                                      className="inline-flex items-center gap-1 rounded-full border border-[#1a7a99]/30 bg-[#1a7a99]/10 px-2.5 py-0.5 text-xs font-medium text-[#1a7a99] hover:bg-[#1a7a99]/20 transition shadow-sm"
+                                      className="inline-flex items-center gap-1 rounded-full border border-[#1a7a99]/30 bg-[#1a7a99]/10 px-2.5 py-0.5 text-xs font-medium text-slate-900 hover:bg-sky-100 transition shadow-sm"
                                     >
                                       <Wallet className="h-3 w-3" />
                                       Chi phí ({r.expenses!.length})
@@ -326,8 +330,151 @@ export default function TeacherTaskSessionPage() {
                       };
                     })}
                   />
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
+                      <FileText className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <p className="text-sm text-slate-500">Chưa có báo cáo cho yêu cầu</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Nhấn <strong className="text-[#1a7a99]">Báo cáo cho yêu cầu</strong> để tạo
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Common Tasks from Request */}
+              {request?.Tasks && request.Tasks.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-5 py-4">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-[#1a7a99]" />
+                    Báo cáo công việc chung cho yêu cầu
+                  </h3>
+                  <div className="space-y-2">
+                    {request.Tasks.map((task, idx) => (
+                      <div key={task.TaskId ?? idx} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div className="text-sm font-semibold text-slate-900">{task.Title || '—'}</div>
+                        {task.Description && (
+                          <p className="mt-1 text-xs text-slate-600">{task.Description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ) : null}
+              )}
+
+              {/* Session-level Task Reports */}
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-5 py-4">
+                <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-[#1a7a99]" />
+                  Báo cáo công việc trong buổi
+                </h3>
+                {sortedSessionReports.length > 0 ? (
+                  <Timeline
+                    className="mt-4"
+                    items={sortedSessionReports.map((r) => {
+                      const hasExpenses = (r.expenses?.length ?? 0) > 0;
+                      return {
+                        dot: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
+                        children: (
+                          <div className="pb-2">
+                            <div className="border-l-4 border-l-[#1a7a99] bg-white px-4 py-3 shadow-sm">
+                              <div className="text-xs font-medium text-[#1a7a99]">
+                                {formatDateRange(r.startAt, r.endAt)}
+                              </div>
+                              <div className="mt-0.5 text-sm font-semibold text-slate-900">{r.title || '—'}</div>
+                              <p className="mt-1 text-xs text-slate-600 line-clamp-3">{r.description || '—'}</p>
+
+                              <div className="mt-3 flex items-center justify-between">
+                                <div>
+                                  {hasExpenses ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedExpensesReportId((prev) => prev === r.taskReportId ? null : r.taskReportId)}
+                                      className="inline-flex items-center gap-1 rounded-full border border-[#1a7a99]/30 bg-[#1a7a99]/10 px-2.5 py-0.5 text-xs font-medium text-slate-900 hover:bg-sky-100 transition shadow-sm"
+                                    >
+                                      <Wallet className="h-3 w-3" />
+                                      Chi phí ({r.expenses!.length})
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs text-slate-400">Không có chi phí</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-2 text-xs text-slate-600"
+                                    onClick={() => startEdit(r)}
+                                  >
+                                    Sửa
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-1.5 text-red-500 hover:bg-red-50"
+                                    onClick={() => void handleDelete(r.taskReportId)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Expenses expanded */}
+                              {hasExpenses && expandedExpensesReportId === r.taskReportId && (
+                                <div className="mt-3 space-y-0 border-t border-slate-100 pt-3">
+                                  {r.expenses!.map((exp, idx) => {
+                                    const info = getExpenseStatusInfo(exp.status);
+                                    const amountColor =
+                                      info.code === EXPENSE_STATUS.PENDING ? 'text-amber-900'
+                                      : info.code === EXPENSE_STATUS.APPROVED ? 'text-emerald-900'
+                                      : info.code === EXPENSE_STATUS.REJECTED ? 'text-rose-900'
+                                      : 'text-slate-900';
+                                    return (
+                                      <div
+                                        key={exp.expenseId ?? idx}
+                                        className="w-full bg-white border-t border-slate-200 px-4 py-3"
+                                      >
+                                        <div className="flex items-center justify-between gap-3">
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-slate-900">{exp.description || `Khoản chi ${idx + 1}`}</p>
+                                            <div className="mt-1 flex items-center gap-2">
+                                              <span className="text-xs text-slate-600">Trạng thái:</span>
+                                              <Badge className={`text-[10px] px-2 py-0.5 ${info.className}`}>{info.label}</Badge>
+                                            </div>
+                                          </div>
+                                          <span className={`shrink-0 text-sm font-bold tabular-nums whitespace-nowrap ${amountColor}`}>
+                                            {exp.amount != null
+                                              ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(exp.amount)
+                                              : '—'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ),
+                      };
+                    })}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
+                      <FileText className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <p className="text-sm text-slate-500">Chưa có báo cáo cho buổi</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Nhấn <strong className="text-[#1a7a99]">Báo cáo cho buổi</strong> để tạo
+                    </p>
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
         </div>

@@ -256,10 +256,8 @@ function buildAssigningListParams(
     pageSize: 200,
   };
   if (onlyPendingAssignments) {
-    params.assignmentStatuses = ['1'];
-    if (requestStatus !== 'all') {
-      params.statuses = [TL_STATUS_FILTER_TO_API[requestStatus]];
-    }
+    // Khi bật switch "Chỉ hiện yêu cầu cần xử lý": gọi với Statuses=3 (ASSIGNING)
+    params.statuses = ['3'];
   } else if (requestStatus !== 'all') {
     params.statuses = [TL_STATUS_FILTER_TO_API[requestStatus]];
   }

@@ -10,28 +10,16 @@ import {
   MapPin,
   AlertCircle,
   AlertTriangle,
-  RotateCcw,
   Sparkles,
   Briefcase,
 } from 'lucide-react';
-import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
-import { Switch } from '@/shared/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shared/components/ui/select';
 import RequestCard from '@/shared/components/request/RequestCard';
 import { Badge } from '@/shared/components/ui/badge';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import {
   ASSIGNMENT_STATUS,
-  REQUEST_STATUS,
-  REQUEST_STATUS_LABEL,
   SESSION_STATUS,
   getAssignmentStatusInfo,
   getSessionStatusCode,
@@ -52,7 +40,6 @@ import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
 import {
   partitionTeamLeaderAssignmentSlots,
   useTeamLeaderAssignmentsPage,
-  type TlRequestStatusFilter,
 } from '@/modules/contract/hooks/useTeamLeaderAssignmentsPage';
 
 const DEFAULT_AVATAR_SRC = '/img/ava.png';
@@ -107,20 +94,11 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     currentTeamId,
     selectedRequest,
     selectedRequestTypeInfo,
-    search,
-    setSearch,
-    onlyNeedsAction,
-    setOnlyNeedsAction,
-    typeFilter,
-    setTypeFilter,
-    statusFilter,
-    setStatusFilter,
     activeSession,
     setActiveSession,
     sessionDetailsById,
     ensureSuggestedStaffForAssignments,
     getSessionStats,
-    handleResetFilters,
     refetchRequestById,
     refreshSessionDetailById,
   } = useTeamLeaderAssignmentsPage(tab);
@@ -233,69 +211,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   <Spin tip="Đang tải dữ liệu phân công cho nhóm..." />
         </div>
       )}
-
-      <div className="flex justify-start gap-3 mb-2 flex-wrap">
-        {!hasDetailRequestId ? (
-          <>
-            <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
-            <div className="flex items-center gap-3 flex-wrap">
-              {tab === 'assigning' || tab === 'rejected' ? (
-                <>
-                  <Select
-                    value={typeFilter}
-                    onValueChange={(v) => setTypeFilter(v as 'all' | 'event' | 'subject' | 'course')}
-                  >
-                    <SelectTrigger className="h-9 w-[180px] max-w-[180px] shrink-0 text-gray-500 text-sm gap-2 bg-white border-slate-200">
-                      <SelectValue placeholder="Loại yêu cầu" />
-                    </SelectTrigger>
-                    <SelectContent className="min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
-                      <SelectItem value="all">Tất cả loại</SelectItem>
-                      <SelectItem value="event">Sự kiện</SelectItem>
-                      <SelectItem value="subject">Môn học</SelectItem>
-                      <SelectItem value="course">Khóa học</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select
-                    value={statusFilter}
-                    onValueChange={(v) => setStatusFilter(v as TlRequestStatusFilter)}
-                  >
-                    <SelectTrigger className="h-9 w-[200px] max-w-[200px] shrink-0 text-gray-500 text-sm gap-2 bg-white border-slate-200">
-                      <SelectValue placeholder="Trạng thái" />
-                    </SelectTrigger>
-                    <SelectContent className="min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
-                      <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                      <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
-                      <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
-                      <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </>
-              ) : null}
-
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
-                onClick={handleResetFilters}
-              >
-                <RotateCcw size={16} />
-              </Button>
-
-              {tab === 'assigning' ? (
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    className="!rounded-[15px]"
-                    checked={onlyNeedsAction}
-                    onCheckedChange={setOnlyNeedsAction}
-                  />
-                  <p className="text-black whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</p>
-                </div>
-              ) : null}
-            </div>
-          </>
-        ) : null}
-      </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Sidebar */}
@@ -509,11 +424,17 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               ) : (
                 <>
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                <div className="mb-3">
-                  <h3 className="text-sm font-medium text-slate-900">Danh sách buổi</h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {selectedRequest.sessions.length} buổi trong yêu cầu này
-                  </p>
+                <div className="mb-3 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-sm font-medium text-slate-900">Danh sách buổi</h3>
+                    
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    <span className="font-medium">Hình thức tham gia:</span>{' '}
+                    <span className="text-slate-900">
+                      {(selectedRequest as any).isContinuous ? 'Liên tục' : 'Từng buổi'}
+                    </span>
+                  </div>
                 </div>
                 {selectedRequest.sessions.length === 0 ? (
                   <p className="text-xs text-slate-500 py-6 text-center">
@@ -566,7 +487,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                               </span>
                               <span className="text-slate-300">·</span>
                               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <span className="text-xs text-slate-500">Địa chỉ:</span>
+                              <span className="text-xs text-slate-500">Địa điểm:</span>
                               <span className="truncate text-xs text-slate-600">{location}</span>
                             </div>
                             <span

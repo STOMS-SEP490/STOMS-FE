@@ -142,6 +142,7 @@ export default function RequestDetailTeamPanel({
   const [saving, setSaving] = useState(false);
   const [teacherPickerAssignmentId, setTeacherPickerAssignmentId] = useState<number | null>(null);
   const [teacherSearchByAssignmentId, setTeacherSearchByAssignmentId] = useState<Record<number, string>>({});
+  const [expandedTeacherIds, setExpandedTeacherIds] = useState<Set<number>>(new Set());
   const [expandedTeamIds, setExpandedTeamIds] = useState<number[]>([]);
   const [expandedAddedTeamIds, setExpandedAddedTeamIds] = useState<number[]>([]);
   
@@ -750,9 +751,9 @@ export default function RequestDetailTeamPanel({
                         placement="bottomLeft"
                         destroyOnHidden
                         content={
-                          <div className="w-[min(calc(100vw-2rem),20rem)] p-0.5">
+                          <div className="w-[min(calc(100vw-2rem),28rem)] p-2">
                             <Input
-                              className="h-8 text-xs border-slate-200"
+                              className="h-9 text-sm border-slate-200"
                               placeholder="Tìm giảng viên..."
                               value={teacherSearchByAssignmentId[assignmentId] ?? ''}
                               onChange={(e) =>
@@ -762,35 +763,90 @@ export default function RequestDetailTeamPanel({
                                 }))
                               }
                             />
-                            <div className="mt-2 max-h-56 overflow-y-auto no-scrollbar space-y-0.5">
+                            <div className="mt-2 max-h-[400px] min-h-[200px] overflow-y-auto no-scrollbar space-y-1">
                               {filteredSuggestions.length === 0 ? (
-                                <p className="text-xs text-slate-500 px-2 py-3 text-center">Không có gợi ý phù hợp.</p>
+                                <p className="text-sm text-slate-500 px-3 py-6 text-center">Không có gợi ý phù hợp.</p>
                               ) : (
-                                filteredSuggestions.map((staff) => (
-                                  <button
-                                    key={staff.memberId}
-                                    type="button"
-                                    className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50 transition-colors"
-                                    onClick={() => {
-                                      handleAssignTeacherToSlot(assignmentId, staff.memberId);
-                                    }}
-                                  >
-                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 shrink-0">
-                                      <img
-                                        src={getAvatarSrc(staff.avatarUrl)}
-                                        alt={staff.fullName}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-                                        }}
-                                      />
+                                filteredSuggestions.map((staff) => {
+                                  const isExpanded = expandedTeacherIds.has(staff.memberId);
+                                  return (
+                                    <div key={staff.memberId} className="border border-slate-200 rounded-lg overflow-hidden">
+                                      <div className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors">
+                                        <button
+                                          type="button"
+                                          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                                          onClick={() => {
+                                            handleAssignTeacherToSlot(assignmentId, staff.memberId);
+                                          }}
+                                        >
+                                          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
+                                            <img
+                                              src={getAvatarSrc(staff.avatarUrl)}
+                                              alt={staff.fullName}
+                                              className="w-full h-full object-cover"
+                                              onError={(e) => {
+                                                (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
+                                              }}
+                                            />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-slate-900 truncate">{staff.fullName || '—'}</p>
+                                            <p className="text-xs text-slate-500 truncate">{staff.email || staff.roleName || '—'}</p>
+                                          </div>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedTeacherIds((prev) => {
+                                              const next = new Set(prev);
+                                              if (next.has(staff.memberId)) {
+                                                next.delete(staff.memberId);
+                                              } else {
+                                                next.add(staff.memberId);
+                                              }
+                                              return next;
+                                            });
+                                          }}
+                                          className="shrink-0 p-1.5 rounded-md hover:bg-slate-100 transition-colors"
+                                          title={isExpanded ? 'Thu gọn' : 'Xem chi tiết'}
+                                        >
+                                          <DownOutlined 
+                                            className={`text-slate-400 text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                          />
+                                        </button>
+                                      </div>
+                                      {isExpanded && (
+                                        <div className="px-3 py-3 bg-slate-50 border-t border-slate-200 space-y-2">
+                                          {staff.skills && staff.skills.length > 0 ? (
+                                            <div>
+                                              <p className="text-[10px] font-semibold text-slate-700 mb-1.5">Kỹ năng:</p>
+                                              <div className="flex flex-wrap gap-1">
+                                                {staff.skills.map((skill, idx) => (
+                                                  <span
+                                                    key={skill?.skillId ?? idx}
+                                                    className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-700"
+                                                  >
+                                                    {typeof skill === 'string' ? skill : skill?.skillName ?? 'N/A'}
+                                                  </span>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          ) : null}
+                                          {staff.assignmentCountIn30Days != null ? (
+                                            <div className="flex items-center gap-2">
+                                              <p className="text-[10px] font-semibold text-slate-700">Số buổi trong 30 ngày:</p>
+                                              <p className="text-[10px] font-semibold text-slate-700">{staff.assignmentCountIn30Days} buổi</p>
+                                            </div>
+                                          ) : null}
+                                          {(!staff.skills || staff.skills.length === 0) && staff.assignmentCountIn30Days == null ? (
+                                            <p className="text-xs text-slate-500 italic">Chưa có thông tin chi tiết</p>
+                                          ) : null}
+                                        </div>
+                                      )}
                                     </div>
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-medium text-slate-900 truncate">{staff.fullName || '—'}</p>
-                                      <p className="text-[11px] text-slate-500 truncate">{staff.email || staff.roleName || '—'}</p>
-                                    </div>
-                                  </button>
-                                ))
+                                  );
+                                })
                               )}
                             </div>
                           </div>
@@ -894,13 +950,11 @@ export default function RequestDetailTeamPanel({
               ))}
             </div>
           )}
-          {canEdit && (
+          {canEdit && requestedTeachers > selectedTeacherCount && (
             <div className="flex justify-end border-t border-slate-200 pt-2">
               <span className="text-xs text-slate-500">
-                Đã chọn: <span className="font-semibold text-sky-600">{selectedTeacherCount} Giảng viên</span>
-                {' · '}
-                Còn lại:{' '}
-                <span className="font-semibold text-amber-600">{Math.max(0, requestedTeachers - selectedTeacherCount)} Giảng viên</span>
+                Còn thiếu:{' '}
+                <span className="font-semibold text-amber-600">{requestedTeachers - selectedTeacherCount} Giảng viên</span>
               </span>
             </div>
           )}
@@ -1036,7 +1090,7 @@ export default function RequestDetailTeamPanel({
                 </div>
 
                 {isExpanded && team && (
-                  <div className="bg-[#f8f9fb] border-t border-[#eef0f3] px-4 py-3 space-y-2.5">
+                  <div className="px-3 py-3 bg-slate-50 border-t border-slate-200 space-y-2">
                     {(() => {
                       const matchedTeacher = getTeamMetric(team, ['matchingSkillTeacherCount']);
                       const matchedTa = getTeamMetric(team, ['matchingSkillTaCount']);
@@ -1049,32 +1103,32 @@ export default function RequestDetailTeamPanel({
                       return (
                         <>
                           {memberCount != null && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] text-slate-500">Tổng thành viên</span>
-                              <span className="text-[11px] font-semibold text-slate-800">{memberCount}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-semibold text-slate-700">Tổng thành viên:</span>
+                              <span className="text-[10px] font-semibold text-slate-700">{memberCount}</span>
                             </div>
                           )}
                           {hasTeacher && (
                             <>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] text-slate-500">Giảng viên khả dụng</span>
-                                <span className="text-[11px] font-semibold text-slate-800">{availableTeacher ?? totalTeacher ?? '—'}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-semibold text-slate-700">Giảng viên khả dụng:</span>
+                                <span className="text-[10px] font-semibold text-slate-700">{availableTeacher ?? totalTeacher ?? '—'}</span>
                               </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] text-slate-500">Kĩ năng phù hợp (GV)</span>
-                                <span className="text-[11px] font-semibold text-slate-800">{matchedTeacher ?? '—'}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-semibold text-slate-700">Kĩ năng phù hợp (GV):</span>
+                                <span className="text-[10px] font-semibold text-slate-700">{matchedTeacher ?? '—'}</span>
                               </div>
                             </>
                           )}
                           {hasTa && (
                             <>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] text-slate-500">Sinh viên khả dụng</span>
-                                <span className="text-[11px] font-semibold text-slate-800">{availableTa ?? totalTa ?? '—'}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-semibold text-slate-700">Sinh viên khả dụng:</span>
+                                <span className="text-[10px] font-semibold text-slate-700">{availableTa ?? totalTa ?? '—'}</span>
                               </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] text-slate-500">Kĩ năng phù hợp (SV)</span>
-                                <span className="text-[11px] font-semibold text-slate-800">{matchedTa ?? '—'}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-semibold text-slate-700">Kĩ năng phù hợp (SV):</span>
+                                <span className="text-[10px] font-semibold text-slate-700">{matchedTa ?? '—'}</span>
                               </div>
                             </>
                           )}
@@ -1083,10 +1137,10 @@ export default function RequestDetailTeamPanel({
                             if (topics.length === 0) return null;
                             return (
                               <div className="pt-1">
-                                <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1.5">Chủ đề nhóm</p>
+                                <p className="text-[10px] font-semibold text-slate-700 mb-1.5">Chủ đề nhóm:</p>
                                 <div className="flex flex-wrap gap-1">
                                   {topics.map((t) => (
-                                    <span key={t.topicId} className="inline-flex items-center bg-white text-slate-600 px-2 py-0.5 text-[10px] font-medium rounded-sm border border-[#e2e6ea]">
+                                    <span key={t.topicId} className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-700">
                                       {t.topicName || `Chủ đề #${t.topicId}`}
                                     </span>
                                   ))}
@@ -1147,14 +1201,12 @@ export default function RequestDetailTeamPanel({
               </div>
             );
           })}
-          {canEdit && (
+          {canEdit && requestedTas > totals.tas && (
             <div className="flex justify-end">
               <span className="text-xs text-slate-500">
-                Đã chọn: <span className="font-semibold text-sky-600">{totals.tas} Sinh viên</span>
-                {' · '}
-                Còn lại:{' '}
+                Còn thiếu:{' '}
                 <span className="font-semibold text-amber-600">
-                  {Math.max(0, requestedTas - totals.tas)} Sinh viên
+                  {requestedTas - totals.tas} Sinh viên
                 </span>
               </span>
             </div>
@@ -1241,10 +1293,10 @@ export default function RequestDetailTeamPanel({
                     </div>
 
                     {isExpanded && (
-                      <div className="bg-white border-t border-[#eef0f3] px-4 py-3 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-slate-500">Tổng thành viên</span>
-                          <span className="text-[11px] font-semibold text-slate-800">
+                      <div className="px-3 py-3 bg-slate-50 border-t border-slate-200 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-semibold text-slate-700">Tổng thành viên:</span>
+                          <span className="text-[10px] font-semibold text-slate-700">
                             {memberCount != null ? memberCount : '—'}
                           </span>
                         </div>
@@ -1263,25 +1315,25 @@ export default function RequestDetailTeamPanel({
                             <>
                               {hasTeacher && (
                                 <>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[11px] text-slate-500">Giảng viên khả dụng</span>
-                                    <span className="text-[11px] font-semibold text-slate-800">{availableTeacher ?? totalTeacher ?? '—'}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold text-slate-700">Giảng viên khả dụng:</span>
+                                    <span className="text-[10px] font-semibold text-slate-700">{availableTeacher ?? totalTeacher ?? '—'}</span>
                                   </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[11px] text-slate-500">Kĩ năng phù hợp (GV)</span>
-                                    <span className="text-[11px] font-semibold text-slate-800">{matchedTeacher ?? '—'}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold text-slate-700">Kĩ năng phù hợp (GV):</span>
+                                    <span className="text-[10px] font-semibold text-slate-700">{matchedTeacher ?? '—'}</span>
                                   </div>
                                 </>
                               )}
                               {hasTa && (
                                 <>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[11px] text-slate-500">Sinh viên khả dụng</span>
-                                    <span className="text-[11px] font-semibold text-slate-800">{availableTa ?? totalTa ?? '—'}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold text-slate-700">Sinh viên khả dụng:</span>
+                                    <span className="text-[10px] font-semibold text-slate-700">{availableTa ?? totalTa ?? '—'}</span>
                                   </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[11px] text-slate-500">Kĩ năng phù hợp</span>
-                                    <span className="text-[11px] font-semibold text-slate-800">{matchedTa ?? '—'}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold text-slate-700">Kĩ năng phù hợp:</span>
+                                    <span className="text-[10px] font-semibold text-slate-700">{matchedTa ?? '—'}</span>
                                   </div>
                                 </>
                               )}
@@ -1294,12 +1346,12 @@ export default function RequestDetailTeamPanel({
                           if (topics.length === 0) return null;
                           return (
                             <div className="pt-1">
-                              <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1.5">Chủ đề nhóm</p>
+                              <p className="text-[10px] font-semibold text-slate-700 mb-1.5">Chủ đề nhóm:</p>
                               <div className="flex flex-wrap gap-1">
                                 {topics.map((t) => (
                                   <span
                                     key={t.topicId}
-                                    className="inline-flex items-center bg-white text-slate-600 px-2 py-0.5 text-[10px] font-medium rounded-sm border border-[#e2e6ea]"
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-700"
                                   >
                                     {t.topicName || `Chủ đề #${t.topicId}`}
                                   </span>
@@ -1362,15 +1414,16 @@ export default function RequestDetailTeamPanel({
         });
         const hasPendingStudents = allPendingStudents.length > 0;
 
-        console.log('Debug approval button:', {
-          canEdit,
-          hasPendingStudents,
-          allPendingStudents: allPendingStudents.length,
-          allAssignments: allAssignments.length,
-          studentsByTeam: Object.keys(studentsByTeam).length,
-          requestStatus,
-          statusCode,
-        });
+        // Debug info removed for production performance
+        // console.log('Debug approval button:', {
+        //   canEdit,
+        //   hasPendingStudents,
+        //   allPendingStudents: allPendingStudents.length,
+        //   allAssignments: allAssignments.length,
+        //   studentsByTeam: Object.keys(studentsByTeam).length,
+        //   requestStatus,
+        //   statusCode,
+        // });
 
         // Manager can approve students when request status >= ASSIGNING (4)
         const canApproveStudents = statusCode != null && statusCode >= REQUEST_STATUS.ASSIGNING;
