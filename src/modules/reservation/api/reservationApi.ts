@@ -40,6 +40,17 @@ const reservationApi = {
 
   remove: (id: number): Promise<void> =>
     axiosClient.delete<void, void>(`/reservations/${id}`),
+
+  // Duyệt thiết bị trong đơn đặt trước
+  approveEquipments: (
+    reservationId: number,
+    equipmentIds: number[],
+    isConfirmed: boolean,
+  ): Promise<void> =>
+    axiosClient.put<void, void>(`/reservations/${reservationId}/equipments/status`, {
+      isConfirmed,
+      equipmentId: equipmentIds,
+    }),
 };
 
 export default reservationApi;

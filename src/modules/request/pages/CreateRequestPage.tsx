@@ -425,6 +425,7 @@ export default function CreateRequestPage() {
       requestName,
       customerName,
       note,
+      isContinuous: scheduleMode === 'continuous',
       sessions: sessions.map((s) => ({
         sessionNo: s.sessionNo,
         startAt: s.startAt!.format('YYYY-MM-DDTHH:mm:ss'),
@@ -503,7 +504,7 @@ export default function CreateRequestPage() {
                 </div>
                 <div className="space-y-2 text-[13px]">
                   <div>
-                    <span className="text-gray-500">Tên yêu cầu:</span> <span className="text-gray-900 font-medium">{requestName}</span>
+                    <span className="text-gray-500">Tên yêu cầu:</span> <span className="text-[#2197C0] font-semibold">{requestName}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">Khách hàng:</span> <span className="text-gray-900 font-medium">{customerName}</span>
@@ -533,8 +534,14 @@ export default function CreateRequestPage() {
                     ) : null}
                   </div>
                   <div>
+                    <span className="text-gray-500">Hình thức tham gia:</span>{' '}
+                    <span className="text-gray-900 font-medium">
+                      {scheduleMode === 'continuous' ? 'Liên tục' : 'Từng buổi'}
+                    </span>
+                  </div>
+                  <div>
                     <span className="text-gray-500">Ngày bắt đầu:</span>{' '}
-                    <span className="text-gray-900 font-medium">{startDate.format('DD/MM/YYYY HH:mm')}</span>
+                    <span className="text-[#2197C0] font-semibold">{startDate.format('DD/MM/YYYY HH:mm')}</span>
                   </div>
                 </div>
 
@@ -600,20 +607,18 @@ export default function CreateRequestPage() {
                     </div>
 
                     <div className="mt-2 space-y-1 text-[13px] text-gray-700">
-                      <div className="text-[13px] text-gray-700 flex items-center">
-                          <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                      <div className="text-[13px] text-[#2197C0] font-medium">
                           {formatDateTime(s.startAt)} - {formatDateTime(s.endAt)}
                       </div>
                       <div className="inline-flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0">
                         <span className="inline-flex items-center gap-1 min-w-0">
-                          <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
                           <span className="text-gray-500">Địa điểm:</span>
-                          <span className="min-w-0 break-words">{s.location?.trim() ? s.location.trim() : '—'}</span>
+                          <span className="min-w-0 break-words text-gray-900">{s.location?.trim() ? s.location.trim() : '—'}</span>
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                        <span><span className="text-gray-500">Giảng viên:</span> {s.teachersRequired}</span>
-                        <span><span className="text-gray-500">Sinh viên:</span> {s.tasRequired}</span>
+                        <span><span className="text-gray-500">Giảng viên:</span> <span className="text-gray-900 font-medium">{s.teachersRequired}</span></span>
+                        <span><span className="text-gray-500">Sinh viên:</span> <span className="text-gray-900 font-medium">{s.tasRequired}</span></span>
                       </div>
                       {s.notes?.trim() ? (
                         <div className="min-w-0">
@@ -815,6 +820,39 @@ export default function CreateRequestPage() {
                 </div>
               </div>
 
+              {/* Hình thức tham gia */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-600">Hình thức tham gia</Label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex-1 rounded-lg border text-xs font-medium transition-all py-2 px-3',
+                      scheduleMode === 'continuous'
+                        ? 'bg-[#2197C0]/10 text-[#2197C0] border-[#2197C0]'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                    )}
+                    onClick={() => setScheduleMode('continuous')}
+                  >
+                    <div className="font-semibold">Liên tục</div>
+                    <div className="text-[10px] text-gray-500 mt-0.5">Yêu cầu lưu trú, các buổi diễn ra liên tiếp</div>
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex-1 rounded-lg border text-xs font-medium transition-all py-2 px-3',
+                      scheduleMode === 'daily'
+                        ? 'bg-[#2197C0]/10 text-[#2197C0] border-[#2197C0]'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                    )}
+                    onClick={() => setScheduleMode('daily')}
+                  >
+                    <div className="font-semibold">Từng buổi</div>
+                    <div className="text-[10px] text-gray-500 mt-0.5">Các buổi độc lập, không yêu cầu lưu trú</div>
+                  </button>
+                </div>
+              </div>
+
               {/* Nguồn yêu cầu */}
               <div className="border-t pt-3.5">
                 <Label className="text-xs text-gray-600 mb-2 block">Loại yêu cầu</Label>
@@ -935,6 +973,8 @@ export default function CreateRequestPage() {
                     format="DD/MM/YYYY HH:mm"
                     placeholder="Chọn ngày giờ"
                     value={startDate}
+                    disabledDate={disablePastDate}
+                    disabledTime={disablePastTimeOfToday}
                     onChange={(value) => {
                       setStartDate(value ?? undefined)
                       if (value && sessions.length > 0) {
@@ -948,13 +988,15 @@ export default function CreateRequestPage() {
                   <div className="flex gap-2">
                     <AntdSelect
                       style={{ flex: 1 }}
-                      value={scheduleMode}
+                      value={scheduleMode === 'continuous' ? undefined : scheduleMode}
                       onChange={(v) => setScheduleMode(v)}
+                      disabled={scheduleMode === 'continuous'}
                       options={[
                         { label: 'Hàng ngày', value: 'daily' },
                         { label: 'Mỗi tuần', value: 'weekly' },
                         { label: 'Cách N ngày', value: 'everyNDays' },
                       ]}
+                      placeholder={scheduleMode === 'continuous' ? 'Liên tục' : 'Chọn lặp lại'}
                     />
                     {scheduleMode === 'everyNDays' && (
                       <InputNumber
@@ -1186,6 +1228,7 @@ export default function CreateRequestPage() {
                           className="w-full"
                           value={s.endAt}
                           disabledDate={disablePastDate}
+                          disabledTime={disablePastTimeOfToday}
                           onChange={(value) => {
                             // Chặn endAt < startAt để tránh dữ liệu sai.
                             if (!value) {
