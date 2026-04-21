@@ -2,15 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useSearchParams } from 'react-router-dom'
-import { Eye, Loader2, Pencil, Power, PowerOff, Trash2, Plus, Layers, CalendarDays, Sigma, TrendingUp, RotateCcw } from 'lucide-react'
+import { Eye, Loader2, Pencil, Power, PowerOff, Plus, Layers, CalendarDays, Sigma, TrendingUp, RotateCcw } from 'lucide-react'
 import { DataTable } from '@/shared/components/common/DataTable'
 import { Badge } from '@/shared/components/ui/badge'
 import HoverSearch from '@/shared/components/ui/search'
 import { Button } from '@/shared/components/ui/button'
-import { Input } from '@/shared/components/ui/input'
-import { Label } from '@/shared/components/ui/label'
-import { Switch } from '@/shared/components/ui/switch'
-import { Drawer, message, Modal } from 'antd'
+import { message, Modal } from 'antd'
 import {
   Select,
   SelectContent,
@@ -30,6 +27,7 @@ import subjectApi from '../api/subjectApi'
 import subjectSkillApi, { type SubjectSkillItem } from '../api/subjectSkillApi'
 import subjectSessionApi from '../api/subjectSessionApi'
 import { SubjectDetailDrawer } from '../components/SubjectDetailDrawer'
+import { SubjectEditPanel } from '../components/SubjectEditPanel'
 import { dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi'
 import { dashboardApi } from '@/modules/dashboard/api/dashboardApi'
 import { useQuery } from '@tanstack/react-query'
@@ -296,7 +294,7 @@ export default function SubjectsManagement() {
       subjectCode: subjectCode.trim(),
       subjectName: subjectName.trim(),
       description: description.trim(),
-      topicId: isCreating ? null : selectedTopicId,
+      topicId: selectedTopicId,
     }
 
     if (!payloadBase.subjectCode || !payloadBase.subjectName) {
@@ -407,15 +405,25 @@ export default function SubjectsManagement() {
         }
       }
 
-      // Gán chủ đề (nếu đổi) dùng API assign topic
-      const currentTopicId = editingSubject.topicId ?? null
-      if (selectedTopicId !== currentTopicId) {
-        await subjectApi.assignTopic(editingSubject.subjectId, selectedTopicId)
-      }
+      // Gán chủ đề đã được gộp vào payload update ở trên (topicId trong SubjectUpdateRequest)
 
       // xoá các subjectSession đã uncheck
       for (const id of sessionsToDelete) {
         await subjectSessionApi.delete(id)
+      }
+
+      // cập nhật các session đã có id (title/description/duration thay đổi)
+      const existingSessions = sessions.filter((s) => s.subjectSessionId)
+      for (const s of existingSessions) {
+        const durationForApi =
+          typeof s.duration === 'string' && /^\d{1,3}:\d{2}:\d{2}$/.test(s.duration)
+            ? s.duration
+            : '01:00:00'
+        await subjectSessionApi.update(s.subjectSessionId!, {
+          title: s.title || `Buổi ${s.sessionNo}`,
+          description: s.description ?? '',
+          duration: durationForApi,
+        })
       }
 
       // thêm các subjectSession mới (chưa có id) với title/description/duration người dùng nhập
@@ -719,320 +727,34 @@ export default function SubjectsManagement() {
         detailLoading={detailLoading}
       />
 
-      <Drawer
+      <SubjectEditPanel
         open={openEdit}
+        isCreating={isCreating}
+        submitting={submitting}
+        editingSubject={editingSubject}
+        subjectCode={subjectCode}
+        setSubjectCode={setSubjectCode}
+        subjectName={subjectName}
+        setSubjectName={setSubjectName}
+        description={description}
+        setDescription={setDescription}
+        selectedTopicId={selectedTopicId}
+        setSelectedTopicId={setSelectedTopicId}
+        allTopics={allTopics}
+        subjectSkills={subjectSkills}
+        setSubjectSkills={setSubjectSkills}
+        allSkills={allSkills}
+        showAddSkill={showAddSkill}
+        setShowAddSkill={setShowAddSkill}
+        pendingSkillIdsToAdd={pendingSkillIdsToAdd}
+        setPendingSkillIdsToAdd={setPendingSkillIdsToAdd}
+        sessions={sessions}
+        setSessions={setSessions}
+        handleAddSessionLocal={handleAddSessionLocal}
+        handleRemoveSessionLocal={handleRemoveSessionLocal}
         onClose={closeEditModal}
-        placement="right"
-        width={520}
-        title={isCreating ? 'Tạo môn học' : 'Cập nhật môn học'}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Mã môn học</Label>
-            <Input value={subjectCode} onChange={(e) => setSubjectCode(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Tên môn học</Label>
-            <Input value={subjectName} onChange={(e) => setSubjectName(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Mô tả</Label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder="Mô tả ngắn về môn học"
-            />
-          </div>
-
-          {!isCreating && (
-            <div className="space-y-2">
-              <Label>Chủ đề</Label>
-              <select
-                value={selectedTopicId ?? ''}
-                onChange={(e) =>
-                  setSelectedTopicId(e.target.value === '' ? null : Number(e.target.value))
-                }
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="">— Không chọn chủ đề —</option>
-                {allTopics.map((t) => (
-                  <option key={t.topicId} value={t.topicId}>
-                    {t.topicName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {(isCreating || editingSubject) && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Kỹ năng của môn học</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => setShowAddSkill(true)}
-                  disabled={allSkills.length === 0}
-                >
-                  <Plus className="w-4 h-4" />
-                  Thêm kỹ năng
-                </Button>
-              </div>
-
-              {isCreating ? (
-                <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
-                  {pendingSkillIdsToAdd.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Chưa chọn kỹ năng nào. Nhấn &quot;Thêm kỹ năng&quot; để gán.
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1">
-                      {pendingSkillIdsToAdd.map((id) => {
-                        const skillName =
-                          allSkills.find((s) => s.skillId === id)?.skillName ?? `Skill #${id}`
-                        return (
-                          <span
-                            key={id}
-                            className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs border border-blue-100"
-                          >
-                            {skillName}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
-                  {subjectSkills.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Môn học chưa có kỹ năng nào. Nhấn &quot;Thêm kỹ năng&quot; để gán.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {subjectSkills.map((ss) => {
-                        const skillName =
-                          ss.skillName ??
-                          allSkills.find((s) => s.skillId === ss.skillId)?.skillName ??
-                          `Skill #${ss.skillId}`;
-                        const isActive = ss.isActive ?? true;
-                        return (
-                          <div
-                            key={`${ss.subjectId}-${ss.skillId}`}
-                            className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
-                          >
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-[#1a7a99]">{skillName}</span>
-                              <span className="text-xs text-gray-500">ID: {ss.skillId}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500">
-                                {isActive ? 'Đang dùng' : 'Đang tắt'}
-                              </span>
-                              <Switch
-                                checked={isActive}
-                                onCheckedChange={(checked) => {
-                                  setSubjectSkills((prev) =>
-                                    prev.map((item) =>
-                                      item.subjectId === ss.subjectId &&
-                                      item.skillId === ss.skillId
-                                        ? { ...item, isActive: checked }
-                                        : item,
-                                    ),
-                                  );
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Popup thêm kỹ năng: chọn nhiều, bấm Lưu mới gọi assignBulk */}
-          {showAddSkill && (isCreating || editingSubject) && (
-            <div className="space-y-2 rounded-md border bg-white p-3">
-              <div className="flex items-center justify-between">
-                <Label>Thêm kỹ năng cho môn</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowAddSkill(false);
-                  }}
-                >
-                  Đóng
-                </Button>
-              </div>
-              <div className="text-xs text-gray-500 mb-1">
-                Chọn một hoặc nhiều kỹ năng chưa gán; bấm <strong>Lưu</strong> để gán hàng loạt.
-              </div>
-              <div className="stoms-scrollbar max-h-40 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2">
-                {allSkills.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Đang tải kỹ năng...</p>
-                ) : (
-                  <div className="space-y-2">
-                    {(isCreating
-                      ? allSkills
-                      : allSkills.filter(
-                          (skill) =>
-                            !subjectSkills.some((ss) => ss.skillId === skill.skillId),
-                        )
-                    ).map((skill) => {
-                        const checked = pendingSkillIdsToAdd.includes(skill.skillId);
-                        return (
-                          <label
-                            key={skill.skillId}
-                            className="flex w-full cursor-pointer items-center gap-3 rounded-md border bg-white px-3 py-2 text-sm hover:bg-gray-50"
-                          >
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-gray-300"
-                              checked={checked}
-                              onChange={(e) => {
-                                setPendingSkillIdsToAdd((prev) =>
-                                  e.target.checked
-                                    ? [...prev, skill.skillId]
-                                    : prev.filter((id) => id !== skill.skillId),
-                                );
-                              }}
-                            />
-                            <span className="flex-1">{skill.skillName}</span>
-                            <span className="text-xs text-gray-400">#{skill.skillId}</span>
-                          </label>
-                        );
-                      })}
-                    {!isCreating && allSkills.filter(
-                      (skill) => !subjectSkills.some((ss) => ss.skillId === skill.skillId),
-                    ).length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        Tất cả kỹ năng đã được gán cho môn này.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-              {pendingSkillIdsToAdd.length > 0 && (
-                <p className="text-xs text-[#2197C0]">
-                  Đã chọn {pendingSkillIdsToAdd.length} kỹ năng — sẽ gán khi bấm Lưu.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label>Các buổi trong môn</Label>
-            <div className="stoms-scrollbar max-h-56 overflow-y-auto rounded-md border bg-muted/20 p-3 pr-2 space-y-2">
-              {sessions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Chưa có buổi nào. Nhấn "Thêm buổi" để tạo.
-                </p>
-              ) : (
-                sessions
-                  .slice()
-                  .sort((a, b) => a.sessionNo - b.sessionNo)
-                  .map((s) => (
-                    <div
-                      key={s.subjectSessionId ?? `new-${s.sessionNo}`}
-                      className="flex items-start justify-between gap-3 border rounded-md px-3 py-2"
-                    >
-                      <div className="flex-1 space-y-1">
-                        <div className="text-xs text-gray-500 mb-1">Buổi {s.sessionNo}</div>
-                        <Input
-                          value={s.title}
-                          onChange={(e) =>
-                            setSessions((prev) =>
-                              prev.map((it) =>
-                                it === s ? { ...it, title: e.target.value } : it,
-                              ),
-                            )
-                          }
-                          placeholder={`Tiêu đề buổi ${s.sessionNo}`}
-                          className="text-sm mb-1"
-                        />
-                        <div className="flex gap-2">
-                          <div className="flex-1">
-                            <Label className="text-xs text-gray-500">
-                              Thời lượng 
-                            </Label>
-                            <Input
-                              value={s.duration}
-                              onChange={(e) =>
-                                setSessions((prev) =>
-                                  prev.map((it) =>
-                                    it === s ? { ...it, duration: e.target.value } : it,
-                                  ),
-                                )
-                              }
-                              placeholder="Ví dụ: 01:30:00"
-                              className="text-xs"
-                            />
-                          </div>
-                        </div>
-                        <div className="mt-1">
-                          <Label className="text-xs text-gray-500">Mô tả</Label>
-                          <textarea
-                            value={s.description}
-                            onChange={(e) =>
-                              setSessions((prev) =>
-                                prev.map((it) =>
-                                  it === s ? { ...it, description: e.target.value } : it,
-                                ),
-                              )
-                            }
-                            rows={2}
-                            className="w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            placeholder="Mô tả nội dung buổi"
-                          />
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveSessionLocal(s.subjectSessionId, s.sessionNo)}
-                        title="Xoá buổi"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
-                    </div>
-                  ))
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-2 flex items-center gap-2"
-                onClick={handleAddSessionLocal}
-              >
-                <Plus className="w-4 h-4" />
-                Thêm buổi
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={closeEditModal} disabled={submitting}>
-            Hủy
-          </Button>
-          <Button
-            className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-            onClick={handleSubmitEdit}
-            disabled={submitting}
-          >
-            {submitting ? (isCreating ? 'Đang tạo...' : 'Đang lưu...') : isCreating ? 'Tạo' : 'Lưu'}
-          </Button>
-        </div>
-      </Drawer>
+        onSubmit={handleSubmitEdit}
+      />
     </div>
   )
 }

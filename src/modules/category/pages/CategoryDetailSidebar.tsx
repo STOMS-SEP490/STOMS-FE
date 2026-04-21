@@ -1,7 +1,11 @@
-import { X } from 'lucide-react';
-import type { CategoryListItem } from '../category';
+import { type ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { FileText, Hash, Layers, X } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
+import { Image } from 'antd';
 import { Badge } from '@/shared/components/ui/badge';
-import EquipmentInlineCard from '@/modules/equipment/components/EquipmentInlineCard';
+import { getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/equipment';
+import type { CategoryListItem } from '../category';
 
 type Props = {
   open: boolean;
@@ -14,107 +18,152 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN');
 }
 
-export default function CategoryDetailSidebar({ open, onClose, category }: Props) {
-  if (!category) return null;
+function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
+        <Icon className="h-4 w-4 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
+        <h3 className="text-sm font-semibold text-black">{title}</h3>
+      </div>
+      <div>{children}</div>
+    </section>
+  );
+}
 
-  const equipments = category.equipment ?? [];
+function MetaRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="py-1.5">
+      <div className="text-xs font-medium text-[#2197C0]">{label}</div>
+      <div className="mt-0.5 break-words text-sm text-black">{value}</div>
+    </div>
+  );
+}
+
+export default function CategoryDetailSidebar({ open, onClose, category }: Props) {
+  if (!open) return null;
+
+  const equipments = category?.equipment ?? [];
 
   return (
     <>
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40 h-full"
-          onClick={onClose}
-          aria-hidden
-        />
-      )}
-      <div
-        className={`fixed top-0 right-0 h-full w-[480px] app-page-bg z-50
-        transition-transform duration-300
-        ${open ? 'translate-x-0' : 'translate-x-full'}`}
-      >
-        <div className="flex flex-col h-full overflow-y-auto no-scrollbar text-gray-700">
-          <div className="px-6 py-5 app-page-bg">
-            <div className="flex justify-between items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-black truncate">
-                  {category.categoryName}
-                </h2>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="text-sm text-gray-500">
-                    Danh mục #{category.categoryId}
-                  </p>
-                  <Badge className="bg-[#2197C0]/10 text-[#2197C0] whitespace-nowrap">
-                    {equipments.length} thiết bị
-                  </Badge>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                aria-label="Đóng"
-              >
-                <X size={20} />
-              </button>
-            </div>
+      <div className="fixed inset-0 bg-black/35 z-40 h-full" onClick={onClose} aria-hidden />
 
-            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mt-4">
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">ID DANH MỤC</p>
-                <p>{category.categoryId}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">NGÀY TẠO</p>
-                <p>{formatDateTime(category.createdAt)}</p>
-              </div>
-            </div>
-          </div>
+      <div className={cn(
+        'fixed top-0 right-0 h-full w-[580px] max-w-[96vw] z-50',
+        'bg-white border-l border-slate-200 shadow-2xl',
+        'translate-x-0 transition-transform duration-300 ease-out',
+      )}>
+        <div className="flex flex-col h-full overflow-hidden">
 
-          <Section title="Mô tả">
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-              {category.description || '—'}
-            </p>
-          </Section>
-
-          <Section title="Danh sách thiết bị trong danh mục">
-            {equipments.length > 0 ? (
-              <ul className="space-y-2 text-sm max-h-[320px] overflow-y-auto no-scrollbar">
-                {equipments.map((e) => (
-                  <li
-                    key={e.equipmentId}
-                  >
-                    <EquipmentInlineCard
-                      equipmentName={e.equipmentName}
-                      equipmentCode={e.equipmentCode}
-                      status={e.status}
-                      imgLink={e.imgLink}
-                      // Category sidebar hiện danh mục ở trên, nên không cần bottomRow
-                    />
-                  </li>
-                ))}
-              </ul>
+          {/* HEADER */}
+          <header className="w-full shrink-0 border-b border-slate-200 bg-white">
+            {!category ? (
+              <div className="px-5 py-5">
+                <p className="text-sm text-slate-500">Không có dữ liệu.</p>
+              </div>
             ) : (
-              <p className="text-sm text-gray-500">Chưa có thiết bị nào trong danh mục này.</p>
+              <>
+                <div className="px-5 pt-5 pb-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT DANH MỤC</p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <h2 className="text-xl font-semibold text-[#1a7a99] truncate">{category.categoryName}</h2>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">Danh mục #{category.categoryId}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                      aria-label="Đóng"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Meta bar */}
+                <div className="grid w-full grid-cols-3 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
+                  <div className="px-5 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">ID</p>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-900">#{category.categoryId}</p>
+                  </div>
+                  <div className="px-5 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Số thiết bị</p>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-900">{category.totalEquipment ?? equipments.length}</p>
+                  </div>
+                  <div className="px-5 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Ngày tạo</p>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatDateTime(category.createdAt)}</p>
+                  </div>
+                </div>
+              </>
             )}
-          </Section>
+          </header>
+
+          {/* BODY */}
+          {category && (
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-4 space-y-4">
+
+              {/* Thông tin chung */}
+              <Section icon={Hash} title="Thông tin chung">
+                <div className="pl-4 grid grid-cols-2 gap-x-6">
+                  <MetaRow label="Tên danh mục" value={category.categoryName} />
+                  <MetaRow label="Ngày tạo" value={formatDateTime(category.createdAt)} />
+                  <MetaRow label="Mô tả" value={category.description || '—'} />
+                </div>
+              </Section>
+
+              {/* Mô tả */}
+              <Section icon={FileText} title="Mô tả">
+                <div className="pl-4">
+                  <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
+                    {category.description?.trim() || 'Chưa có mô tả'}
+                  </p>
+                </div>
+              </Section>
+
+              {/* Danh sách thiết bị */}
+              <Section icon={Layers} title={`Thiết bị trong danh mục (${equipments.length})`}>
+                {equipments.length === 0 ? (
+                  <p className="pl-4 py-2 text-sm text-slate-500">Chưa có thiết bị nào.</p>
+                ) : (
+                  <div className="pl-4 divide-y divide-slate-200">
+                    {equipments.map((e) => (
+                      <div key={e.equipmentId} className="py-2.5 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {e.imgLink ? (
+                            <Image
+                              src={e.imgLink}
+                              alt={e.equipmentName}
+                              width={32}
+                              height={32}
+                              className="rounded object-cover shrink-0 border border-slate-200"
+                              preview={{ mask: false }}
+                              style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }}
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded bg-slate-100 shrink-0 border border-slate-200" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-black truncate">{e.equipmentName}</p>
+                            <p className="text-xs text-slate-500">{e.equipmentCode}</p>
+                          </div>
+                        </div>
+                        <Badge className={cn('shrink-0 text-xs border-0', getEquipmentStatusColor(e.status))}>
+                          {getEquipmentStatusDisplay(e.status)}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+
+            </div>
+          )}
         </div>
       </div>
     </>
   );
 }
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="p-6 bg-white rounded-xl shadow-sm mx-6 mb-4 space-y-3">
-      <h3 className="font-semibold text-black">{title}</h3>
-      {children}
-    </div>
-  );
-}
-

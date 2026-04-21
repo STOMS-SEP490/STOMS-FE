@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useOutletContext } from 'react-router-dom';
-import { Drawer, Modal, message } from 'antd';
-import { Eye, Plus, RotateCcw } from 'lucide-react';
+import { Modal, message } from 'antd';
+import { Plus, RotateCcw, Wallet } from 'lucide-react';
 
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
@@ -18,14 +17,20 @@ function walletBalanceTextClass(balance: number): string {
   return 'font-semibold text-green-600';
 }
 
-const baseColumns: ColumnDef<WalletListItem>[] = [
+const columns: ColumnDef<WalletListItem>[] = [
   {
     accessorKey: 'walletId',
     header: 'Mã quỹ',
+    cell: ({ row }) => (
+      <span className="font-semibold text-[#1a7a99]">#{row.original.walletId}</span>
+    ),
   },
   {
     accessorKey: 'walletName',
     header: 'Tên quỹ',
+    cell: ({ row }) => (
+      <span className="font-medium text-slate-900">{row.original.walletName}</span>
+    ),
   },
   {
     accessorKey: 'balance',
@@ -40,6 +45,14 @@ const baseColumns: ColumnDef<WalletListItem>[] = [
     },
   },
   {
+    accessorKey: 'description',
+    header: 'Mô tả',
+    cell: ({ row }) => {
+      const d = row.original.description;
+      return <span className="text-sm text-slate-600">{d ? (d.length > 60 ? `${d.slice(0, 60)}...` : d) : '—'}</span>;
+    },
+  },
+  {
     accessorKey: 'createdAt',
     header: 'Ngày tạo',
     cell: ({ row }) =>
@@ -47,281 +60,181 @@ const baseColumns: ColumnDef<WalletListItem>[] = [
         ? new Date(row.original.createdAt).toLocaleDateString('vi-VN')
         : '—',
   },
-  {
-    accessorKey: 'description',
-    header: 'Mô tả',
-    cell: ({ row }) => {
-      const d = row.original.description;
-      return d ? (d.length > 50 ? `${d.slice(0, 50)}...` : d) : '—';
-    },
-  },
 ];
 
 export default function WalletsManagement() {
-  const context = useOutletContext<{ position: string }>();
   const [search, setSearch] = useState('');
-  const [openDetail, setOpenDetail] = useState(false);
-  const [detailItem, setDetailItem] = useState<WalletListItem | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-
   const [data, setData] = useState<WalletListItem[]>([]);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  const [detailItem, setDetailItem] = useState<WalletListItem | null>(null);
+
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createDescription, setCreateDescription] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
 
-  useEffect(() => {
-    if (context.position === 'toolbar') return;
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const res = await walletApi.getWallets({
-          pageNumber,
-          pageSize,
-          walletName: search.trim() || undefined,
-        });
-        setData(res.items ?? []);
-        setTotalItems(res.totalItems ?? 0);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageNumber, pageSize, search, context.position]);
-
-  const filtered = data;
-
-  if (context.position === 'toolbar') {
-    return (
-      <div className="flex gap-3">
-        <div>
-          <HoverSearch
-            placeholder="Tìm theo tên quỹ..."
-            value={search}
-            onChange={setSearch}
-          />
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => {
-            setSearch('');
-            setPageNumber(1);
-          }}
-          title="Đặt lại bộ lọc"
-        >
-          <RotateCcw />
-        </Button>
-      </div>
-    );
-  }
-
-  const columns = useMemo<ColumnDef<WalletListItem>[]>(
-    () => [
-      ...baseColumns,
-      {
-        id: 'walletDetail',
-        header: 'Chi tiết',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <button
-            type="button"
-            onClick={() => {
-              setOpenDetail(true);
-              setDetailItem(null);
-              setDetailLoading(true);
-              walletApi
-                .getById(row.original.walletId)
-                .then((res) => {
-                  setDetailItem(res);
-                })
-                .finally(() => setDetailLoading(false));
-            }}
-            title="Xem chi tiết"
-          >
-            <Eye size={16} className="text-gray-700 cursor-pointer" />
-          </button>
-        ),
-      },
-    ],
-    []
-  );
-
-  const refetch = () => {
-    walletApi
-      .getWallets({ pageNumber, pageSize, walletName: search.trim() || undefined })
-      .then((res) => {
-        setData(res.items ?? []);
-        setTotalItems(res.totalItems ?? 0);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const res = await walletApi.getWallets({
+        pageNumber,
+        pageSize,
+        walletName: search.trim() || undefined,
       });
+      setData(res.items ?? []);
+      setTotalItems(res.totalItems ?? 0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void fetchData(); }, [pageNumber, pageSize, search]);
+
+  const handleRowClick = async (item: WalletListItem) => {
+    try {
+      const full = await walletApi.getById(item.walletId);
+      setDetailItem(full);
+    } catch {
+      message.error('Không tải được chi tiết quỹ');
+    }
+  };
+
+  const handleCreate = async () => {
+    const name = createName.trim();
+    if (!name) { message.warning('Vui lòng nhập tên quỹ.'); return; }
+    try {
+      setCreateLoading(true);
+      await walletApi.create({ walletName: name, description: createDescription.trim() || undefined });
+      message.success('Đã tạo quỹ.');
+      setCreateModalOpen(false);
+      setCreateName('');
+      setCreateDescription('');
+      void fetchData();
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+        : null;
+      message.error(msg ?? 'Tạo quỹ thất bại.');
+    } finally {
+      setCreateLoading(false);
+    }
   };
 
   return (
-    <div className="px-6 pt-2 pb-4 space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-semibold text-[#1a7a99]">Quản lý quỹ</h2>
-        <div className="flex items-center gap-2">
-          {loading && (
-            <span className="text-xs text-gray-500">Đang tải dữ liệu...</span>
-          )}
-          <Button
-            size="sm"
-            className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-            onClick={() => {
-              setCreateName('');
-              setCreateDescription('');
-              setCreateModalOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Tạo quỹ
-          </Button>
+    <div className="p-6 pl-8 space-y-4">
+      {/* HEADER */}
+      <div className="flex justify-between bg-white px-6 py-4 rounded-xl border shadow-sm items-center mb-2">
+        <div>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý quỹ</h2>
+          <p className="text-xs text-slate-500">Quản lý các quỹ tài chính trong hệ thống</p>
         </div>
+        <Button
+          className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
+          onClick={() => { setCreateName(''); setCreateDescription(''); setCreateModalOpen(true); }}
+        >
+          <Plus size={16} />
+          Tạo quỹ
+        </Button>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filtered}
-        pageNumber={pageNumber}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={setPageNumber}
-      />
+      {/* FILTER */}
+      <div className="flex justify-end gap-3 flex-wrap mb-2">
+        <HoverSearch placeholder="Tìm theo tên quỹ..." value={search} onChange={(v) => { setSearch(v); setPageNumber(1); }} />
+        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
+          onClick={() => { setSearch(''); setPageNumber(1); }} title="Đặt lại bộ lọc"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </div>
 
-      <Drawer
-        open={openDetail}
-        onClose={() => {
-          setOpenDetail(false);
-          setDetailItem(null);
-        }}
-        placement="right"
-        width={480}
-        title="Chi tiết quỹ"
-      >
-        {detailLoading && !detailItem ? (
-          <div className="text-sm text-gray-500">Đang tải chi tiết...</div>
-        ) : detailItem ? (
-          <div className="space-y-3 text-sm">
-            <div>
-              <div className="text-xs text-gray-500">Mã quỹ</div>
-              <div className="font-medium">{detailItem.walletId}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Tên quỹ</div>
-              <div className="font-medium">{detailItem.walletName}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Mã chủ quỹ</div>
-              <div>{detailItem.memberId ?? '—'}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Số dư</div>
-              <div
-                className={
-                  detailItem.balance != null
-                    ? walletBalanceTextClass(Number(detailItem.balance))
-                    : 'font-semibold text-gray-600'
-                }
-              >
-                {detailItem.balance != null
-                  ? `${Number(detailItem.balance).toLocaleString('vi-VN')} đ`
-                  : '—'}
+      {/* TABLE */}
+      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+        {loading && <div className="text-sm text-gray-500 mb-3">Đang tải...</div>}
+        <DataTable
+          columns={columns}
+          data={data}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setPageNumber}
+          onRowClick={handleRowClick}
+        />
+      </div>
+
+      {/* DETAIL PANEL */}
+      {detailItem && (
+        <>
+          <div className="fixed inset-0 z-40 h-full bg-black/35" onClick={() => setDetailItem(null)} aria-hidden />
+          <div className="fixed right-0 top-0 z-50 h-full w-[520px] max-w-[96vw] border-l border-slate-200 bg-white shadow-2xl flex flex-col overflow-hidden">
+            <header className="w-full shrink-0 border-b border-slate-200 bg-white">
+              <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT QUỸ</p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <Wallet className="h-5 w-5 text-[#2197C0]" />
+                    <h2 className="text-xl font-semibold text-[#1a7a99]">{detailItem.walletName}</h2>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">Quỹ #{detailItem.walletId}</p>
+                </div>
+                <button type="button" onClick={() => setDetailItem(null)} className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors" aria-label="Đóng">
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
               </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Mô tả</div>
-              <div className="whitespace-pre-wrap">
-                {detailItem.description || '—'}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Ngày tạo</div>
-              <div>
-                {detailItem.createdAt
-                  ? new Date(detailItem.createdAt).toLocaleString('vi-VN')
-                  : '—'}
-              </div>
-            </div>
-            {detailItem.updatedAt && (
-              <div>
-                <div className="text-xs text-gray-500">Cập nhật lúc</div>
-                <div>
-                  {new Date(detailItem.updatedAt).toLocaleString('vi-VN')}
+              <div className="grid w-full grid-cols-2 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
+                <div className="px-5 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Số dư</p>
+                  <p className={`mt-0.5 text-sm font-semibold ${detailItem.balance != null ? walletBalanceTextClass(Number(detailItem.balance)) : 'text-slate-900'}`}>
+                    {detailItem.balance != null ? `${Number(detailItem.balance).toLocaleString('vi-VN')} đ` : '—'}
+                  </p>
+                </div>
+                <div className="px-5 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Ngày tạo</p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {detailItem.createdAt ? new Date(detailItem.createdAt).toLocaleDateString('vi-VN') : '—'}
+                  </p>
                 </div>
               </div>
-            )}
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-4 space-y-3">
+              {[
+                { label: 'Mã quỹ', value: `#${detailItem.walletId}` },
+                { label: 'Tên quỹ', value: detailItem.walletName },
+                { label: 'Mã chủ quỹ', value: detailItem.memberId ? `#${detailItem.memberId}` : '—' },
+                { label: 'Mô tả', value: detailItem.description || '—' },
+                { label: 'Ngày tạo', value: detailItem.createdAt ? new Date(detailItem.createdAt).toLocaleString('vi-VN') : '—' },
+                { label: 'Cập nhật lần cuối', value: detailItem.updatedAt ? new Date(detailItem.updatedAt).toLocaleString('vi-VN') : '—' },
+              ].map(({ label, value }) => (
+                <div key={label} className="py-1.5">
+                  <div className="text-xs font-medium text-[#2197C0]">{label}</div>
+                  <div className="mt-0.5 text-sm text-black break-words">{value}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        ) : (
-          <div className="text-sm text-gray-500">Không có dữ liệu.</div>
-        )}
-      </Drawer>
+        </>
+      )}
 
+      {/* CREATE MODAL */}
       <Modal
         title="Tạo quỹ mới"
         open={createModalOpen}
-        onCancel={() => {
-          if (!createLoading) {
-            setCreateModalOpen(false);
-            setCreateName('');
-            setCreateDescription('');
-          }
-        }}
+        onCancel={() => { if (!createLoading) { setCreateModalOpen(false); setCreateName(''); setCreateDescription(''); } }}
         okText="Tạo quỹ"
         cancelText="Hủy"
         confirmLoading={createLoading}
-        onOk={async () => {
-          const name = createName.trim();
-          if (!name) {
-            message.warning('Vui lòng nhập tên quỹ.');
-            return;
-          }
-          try {
-            setCreateLoading(true);
-            await walletApi.create({
-              walletName: name,
-              description: createDescription.trim() || undefined,
-            });
-            message.success('Đã tạo quỹ.');
-            setCreateModalOpen(false);
-            setCreateName('');
-            setCreateDescription('');
-            refetch();
-          } catch (err: unknown) {
-            const msg =
-              err && typeof err === 'object' && 'response' in err
-                ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-                : null;
-            message.error(msg ?? 'Tạo quỹ thất bại.');
-          } finally {
-            setCreateLoading(false);
-          }
-        }}
+        onOk={handleCreate}
       >
         <div className="py-2 space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tên quỹ <span className="text-red-500">*</span>
-            </label>
-            <Input
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              placeholder="Nhập tên quỹ"
-              className="w-full"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tên quỹ <span className="text-red-500">*</span></label>
+            <Input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Nhập tên quỹ" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mô tả
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
             <textarea
               value={createDescription}
               onChange={(e) => setCreateDescription(e.target.value)}

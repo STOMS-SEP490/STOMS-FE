@@ -168,7 +168,7 @@ export default function MyTasksPage() {
 
   return (
     <div
-      className="flex flex-col gap-4 overflow-hidden app-page-bg p-6 pl-8"
+      className="flex flex-col gap-2 overflow-hidden app-page-bg p-6 pl-8"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {/* HEADER */}
