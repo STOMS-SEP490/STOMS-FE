@@ -99,3 +99,8 @@ export async function postSessionCannotBeAssigned(payload: { sessionId: number; 
     reason: payload.reason,
   });
 }
+
+/** Đánh dấu tất cả thông báo đã đọc */
+export async function markAllNotificationsRead(): Promise<void> {
+  await axiosClient.put<unknown>('/notifications/read-all');
+}

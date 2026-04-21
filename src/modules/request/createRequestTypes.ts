@@ -1,7 +1,7 @@
 import type { Dayjs } from 'dayjs'
 
 export type SourceType = 'subject' | 'course' | 'event'
-export type ScheduleMode = 'daily' | 'everyNDays' | 'weekly'
+export type ScheduleMode = 'continuous' | 'daily' | 'everyNDays' | 'weekly'
 
 export type SessionFormItem = {
   sessionNo: number

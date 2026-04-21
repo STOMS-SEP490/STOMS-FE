@@ -204,7 +204,7 @@ export default function TeamLeaderSessionDetailPanel({
   return (
     <div className="space-y-4 text-sm">
       {/* Thông tin buổi — layout 2 cột giống manager/PC */}
-      <div className="bg-white">
+      <div className="bg-white border-t border-b border-gray-200">
         <div className="pt-3 space-y-4 text-sm">
           {sessionLoading && <p className="text-xs text-slate-500">Đang tải...</p>}
 
@@ -219,15 +219,15 @@ export default function TeamLeaderSessionDetailPanel({
           <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã buổi</p>
-              <p className="mt-1 font-medium text-slate-900">{sessionId ?? '—'}</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{sessionId ?? '—'}</p>
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
-              <p className="mt-1 font-semibold">{requestCode || '—'}</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{requestCode || '—'}</p>
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Buổi số</p>
-              <p className="mt-1 font-medium text-slate-900">{sessionNo ?? '—'}</p>
+              <p className="mt-1 font-semibold text-[#2197C0]">{sessionNo ?? '—'}</p>
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Thời lượng</p>
@@ -258,7 +258,7 @@ export default function TeamLeaderSessionDetailPanel({
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Nhóm phụ trách</p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {teamNames.map((name, idx) => (
-                  <Badge key={idx} className="bg-orange-100 text-orange-700 border-0 text-[11px] font-medium">
+                  <Badge key={idx} className="bg-orange-50 text-orange-700 border border-orange-200 rounded-full text-[11px] font-medium">
                     {name}
                   </Badge>
                 ))}
@@ -290,7 +290,7 @@ export default function TeamLeaderSessionDetailPanel({
                   <span className="text-slate-700">—</span>
                 ) : (
                   topics.map((name) => (
-                    <Badge key={name} className="bg-slate-100 text-slate-700 border-0 text-[11px] font-medium">
+                    <Badge key={name} className="bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[11px] font-medium">
                       {name}
                     </Badge>
                   ))
@@ -306,7 +306,7 @@ export default function TeamLeaderSessionDetailPanel({
                 <span className="text-slate-700">—</span>
               ) : (
                 skills.map((name) => (
-                  <Badge key={name} className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px] font-medium">
+                  <Badge key={name} className="bg-sky-50 text-sky-700 border border-sky-200 rounded-full text-[11px] font-medium">
                     {name}
                   </Badge>
                 ))
@@ -347,7 +347,7 @@ export default function TeamLeaderSessionDetailPanel({
               <button
                 type="button"
                 onClick={onOpenAttendance}
-                className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                className="inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
                 title="Mở nhanh panel xác nhận tham gia"
               >
                 Xác nhận tham gia
@@ -364,9 +364,9 @@ export default function TeamLeaderSessionDetailPanel({
           ) : attendances.length === 0 ? (
             <p className="text-xs text-gray-500 px-4">Không có dữ liệu xác nhận tham gia cho buổi này.</p>
           ) : (
-            <div className="overflow-hidden bg-white">
+            <div className="overflow-hidden bg-white border-t border-gray-200">
               <div
-                className={`grid ${gridClass} gap-2 bg-gray-50 px-4 py-2.5 text-xs font-semibold text-gray-600`}
+                className={`grid ${gridClass} gap-2 bg-gray-50 px-4 py-2.5 text-xs font-semibold text-gray-600 border-b border-gray-200`}
               >
                 <div>Thông tin thành viên</div>
                 <div className="text-center">Vai trò</div>
@@ -375,11 +375,11 @@ export default function TeamLeaderSessionDetailPanel({
                 {showDelegateCol ? <div className="text-center">Ủy quyền</div> : null}
               </div>
 
-              <div className="space-y-2 mt-2 px-4 pb-3">
+              <div className="divide-y divide-gray-100 px-4">
                 {attendances.map((a) => (
                   <div
                     key={a.attendanceId}
-                    className={`grid ${gridClass} gap-2 px-3 py-2 items-center text-sm`}
+                    className={`grid ${gridClass} gap-2 py-3 items-center text-sm`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center">
@@ -493,7 +493,7 @@ export default function TeamLeaderSessionDetailPanel({
                                   }
                                 })();
                               }}
-                              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+                              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
                               title={
                                 hasCheckedIn
                                   ? 'Không thể ủy quyền sau khi thành viên đã xác nhận vào'

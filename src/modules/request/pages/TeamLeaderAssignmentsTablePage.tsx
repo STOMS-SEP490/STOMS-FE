@@ -8,6 +8,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
+import { Switch } from '@/shared/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { getRequestStatusInfo } from '@/constants/status';
 import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
@@ -47,6 +48,8 @@ export default function TeamLeaderAssignmentsTablePage({ tab }: { tab: TeamLeade
     setTypeFilter,
     statusFilter,
     setStatusFilter,
+    onlyNeedsAction,
+    setOnlyNeedsAction,
     handleResetFilters,
   } = useTeamLeaderAssignmentsPage(tab);
 
@@ -141,6 +144,16 @@ export default function TeamLeaderAssignmentsTablePage({ tab }: { tab: TeamLeade
               <SelectItem value="published">Đã công khai</SelectItem>
             </SelectContent>
           </Select>
+          {tab === 'assigning' ? (
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 h-10">
+              <Switch
+                checked={onlyNeedsAction}
+                onCheckedChange={setOnlyNeedsAction}
+                className="data-[state=checked]:bg-[#2197C0] rounded-full"
+              />
+              <span className="text-sm text-slate-700 whitespace-nowrap">Chỉ hiện yêu cầu cần xử lý</span>
+            </div>
+          ) : null}
           <Button
             variant="outline"
             size="icon"
