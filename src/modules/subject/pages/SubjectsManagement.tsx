@@ -533,7 +533,7 @@ export default function SubjectsManagement() {
     },
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
       cell: ({ row }) => {
         const s = row.original
@@ -631,13 +631,11 @@ export default function SubjectsManagement() {
 
       <div className="shrink-0 px-2 py-1">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-          <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
-            <HoverSearch
-              placeholder="Tìm môn học..."
-              value={search}
-              onChange={(value) => setSearch(value)}
-            />
-          </div>
+          <HoverSearch
+            placeholder="Tìm môn học..."
+            value={search}
+            onChange={(value) => setSearch(value)}
+          />
           <Select
             value={topicFilterId == null ? 'all' : String(topicFilterId)}
             onValueChange={(v) => {
@@ -674,7 +672,7 @@ export default function SubjectsManagement() {
             <Button
               variant="outline"
               size="icon"
-              className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
+              className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
               type="button"
               onClick={() => {
                 setSearch('')

@@ -103,7 +103,7 @@ export default function RolesManagement() {
     },
     {
       id: 'actions',
-      header: 'THAO TÁC',
+      header: () => <span className="block w-full text-center">THAO TÁC</span>,
       cell: ({ row }) => {
         const role = row.original;
         return (
@@ -166,16 +166,14 @@ export default function RolesManagement() {
       </div>
 
       <div className="flex justify-end gap-3 mb-2">
-        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
-          <HoverSearch
-            placeholder="Tìm theo tên vai trò..."
-            value={search}
-            onChange={(value) => {
-              setSearch(value);
-              setPageNumber(1);
-            }}
-          />
-        </div>
+        <HoverSearch
+          placeholder="Tìm theo tên vai trò..."
+          value={search}
+          onChange={(value) => {
+            setSearch(value);
+            setPageNumber(1);
+          }}
+        />
       </div>
 
       {/* TABLE */}

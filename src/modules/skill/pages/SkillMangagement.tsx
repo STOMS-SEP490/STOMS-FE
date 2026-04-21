@@ -211,7 +211,7 @@ export default function SkillsManagement() {
     },
     {
       id: 'actions',
-      header: 'THAO TÁC',
+      header: () => <span className="block w-full text-center">THAO TÁC</span>,
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => handleView(row.original)} title="Xem">
