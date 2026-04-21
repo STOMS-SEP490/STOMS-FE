@@ -269,7 +269,7 @@ export default function EquipmentsManagement() {
       ? [
           {
             id: 'actions',
-            header: 'Thao tác',
+            header: () => <span className="block w-full text-center">Thao tác</span>,
             enableSorting: false,
             cell: ({ row }: { row: Row<EquipmentListItem> }) => (
               <div
@@ -324,13 +324,11 @@ export default function EquipmentsManagement() {
   if (context?.position === 'toolbar') {
     return (
       <div className="flex gap-3 items-center flex-wrap">
-        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
-          <HoverSearch
-            placeholder="Tìm tên hoặc mã thiết bị..."
-            value={search}
-            onChange={(value) => setSearch(value)}
-          />
-        </div>
+        <HoverSearch
+          placeholder="Tìm tên hoặc mã thiết bị..."
+          value={search}
+          onChange={(value) => setSearch(value)}
+        />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Danh mục</span>
@@ -383,7 +381,7 @@ export default function EquipmentsManagement() {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
+            className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
             onClick={resetFilters}
             type="button"
             title="Đặt lại bộ lọc"
@@ -465,13 +463,11 @@ export default function EquipmentsManagement() {
         </div>
 
         <div className="mb-2 flex items-center justify-end gap-3 flex-wrap">
-          <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
-            <HoverSearch
-              placeholder="Tìm tên hoặc mã thiết bị..."
-              value={search}
-              onChange={(value) => setSearch(value)}
-            />
-          </div>
+          <HoverSearch
+            placeholder="Tìm tên hoặc mã thiết bị..."
+            value={search}
+            onChange={(value) => setSearch(value)}
+          />
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Danh mục</span>

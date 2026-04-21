@@ -242,12 +242,18 @@ export default function RequestLayout() {
       {
         accessorKey: 'requestCode',
         header: 'Mã',
-        cell: ({ row }) => <span className="font-semibold">{row.original.requestCode ?? '—'}</span>,
+        cell: ({ row }) => (
+          <span className="font-semibold text-[#1a7a99]">{row.original.requestCode ?? '—'}</span>
+        ),
       },
       {
         accessorKey: 'requestName',
         header: 'Tên yêu cầu',
-        cell: ({ row }) => <span className="truncate block max-w-[220px]">{row.original.requestName ?? '—'}</span>,
+        cell: ({ row }) => (
+          <span className="block max-w-[220px] truncate font-semibold text-[#1a7a99]">
+            {row.original.requestName ?? '—'}
+          </span>
+        ),
       },
       {
         id: 'startAt',

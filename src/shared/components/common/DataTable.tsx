@@ -8,6 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Button } from '../ui/button';
 import { cn } from '@/shared/lib/utils';
 
+/** Cột nút thao tác (Thao tác / THAO TÁC) — căn giữa header + cell. */
+function isOperationsColumn(columnId: string) {
+  return columnId === 'actions' || columnId === 'operation';
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -88,7 +93,10 @@ export function DataTable<TData, TValue>({
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={cn(comfortable && 'h-auto min-h-11 px-4 py-3.5 align-middle font-semibold text-slate-700')}
+                    className={cn(
+                      comfortable && 'h-auto min-h-11 px-4 py-3.5 align-middle font-semibold text-slate-700',
+                      isOperationsColumn(header.column.id) && 'text-center',
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -131,7 +139,11 @@ export function DataTable<TData, TValue>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className={cn('text-gray-700', comfortable && 'px-4 py-4 align-middle')}
+                      className={cn(
+                        'text-gray-700',
+                        comfortable && 'px-4 py-4 align-middle',
+                        isOperationsColumn(cell.column.id) && 'text-center [&>*]:inline-flex',
+                      )}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>

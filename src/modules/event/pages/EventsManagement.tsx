@@ -828,16 +828,14 @@ export default function EventsManagement() {
       </div>
 
       <div className="flex justify-end gap-3 mb-2 flex-wrap">
-        <div className="[&>div]:bg-[#2197C0] [&>div]:hover:bg-[#208AAE] [&>div]:border-[#2197C0] [&_svg]:text-white [&_svg]:stroke-[2.5] [&_input]:text-white [&_input]:font-medium [&_input::placeholder]:text-white/80 [&_input::placeholder]:font-medium">
-          <HoverSearch
-            value={search}
-            onChange={(v) => {
-              setSearch(v);
-              setPageNumber(1);
-            }}
-            placeholder="Tìm theo tên hoặc mã sự kiện..."
-          />
-        </div>
+        <HoverSearch
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            setPageNumber(1);
+          }}
+          placeholder="Tìm theo tên hoặc mã sự kiện..."
+        />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
@@ -862,7 +860,7 @@ export default function EventsManagement() {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 bg-[#2197C0] hover:bg-[#208AAE] text-white border-[#2197C0]"
+            className="h-9 w-9 shrink-0 bg-white border-slate-200 text-gray-600 hover:bg-gray-50"
             type="button"
             onClick={() => {
               setSearch('');

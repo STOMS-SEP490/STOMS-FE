@@ -129,7 +129,7 @@ export default function WalletsManagement() {
     () => [
       ...baseColumns,
       {
-        id: 'actions',
+        id: 'walletDetail',
         header: 'Chi tiết',
         enableSorting: false,
         cell: ({ row }) => (

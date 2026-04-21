@@ -133,7 +133,7 @@ export default function MyTeamPage() {
     },
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: () => <span className="block w-full text-center">Thao tác</span>,
       enableSorting: false,
       cell: ({ row }) => <TableTextAction onClick={() => handleView(row.original)} />,
     },

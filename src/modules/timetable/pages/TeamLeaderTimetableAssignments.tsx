@@ -277,7 +277,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           },
           {
             id: 'operation',
-            header: 'THAO TÁC',
+            header: () => <span className="block w-full text-center">THAO TÁC</span>,
             enableSorting: false,
             cell: ({ row }) => (
               <button
@@ -346,7 +346,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
         ...(isAttendanceTab
           ? [
               {
-                id: 'actions',
+                id: 'confirmParticipation',
                 header: 'Xác nhận tham gia',
                 enableSorting: false,
                 cell: ({ row }: { row: { original: TeamLeaderTimetableAssignmentRow } }) => {
@@ -566,7 +566,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
             ]),
         {
           id: 'operation',
-          header: 'Thao tác',
+          header: () => <span className="block w-full text-center">Thao tác</span>,
           enableSorting: false,
           cell: ({ row }) => (
             <button
