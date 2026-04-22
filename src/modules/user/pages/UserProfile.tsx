@@ -14,6 +14,8 @@ import skillApi from '@/modules/skill/api/skillApi';
 import type { SkillListItem } from '@/modules/skill/skill';
 import type { PaginationResponse } from '@/shared/types/api';
 import { ROLE_MAP } from '@/constants/role';
+import { getStoredAuthUser } from '@/modules/auth/authStorage';
+import { getRoleLabelById } from '@/modules/auth/roleAccess';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -150,7 +152,7 @@ export default function UserProfile() {
       <div className="p-6">
         <Card className="max-w-xl mx-auto">
           <CardHeader>
-            <CardTitle>Hồ sơ của tôi</CardTitle>
+            <CardTitle className="text-[#1a7a99]">Hồ sơ của tôi</CardTitle>
             <CardDescription>Bạn chưa đăng nhập. Vui lòng đăng nhập lại.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -168,6 +170,8 @@ export default function UserProfile() {
 
   const roleId = Number(userDetail?.roleId ?? user.role);
   const roleLabel = ROLE_MAP[roleId] ?? `Vai trò ${roleId || ''}`;
+  const storedAuth = getStoredAuthUser();
+  const memberRoleId = storedAuth?.memberRoleId ?? null;
 
   const formatPercent = (x?: number) => {
     const v = Number(x ?? 0);
@@ -470,7 +474,7 @@ export default function UserProfile() {
       className="app-page-bg p-6 pl-8"
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <div className="rounded-2xl border border-[#156a85] bg-[#1a7a99] shadow-sm px-6 py-5">
           <h1 className="text-xl sm:text-2xl font-semibold text-white">Hồ sơ người dùng</h1>
           <p className="mt-1 text-sm text-white/80">
@@ -552,12 +556,12 @@ export default function UserProfile() {
         </form>
       </Dialog>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+          <div className="lg:col-span-3 space-y-6">
             <Card className="rounded-2xl border border-slate-200 shadow-sm">
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
               <div>
-                <CardTitle className="text-lg">Thông tin tài khoản</CardTitle>
+                <CardTitle className="text-lg text-[#1a7a99]">Thông tin tài khoản</CardTitle>
                 <CardDescription>Chi tiết tài khoản đăng nhập hiện tại.</CardDescription>
               </div>
               <div className="flex flex-wrap items-center gap-2 justify-end">
@@ -565,8 +569,7 @@ export default function UserProfile() {
                   {roleLabel}
                 </Badge>
                 <Button
-                  variant="outline"
-                  className="bg-white border-slate-200 hover:bg-slate-50"
+                  className="bg-[#208aae] hover:bg-[#1a7a99] text-white"
                   onClick={() => setOpenChangePassword(true)}
                 >
                   Đổi mật khẩu
@@ -606,13 +609,13 @@ export default function UserProfile() {
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <CardTitle className="text-lg">Thông tin thành viên</CardTitle>
+              <CardTitle className="text-lg text-[#1a7a99]">Thông tin thành viên</CardTitle>
               <CardDescription>Thông tin cá nhân gắn với tài khoản hiện tại.</CardDescription>
             </div>
             {memberDetail && (
               <div className="flex gap-2">
                 {!editingMember ? (
-                  <Button variant="outline" onClick={startEditMember}>
+                  <Button className="bg-[#208aae] hover:bg-[#1a7a99] text-white" onClick={startEditMember}>
                     Chỉnh sửa
                   </Button>
                 ) : (
@@ -667,7 +670,14 @@ export default function UserProfile() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Mã thành viên" value={memberDetail.memberId} />
+                <Field
+                  label="Vai trò thành viên"
+                  value={
+                    memberRoleId == null
+                      ? '—'
+                      : `${getRoleLabelById(memberRoleId) ?? `Vai trò ${memberRoleId}`}`
+                  }
+                />
                 <div>
                   <Label className="text-xs text-slate-500 mb-1">Họ và tên</Label>
                   {editingMember ? (
@@ -788,11 +798,11 @@ export default function UserProfile() {
             </Card>
           </div>
 
-          <div className="lg:sticky lg:top-6">
+          <div className="lg:col-span-2 lg:sticky lg:top-6">
             <Card className="rounded-2xl border border-slate-200 shadow-sm">
             <CardHeader className="space-y-3">
               <div>
-                <CardTitle className="text-lg flex items-center gap-2">
+                <CardTitle className="text-lg flex items-center gap-2 text-[#1a7a99]">
                   <BarChart3 className="h-5 w-5 text-teal-600" />
                   Khối lượng công việc
                 </CardTitle>
