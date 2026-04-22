@@ -201,6 +201,9 @@ export default function Sidebar() {
       { kind: 'link', label: 'Quản lý tài khoản', icon: UserCircle, path: '/manager/users' },
       { kind: 'link', label: 'Quản lý thành viên', icon: Users, path: '/manager/members' },
       { kind: 'link', label: 'Nhóm', icon: ListChecks, path: '/manager/teams' },
+            { kind: 'link', label: 'Trung tâm duyệt', icon: CheckCircle2, path: '/manager/requests' },
+      { kind: 'link', label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
+
       {
         kind: 'group',
         label: GROUP_TEMPLATE,
@@ -211,7 +214,6 @@ export default function Sidebar() {
           { label: 'Môn học', icon: Layers, path: '/manager/subjects' },
         ],
       },
-      { kind: 'link', label: 'Chủ đề', icon: Bookmark, path: '/manager/topics' },
       {
         kind: 'group',
         label: GROUP_EQUIPMENT,
@@ -223,14 +225,16 @@ export default function Sidebar() {
           { label: 'Đơn yêu cầu thiết bị', icon: CalendarClock, path: '/manager/reservations', end: true },
         ],
       },
+            { kind: 'link', label: 'Thời khóa biểu', icon: CalendarDays, path: '/manager/timetable' },
+
       { kind: 'link', label: 'Hợp đồng', icon: FileText, path: '/manager/contracts' },
-      { kind: 'link', label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
-      { kind: 'link', label: 'Giao dịch', icon: Wallet, path: '/manager/transactions' },
-      { kind: 'link', label: 'Quỹ', icon: Wallet, path: '/manager/wallets' },
-      { kind: 'link', label: 'Thời khóa biểu', icon: CalendarDays, path: '/manager/timetable' },
-      { kind: 'link', label: 'Trung tâm duyệt', icon: CheckCircle2, path: '/manager/requests' },
+     
       { kind: 'link', label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
       { kind: 'link', label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
+      { kind: 'link', label: 'Giao dịch', icon: Wallet, path: '/manager/transactions' },
+      { kind: 'link', label: 'Quỹ', icon: Wallet, path: '/manager/wallets' },
+             { kind: 'link', label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
+
     ];
   }, []);
 

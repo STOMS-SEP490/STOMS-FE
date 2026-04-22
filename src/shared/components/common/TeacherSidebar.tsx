@@ -42,7 +42,7 @@ export default function TeacherSidebar() {
         path: '/teacher/timetable',
         matchPrefixPath: '/teacher/timetable',
       },
-      { label: 'Danh sách buổi đã dạy', icon: Timer, path: '/teacher/teaching-history' },
+      { label: 'Các buổi đã tham gia', icon: Timer, path: '/teacher/teaching-history' },
       { label: 'Hợp đồng', icon: FileText, path: '/teacher/contracts' },
       { label: 'Đóng góp quỹ', icon: Wallet, path: '/teacher/fund-contributions' },
       { label: 'Thiết bị', icon: Package, path: '/teacher/equipments' },

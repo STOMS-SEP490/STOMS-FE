@@ -74,6 +74,7 @@ function normalizeSessionTopicRef(raw: unknown): SessionResponse['SubjectSession
   if (raw == null || typeof raw !== 'object') return null;
   const t = raw as Record<string, unknown>;
   return {
+    ...(t as any),
     SubjectSessionId:
       (pick(t, 'SubjectSessionId', 'subjectSessionId') as number | null | undefined) ?? null,
     EventSessionId:

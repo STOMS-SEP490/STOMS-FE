@@ -723,12 +723,12 @@ export default function RequestDetail() {
             </button>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <h5 className="truncate text-xl font-bold text-[#1a7a99]">
+                <h5 className="truncate text-xl font-bold text-slate-900">
                   Chi tiết {request.requestName || request.requestCode}
                 </h5>
                 <p className="text-xs text-slate-700">
                   <span className="text-slate-500">Mã yêu cầu: </span>
-                  <span className="font-semibold text-[#1a7a99]">{request.requestCode}</span>
+                  <span className="font-semibold text-slate-900">{request.requestCode}</span>
                 </p>
               </div>
             </div>
@@ -780,14 +780,14 @@ export default function RequestDetail() {
                 <span className={dotClass} aria-hidden />
                 Loại yêu cầu
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">{requestTypeLabel}</p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{requestTypeLabel}</p>
             </div>
             <div className="min-w-0">
               <p className={metaLabelClass}>
                 <span className={dotClass} aria-hidden />
                 Ngày gửi
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">
                 {request.createdAt
                   ? dayjs(request.createdAt).format('DD/MM/YYYY')
                   : dayjs(request.startDate).format('DD/MM/YYYY')}
@@ -798,7 +798,7 @@ export default function RequestDetail() {
                 <span className={dotClass} aria-hidden />
                 Số lượng buổi
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">{sessionCount} buổi</p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{sessionCount} buổi</p>
             </div>
             {hasSourceDuration || hasStartAt || hasEndAt ? (
               <>
@@ -807,14 +807,14 @@ export default function RequestDetail() {
                     <span className={dotClass} aria-hidden />
                     Thời lượng
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">{sourceDuration || '—'}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">{sourceDuration || '—'}</p>
                 </div>
                 <div className="min-w-0">
                   <p className={metaLabelClass}>
                     <span className={dotClass} aria-hidden />
                     Ngày bắt đầu
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
                     {requestDateRange.startAt ? dayjs(requestDateRange.startAt).format('DD/MM/YYYY HH:mm') : '—'}
                   </p>
                 </div>
@@ -823,7 +823,7 @@ export default function RequestDetail() {
                     <span className={dotClass} aria-hidden />
                     Ngày kết thúc
                   </p>
-                  <p className="mt-0.5 text-sm font-semibold text-[#1a7a99]">
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
                     {requestDateRange.endAt ? dayjs(requestDateRange.endAt).format('DD/MM/YYYY HH:mm') : '—'}
                   </p>
                 </div>
@@ -921,7 +921,7 @@ export default function RequestDetail() {
                           Chi tiết
                         </span>
                       </div>
-                      <p className="mt-1 text-sm font-semibold text-[#1a7a99] leading-snug line-clamp-2">
+                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
                         {sessionTitle}
                       </p>
                       <div className="mt-1 flex items-center justify-between gap-1.5 text-xs flex-wrap">
@@ -1123,7 +1123,7 @@ export default function RequestDetail() {
                           Chi tiết
                         </span>
                       </div>
-                      <p className="mt-1 text-sm font-semibold text-[#1a7a99] leading-snug line-clamp-2">{sessionTitle}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug line-clamp-2">{sessionTitle}</p>
                       {topic?.description?.trim() ? (
                         <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{topic.description.trim()}</p>
                       ) : null}
@@ -1243,7 +1243,7 @@ export default function RequestDetail() {
 
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-semibold text-[#1a7a99] truncate" title={fileLabel}>
+                                  <span className="text-xs font-semibold text-slate-900 truncate" title={fileLabel}>
                                     {fileLabel}
                                   </span>
                                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${meta.badgeClass}`}>
@@ -1304,7 +1304,7 @@ export default function RequestDetail() {
                   </>
                 ) : rightPanel.mode === 'detail' && resolvedDetailSession ? (
                   <>
-                    <h2 className="text-lg font-bold text-[#1a7a99] leading-snug">
+                    <h2 className="text-lg font-bold text-slate-900 leading-snug">
                       {getSessionDisplayTitle(resolvedDetailSession)}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1 tabular-nums">
@@ -1332,7 +1332,7 @@ export default function RequestDetail() {
                   </>
                 ) : rightPanel.mode === 'assignment' && resolvedPanelSession ? (
                   <>
-                    <h2 className="text-lg font-bold text-[#1a7a99] leading-snug">
+                    <h2 className="text-lg font-bold text-slate-900 leading-snug">
                       {getSessionDisplayTitle(resolvedPanelSession)}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1 tabular-nums">
@@ -1411,6 +1411,12 @@ export default function RequestDetail() {
                         separateTeacherSelection={requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.APPROVED}
                         requestStatus={request.status}
                         onAssignSession={handleAssignSession}
+                        onTeacherAssignmentUpdated={async () => {
+                          await reloadAssignmentsForSession(rightPanel.session.sessionId);
+                          await refreshDetail();
+                          setSessionDetailReloadKey((k) => k + 1);
+                          refreshRequestSidebar?.();
+                        }}
                       />
                     ) : null}
                   </div>
@@ -1456,6 +1462,12 @@ export default function RequestDetail() {
                   separateTeacherSelection={requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.APPROVED}
                   requestStatus={request.status}
                   onAssignSession={handleAssignSession}
+                  onTeacherAssignmentUpdated={async () => {
+                    await reloadAssignmentsForSession(rightPanel.session.sessionId);
+                    await refreshDetail();
+                    setSessionDetailReloadKey((k) => k + 1);
+                    refreshRequestSidebar?.();
+                  }}
                 />
               )}
               {rightPanel.mode === 'assignment' && !isPendingRequest && (
@@ -1637,7 +1649,7 @@ export default function RequestDetail() {
                                       )}
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                      <p className="truncate text-sm font-semibold text-[#1a7a99]">
+                                      <p className="truncate text-sm font-semibold text-slate-900">
                                         {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
                                       </p>
                                       <p className="truncate text-xs text-slate-500">
@@ -1732,7 +1744,7 @@ export default function RequestDetail() {
                                     )}
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-[#1a7a99]">
+                                    <p className="truncate text-sm font-semibold text-slate-900">
                                       {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
                                     </p>
                                     <p className="truncate text-xs text-slate-500">

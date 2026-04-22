@@ -100,9 +100,7 @@ export default function ChooseRole() {
                 <div className="text-sm font-semibold text-slate-900 truncate">
                   {getRoleLabel(opt.roleId)}
                 </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  Truy cập giao diện phù hợp với vai trò này
-                </div>
+                
               </div>
             </div>
             <div className="mt-3">

@@ -184,17 +184,17 @@ export default function EquipmentDashboard() {
         getEquipmentsListCached({
           pageNumber: 1,
           pageSize: 4,
-          status: EQUIPMENT_STATUS.DAMAGED,
+          status: String(EQUIPMENT_STATUS.DAMAGED),
         }),
         getEquipmentsListCached({
           pageNumber: 1,
           pageSize: 2,
-          status: EQUIPMENT_STATUS.LOST,
+          status: String(EQUIPMENT_STATUS.LOST),
         }),
         getEquipmentsListCached({
           pageNumber: 1,
           pageSize: 2,
-          status: EQUIPMENT_STATUS.UNAVAILABLE,
+          status: String(EQUIPMENT_STATUS.UNAVAILABLE),
         }),
       ])
       const merged: EquipmentListItem[] = [

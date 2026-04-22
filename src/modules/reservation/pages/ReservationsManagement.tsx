@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { BookOpen, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Modal, message } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import HoverSearch from '@/shared/components/ui/search';
@@ -14,8 +13,7 @@ import {
   normalizeReservationPagedResponse,
   normalizeReservationResponse,
 } from '@/modules/reservation/utils/normalizeReservationResponse';
-import { useReservationsListStats } from '@/modules/reservation/hooks/useReservationsListStats';
-import { StatCard } from '@/shared/components/common/StatCard';
+import { RESERVATION_STATUS, RESERVATION_STATUS_OPTIONS, getReservationStatusInfo } from '@/constants/status';
 import ReservationDetailSidebar from './ReservationDetailSidebar';
 import EditReservationModal from './EditReservationModal';
 
@@ -45,8 +43,6 @@ function canDeleteReservationRow(
 }
 
 export default function ReservationsManagement() {
-  const { loading: loadingStats, stats: reservationsStats } = useReservationsListStats();
-
   const [searchParams, setSearchParams] = useSearchParams();
 
   const openDetailFromUrl = searchParams.get('openDetail');
@@ -59,7 +55,7 @@ export default function ReservationsManagement() {
   const [editOpen, setEditOpen] = useState(false);
 
   const [reservationIdSearch, setReservationIdSearchState] = useState('');
-  const [cancelFilter, setCancelFilterState] = useState<'all' | 'cancelled' | 'active'>('all');
+  const [statusFilter, setStatusFilterState] = useState<number | 'all'>('all');
   const [pageNumber, setPageNumber] = useState(1);
 
   const setReservationIdSearch = useCallback((value: string) => {
@@ -67,8 +63,8 @@ export default function ReservationsManagement() {
     setPageNumber(1);
   }, []);
 
-  const setCancelFilter = useCallback((v: 'all' | 'cancelled' | 'active') => {
-    setCancelFilterState(v);
+  const setStatusFilter = useCallback((v: number | 'all') => {
+    setStatusFilterState(v);
     setPageNumber(1);
   }, []);
   const [totalItems, setTotalItems] = useState(0);
@@ -86,8 +82,9 @@ export default function ReservationsManagement() {
     }
   }, []);
 
-  const isTemporarilyCancelled =
-    cancelFilter === 'cancelled' ? true : cancelFilter === 'active' ? false : undefined;
+  const isTemporarilyCancelled = statusFilter === 'all' ? undefined : statusFilter === RESERVATION_STATUS.REJECTED;
+
+  const statusFilterValue = undefined; // Backend không có Status field
 
   const closeDetail = useCallback(() => {
     skipNextAutoOpenRef.current = true;
@@ -142,6 +139,7 @@ export default function ReservationsManagement() {
         await reservationApi.getFilter({
           ReservationId: reservationId,
           IsTemporarilyCancelled: isTemporarilyCancelled,
+          Status: statusFilterValue,
           PageNumber: pageNumber,
           PageSize: PAGE_SIZE,
         }),
@@ -157,7 +155,7 @@ export default function ReservationsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [reservationIdSearch, isTemporarilyCancelled, pageNumber]);
+  }, [reservationIdSearch, isTemporarilyCancelled, statusFilterValue, pageNumber]);
 
   const handleDelete = useCallback(
     (item: ReservationListItem) => {
@@ -330,64 +328,29 @@ export default function ReservationsManagement() {
         id: 'cancel',
         header: 'Trạng thái',
         cell: ({ row }) => {
-          const v = row.original.IsTemporarilyCancelled;
-          if (v == null) {
-            return (
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                —
-              </span>
-            );
+          const cancelled = row.original.IsTemporarilyCancelled;
+          // Map IsTemporarilyCancelled sang status enum
+          // true = Từ chối (3), false = Đã xác nhận (2), null/undefined = Chưa xác nhận (1)
+          let mappedStatus: number;
+          if (cancelled === true) {
+            mappedStatus = RESERVATION_STATUS.REJECTED; // 3
+          } else if (cancelled === false) {
+            mappedStatus = RESERVATION_STATUS.CONFIRMED; // 2
+          } else {
+            mappedStatus = RESERVATION_STATUS.PENDING; // 1
           }
-          if (v) {
-            return (
-              <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-600">
-                Tạm hủy
-              </span>
-            );
-          }
+          
+          const statusInfo = getReservationStatusInfo(mappedStatus);
+          
           return (
-            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-              Đang hoạt động
+            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${statusInfo.className}`}>
+              {statusInfo.label}
             </span>
           );
         },
       },
     ],
     [handleView, handleEditFromList, handleDelete, currentMemberId],
-  );
-
-  const statCards = useMemo(
-    () => [
-      {
-        icon: <BookOpen />,
-        label: 'Tổng đặt trước',
-        value: loadingStats ? '—' : reservationsStats.total,
-        sub: '',
-        variant: 'blue' as const,
-      },
-      {
-        icon: <CheckCircle />,
-        label: 'Đang diễn ra',
-        value: loadingStats ? '—' : reservationsStats.ongoing,
-        sub: '',
-        variant: 'green' as const,
-      },
-      {
-        icon: <Clock />,
-        label: 'Sắp diễn ra',
-        value: loadingStats ? '—' : reservationsStats.upcoming,
-        sub: '',
-        variant: 'orange' as const,
-      },
-      {
-        icon: <XCircle />,
-        label: 'Tạm hủy',
-        value: loadingStats ? '—' : reservationsStats.cancelled,
-        sub: '',
-        variant: 'rose' as const,
-      },
-    ],
-    [loadingStats, reservationsStats],
   );
 
   // Debounce for reservationId search
@@ -400,7 +363,7 @@ export default function ReservationsManagement() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [reservationIdSearch, cancelFilter, pageNumber, fetchReservations]);
+  }, [reservationIdSearch, isTemporarilyCancelled, statusFilterValue, pageNumber, fetchReservations]);
 
   useEffect(() => {
     if (openDetailFromUrl !== '1') return;
@@ -430,24 +393,11 @@ export default function ReservationsManagement() {
       className="space-y-6 p-6 pl-8 app-page-bg"
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
-      <div className="mb-2 rounded-xl border bg-white px-6 py-4 shadow-sm">
+      <div className="mb-6 rounded-xl border bg-white px-6 py-4 shadow-sm">
         <h2 className="text-xl font-semibold text-[#1a7a99]">Đơn yêu cầu thiết bị</h2>
         <p className="text-xs text-slate-500">
           Quản lý đơn yêu cầu thiết bị trong hệ thống
         </p>
-      </div>
-
-      <div className="mb-0 grid grid-cols-4 gap-4">
-        {statCards.map((c) => (
-          <StatCard
-            key={c.label}
-            icon={c.icon}
-            label={c.label}
-            value={c.value}
-            sub={c.sub}
-            variant={c.variant}
-          />
-        ))}
       </div>
 
       <div className="mb-1 px-6 py-2">
@@ -459,15 +409,17 @@ export default function ReservationsManagement() {
           />
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
-              <Select value={cancelFilter} onValueChange={(v) => setCancelFilter(v as typeof cancelFilter)}>
+              <Select value={String(statusFilter)} onValueChange={(v) => setStatusFilter(v === 'all' ? 'all' : Number(v))}>
                 <SelectTrigger className="w-[180px] gap-2 bg-white text-sm text-gray-500">
                   <SelectValue placeholder="Chọn trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="active">Đang hoạt động</SelectItem>
-                  <SelectItem value="cancelled">Tạm hủy</SelectItem>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  {RESERVATION_STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
