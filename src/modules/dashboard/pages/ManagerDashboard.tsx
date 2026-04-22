@@ -330,9 +330,25 @@ export default function ManagerDashboard() {
       value: r.userCount,
     })) ?? [];
 
+  const viEventStatus = (status: string | null | undefined) => {
+    const s = String(status ?? '').trim();
+    switch (s) {
+      case 'Active':
+        return 'Đang hoạt động';
+      case 'Inactive':
+        return 'Ngừng hoạt động';
+      case 'Completed':
+        return 'Hoàn tất';
+      case 'Cancelled':
+        return 'Đã hủy';
+      default:
+        return s || '—';
+    }
+  };
+
   const eventStatusData =
     eventStatus?.map((s) => ({
-      status: s.status,
+      status: viEventStatus(s.status),
       total: s.totalEvents,
     })) ?? [];
 

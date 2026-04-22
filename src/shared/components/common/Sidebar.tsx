@@ -31,6 +31,10 @@ import { Button } from '@/shared/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { cn } from '@/shared/lib/utils';
 import NotificationBell from '@/shared/components/common/NotificationBell';
+import { useAuth } from '@/app/providers/AuthProvider';
+import { getStoredAuthUser, setActiveRoleIdInStorage } from '@/modules/auth/authStorage';
+import { getHomePathByRole } from '@/modules/auth/roleAccess';
+import { getRoleLabel } from '@/constants/role';
 
 const TOP_ROW = 'grid w-full grid-cols-[18px_1fr] items-center gap-3 px-3 py-2.5';
 const TOP_ROW_WITH_CHEVRON = 'grid w-full grid-cols-[18px_1fr_18px] items-center gap-3 px-3 py-2.5';
@@ -44,6 +48,7 @@ export default function Sidebar() {
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { login: setCurrentUser } = useAuth();
   const [accountOpen, setAccountOpen] = useState(false);
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
     const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
@@ -64,6 +69,40 @@ export default function Sidebar() {
       };
     }
   }, []);
+
+  const roleOptions = useMemo(() => {
+    const stored = getStoredAuthUser();
+    const userRoleId = stored?.userRoleId ?? null;
+    const memberRoleId = stored?.memberRoleId ?? null;
+    if (userRoleId == null || memberRoleId == null) return [];
+    if (userRoleId === memberRoleId) return [];
+    const activeRoleId = stored?.roleId ?? null;
+    return [
+      { roleId: userRoleId, source: 'user' as const },
+      { roleId: memberRoleId, source: 'member' as const },
+    ].filter((x) => activeRoleId == null || x.roleId !== activeRoleId);
+  }, []);
+
+  const handleSwitchRole = (roleId: number) => {
+    const stored = getStoredAuthUser();
+    const token = localStorage.getItem('accessToken');
+    if (!stored?.userId || !stored.email || !token) {
+      setAccountOpen(false);
+      navigate('/login');
+      return;
+    }
+
+    setActiveRoleIdInStorage(roleId);
+    setCurrentUser({
+      id: stored.userId,
+      email: stored.email,
+      fullName: stored.email,
+      role: String(roleId),
+      token,
+    });
+    setAccountOpen(false);
+    navigate(getHomePathByRole(roleId));
+  };
 
   useEffect(() => {
     const raw = localStorage.getItem('user');
@@ -447,6 +486,31 @@ export default function Sidebar() {
               </button>
 
               <div className="my-1 h-px bg-slate-200" />
+
+              {roleOptions.length > 0 ? (
+                <div className="px-2 py-1.5">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Chuyển tư cách
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {roleOptions.map((opt) => (
+                      <button
+                        key={`${opt.source}-${opt.roleId}`}
+                        type="button"
+                        onClick={() => handleSwitchRole(opt.roleId)}
+                        className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                      >
+                        <span className="truncate">
+                          {getRoleLabel(opt.roleId)}
+                        </span>
+                        <ChevronDown className="h-4 w-4 rotate-[-90deg] text-slate-400" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {roleOptions.length > 0 ? <div className="my-1 h-px bg-slate-200" /> : null}
 
               <div className="my-1 h-px bg-slate-200" />
 
