@@ -6,6 +6,7 @@ import authService from '@/modules/auth/api/authApi';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { saveAuthToStorage } from '@/modules/auth/authStorage';
 import { getHomePathByRole, getRoleIdFromStorage } from '@/modules/auth/roleAccess';
+import { ROLE_ID } from '@/constants/role';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,7 +30,12 @@ export default function Login() {
     // nếu đã login thì redirect
     const token = localStorage.getItem('accessToken');
     if (token) {
-      navigate(getHomePathByRole(getRoleIdFromStorage()));
+      const roleId = getRoleIdFromStorage();
+      if (roleId != null) {
+        navigate(getHomePathByRole(roleId));
+      } else {
+        navigate('/choose-role');
+      }
     }
   }, []);
 
@@ -70,18 +76,48 @@ export default function Login() {
 
       localStorage.clear();
 
-      saveAuthToStorage(res);
+      const userRoleId = res.userRoleId ?? null;
+      const memberRoleId = res.memberRoleId ?? null;
+      const roles = [userRoleId, memberRoleId].filter((x): x is number => x != null);
 
-      setCurrentUser({
-        id: res.userId,
-        email: res.email,
-        fullName: res.email,
-        role: String(res.roleId),
-        token: res.accessToken,
+      const resolveActiveRoleId = (): number | null => {
+        if (roles.length === 0) return null;
+        if (roles.length === 1) return roles[0];
+
+        // TH1: trùng role -> vào thẳng
+        if (userRoleId != null && memberRoleId != null && userRoleId === memberRoleId) {
+          return userRoleId;
+        }
+
+        // TH2: có đồng thời role 4 và 5 -> chọn theo memberRoleId
+        const has45 = roles.includes(ROLE_ID.TEACHER) && roles.includes(ROLE_ID.ASSISTANT);
+        if (has45 && memberRoleId != null) return memberRoleId;
+
+        // TH còn lại: cần user chọn
+        return null;
+      };
+
+      const activeRoleId = resolveActiveRoleId();
+
+      saveAuthToStorage({
+        ...res,
+        roleId: activeRoleId,
       });
 
       message.success('Đăng nhập thành công');
-      navigate(getHomePathByRole(Number(res.roleId)));
+
+      if (activeRoleId != null) {
+        setCurrentUser({
+          id: res.userId,
+          email: res.email,
+          fullName: res.email,
+          role: String(activeRoleId),
+          token: res.accessToken,
+        });
+        navigate(getHomePathByRole(activeRoleId));
+      } else {
+        navigate('/choose-role');
+      }
     } catch (error: unknown) {
       const axiosErr = error as { response?: { data?: unknown; status?: number } };
       const data = axiosErr?.response?.data;

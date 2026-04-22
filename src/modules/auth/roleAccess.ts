@@ -14,6 +14,27 @@ export function getRoleIdFromStorage(): number | null {
   }
 }
 
+export function getRoleLabelById(roleId: number | null | undefined): string {
+  if (roleId == null) return 'Chưa có vai trò';
+  // tránh circular import constants/role -> auth
+  switch (roleId) {
+    case ROLE_ID.MANAGER:
+      return 'Quản lý';
+    case ROLE_ID.TEAM_LEADER:
+      return 'Trưởng nhóm';
+    case ROLE_ID.PROGRAM_COORDINATOR:
+      return 'Điều phối chương trình';
+    case ROLE_ID.TEACHER:
+      return 'Giảng viên';
+    case ROLE_ID.ASSISTANT:
+      return 'Sinh viên';
+    case ROLE_ID.EQUIPMENT_MANAGER:
+      return 'Quản lý thiết bị';
+    default:
+      return `Role ${roleId}`;
+  }
+}
+
 /** Đồng bộ với `index → dashboard` trong Manager/TL/PC/Teacher/EM Routes */
 export function getHomePathByRole(roleId: number | null | undefined): string {
   if (roleId === ROLE_ID.MANAGER) return '/manager/dashboard';

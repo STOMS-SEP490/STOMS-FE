@@ -630,7 +630,7 @@ export default function SubjectsManagement() {
         />
         <StatCard
           icon={<TrendingUp className="h-6 w-6" strokeWidth={2} />}
-          label="Max buổi/môn"
+          label="Số buổi tối đa/môn"
           value={statValue(statsLoading, maxSessionsPerSubject)}
           sub="Giá trị lớn nhất"
           variant="amber"

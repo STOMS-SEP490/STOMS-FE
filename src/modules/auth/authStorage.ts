@@ -12,7 +12,13 @@ export type LoginResponse = {
   userId: number;
   memberId: number;
   email: string;
-  roleId: number;
+  /** role hệ thống (user) */
+  userRoleId: number | null;
+  /** role theo member (có thể null nếu không có member) */
+  memberRoleId: number | null;
+  /** role đang chọn để vào hệ thống (FE quyết định) */
+  roleId?: number | null;
+  teamId: number | null;
   accessToken: string;
   accessTokenExpiresAt: string;
   refreshToken: string;
@@ -54,7 +60,42 @@ export const saveAuthToStorage = (data: LoginResponse) => {
       memberId: data.memberId,
       email: data.email,
       roleId: data.roleId,
+      userRoleId: data.userRoleId,
+      memberRoleId: data.memberRoleId,
+      teamId: data.teamId,
       deviceUid: data.deviceUid,
     })
   );
 };
+
+export type StoredAuthUser = {
+  userId?: number;
+  memberId?: number;
+  email?: string;
+  roleId?: number | null;
+  userRoleId?: number | null;
+  memberRoleId?: number | null;
+  teamId?: number | null;
+  deviceUid?: string;
+};
+
+export function getStoredAuthUser(): StoredAuthUser | null {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    return JSON.parse(raw) as StoredAuthUser;
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveRoleIdInStorage(roleId: number) {
+  const prev = getStoredAuthUser() ?? {};
+  localStorage.setItem(
+    'user',
+    JSON.stringify({
+      ...prev,
+      roleId,
+    })
+  );
+}

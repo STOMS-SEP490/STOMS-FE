@@ -183,7 +183,7 @@ export default function CreateBorrowingModal({
 
   const applyReservationDetail = (detail: ReservationDetail) => {
     if (!detail.EndAt) {
-      message.error('Đặt trước không có thời gian kết thúc (EndAt)')
+      message.error('Đặt trước không có thời gian kết thúc ')
       return false
     }
 
@@ -269,7 +269,7 @@ export default function CreateBorrowingModal({
       const list = Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'))
       setSessionBorrowerOptions(list)
     } catch {
-      message.error('Không tải được danh sách người mượn từ session')
+      message.error('Không tải được danh sách người mượn từ buổi')
     } finally {
       setLoadingSessionBorrowers(false)
     }
@@ -744,17 +744,17 @@ export default function CreateBorrowingModal({
       open={open}
       onClose={handleClose}
       title="Tạo phiếu mượn thiết bị"
-      description="Chọn session (nếu có). Nếu session có đặt trước thì tự điền thông tin; nếu không thì tạo tự do."
+      description="Chọn buổi (nếu có). Nếu buổi có đặt trước thì tự điền thông tin; nếu không thì tạo tự do."
       className="max-w-4xl w-[min(96vw,56rem)] max-h-[92vh]"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {isEquipmentManager && (
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1.5 min-w-[240px] flex-1" ref={requestPickerRef}>
-              <Label className="text-black font-medium">Request</Label>
+              <Label className="text-black font-medium">Yêu cầu</Label>
               <div className="relative">
                 <Input
-                  placeholder={loadingRequests ? 'Đang tải request...' : 'Chọn request (tuỳ chọn)'}
+                  placeholder={loadingRequests ? 'Đang tải yêu cầu...' : 'Chọn yêu cầu (tuỳ chọn)'}
                   disabled={loadingRequests || requestOptions.length === 0}
                   value={requestDropdownOpen ? requestSearch : selectedRequestLabel}
                   autoComplete="off"
@@ -809,23 +809,23 @@ export default function CreateBorrowingModal({
                       )
                     })}
                     {requestSearchQ && filteredRequestOptions.length === 0 && (
-                      <div className="px-3 pb-2 text-xs text-gray-500">Không tìm thấy request phù hợp.</div>
+                      <div className="px-3 pb-2 text-xs text-gray-500">Không tìm thấy yêu cầu phù hợp.</div>
                     )}
                   </div>
                 )}
               </div>
             </div>
-
+            {/* Session */}
             <div className="space-y-1.5 min-w-[240px] flex-1">
-              <Label className="text-black font-medium">Session</Label>
+              <Label className="text-black font-medium">Buổi </Label>
               <div ref={sessionPickerRef} className="relative">
                 <Input
                   placeholder={
                     selectedRequestId == null
-                      ? 'Chọn request trước'
+                      ? 'Chọn yêu cầu trước'
                       : loadingSessions
-                        ? 'Đang tải session...'
-                        : 'Chọn session (tuỳ chọn)'
+                        ? 'Đang tải buổi ...'
+                        : 'Chọn buổi (tuỳ chọn)'
                   }
                   disabled={selectedRequestId == null || loadingSessions || sessions.length === 0}
                   value={sessionDropdownOpen ? sessionSearch : selectedSessionLabel}
@@ -867,7 +867,7 @@ export default function CreateBorrowingModal({
                       </button>
                     ))}
                     {sessionSearchQ && filteredSessions.length === 0 && (
-                      <div className="px-3 pb-2 text-xs text-gray-500">Không tìm thấy session phù hợp.</div>
+                      <div className="px-3 pb-2 text-xs text-gray-500">Không tìm thấy buổi phù hợp.</div>
                     )}
                   </div>
                 )}
@@ -893,7 +893,7 @@ export default function CreateBorrowingModal({
                 </span>
               </span>
               {sessionIds.length > 0 && (
-                <span className="sm:col-span-2">Session gắn kèm: {sessionIds.join(', ')}</span>
+                <span className="sm:col-span-2">Buổi gắn kèm: {sessionIds.join(', ')}</span>
               )}
             </div>
           </div>
@@ -1088,7 +1088,7 @@ export default function CreateBorrowingModal({
 
         <div className="space-y-1.5">
           <Label className="text-black font-medium">
-            Thiết bị (nhập ID, phân cách bởi dấu phẩy hoặc khoảng trắng){' '}
+            Thiết bị (nhập mã, phân cách bởi dấu phẩy hoặc khoảng trắng){' '}
             <span className="text-red-500">*</span>
           </Label>
           <div className="flex gap-2">
@@ -1112,7 +1112,7 @@ export default function CreateBorrowingModal({
               </SelectContent>
             </Select>
             <Input
-              placeholder="Tìm theo tên / mã / ID"
+              placeholder="Tìm theo tên / mã"
               value={equipmentSearch}
               onChange={(e) => setEquipmentSearch(e.target.value)}
               className="h-8 text-xs text-black border-gray-200"
@@ -1128,13 +1128,9 @@ export default function CreateBorrowingModal({
                     }
                     if (!equipmentSearch.trim()) return true
                     const q = equipmentSearch.trim().toLowerCase()
-                    const byId =
-                      !isNaN(Number(q)) && eq.EquipmentId === Number(q)
                     return (
-                      byId ||
                       (eq.EquipmentName ?? '').toLowerCase().includes(q) ||
-                      (eq.EquipmentCode ?? '').toLowerCase().includes(q) ||
-                      (eq.CategoryName ?? '').toLowerCase().includes(q)
+                      (eq.EquipmentCode ?? '').toLowerCase().includes(q)
                     )
                   })
                   .slice(0, 30)
