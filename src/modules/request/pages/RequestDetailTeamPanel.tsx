@@ -110,6 +110,8 @@ type Props = {
     teamIds: number[],
     teamQuantities: Record<number, { teachersRequired: number; tasRequired: number }>
   ) => void;
+  /** Callback khi teacher assignment được update */
+  onTeacherAssignmentUpdated?: () => void | Promise<void>;
 };
 
 export default function RequestDetailTeamPanel({
@@ -120,6 +122,7 @@ export default function RequestDetailTeamPanel({
   canEdit = true,
   requestStatus,
   onAssignSession,
+  onTeacherAssignmentUpdated,
 }: Props) {
   const [suggestedTeams, setSuggestedTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
@@ -480,6 +483,9 @@ export default function RequestDetailTeamPanel({
       setSaving(true);
       await persistTeacherAssignments(true);
       setTeacherEditMode(false);
+      
+      // Gọi callback để parent refresh request và session status
+      await onTeacherAssignmentUpdated?.();
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && 'message' in err
@@ -489,7 +495,7 @@ export default function RequestDetailTeamPanel({
     } finally {
       setSaving(false);
     }
-  }, [hasPendingTeacherAssignmentChanges, persistTeacherAssignments, saving]);
+  }, [hasPendingTeacherAssignmentChanges, persistTeacherAssignments, saving, onTeacherAssignmentUpdated]);
 
   const handleSaveTeamsOnly = useCallback(async () => {
     if (!hasTeamChanges) {
@@ -838,7 +844,13 @@ export default function RequestDetailTeamPanel({
                                               <p className="text-[10px] font-semibold text-slate-700">{staff.assignmentCountIn30Days} buổi</p>
                                             </div>
                                           ) : null}
-                                          {(!staff.skills || staff.skills.length === 0) && staff.assignmentCountIn30Days == null ? (
+                                          {staff.skillMatchCount != null ? (
+                                            <div className="flex items-center gap-2">
+                                              <p className="text-[10px] font-semibold text-slate-700">Số kỹ năng phù hợp:</p>
+                                              <p className="text-[10px] font-semibold text-slate-700">{staff.skillMatchCount}</p>
+                                            </div>
+                                          ) : null}
+                                          {(!staff.skills || staff.skills.length === 0) && staff.assignmentCountIn30Days == null && !staff.skillMatchCount ? (
                                             <p className="text-xs text-slate-500 italic">Chưa có thông tin chi tiết</p>
                                           ) : null}
                                         </div>

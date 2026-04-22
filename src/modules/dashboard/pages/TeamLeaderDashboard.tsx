@@ -178,7 +178,7 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
   const it = props.item;
   const missingCheckin = !it.checkinAt;
   const missingCheckout = !!it.checkinAt && !it.checkoutAt;
-  const badgeLabel = missingCheckin ? 'Thiếu giờ vào' : missingCheckout ? 'Thiếu giờ ra' : '—';
+  const badgeLabel = missingCheckin ? 'Thiếu đầu giờ' : missingCheckout ? 'Thiếu cuối giờ ' : '—';
   const badgeTone =
     missingCheckin || missingCheckout
       ? 'border-amber-200 bg-amber-50 text-amber-700'
@@ -441,7 +441,7 @@ export default function TeamLeaderDashboard() {
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-2">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Buổi đã dạy gần đây</p>
+                  <p className="text-sm font-semibold text-slate-900">Buổi đã tham gia gần đây</p>
                   <p className="text-xs text-slate-500">Trong {rangeLabelMap[effectiveRange]}</p>
                 </div>
                 <Button type="button" variant="ghost" size="sm" className="text-sky-700" onClick={() => (window.location.href = '/tl/teaching-history')}>
@@ -463,7 +463,7 @@ export default function TeamLeaderDashboard() {
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Cần chú ý</p>
                   <p className="text-xs text-slate-500">
-                    Thiếu giờ ra: <span className="font-semibold text-amber-700">{missingCheckoutTotal}</span>
+                    Thiếu cuối giờ : <span className="font-semibold text-amber-700">{missingCheckoutTotal}</span>
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2 text-amber-600">
@@ -472,7 +472,7 @@ export default function TeamLeaderDashboard() {
               </div>
               <div className="space-y-3">
                 {attendanceItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Không có buổi thiếu giờ ra.</p>
+                  <p className="py-8 text-center text-xs text-slate-500">Không có buổi thiếu cuối giờ .</p>
                 ) : (
                   attendanceItems.map((it) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
                 )}

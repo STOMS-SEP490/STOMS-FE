@@ -61,10 +61,10 @@ export type EquipmentFilterParams = {
   pageNumber?: number
   pageSize?: number
   equipmentId?: number
-  equipmentCode?: string
-  equipmentName?: string
-  categoryId?: number
-  status?: string
+  EquipmentCode?: string
+  EquipmentName?: string
+  CategoryId?: number
+  Status?: string
 }
 
 export type EquipmentCreatePayload = {

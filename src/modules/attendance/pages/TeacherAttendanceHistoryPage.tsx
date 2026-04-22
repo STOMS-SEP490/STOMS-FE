@@ -76,7 +76,7 @@ export default function TeacherAttendanceHistoryPage() {
       },
       {
         accessorKey: 'sessionName',
-        header: 'PHIÊN',
+        header: 'BUỔI',
         enableSorting: false,
         cell: ({ row }) => {
           const r = row.original as AttendanceHistoryItem;
@@ -92,7 +92,7 @@ export default function TeacherAttendanceHistoryPage() {
       },
       {
         id: 'checkin',
-        header: 'GIỜ VÀO',
+        header: 'ĐẦU GIỜ',
         enableSorting: false,
         cell: ({ row }) => {
           const r = row.original as AttendanceHistoryItem;
@@ -101,7 +101,7 @@ export default function TeacherAttendanceHistoryPage() {
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-[#1a7a99]">{formatTime(r.checkinAt)}</span>
               <span className={`text-xs ${hasIn ? 'text-emerald-600' : 'text-slate-500'}`}>
-                {hasIn ? 'Đúng giờ' : 'Chưa có giờ vào'}
+                {hasIn ? 'Đúng giờ' : 'Chưa có đầu giờ'}
               </span>
             </div>
           );
@@ -109,13 +109,13 @@ export default function TeacherAttendanceHistoryPage() {
       },
       {
         id: 'checkout',
-        header: 'GIỜ RA',
+        header: 'CUỐI GIỜ',
         enableSorting: false,
         cell: ({ row }) => {
           const r = row.original as AttendanceHistoryItem;
           const hasIn = !!r.checkinAt;
           const hasOut = !!r.checkoutAt;
-          const status = !hasIn && !hasOut ? 'Chưa điểm danh' : hasIn && !hasOut ? 'Thiếu giờ ra' : 'Đúng giờ';
+          const status = !hasIn && !hasOut ? 'Chưa điểm danh' : hasIn && !hasOut ? 'Thiếu cuối giờ ' : 'Đúng giờ';
           return (
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-[#1a7a99]">{formatTime(r.checkoutAt)}</span>
@@ -123,7 +123,7 @@ export default function TeacherAttendanceHistoryPage() {
                 className={`text-xs ${
                   status === 'Đúng giờ'
                     ? 'text-emerald-600'
-                    : status === 'Thiếu giờ ra'
+                    : status === 'Thiếu cuối giờ '
                       ? 'text-amber-600'
                       : 'text-slate-500'
                 }`}
@@ -136,7 +136,7 @@ export default function TeacherAttendanceHistoryPage() {
       },
       {
         id: 'actions',
-        header: () => <span className="block w-full text-center">THAO TÁC</span>,
+        header: 'THAO TÁC',
         enableSorting: false,
         cell: ({ row }) => {
           const r = row.original as AttendanceHistoryItem;
@@ -256,7 +256,7 @@ export default function TeacherAttendanceHistoryPage() {
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-[#1a7a99]">Lịch sử điểm danh</h2>
           <p className="text-xs text-gray-500">
-            Các buổi bạn đã được điểm danh, cùng trạng thái giờ vào/giờ ra.
+            Các buổi bạn đã được điểm danh, cùng trạng thái đầu giờ/cuối giờ .
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">

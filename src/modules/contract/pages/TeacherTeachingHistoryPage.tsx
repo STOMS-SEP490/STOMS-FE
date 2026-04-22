@@ -573,15 +573,15 @@ export default function TeacherTeachingHistoryPage() {
 
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-white/60">
-          <span className="text-sm text-slate-500">Đang tải danh sách buổi đã dạy...</span>
+          <span className="text-sm text-slate-500">Đang tải danh sách buổi đã tham gia...</span>
         </div>
       )}
 
       {/* HEADER: tiêu đề + tìm kiếm / lọc cùng một thẻ như attendance-history */}
       <div className="flex shrink-0 flex-col gap-4 rounded-xl border bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách buổi đã dạy</h2>
-          <p className="text-xs text-gray-500">Các buổi bạn đã dạy cùng trạng thái hợp đồng.</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách buổi đã tham gia</h2>
+          <p className="text-xs text-gray-500">Các buổi bạn đã tham gia cùng trạng thái hợp đồng.</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 min-[900px]:gap-3">
           <HoverSearch
@@ -777,7 +777,7 @@ export default function TeacherTeachingHistoryPage() {
                       ) : (
                         <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500 hover:border-[#2197C0] hover:text-[#2197C0] transition-colors">
                           <ImageIcon className="h-4 w-4" />
-                          Chọn ảnh PNG/JPG (tối đa 5MB)
+                          Chọn ảnh PNG/JPG (tối đa 10MB)
                           <input
                             type="file"
                             accept="image/png,image/jpeg,image/jpg"

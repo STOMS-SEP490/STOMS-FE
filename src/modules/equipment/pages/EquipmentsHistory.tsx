@@ -105,6 +105,17 @@ const columns = (
     },
   },
   {
+    accessorKey: 'description',
+    header: 'Mô tả',
+    cell: ({ row }) => (
+      <div className="max-w-[200px]">
+        <span className="text-sm text-slate-700 line-clamp-2" title={row.original.description || undefined}>
+          {row.original.description?.trim() || '—'}
+        </span>
+      </div>
+    ),
+  },
+  {
     id: 'borrowDate',
     header: 'Ngày mượn',
     cell: ({ row }) => {
@@ -388,13 +399,12 @@ export default function EquipmentsHistory({
       <div className="mb-1 px-6 py-2">
         <div className="flex items-center justify-end gap-3 flex-wrap">
           <HoverSearch
-            placeholder="Tìm theo mô tả, ghi chú..."
+            placeholder="Tìm theo mô tả..."
             value={searchValue}
             onChange={(v) => setSearchQuery(v)}
           />
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
               <Select
                 value={statusValue ?? 'all'}
                 onValueChange={(v: string) => setStatusQuery(v === 'all' ? undefined : v)}

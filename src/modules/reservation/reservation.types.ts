@@ -51,6 +51,7 @@ export type ReservationResponse = {
   ReservationId: number;
   CreatedByMemberId?: number | null;
   IsTemporarilyCancelled?: boolean | null;
+  Status?: string | number | null;
   StartAt?: string | null;
   EndAt?: string | null;
   CreatedAt?: string | null;
@@ -67,6 +68,7 @@ export type PagedReservationResponse = PagedResponse<ReservationResponse>;
 export type ReservationFilterRequest = {
   ReservationId?: number;
   IsTemporarilyCancelled?: boolean;
+  Status?: number;
   CreatedByMemberId?: number;
   StartAt?: string;
   EndAt?: string;
@@ -83,6 +85,7 @@ export type CheckAvailabilityRequest = {
   EquipmentName?: string;
   EquipmentCode?: string;
   IsAvailable?: boolean;
+  Statuses?: number[];
   PageNumber?: number;
   PageSize?: number;
 };

@@ -3,7 +3,6 @@ import EquipmentDashboard from '@/modules/equipment/pages/EquipmentDashboard'
 import EquipmentsManagement from '@/modules/equipment/pages/EquipmentsManagement'
 import CategoriesManagement from '@/modules/category/pages/CategoriesManagement'
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory'
-import EquipmentsManagementLayout from '@/app/layouts/EquipmentsManagementLayout'
 import ReservationsManagement from '@/modules/reservation/pages/ReservationsManagement'
 import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherContributionHistoryPage'
 
@@ -18,7 +17,7 @@ const EquipmentManagerRoutes = [
   },
   {
     path: 'categories',
-    element: <Navigate to="/em/equipments/categories" replace />,
+    element: <CategoriesManagement />,
   },
   {
     path: 'equipments/history',
@@ -34,11 +33,7 @@ const EquipmentManagerRoutes = [
   },
   {
     path: 'equipments',
-    element: <EquipmentsManagementLayout />,
-    children: [
-      { index: true, element: <EquipmentsManagement /> },
-      { path: 'categories', element: <CategoriesManagement /> },
-    ],
+    element: <EquipmentsManagement />,
   },
   { path: 'reservations', element: <ReservationsManagement /> },
   { path: 'borrowings', element: <EquipmentsHistory /> },
