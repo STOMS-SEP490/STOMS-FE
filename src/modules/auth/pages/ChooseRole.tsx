@@ -44,15 +44,15 @@ export default function ChooseRole() {
     if (options.length <= 1) {
       const only = options[0];
       if (only != null) {
-        setActiveRoleIdInStorage(only);
+        setActiveRoleIdInStorage(only.roleId);
         setCurrentUser({
           id: stored.userId,
           email: stored.email,
           fullName: stored.email,
-          role: String(only),
+          role: String(only.roleId),
           token: accessToken,
         });
-        navigate(getHomePathByRole(only), { replace: true });
+        navigate(getHomePathByRole(only.roleId), { replace: true });
       } else {
         navigate('/login', { replace: true });
       }
