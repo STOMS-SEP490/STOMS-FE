@@ -21,6 +21,11 @@ export const EQUIPMENT_BORROWING_STATUS = {
   LOST: 4,
 } as const;
 
+export const RESERVATION_STATUS = {
+  PENDING: 1,
+  CONFIRMED: 2,
+  REJECTED: 3,
+} as const;
 
 export const TRANSACTION_TYPE = {
   EXPENSE: 1,
@@ -61,7 +66,7 @@ export const REQUEST_STATUS_LABEL: Record<number, string> = {
   1: 'Chờ duyệt',
   2: 'Từ chối',
   3: 'Đã duyệt',
-  4: 'Đã phân công',
+  4: 'Chờ duyệt phân công',
   5: 'Đã công bố',
   6: 'Hoàn thành',
   7: 'Huỷ',
@@ -90,12 +95,51 @@ export function isSessionAssignmentRejectedStatus(
 }
 
 export const EQUIPMENT_STATUS_LABEL: Record<number, string> = {
-  1: 'Sẵn sàng',
+  1: 'Khả dụng',
   2: 'Đang mượn',
   3: 'Hỏng',
   4: 'Mất',
   5: 'Không khả dụng',
 };
+
+export const EQUIPMENT_STATUS_OPTIONS: { value: number; label: string }[] = [
+  { value: EQUIPMENT_STATUS.AVAILABLE,   label: 'Khả dụng' },
+  { value: EQUIPMENT_STATUS.BORROWED,    label: 'Đang mượn' },
+  { value: EQUIPMENT_STATUS.DAMAGED,     label: 'Hỏng' },
+  { value: EQUIPMENT_STATUS.LOST,        label: 'Mất' },
+  { value: EQUIPMENT_STATUS.UNAVAILABLE, label: 'Không khả dụng' },
+];
+
+const EQUIPMENT_STATUS_COLOR: Record<number, string> = {
+  [EQUIPMENT_STATUS.AVAILABLE]:   'bg-green-100 text-green-700',
+  [EQUIPMENT_STATUS.BORROWED]:    'bg-yellow-100 text-yellow-700',
+  [EQUIPMENT_STATUS.DAMAGED]:     'bg-orange-100 text-orange-700',
+  [EQUIPMENT_STATUS.LOST]:        'bg-red-100 text-red-700',
+  [EQUIPMENT_STATUS.UNAVAILABLE]: 'bg-gray-100 text-gray-700',
+};
+
+function normalizeEquipmentStatusCode(status: string | number | null | undefined): number | null {
+  if (status == null || status === '') return null;
+  const n = Number(status);
+  if (!Number.isNaN(n) && EQUIPMENT_STATUS_LABEL[n]) return n;
+  const upper = String(status).toUpperCase().trim();
+  if (upper === 'AVAILABLE')   return EQUIPMENT_STATUS.AVAILABLE;
+  if (upper === 'BORROWED')    return EQUIPMENT_STATUS.BORROWED;
+  if (upper === 'DAMAGED')     return EQUIPMENT_STATUS.DAMAGED;
+  if (upper === 'LOST')        return EQUIPMENT_STATUS.LOST;
+  if (upper === 'UNAVAILABLE') return EQUIPMENT_STATUS.UNAVAILABLE;
+  return null;
+}
+
+export function getEquipmentStatusDisplay(status: string | number | null | undefined): string {
+  const code = normalizeEquipmentStatusCode(status);
+  return code != null ? (EQUIPMENT_STATUS_LABEL[code] ?? '—') : '—';
+}
+
+export function getEquipmentStatusColor(status: string | number | null | undefined): string {
+  const code = normalizeEquipmentStatusCode(status);
+  return code != null ? (EQUIPMENT_STATUS_COLOR[code] ?? 'bg-gray-100 text-gray-700') : 'bg-gray-100 text-gray-700';
+}
 
 export const EQUIPMENT_BORROWING_STATUS_LABEL: Record<number, string> = {
   1: 'Đang mượn',
@@ -103,6 +147,18 @@ export const EQUIPMENT_BORROWING_STATUS_LABEL: Record<number, string> = {
   3: 'Hỏng',
   4: 'Mất',
 };
+
+export const RESERVATION_STATUS_LABEL: Record<number, string> = {
+  1: 'Chưa xác nhận',
+  2: 'Đã xác nhận',
+  3: 'Từ chối',
+};
+
+export const RESERVATION_STATUS_OPTIONS: { value: number; label: string }[] = [
+  { value: RESERVATION_STATUS.PENDING, label: 'Chưa xác nhận' },
+  { value: RESERVATION_STATUS.CONFIRMED, label: 'Đã xác nhận' },
+  { value: RESERVATION_STATUS.REJECTED, label: 'Từ chối' },
+];
 
 export const ASSIGNMENT_STATUS = {
   PENDING: 1,
@@ -192,6 +248,41 @@ export function getEquipmentBorrowingStatusInfo(status: string | number | null |
     label: EQUIPMENT_BORROWING_STATUS_LABEL[code] ?? String(status || '—'),
     className: classNameByCode[code] ?? baseClass,
     isReturned: code === EQUIPMENT_BORROWING_STATUS.RETURNED,
+  };
+}
+
+function normalizeReservationStatusCode(
+  status: string | number | null | undefined
+): number | null {
+  if (status == null || status === '') return null;
+  const n = Number(status);
+  if (!Number.isNaN(n) && RESERVATION_STATUS_LABEL[n]) return n;
+  const s = String(status).toLowerCase().trim();
+  if (s.includes('pending') || s.includes('chưa xác nhận') || s.includes('chờ')) return RESERVATION_STATUS.PENDING;
+  if (s.includes('confirmed') || s.includes('đã xác nhận') || s.includes('duyệt')) return RESERVATION_STATUS.CONFIRMED;
+  if (s.includes('rejected') || s.includes('từ chối')) return RESERVATION_STATUS.REJECTED;
+  return null;
+}
+
+export function getReservationStatusInfo(status: string | number | null | undefined): {
+  code: number | null;
+  label: string;
+  className: string;
+} {
+  const baseClass = 'bg-slate-50 text-slate-700 border-slate-200';
+  const code = normalizeReservationStatusCode(status);
+  if (!code) {
+    return { code: null, label: String(status || '—'), className: baseClass };
+  }
+  const classNameByCode: Record<number, string> = {
+    [RESERVATION_STATUS.PENDING]: 'bg-amber-50 text-amber-700 border-amber-200',
+    [RESERVATION_STATUS.CONFIRMED]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    [RESERVATION_STATUS.REJECTED]: 'bg-rose-50 text-rose-700 border-rose-200',
+  };
+  return {
+    code,
+    label: RESERVATION_STATUS_LABEL[code] ?? String(status || '—'),
+    className: classNameByCode[code] ?? baseClass,
   };
 }
 
@@ -299,7 +390,7 @@ function normalizeStatusCode(
     if (
       s.includes('assigning') ||
       s.includes('đang phân công') ||
-      s.includes('đã phân công')
+      s.includes('chờ duyệt phân công')
     )
       return REQUEST_STATUS.ASSIGNING;
     if (s.includes('published') || s.includes('đã công bố'))

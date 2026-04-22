@@ -1,13 +1,14 @@
 import MainContent from '@/app/layouts/MainContent';
 import RoleSidebar, { type RoleSidebarMenuItem } from '@/shared/components/common/RoleSidebar';
-import { BarChart3, CalendarClock, ClipboardList, Laptop, Wallet } from 'lucide-react';
+import { BarChart3, CalendarClock, ClipboardList, Laptop, Layers, Wallet } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
 
 export default function EquipmentLayout() {
   const menus: RoleSidebarMenuItem[] = [
     { label: 'Thống kê', icon: BarChart3, path: '/em/dashboard' },
-    { label: 'Phiếu mượn', icon: ClipboardList, path: '/em/borrowings' },
     { label: 'Thiết bị', icon: Laptop, path: '/em/equipments', matchPrefixPath: '/em/equipments' },
+    { label: 'Danh mục', icon: Layers, path: '/em/categories' },
+    { label: 'Phiếu mượn', icon: ClipboardList, path: '/em/borrowings' },
     { label: 'Đơn yêu cầu thiết bị', icon: CalendarClock, path: '/em/reservations' },
     { label: 'Đóng góp quỹ', icon: Wallet, path: '/em/fund-contributions' },
   ];

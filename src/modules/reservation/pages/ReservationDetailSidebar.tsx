@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import dayjs from 'dayjs';
 import { CalendarClock, CheckCircle, Hash, ImageOff, ListChecks, Pencil, X, XCircle } from 'lucide-react';
 import type { ReservationDetail } from '@/modules/reservation/reservation.types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox, message } from 'antd';
-import { getSessionStatusInfo } from '@/constants/status';
+import { getSessionStatusInfo, getReservationStatusInfo, RESERVATION_STATUS } from '@/constants/status';
 import { cn } from '@/shared/lib/utils';
 import { Image } from 'antd';
 import { ROLE_ID } from '@/constants/role';
@@ -79,9 +78,7 @@ export default function ReservationDetailSidebar({
   if (!reservation) return null;
 
   const createdBy = reservation.CreatedByUser;
-  const hasEnded = !dayjs(reservation.EndAt).isAfter(dayjs());
-  const reservationCancelled = reservation.IsTemporarilyCancelled === true;
-  const showEditButton = Boolean(onEditReservation) && !hasEnded && !reservationCancelled;
+  const showEditButton = false; // EM không được sửa
   const sessions = reservation.Sessions ?? [];
   const singleSession = sessions.length === 1 ? sessions[0] : null;
   const showSeparateSessionSection = sessions.length !== 1;
@@ -90,6 +87,13 @@ export default function ReservationDetailSidebar({
     reservation.TotalEquipments != null && reservation.TotalEquipments >= 0
       ? reservation.TotalEquipments
       : equipmentList.length;
+
+  // Xác định trạng thái hiển thị - map từ IsTemporarilyCancelled
+  const cancelled = reservation.IsTemporarilyCancelled === true;
+  const mappedStatus = cancelled ? RESERVATION_STATUS.REJECTED : RESERVATION_STATUS.PENDING;
+  const statusInfo = getReservationStatusInfo(mappedStatus);
+  const displayStatus = statusInfo.label;
+  const statusBadgeClass = `border ${statusInfo.className}`;
 
   return (
     <>
@@ -110,11 +114,8 @@ export default function ReservationDetailSidebar({
                   <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT ĐẶT TRƯỚC</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <h2 className="text-xl font-semibold text-[#1a7a99]">Đặt trước #{reservation.ReservationId}</h2>
-                    <Badge className={cn(
-                      'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium border-0',
-                      reservation.IsTemporarilyCancelled ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800',
-                    )}>
-                      {reservation.IsTemporarilyCancelled ? 'Tạm hủy' : 'Đang hoạt động'}
+                    <Badge className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium border-0', statusBadgeClass)}>
+                      {displayStatus}
                     </Badge>
                   </div>
                   {createdBy && (
@@ -165,8 +166,8 @@ export default function ReservationDetailSidebar({
               <div className="pl-4 grid grid-cols-2 gap-x-6">
                 <MetaRow label="Mã đặt trước" value={`#${reservation.ReservationId}`} />
                 <MetaRow label="Trạng thái" value={
-                  <Badge className={cn('border-0 text-xs', reservation.IsTemporarilyCancelled ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800')}>
-                    {reservation.IsTemporarilyCancelled ? 'Tạm hủy' : 'Đang hoạt động'}
+                  <Badge className={cn('border text-xs', statusBadgeClass)}>
+                    {displayStatus}
                   </Badge>
                 } />
                 <MetaRow label="Bắt đầu" value={formatDateTime(reservation.StartAt)} />
@@ -192,7 +193,7 @@ export default function ReservationDetailSidebar({
                     return <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold', info.className)}>{info.label}</span>;
                   })()} />
                   <MetaRow label="Thời gian" value={`${formatDateTime(singleSession.StartAt)} — ${formatDateTime(singleSession.EndAt)}`} className="col-span-2" />
-                  <MetaRow label="Địa điểm" value={`${singleSession.Location || '—'}${singleSession.IsOnline != null ? (singleSession.IsOnline ? ' · Online' : ' · Offline') : ''}`} />
+                  <MetaRow label="Địa điểm" value={`${singleSession.Location || '—'}${singleSession.IsOnline != null ? (singleSession.IsOnline ? ' · Trực tuyến' : ' · Trực tiếp') : ''}`} />
                   {singleSession.Notes && <MetaRow label="Ghi chú" value={singleSession.Notes} />}
                 </div>
               </Section>
@@ -212,7 +213,7 @@ export default function ReservationDetailSidebar({
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 text-xs text-slate-600">
                           <span><span className="text-slate-400">Thời gian · </span>{formatDateTime(s.StartAt)} — {formatDateTime(s.EndAt)}</span>
-                          <span><span className="text-slate-400">Địa điểm · </span>{s.Location || '—'}{s.IsOnline != null ? (s.IsOnline ? ' · Online' : ' · Offline') : ''}</span>
+                          <span><span className="text-slate-400">Địa điểm · </span>{s.Location || '—'}{s.IsOnline != null ? (s.IsOnline ? ' · Trực tuyến' : ' · Trực tiếp') : ''}</span>
                         </div>
                         {s.Notes && <p className="text-xs text-slate-600"><span className="text-slate-400">Ghi chú · </span>{s.Notes}</p>}
                       </div>

@@ -37,7 +37,7 @@ export default function Login() {
         navigate('/choose-role');
       }
     }
-  }, []);
+  }, [setImage, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

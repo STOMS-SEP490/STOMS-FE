@@ -16,7 +16,7 @@ export default function SessionDetailSidebar({ open, onClose, session }: Props) 
   if (!session) return null;
 
   const modeLabel =
-    session.IsOnline == null ? 'Không rõ' : session.IsOnline ? 'Online' : 'Offline';
+    session.IsOnline == null ? 'Không rõ' : session.IsOnline ? 'Trực tuyến' : 'Trực tiếp';
 
   return (
     <>

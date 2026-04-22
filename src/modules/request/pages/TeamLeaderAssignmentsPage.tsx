@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-
 import dayjs from 'dayjs';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Spin, message } from 'antd';
@@ -208,7 +206,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
-                  <Spin tip="Đang tải dữ liệu phân công cho nhóm..." />
+          <Spin tip="Đang tải dữ liệu phân công cho nhóm..." />
         </div>
       )}
 
@@ -427,7 +425,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 <div className="mb-3 flex justify-between items-center">
                   <div>
                     <h3 className="text-sm font-medium text-slate-900">Danh sách buổi</h3>
-                    
                   </div>
                   <div className="text-xs text-slate-600">
                     <span className="font-medium">Hình thức tham gia:</span>{' '}
@@ -551,9 +548,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
             </div>
           )}
           </div>
-
+        </div>
       </div>
-          </div>
 
       {/* ─── RIGHT: Session detail + assignment panel (slide-over overlay) ─── */}
       {activeSession && (
@@ -625,8 +621,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 const {
                   editableTeacherSlots,
                   editableTaSlots,
-                  lockedTeacherCount: lockedTeacherSlots,
-                  lockedTaCount: lockedTaSlots,
                 } = partitionTeamLeaderAssignmentSlots(detail, currentTeamId);
 
                 const sessionInfoCard = (
@@ -687,12 +681,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   >
                     {sessionInfoCard}
 
-                    {(lockedTeacherSlots > 0 || lockedTaSlots > 0) && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                        Buổi này cần phân công sinh viên thuộc nhóm khác, bạn chỉ phân công sinh viên thuộc nhóm của mình.
-                      </div>
-                    )}
-
                     {tab === 'rejected' &&
                       (requestReasonLines.length > 0 ||
                         teamRejectedAssignments.length > 0 ||
@@ -710,20 +698,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                               : 'Xem lý do từ quản lý và kiểm tra phân công bên dưới.'}
                           </p>
                         </div>
-                        {/* {requestReasonLines.length > 0 && (
-                          <div className="px-4 py-3 border-b border-orange-100 bg-white/60">
-                            <p className="text-xs font-medium text-orange-900 mb-1.5">
-                              Lý do (yêu cầu)
-                            </p>
-                            <ul className="space-y-1 text-xs text-orange-950 leading-relaxed list-none pl-0">
-                              {requestReasonLines.map((line, idx) => (
-                                <li key={idx} className="pl-3 border-l-2 border-orange-300">
-                                  {line}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )} */}
                         {teamRejectedAssignments.length === 0 && sessionRejectedUi && (
                           <p className="px-4 py-3 text-xs text-orange-800">
                             Buổi đang ở trạng thái từ chối phân công. Nếu không thấy dòng vị trí cụ thể,
@@ -745,6 +719,12 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         <TeamLeaderStaffAssignmentPanel
                           sessionId={activeSession.sessionId}
                           canEdit
+                          onAssignmentUpdated={async () => {
+                            // Refresh session detail để lấy status mới
+                            await refreshSessionDetailById(activeSession.sessionId);
+                            // Refresh request để lấy request status mới
+                            await refetchRequestById(activeSession.requestId);
+                          }}
                         />
                       </div>
                     )}
@@ -776,7 +756,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                       />
                     </div>
 
-                    <div className="mt-6 pt-4 border-t border-slate-100">
+                    <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
                       <div className="relative inline-flex group">
                         <button
                           type="button"
@@ -794,7 +774,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           }`}
                         >
                           <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden />
-                          Hủy buổi
+                          Báo quản lý hủy buổi
                         </button>
                         {!canReportCannotAssign ? (
                           <span className="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md group-hover:block">
@@ -807,14 +787,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 );
               })()}
             </div>
-                </div>
-              </div>
-            )}
+          </div>
+        </div>
+      )}
 
       <Dialog
         open={reportSessionOpen}
         onClose={() => !reportSessionLoading && setReportSessionOpen(false)}
-        title="Hủy buổi"
+        title="Báo quản lý hủy buổi"
         description="Nhập lý do để báo buổi cần bị hủy. Thao tác không thể hoàn tác."
         className="max-w-md border-0 shadow-2xl"
       >

@@ -553,9 +553,7 @@ export default function CreateRequestPage() {
                 ) : null}
               </div>
 
-              <div className="rounded-lg bg-[#2197C0]/5 p-3 text-[11px] text-gray-600">
-                Hệ thống sẽ kiểm tra số buổi và thời lượng theo cấu hình môn/khóa/sự kiện trước khi tạo.
-              </div>
+             
             </div>
 
             {/* Sessions list */}
@@ -1190,7 +1188,7 @@ export default function CreateRequestPage() {
                             'text-[10px] px-2 py-0.5'
                           )}
                         >
-                          Online
+                          Trực tuyến
                         </Badge>
                       )}
                     </div>
@@ -1311,7 +1309,7 @@ export default function CreateRequestPage() {
                       onChange={(e) => updateSession(index, { notes: e.target.value })}
                     />
 
-                    {/* Online / Offline toggle */}
+                    {/* Trực tuyến / Trực tiếp toggle */}
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] text-gray-500">Hình thức</span>
                       <div className="flex gap-1">
@@ -1325,7 +1323,7 @@ export default function CreateRequestPage() {
                           )}
                           onClick={() => updateSession(index, { isOnline: false })}
                         >
-                          Offline
+                          Trực tiếp
                         </button>
                         <button
                           type="button"
@@ -1337,7 +1335,7 @@ export default function CreateRequestPage() {
                           )}
                           onClick={() => updateSession(index, { isOnline: true })}
                         >
-                          Online
+                          Trực tuyến
                         </button>
                       </div>
                     </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { message } from 'antd';
+import { ImageOff } from 'lucide-react';
+import { message, Image } from 'antd';
 import reservationService from '../../reservation/api/reservationApi';
 import type { EquipmentReservationItemResponse, ReservationDetail } from '@/modules/reservation/reservation.types';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
@@ -159,20 +160,25 @@ export default function RequestSessionDetailPanel({
   }, [mergedSession]);
 
   const topics = useMemo(() => {
-    const detail = mergedSession as SessionResponse | null;
-    const detailAny = detail as any;
-    const fromEvent = [
-      ...((Array.isArray(detailAny?.EventSession?.Topics) ? detailAny.EventSession.Topics : []) as any[]),
-      ...((Array.isArray(detailAny?.eventSession?.topics) ? detailAny.eventSession.topics : []) as any[]),
-    ];
-    const fromSubject = [
-      ...((Array.isArray(detailAny?.SubjectSession?.Topics) ? detailAny.SubjectSession.Topics : []) as any[]),
-      ...((Array.isArray(detailAny?.subjectSession?.topics) ? detailAny.subjectSession.topics : []) as any[]),
-    ];
+    const detailAny = mergedSession as any;
+    const fromEvent = (Array.isArray(detailAny?.EventSession?.topics ?? detailAny?.eventSession?.topics)
+      ? (detailAny?.EventSession?.topics ?? detailAny?.eventSession?.topics)
+      : []) as any[];
+    const fromSubject = (Array.isArray(detailAny?.SubjectSession?.topics ?? detailAny?.subjectSession?.topics)
+      ? (detailAny?.SubjectSession?.topics ?? detailAny?.subjectSession?.topics)
+      : []) as any[];
+
+    // course/subject: topicName là string đơn trực tiếp trên subjectSession
+    const subjectTopicName = String(
+      detailAny?.SubjectSession?.topicName ?? detailAny?.subjectSession?.topicName ?? ''
+    ).trim();
+
     const names = [...fromEvent, ...fromSubject]
       .filter((t: any) => (t?.IsActive ?? t?.isActive ?? true) !== false)
       .map((t: any) => String(t?.TopicName ?? t?.topicName ?? '').trim())
       .filter(Boolean);
+
+    if (subjectTopicName) names.push(subjectTopicName);
     return Array.from(new Set(names));
   }, [mergedSession]);
 
@@ -288,7 +294,7 @@ export default function RequestSessionDetailPanel({
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
-                <p className="mt-1 font-semibold ">{requestCode}</p>
+                <p className="mt-1 font-medium text-slate-900">{requestCode}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Buổi số</p>
@@ -310,11 +316,11 @@ export default function RequestSessionDetailPanel({
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Giảng viên yêu cầu</p>
-                <p className="mt-1 font-semibold text-[#2197C0]">{teachersRequired ?? '—'}</p>
+                <p className="mt-1 font-medium text-slate-900">{teachersRequired ?? '—'}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Sinh viên yêu cầu</p>
-                <p className="mt-1 font-semibold text-[#2197C0]">{tasRequired ?? '—'}</p>
+                <p className="mt-1 font-medium text-slate-900">{tasRequired ?? '—'}</p>
               </div>
             </div>
 
@@ -342,7 +348,7 @@ export default function RequestSessionDetailPanel({
                     <span className="text-slate-700">—</span>
                   ) : (
                     topics.map((name) => (
-                      <Badge key={name} className="bg-slate-100 text-slate-700 border-0 text-[11px] font-medium">
+                      <Badge key={name} className="bg-violet-100 text-violet-700 border-0 text-[11px] font-medium">
                         {name}
                       </Badge>
                     ))
@@ -358,7 +364,7 @@ export default function RequestSessionDetailPanel({
                   <span className="text-slate-700">—</span>
                 ) : (
                   skills.map((name) => (
-                    <Badge key={name} className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px] font-medium">
+                    <Badge key={name} className="bg-orange-100 text-orange-700 border-0 text-[11px] font-medium">
                       {name}
                     </Badge>
                   ))
@@ -452,19 +458,18 @@ export default function RequestSessionDetailPanel({
                       key={er.EquipmentId}
                       className="px-0 py-2.5 flex items-center gap-3 border-b border-slate-100 last:border-b-0"
                     >
-                      <div className="w-10 h-10 overflow-hidden bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-sm overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0 flex items-center justify-center">
                         {eq?.ImgLink ? (
-                          <img
+                          <Image
                             src={eq.ImgLink}
                             alt={eq.EquipmentName || `Thiết bị #${er.EquipmentId}`}
                             width={40}
                             height={40}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-10 w-10 object-cover"
+                            className="object-cover"
+                            preview={{ mask: 'Xem ảnh' }}
                           />
                         ) : (
-                          <span className="text-[10px] text-gray-400">Không có ảnh</span>
+                          <ImageOff className="w-5 h-5 text-gray-300" />
                         )}
                       </div>
 

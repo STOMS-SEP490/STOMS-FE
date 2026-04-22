@@ -15,7 +15,7 @@ export type TeamLeaderSessionDetailPanelProps = {
   session: SessionResponse | { sessionId: number; sessionNo?: number; startAt?: string; endAt?: string; teachersRequired?: number | null; tasRequired?: number | null };
   requestCode?: string;
   requestName?: string;
-  /** Cột "Ủy quyền" sau giờ ra; chỉ truyền khi cần (vd. team leader). */
+  /** Cột "Ủy quyền" sau cuối giờ ; chỉ truyền khi cần (vd. team leader). */
   delegateColumn?: {
     currentMemberId: number | null;
     /** Giá trị ban đầu từ buổi (trước khi API danh sách trả về); sau ủy quyền dùng attendanceByMemberId từ từng dòng. */
@@ -333,7 +333,7 @@ export default function TeamLeaderSessionDetailPanel({
         </div>
       </div>
 
-      {/* Danh sách thành viên tham dự (giờ vào / giờ ra theo từng thành viên) */}
+      {/* Danh sách thành viên tham dự (đầu giờ / cuối giờ  theo từng thành viên) */}
       <div className="bg-white border-t border-b border-gray-200">
         <div className="py-3 border-b border-gray-200">
           <div className="flex items-center justify-between gap-3 px-4">
@@ -370,8 +370,8 @@ export default function TeamLeaderSessionDetailPanel({
               >
                 <div>Thông tin thành viên</div>
                 <div className="text-center">Vai trò</div>
-                <div className="text-center">Giờ vào</div>
-                <div className="text-center">Giờ ra</div>
+                <div className="text-center">Đầu giờ</div>
+                <div className="text-center">Cuối giờ</div>
                 {showDelegateCol ? <div className="text-center">Ủy quyền</div> : null}
               </div>
 
@@ -486,6 +486,7 @@ export default function TeamLeaderSessionDetailPanel({
                                       );
                                     }
                                     delegateColumn.onDelegated?.();
+                                    message.success('Đã ủy quyền xác nhận tham gia thành công.');
                                   } catch (err: unknown) {
                                     message.error(getErrorMessage(err));
                                   } finally {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
-import { Check, ImageOff, Search, X } from 'lucide-react';
-import { DatePicker, Select as AntSelect, message } from 'antd';
+import { Check, ImageOff, Search } from 'lucide-react';
+import { DatePicker, Select as AntSelect, message, Image } from 'antd';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -10,6 +10,7 @@ import reservationApi from '../../reservation/api/reservationApi';
 import { normalizeEquipmentPagedResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import categoryApi from '@/modules/category/api/categoryApi';
 import type { CategoryListItem } from '@/modules/category/category';
+import { EQUIPMENT_STATUS_OPTIONS, getEquipmentStatusDisplay, getEquipmentStatusColor } from '@/constants/status';
 
 export type SessionOption = {
   sessionId: number;
@@ -18,29 +19,15 @@ export type SessionOption = {
   endAt: string;
 };
 
-type ReservationRow = {
-  sessionIds: number[];
-  startAtLocal: string;
-  endAtLocal: string;
-  categoryId: number | null;
-  statusFilter?: number | null;
-  equipmentIds: number[];
-  search: string;
-};
-
 const PAGE_SIZE = 50;
 
-/** Không chọn ngày trước hôm nay (lịch). */
 function disabledBorrowDate(current: dayjs.Dayjs | null) {
   if (!current) return false;
   return current.isBefore(dayjs(), 'day');
 }
 
-/** Hôm nay: không chọn giờ/phút đã qua. */
 function disabledBorrowTime(date: dayjs.Dayjs | null) {
-  if (!date || !date.isSame(dayjs(), 'day')) {
-    return {};
-  }
+  if (!date || !date.isSame(dayjs(), 'day')) return {};
   const now = dayjs();
   return {
     disabledHours: () => Array.from({ length: now.hour() }, (_, i) => i),
@@ -52,44 +39,6 @@ function disabledBorrowTime(date: dayjs.Dayjs | null) {
   };
 }
 
-function getEquipmentStatusMeta(status?: string | null) {
-  const value = String(status ?? '').trim().toLowerCase();
-  switch (value) {
-    case 'available':
-      return {
-        label: 'Sẵn sàng',
-        className: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-      };
-    case 'in_use':
-    case 'inuse':
-      return {
-        label: 'Đang sử dụng',
-        className: 'bg-sky-50 text-sky-700 border border-sky-200',
-      };
-    case 'maintenance':
-      return {
-        label: 'Bảo trì',
-        className: 'bg-amber-50 text-amber-700 border border-amber-200',
-      };
-    case 'broken':
-    case 'damaged':
-      return {
-        label: 'Hỏng',
-        className: 'bg-rose-50 text-rose-700 border border-rose-200',
-      };
-    case 'inactive':
-      return {
-        label: 'Ngưng hoạt động',
-        className: 'bg-slate-100 text-slate-600 border border-slate-200',
-      };
-    default:
-      return {
-        label: status?.trim() || 'Không rõ',
-        className: 'bg-slate-100 text-slate-600 border border-slate-200',
-      };
-  }
-}
-
 type Props = {
   sessions: SessionOption[];
   createdByMemberId: number;
@@ -97,750 +46,429 @@ type Props = {
   onSuccess: () => void | Promise<void>;
 };
 
-export default function RequestDetailEquipmentPanel({
-  sessions,
-  createdByMemberId,
-  onClose,
-  onSuccess,
-}: Props) {
-  const [reservationRows, setReservationRows] = useState<ReservationRow[]>([
-    { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '' },
-  ]);
+export default function RequestDetailEquipmentPanel({ sessions, createdByMemberId, onClose, onSuccess }: Props) {
+  // --- session / time selection ---
+  const [sessionIds, setSessionIds] = useState<number[]>([]);
+  const [startAtLocal, setStartAtLocal] = useState('');
+  const [endAtLocal, setEndAtLocal] = useState('');
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false);
+
+  // --- filters ---
+  const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+
+  // --- equipment list ---
+  const [equipmentItems, setEquipmentItems] = useState<EquipmentResponse[]>([]);
+  const [equipmentLoading, setEquipmentLoading] = useState(false);
+  const [equipmentError, setEquipmentError] = useState<string | null>(null);
+
+  // --- selected equipment ---
+  const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<number[]>([]);
   const [selectedEquipmentById, setSelectedEquipmentById] = useState<Record<number, EquipmentResponse>>({});
-  type AvailabilityEntry = {
-    items: EquipmentResponse[];
-    total: number;
-    loading: boolean;
-    error: string | null;
-    /** Đã fetch xong (kể cả danh sách rỗng / lỗi) — tránh lặp vô hạn effect. */
-    loaded: boolean;
-  };
-  const [availabilityByKey, setAvailabilityByKey] = useState<Record<string, AvailabilityEntry>>({});
-  const availabilityByKeyRef = useRef(availabilityByKey);
-  availabilityByKeyRef.current = availabilityByKey;
+
+  // --- categories ---
   const [categories, setCategories] = useState<CategoryListItem[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
-  const [reserveSubmitLoading, setReserveSubmitLoading] = useState(false);
-  const [reserveSubmitError, setReserveSubmitError] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // Load categories (for filter dropdown)
+  // --- submit ---
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Load categories
   useEffect(() => {
+    categoryApi.getCategories({ pageNumber: 1, pageSize: 200 })
+      .then((res) => setCategories(res.items ?? []))
+      .catch(() => setCategories([]));
+  }, []);
+
+  // Fetch equipment khi filter thay đổi
+  useEffect(() => {
+    if (!startAtLocal || !endAtLocal || sessionIds.length === 0) {
+      setEquipmentItems([]);
+      setEquipmentError(null);
+      return;
+    }
+    const start = dayjs(startAtLocal);
+    const end = dayjs(endAtLocal);
+    if (!start.isValid() || !end.isValid() || !end.isAfter(start)) {
+      setEquipmentItems([]);
+      setEquipmentError('Thời gian không hợp lệ.');
+      return;
+    }
+
     let cancelled = false;
-    const load = async () => {
-      try {
-        setCategoriesLoading(true);
-        // Pull a reasonably large page; categories list is typically small.
-        const res = await categoryApi.getCategories({ pageNumber: 1, pageSize: 200 });
+    setEquipmentLoading(true);
+    setEquipmentError(null);
+
+    reservationApi.getAvailability({
+      StartAt: start.format('YYYY-MM-DDTHH:mm:ss'),
+      EndAt: end.format('YYYY-MM-DDTHH:mm:ss'),
+      CategoryIds: categoryId != null ? [categoryId] : undefined,
+      Statuses: statusFilter !== null ? [statusFilter] : undefined,
+      PageNumber: 1,
+      PageSize: PAGE_SIZE,
+    })
+      .then((raw) => {
         if (cancelled) return;
-        setCategories(res.items ?? []);
-      } catch {
+        const res = normalizeEquipmentPagedResponse(raw);
+        setEquipmentItems(res.Items ?? []);
+      })
+      .catch((err: unknown) => {
         if (cancelled) return;
-        setCategories([]);
-      } finally {
-        if (!cancelled) setCategoriesLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+        const msg = err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Không tải được thiết bị khả dụng.';
+        setEquipmentError(msg);
+        setEquipmentItems([]);
+      })
+      .finally(() => { if (!cancelled) setEquipmentLoading(false); });
 
-  const getRowAvailabilityKey = useCallback((row: ReservationRow) => {
-    return [
-      row.sessionIds.join(',') || 'none',
-      row.startAtLocal || 'none',
-      row.endAtLocal || 'none',
-      row.categoryId ?? 'all',
-      row.statusFilter ?? 'all',
-    ].join('|');
-  }, []);
+    return () => { cancelled = true; };
+  }, [startAtLocal, endAtLocal, categoryId, statusFilter, sessionIds]);
 
-  // UX: panel này hỗ trợ "đặt dài hạn" bằng cách chọn nhiều buổi cùng lúc,
-  // lấy khung thời gian mượn/trả từ session đầu-cuối để check availability.
-
-  // Load thiết bị khả dụng theo từng dòng (session + start/end + category).
-  // Không đưa `availabilityByKey` vào dependency: mỗi lần set state sẽ chạy lại effect;
-  // điều kiện cũ `!items.length` còn khiến reload vô hạn khi API trả danh sách rỗng (vd. sau khi bấm "Now").
-  useEffect(() => {
-    if (sessions.length === 0) return;
-    const rowsToLoad = reservationRows
-      .filter((r) => r.sessionIds.length > 0 && r.startAtLocal && r.endAtLocal)
-      .filter((r) => {
-        const key = getRowAvailabilityKey(r);
-        const entry = availabilityByKeyRef.current[key];
-        if (entry?.loading) return false;
-        if (entry?.loaded) return false;
-        return true;
-      });
-    if (rowsToLoad.length === 0) return;
-
-    const load = async (row: ReservationRow) => {
-      const key = getRowAvailabilityKey(row);
-      setAvailabilityByKey((prev) => ({
-        ...prev,
-        [key]: { items: [], total: 0, loading: true, error: null, loaded: false },
-      }));
-
-      try {
-        const start = dayjs(row.startAtLocal);
-        const end = dayjs(row.endAtLocal);
-        if (!start.isValid() || !end.isValid()) {
-          setAvailabilityByKey((prev) => ({
-            ...prev,
-            [key]: {
-              items: [],
-              total: 0,
-              loading: false,
-              error: 'Thời gian mượn/trả không hợp lệ.',
-              loaded: true,
-            },
-          }));
-          return;
-        }
-        if (!end.isAfter(start)) {
-          setAvailabilityByKey((prev) => ({
-            ...prev,
-            [key]: {
-              items: [],
-              total: 0,
-              loading: false,
-              error: 'Giờ trả phải sau giờ mượn.',
-              loaded: true,
-            },
-          }));
-          return;
-        }
-
-        const res = normalizeEquipmentPagedResponse(
-          await reservationApi.getAvailability({
-            StartAt: start.format('YYYY-MM-DDTHH:mm:ss'),
-            EndAt: end.format('YYYY-MM-DDTHH:mm:ss'),
-            CategoryIds: row.categoryId != null ? [row.categoryId] : undefined,
-            PageNumber: 1,
-            PageSize: PAGE_SIZE,
-          }),
-        );
-
-        setAvailabilityByKey((prev) => ({
-          ...prev,
-          [key]: {
-            items: res.Items ?? [],
-            total: res.TotalItems ?? 0,
-            loading: false,
-            error: null,
-            loaded: true,
-          },
-        }));
-      } catch (err: unknown) {
-        const msg =
-          err && typeof err === 'object' && 'message' in err
-            ? String((err as { message: unknown }).message)
-            : 'Không tải được thiết bị khả dụng.';
-        setAvailabilityByKey((prev) => ({
-          ...prev,
-          [key]: { items: [], total: 0, loading: false, error: msg, loaded: true },
-        }));
-      }
-    };
-
-    rowsToLoad.forEach((r) => void load(r));
-  }, [reservationRows, sessions, getRowAvailabilityKey]);
-
-  const setReservationRowSessions = useCallback(
-    (_index: number, nextSessionIds: number[]) => {
-      // Đổi buổi => đổi khung thời gian => bỏ lựa chọn thiết bị để tránh stale.
-      setSelectedEquipmentById({});
-      setReservationRows((prev) => {
-        const next =
-          prev.length
-            ? [...prev]
-            : [
-                { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '', statusFilter: null },
-              ];
-
-        const selectedSessions = nextSessionIds
-          .map((id) => sessions.find((s) => s.sessionId === id))
-          .filter((s): s is SessionOption => !!s);
-
-        const earliest = [...selectedSessions].sort((a, b) => dayjs(a.startAt).valueOf() - dayjs(b.startAt).valueOf())[0];
-        const latest = [...selectedSessions].sort((a, b) => dayjs(a.endAt).valueOf() - dayjs(b.endAt).valueOf()).slice(-1)[0];
-
-        const now = dayjs();
-        let start = earliest?.startAt ? dayjs(earliest.startAt) : null;
-        if (start && start.isBefore(now)) {
-          start = now;
-        }
-        let end = latest?.endAt ? dayjs(latest.endAt) : null;
-        if (start && end && !end.isAfter(start)) {
-          end = start.add(1, 'hour');
-        }
-
-        const startAtLocal = start ? start.format('YYYY-MM-DDTHH:mm') : '';
-        const endAtLocal = end ? end.format('YYYY-MM-DDTHH:mm') : '';
-
-        next[0] = {
-          ...next[0],
-          sessionIds: nextSessionIds,
-          startAtLocal,
-          endAtLocal,
-          categoryId: null,
-          equipmentIds: [],
-          search: next[0].search ?? '',
-          statusFilter: null,
-        };
-        return [next[0]];
-      });
-    },
-    [sessions],
-  );
-
-  const setReservationRowTime = useCallback((_index: number, patch: Partial<Pick<ReservationRow, 'startAtLocal' | 'endAtLocal'>>) => {
-    setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '', statusFilter: null };
-      return [{ ...base, ...patch, equipmentIds: [] }];
-    });
-    // Changing time invalidates availability; clear selected items to avoid stale reservations.
+  // Khi đổi buổi → tự fill giờ mượn/trả từ session
+  const handleSetSessions = useCallback((ids: number[]) => {
+    setSessionIds(ids);
+    setSelectedEquipmentIds([]);
     setSelectedEquipmentById({});
-  }, []);
 
-  const setReservationRowCategory = useCallback((_index: number, categoryId: number | null) => {
-    setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, statusFilter: null, equipmentIds: [], search: '' };
-      return [{ ...base, categoryId }];
-    });
-  }, []);
+    const selected = ids.map((id) => sessions.find((s) => s.sessionId === id)).filter(Boolean) as SessionOption[];
+    const earliest = [...selected].sort((a, b) => dayjs(a.startAt).valueOf() - dayjs(b.startAt).valueOf())[0];
+    const latest = [...selected].sort((a, b) => dayjs(b.endAt).valueOf() - dayjs(a.endAt).valueOf())[0];
 
-  const setReservationRowStatus = useCallback((_index: number, statusFilter: number | null) => {
-    setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, statusFilter: null, equipmentIds: [], search: '' };
-      return [{ ...base, statusFilter }];
-    });
-  }, []);
+    const now = dayjs();
+    let start = earliest?.startAt ? dayjs(earliest.startAt) : null;
+    if (start && start.isBefore(now)) start = now;
+    let end = latest?.endAt ? dayjs(latest.endAt) : null;
+    if (start && end && !end.isAfter(start)) end = start.add(1, 'hour');
 
-  const setReservationRowSearch = useCallback((_index: number, search: string) => {
-    setReservationRows((prev) => {
-      const base = prev[0] ?? { sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, statusFilter: null, equipmentIds: [], search: '' };
-      return [{ ...base, search }];
-    });
-  }, []);
+    setStartAtLocal(start ? start.format('YYYY-MM-DDTHH:mm') : '');
+    setEndAtLocal(end ? end.format('YYYY-MM-DDTHH:mm') : '');
+  }, [sessions]);
 
-  const toggleReservationRowEquipment = useCallback((_rowIndex: number, equipment: EquipmentResponse) => {
-    setReservationRows((prev) => {
-      const next = prev.length
-        ? [...prev]
-        : [{ sessionIds: [], startAtLocal: '', endAtLocal: '', categoryId: null, equipmentIds: [], search: '', statusFilter: null }];
-      const row = next[0];
-      const exists = row.equipmentIds.includes(equipment.EquipmentId);
-      const ids = exists
-        ? row.equipmentIds.filter((id) => id !== equipment.EquipmentId)
-        : [...row.equipmentIds, equipment.EquipmentId];
-      next[0] = { ...row, equipmentIds: ids, statusFilter: row.statusFilter };
-      return [next[0]];
-    });
+  const toggleEquipment = useCallback((eq: EquipmentResponse) => {
+    setSelectedEquipmentIds((prev) =>
+      prev.includes(eq.EquipmentId) ? prev.filter((id) => id !== eq.EquipmentId) : [...prev, eq.EquipmentId]
+    );
     setSelectedEquipmentById((prev) => {
       const next = { ...prev };
-      if (next[equipment.EquipmentId]) delete next[equipment.EquipmentId];
-      else next[equipment.EquipmentId] = equipment;
+      if (next[eq.EquipmentId]) delete next[eq.EquipmentId];
+      else next[eq.EquipmentId] = eq;
       return next;
     });
   }, []);
 
-  const validReservationRows = useMemo(
-    () =>
-      reservationRows.filter(
-        (r) =>
-          r.sessionIds.length > 0 &&
-          r.equipmentIds.length > 0 &&
-          dayjs(r.startAtLocal).isValid() &&
-          dayjs(r.endAtLocal).isValid() &&
-          dayjs(r.endAtLocal).isAfter(dayjs(r.startAtLocal))
-      ) as {
-        sessionIds: number[];
-        equipmentIds: number[];
-        startAtLocal: string;
-        endAtLocal: string;
-      }[],
-    [reservationRows]
-  );
+  // Filter client-side theo search
+  const displayItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return equipmentItems;
+    return equipmentItems.filter(
+      (eq) =>
+        (eq.EquipmentName ?? '').toLowerCase().includes(q) ||
+        (eq.EquipmentCode ?? '').toLowerCase().includes(q)
+    );
+  }, [equipmentItems, search]);
 
-  const handleReserveSubmit = useCallback(async () => {
-    if (validReservationRows.length === 0) return;
-    if (createdByMemberId <= 0) {
-      setReserveSubmitError('Vui lòng đăng nhập để đặt thiết bị.');
-      return;
-    }
-    setReserveSubmitLoading(true);
-    setReserveSubmitError(null);
+  // --- infinite scroll ---
+  const PAGE = 5;
+  const [visibleCount, setVisibleCount] = useState(PAGE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setVisibleCount(PAGE); }, [displayItems]);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) setVisibleCount((c) => c + PAGE); },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [displayItems]);
+
+  const canSubmit = sessionIds.length > 0 && selectedEquipmentIds.length > 0 &&
+    dayjs(startAtLocal).isValid() && dayjs(endAtLocal).isValid() &&
+    dayjs(endAtLocal).isAfter(dayjs(startAtLocal));
+
+  const handleSubmit = useCallback(async () => {
+    if (!canSubmit) return;
+    if (createdByMemberId <= 0) { setSubmitError('Vui lòng đăng nhập.'); return; }
+    const start = dayjs(startAtLocal);
+    const end = dayjs(endAtLocal);
+    if (start.isBefore(dayjs())) { setSubmitError('Giờ mượn không được là thời điểm trong quá khứ.'); return; }
+
+    setSubmitLoading(true);
+    setSubmitError(null);
     try {
-      const row = validReservationRows[0];
-      const selectableIds = new Set(sessions.map((s) => s.sessionId));
-      const notSelectable = row.sessionIds.filter((id) => !selectableIds.has(id));
-      if (notSelectable.length > 0) {
-        setReserveSubmitError('Một số buổi đã có thiết bị được yêu cầu. Vui lòng chỉnh sửa trong chi tiết buổi.');
-        return;
-      }
-      const start = dayjs(row.startAtLocal);
-      const end = dayjs(row.endAtLocal);
-      if (!start.isValid() || !end.isValid() || !end.isAfter(start)) {
-        setReserveSubmitError('Thời gian không hợp lệ.');
-        return;
-      }
-      if (start.isBefore(dayjs())) {
-        setReserveSubmitError('Giờ mượn không được là thời điểm trong quá khứ.');
-        return;
-      }
       await reservationApi.create({
-        SessionIds: row.sessionIds,
+        SessionIds: sessionIds,
         StartAt: start.format('YYYY-MM-DDTHH:mm:ss'),
         EndAt: end.format('YYYY-MM-DDTHH:mm:ss'),
-        Equipment: row.equipmentIds.map((EquipmentId) => ({ EquipmentId })),
+        Equipment: selectedEquipmentIds.map((EquipmentId) => ({ EquipmentId })),
       });
       message.success('Đã tạo đơn yêu cầu thiết bị.');
       onClose();
       await onSuccess();
     } catch (err: unknown) {
-      const raw =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : '';
-      const friendly = raw.includes('StartAt phải >= thời điểm hiện tại')
-        ? 'Buổi này đã quá hạn để tạo đơn yêu cầu thiết bị.'
-        : raw || 'Đơn yêu cầu thiết bị thất bại.';
-      setReserveSubmitError(friendly);
+      const raw = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : '';
+      setSubmitError(raw || 'Đơn yêu cầu thiết bị thất bại.');
     } finally {
-      setReserveSubmitLoading(false);
+      setSubmitLoading(false);
     }
-  }, [validReservationRows, createdByMemberId, onSuccess, onClose, sessions]);
+  }, [canSubmit, createdByMemberId, startAtLocal, endAtLocal, sessionIds, selectedEquipmentIds, onClose, onSuccess]);
 
   return (
     <>
       <div className="flex flex-col gap-4 h-full min-h-[70vh]">
-
         <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
-          {reservationRows.slice(0, 1).map((row, rowIndex) => (
-            <div
-              key={rowIndex}
-              className="rounded-2xl bg-slate-50/70 p-5 space-y-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
-            >
-             
+          <div className="rounded-2xl bg-slate-50/70 p-5 space-y-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <label className="block text-[11px] font-medium text-gray-500">Buổi học (chọn nhiều)</label>
-                  {row.sessionIds.length > 0 && (
-                    <span className="text-[11px] font-medium text-sky-800 bg-sky-100/80 rounded-full px-2.5 py-0.5">
-                      {row.sessionIds.length} buổi
-                    </span>
-                  )}
-                </div>
-                {row.sessionIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {row.sessionIds.map((id) => {
-                      const s = sessions.find((x) => x.sessionId === id);
-                      if (!s) return null;
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setReservationRowSessions(rowIndex, row.sessionIds.filter((x) => x !== id))}
-                          className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-sky-800 shadow-sm ring-1 ring-sky-200/60 hover:bg-sky-50/90 hover:ring-sky-300/70"
-                          title="Bỏ buổi"
-                        >
-                          <span className="font-semibold">Buổi {s.sessionNo}</span>
-                          <span className="text-sky-600">×</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {sessionPickerOpen ? (
-                  <AntSelect
-                    mode="multiple"
-                    open={sessionPickerOpen}
-                    onDropdownVisibleChange={(open) => setSessionPickerOpen(open)}
-                    style={{ width: '100%' }}
-                    placeholder="— Chọn buổi —"
-                    value={row.sessionIds.map((id) => String(id))}
-                    showSearch
-                    maxTagCount={0}
-                    maxTagPlaceholder={() => null}
-                    optionFilterProp="label"
-                    filterOption={(input, option) => {
-                      const label = String((option as any)?.label ?? '');
-                      return label.toLowerCase().includes(String(input).toLowerCase());
-                    }}
-                    onChange={(vals) => {
-                      const next = (vals as Array<string | number>)
-                        .map((v) => Number(v))
-                        .filter((n) => Number.isFinite(n) && n > 0);
-                      setReservationRowSessions(rowIndex, next);
-                      setSessionPickerOpen(false);
-                    }}
-                    options={sessions.map((s) => ({
-                      value: String(s.sessionId),
-                      label: `Buổi ${s.sessionNo} · ${dayjs(s.startAt).format('DD/MM HH:mm')}–${dayjs(s.endAt).format('HH:mm')}`,
-                    }))}
-                  />
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full w-full border-slate-200/90 bg-white shadow-sm hover:bg-slate-50"
-                    onClick={() => setSessionPickerOpen(true)}
-                  >
-                    {row.sessionIds.length > 0 ? 'Chọn thêm' : 'Chọn buổi'}
-                  </Button>
+            {/* Chọn buổi */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <label className="block text-[11px] font-medium text-gray-500">Buổi học (chọn nhiều)</label>
+                {sessionIds.length > 0 && (
+                  <span className="text-[11px] font-medium text-sky-800 bg-sky-100/80 rounded-full px-2.5 py-0.5">
+                    {sessionIds.length} buổi
+                  </span>
                 )}
               </div>
-
-              {row.sessionIds.length > 0 && (
-                <div className="space-y-4 pt-1 border-t border-slate-200/60">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Giờ mượn</label>
-                      <DatePicker
-                        className="h-9 w-full text-xs text-black !rounded-xl border-slate-200/90 bg-white shadow-sm"
-                        value={row.startAtLocal ? dayjs(row.startAtLocal) : null}
-                        showTime={{ format: 'HH:mm' }}
-                        format="DD/MM/YYYY HH:mm"
-                        placeholder="Chọn giờ mượn"
-                        disabledDate={disabledBorrowDate}
-                        disabledTime={disabledBorrowTime}
-                        onChange={(v) => {
-                          if (v && v.isBefore(dayjs())) {
-                            message.warning('Giờ mượn không được chọn thời điểm trong quá khứ.');
-                            return;
-                          }
-                          setReservationRowTime(rowIndex, {
-                            startAtLocal: v ? v.format('YYYY-MM-DDTHH:mm') : '',
-                          });
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Giờ trả</label>
-                      <DatePicker
-                        className="h-9 w-full text-xs text-black !rounded-xl border-slate-200/90 bg-white shadow-sm"
-                        value={row.endAtLocal ? dayjs(row.endAtLocal) : null}
-                        showTime={{ format: 'HH:mm' }}
-                        format="DD/MM/YYYY HH:mm"
-                        placeholder="Chọn giờ trả"
-                        disabledDate={disabledBorrowDate}
-                        disabledTime={(date) => {
-                          const now = dayjs();
-                          const start = row.startAtLocal ? dayjs(row.startAtLocal) : null;
-                          const selected = date ?? null;
-                          const disabledHours = new Set<number>();
-                          const disabledMinutesByHour: Record<number, Set<number>> = {};
-
-                          if (selected?.isSame(now, 'day')) {
-                            for (let h = 0; h < now.hour(); h += 1) disabledHours.add(h);
-                            disabledMinutesByHour[now.hour()] = new Set(
-                              Array.from({ length: now.minute() }, (_, i) => i)
-                            );
-                          }
-
-                          if (start && selected?.isSame(start, 'day')) {
-                            for (let h = 0; h < start.hour(); h += 1) disabledHours.add(h);
-                            const startMinuteSet = disabledMinutesByHour[start.hour()] ?? new Set<number>();
-                            for (let m = 0; m <= start.minute(); m += 1) startMinuteSet.add(m);
-                            disabledMinutesByHour[start.hour()] = startMinuteSet;
-                          }
-
-                          return {
-                            disabledHours: () => Array.from(disabledHours).sort((a, b) => a - b),
-                            disabledMinutes: (selectedHour: number) =>
-                              Array.from(disabledMinutesByHour[selectedHour] ?? []).sort((a, b) => a - b),
-                          };
-                        }}
-                        onChange={(v) => {
-                          if (v && v.isBefore(dayjs())) {
-                            message.warning('Giờ trả không được chọn thời điểm trong quá khứ.');
-                            return;
-                          }
-                          if (v && row.startAtLocal && !v.isAfter(dayjs(row.startAtLocal))) {
-                            message.warning('Giờ trả phải sau giờ mượn.');
-                            return;
-                          }
-                          setReservationRowTime(rowIndex, {
-                            endAtLocal: v ? v.format('YYYY-MM-DDTHH:mm') : '',
-                          });
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <label className="block text-[11px] font-medium text-slate-600 mb-2">
-                    Thiết bị khả dụng (chọn ít nhất 1)
-                  </label>
-                  {row.equipmentIds.length > 0 && (
-                    <div className="rounded-xl bg-sky-50/90 px-3 py-2.5">
-                      <div className="text-[11px] font-semibold text-sky-900 mb-1.5">
-                        Thiết bị đã chọn ({row.equipmentIds.length})
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {row.equipmentIds.map((id) => {
-                          const meta = selectedEquipmentById[id];
-                          return (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => {
-                                if (meta) toggleReservationRowEquipment(rowIndex, meta);
-                                else {
-                                  // Fallback: if meta missing, just remove id from selection.
-                                  setReservationRows((prev) => {
-                                    const base = prev[0];
-                                    if (!base) return prev;
-                                    return [{ ...base, equipmentIds: base.equipmentIds.filter((x) => x !== id) }];
-                                  });
-                                  setSelectedEquipmentById((prev) => {
-                                    const next = { ...prev };
-                                    delete next[id];
-                                    return next;
-                                  });
-                                }
-                              }}
-                              className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] text-sky-900 shadow-sm ring-1 ring-sky-200/50 hover:bg-white"
-                              title="Bỏ chọn"
-                            >
-                              <span className="max-w-[220px] truncate">
-                                {meta?.EquipmentName ?? `Thiết bị #${id}`}
-                              </span>
-                              <span className="text-blue-500">×</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex gap-2 mb-1">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                      <Input
-                        placeholder="Tìm theo tên hoặc mã thiết bị..."
-                        value={row.search ?? ''}
-                        onChange={(e) => setReservationRowSearch(rowIndex, e.target.value)}
-                        className="pl-8 py-1.5 text-xs text-black border border-slate-200/90 shadow-none rounded-xl bg-white focus-visible:ring-0 focus-visible:bg-white focus-visible:shadow-[0_0_0_2px_rgba(14,165,233,0.25)]"
-                      />
-                    </div>
-                    <Select
-                      value={row.categoryId != null ? String(row.categoryId) : 'all'}
-                      onValueChange={(v) => setReservationRowCategory(rowIndex, v === 'all' ? null : Number(v))}
-                    >
-                      <SelectTrigger className="h-9 w-[160px] text-xs font-medium bg-white text-slate-700 rounded-xl border border-slate-200/90 shadow-none ring-0 focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-white data-[state=open]:shadow-[0_0_0_2px_rgba(14,165,233,0.2)]">
-                        <SelectValue placeholder="Danh mục" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all" className="text-gray-800">
-                          Tất cả danh mục
-                        </SelectItem>
-                        {categoriesLoading ? (
-                          <SelectItem value="__loading" disabled className="text-gray-500">
-                            Đang tải...
-                          </SelectItem>
-                        ) : (
-                          categories.map((c) => (
-                            <SelectItem key={(c as any).categoryId ?? (c as any).CategoryId} value={String((c as any).categoryId ?? (c as any).CategoryId)} className="text-gray-800">
-                              {(c as any).categoryName ?? (c as any).CategoryName ?? '---'}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={row.statusFilter != null ? String(row.statusFilter) : 'all'}
-                      onValueChange={(v) => setReservationRowStatus(rowIndex, v === 'all' ? null : Number(v))}
-                    >
-                      <SelectTrigger className="h-9 w-[140px] text-xs font-medium bg-white text-slate-700 rounded-xl border border-slate-200/90 shadow-none ring-0 focus:ring-0 focus:ring-offset-0 data-[state=open]:bg-white data-[state=open]:shadow-[0_0_0_2px_rgba(14,165,233,0.2)]">
-                        <SelectValue placeholder="Trạng thái" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all" className="text-gray-800">Tất cả trạng thái</SelectItem>
-                        <SelectItem value="1" className="text-gray-800">Sẵn sàng</SelectItem>
-                        <SelectItem value="2" className="text-gray-800">Đang sử dụng</SelectItem>
-                        <SelectItem value="3" className="text-gray-800">Bảo trì</SelectItem>
-                        <SelectItem value="4" className="text-gray-800">Hỏng</SelectItem>
-                        <SelectItem value="5" className="text-gray-800">Ngưng hoạt động</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {(() => {
-                    const key = getRowAvailabilityKey(row);
-                    const cache = availabilityByKey[key];
-                    if (!cache) {
-                      return (
-                        <div className="py-10 text-center text-xs text-slate-500 rounded-xl bg-white/60">
-                          {row.startAtLocal && row.endAtLocal ? 'Đang tải thiết bị...' : 'Vui lòng chọn giờ mượn/giờ trả.'}
-                        </div>
-                      );
-                    }
-                    if (cache.loading) {
-                      return (
-                        <div className="py-10 text-center text-xs text-slate-500 rounded-xl bg-white/60">
-                          Đang tải thiết bị...
-                        </div>
-                      );
-                    }
-                    if (cache.error) {
-                      return (
-                        <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{cache.error}</p>
-                      );
-                    }
-                    const rawItems = cache.items;
-                    const q = (row.search ?? '').trim().toLowerCase();
-                    const itemsBase = rawItems;
-                    const items = q
-                      ? itemsBase.filter(
-                          (eq) =>
-                            (eq.EquipmentName ?? '').toLowerCase().includes(q) ||
-                            (eq.EquipmentCode ?? '').toLowerCase().includes(q)
-                        )
-                      : itemsBase;
-                    if (items.length === 0) {
-                      return (
-                        <p className="text-xs text-gray-500 py-2">
-                          {rawItems.length === 0
-                            ? 'Không có thiết bị khả dụng trong khung giờ buổi này.'
-                            : 'Không có thiết bị nào trùng với từ khóa tìm kiếm.'}
-                        </p>
-                      );
-                    }
+              {sessionIds.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {sessionIds.map((id) => {
+                    const s = sessions.find((x) => x.sessionId === id);
+                    if (!s) return null;
                     return (
-                      <div className="flex flex-col gap-1">
-                        {items.map((eq) => {
-                          const isSelected = row.equipmentIds.includes(eq.EquipmentId);
-                          const statusMeta = getEquipmentStatusMeta(eq.Status);
-                          return (
-                            <div
-                              key={eq.EquipmentId}
-                              className={`flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm transition-colors ${
-                                isSelected ? 'bg-sky-50/95' : 'hover:bg-slate-100/60'
-                              }`}
-                            >
-                              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-100">
-                                {eq.ImgLink ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); setPreviewImage(eq.ImgLink!); }}
-                                    className="w-full h-full"
-                                  >
-                                    <img
-                                      src={eq.ImgLink}
-                                      alt={eq.EquipmentName ?? `Thiết bị #${eq.EquipmentId}`}
-                                      width={40}
-                                      height={40}
-                                      loading="lazy"
-                                      decoding="async"
-                                      className="h-10 w-10 object-cover hover:opacity-80 transition-opacity"
-                                    />
-                                  </button>
-                                ) : (
-                                  <ImageOff className="w-5 h-5 text-gray-300" />
-                                )}
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => toggleReservationRowEquipment(rowIndex, eq)}
-                                className="flex-1 flex items-center justify-between gap-2 text-left"
-                              >
-                                <div className="min-w-0">
-                                  <div className="font-medium text-gray-900 truncate">
-                                    {eq.EquipmentName}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    Mã: {eq.EquipmentCode ?? eq.EquipmentId}
-                                  </div>
-                                  <div className="text-[11px] text-gray-500 truncate">
-                                    Danh mục:{' '}
-                                    {eq.CategoryName ?? '---'}
-                                  </div>
-                                  <div className="mt-1">
-                                    <span className="text-[11px] text-gray-500 mr-1">Trạng thái:</span>
-                                    <span
-                                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusMeta.className}`}
-                                    >
-                                      {statusMeta.label}
-                                    </span>
-                                  </div>
-                                </div>
-                                <span
-                                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
-                                    isSelected ? 'bg-sky-600 text-white' : 'bg-slate-200/80'
-                                  }`}
-                                  aria-hidden
-                                >
-                                  {isSelected ? <Check size={9} strokeWidth={3} /> : null}
-                                </span>
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <button key={id} type="button"
+                        onClick={() => handleSetSessions(sessionIds.filter((x) => x !== id))}
+                        className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-sky-800 shadow-sm ring-1 ring-sky-200/60 hover:bg-sky-50/90"
+                      >
+                        <span className="font-semibold">Buổi {s.sessionNo}</span>
+                        <span className="text-sky-600">×</span>
+                      </button>
                     );
-                  })()}
-                  {row.equipmentIds.length > 0 && (
-                    <p className="text-[11px] text-sky-700/90 font-medium mt-2">
-                      Đã chọn {row.equipmentIds.length} thiết bị
-                    </p>
-                  )}
+                  })}
                 </div>
               )}
+              {sessionPickerOpen ? (
+                <AntSelect
+                  mode="multiple"
+                  open={sessionPickerOpen}
+                  onDropdownVisibleChange={(open) => setSessionPickerOpen(open)}
+                  style={{ width: '100%' }}
+                  placeholder="— Chọn buổi —"
+                  value={sessionIds.map(String)}
+                  showSearch
+                  maxTagCount={0}
+                  maxTagPlaceholder={() => null}
+                  optionFilterProp="label"
+                  filterOption={(input, option) => String((option as any)?.label ?? '').toLowerCase().includes(String(input).toLowerCase())}
+                  onChange={(vals) => {
+                    handleSetSessions((vals as string[]).map(Number).filter((n) => n > 0));
+                    setSessionPickerOpen(false);
+                  }}
+                  options={sessions.map((s) => ({
+                    value: String(s.sessionId),
+                    label: `Buổi ${s.sessionNo} · ${dayjs(s.startAt).format('DD/MM HH:mm')}–${dayjs(s.endAt).format('HH:mm')}`,
+                  }))}
+                />
+              ) : (
+                <Button type="button" size="sm" variant="outline"
+                  className="rounded-full w-full border-slate-200/90 bg-white shadow-sm hover:bg-slate-50"
+                  onClick={() => setSessionPickerOpen(true)}
+                >
+                  {sessionIds.length > 0 ? 'Chọn thêm' : 'Chọn buổi'}
+                </Button>
+              )}
             </div>
-          ))}
+
+            {sessionIds.length > 0 && (
+              <div className="space-y-4 pt-1 border-t border-slate-200/60">
+                {/* Giờ mượn / trả */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Giờ mượn</label>
+                    <DatePicker
+                      className="h-9 w-full text-xs text-black !rounded-xl border-slate-200/90 bg-white shadow-sm"
+                      value={startAtLocal ? dayjs(startAtLocal) : null}
+                      showTime={{ format: 'HH:mm' }}
+                      format="DD/MM/YYYY HH:mm"
+                      placeholder="Chọn giờ mượn"
+                      disabledDate={disabledBorrowDate}
+                      disabledTime={disabledBorrowTime}
+                      onChange={(v) => {
+                        if (v && v.isBefore(dayjs())) { message.warning('Giờ mượn không được chọn thời điểm trong quá khứ.'); return; }
+                        setStartAtLocal(v ? v.format('YYYY-MM-DDTHH:mm') : '');
+                        setSelectedEquipmentIds([]);
+                        setSelectedEquipmentById({});
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Giờ trả</label>
+                    <DatePicker
+                      className="h-9 w-full text-xs text-black !rounded-xl border-slate-200/90 bg-white shadow-sm"
+                      value={endAtLocal ? dayjs(endAtLocal) : null}
+                      showTime={{ format: 'HH:mm' }}
+                      format="DD/MM/YYYY HH:mm"
+                      placeholder="Chọn giờ trả"
+                      disabledDate={disabledBorrowDate}
+                      onChange={(v) => {
+                        if (v && v.isBefore(dayjs())) { message.warning('Giờ trả không được chọn thời điểm trong quá khứ.'); return; }
+                        if (v && startAtLocal && !v.isAfter(dayjs(startAtLocal))) { message.warning('Giờ trả phải sau giờ mượn.'); return; }
+                        setEndAtLocal(v ? v.format('YYYY-MM-DDTHH:mm') : '');
+                        setSelectedEquipmentIds([]);
+                        setSelectedEquipmentById({});
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <label className="block text-[11px] font-medium text-slate-600 mb-2">
+                  Thiết bị khả dụng (chọn ít nhất 1)
+                </label>
+
+                {/* Thiết bị đã chọn */}
+                {selectedEquipmentIds.length > 0 && (
+                  <div className="rounded-xl bg-sky-50/90 px-3 py-2.5">
+                    <div className="text-[11px] font-semibold text-sky-900 mb-1.5">
+                      Thiết bị đã chọn ({selectedEquipmentIds.length})
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedEquipmentIds.map((id) => {
+                        const meta = selectedEquipmentById[id];
+                        return (
+                          <button key={id} type="button"
+                            onClick={() => { if (meta) toggleEquipment(meta); else setSelectedEquipmentIds((p) => p.filter((x) => x !== id)); }}
+                            className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] text-sky-900 shadow-sm ring-1 ring-sky-200/50 hover:bg-white"
+                          >
+                            <span className="max-w-[220px] truncate">{meta?.EquipmentName ?? `Thiết bị #${id}`}</span>
+                            <span className="text-blue-500">×</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Filters */}
+                <div className="flex gap-2 mb-1">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <Input
+                      placeholder="Tìm theo tên hoặc mã thiết bị..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="pl-8 py-1.5 text-xs text-black border border-slate-200/90 shadow-none rounded-xl bg-white focus-visible:ring-0"
+                    />
+                  </div>
+                  <Select value={categoryId != null ? String(categoryId) : 'all'} onValueChange={(v) => setCategoryId(v === 'all' ? null : Number(v))}>
+                    <SelectTrigger className="h-9 w-[160px] text-xs font-medium bg-white text-slate-700 rounded-xl border border-slate-200/90 shadow-none ring-0 focus:ring-0">
+                      <SelectValue placeholder="Danh mục" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-gray-800">Tất cả danh mục</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={(c as any).categoryId} value={String((c as any).categoryId)} className="text-gray-800">
+                          {(c as any).categoryName ?? '---'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={statusFilter != null ? String(statusFilter) : 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? null : Number(v))}>
+                    <SelectTrigger className="h-9 w-[140px] text-xs font-medium bg-white text-slate-700 rounded-xl border border-slate-200/90 shadow-none ring-0 focus:ring-0">
+                      <SelectValue placeholder="Trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-gray-800">Tất cả trạng thái</SelectItem>
+                      {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={String(opt.value)} className="text-gray-800">{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Equipment list */}
+                {!startAtLocal || !endAtLocal ? (
+                  <div className="py-10 text-center text-xs text-slate-500 rounded-xl bg-white/60">
+                    Vui lòng chọn giờ mượn/giờ trả.
+                  </div>
+                ) : equipmentLoading ? (
+                  <div className="py-10 text-center text-xs text-slate-500 rounded-xl bg-white/60">Đang tải thiết bị...</div>
+                ) : equipmentError ? (
+                  <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{equipmentError}</p>
+                ) : displayItems.length === 0 ? (
+                  <p className="text-xs text-gray-500 py-2">
+                    {equipmentItems.length === 0 ? 'Không có thiết bị khả dụng trong khung giờ này.' : 'Không có thiết bị nào trùng với từ khóa tìm kiếm.'}
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {displayItems.slice(0, visibleCount).map((eq) => {
+                      const isSelected = selectedEquipmentIds.includes(eq.EquipmentId);
+                      const statusLabel = getEquipmentStatusDisplay(eq.Status ?? '');
+                      const statusClass = getEquipmentStatusColor(eq.Status ?? '');
+                      return (
+                        <div key={eq.EquipmentId}
+                          className={`flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm transition-colors ${isSelected ? 'bg-sky-50/95' : 'hover:bg-slate-100/60'}`}
+                        >
+                          <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-100">
+                            {eq.ImgLink ? (
+                              <Image
+                                src={eq.ImgLink}
+                                alt={eq.EquipmentName ?? ''}
+                                width={40}
+                                height={40}
+                                className="h-10 w-10 object-cover"
+                                preview={{ mask: false }}
+                              />
+                            ) : (
+                              <ImageOff className="w-5 h-5 text-gray-300" />
+                            )}
+                          </div>
+                          <button type="button" onClick={() => toggleEquipment(eq)} className="flex-1 flex items-center justify-between gap-2 text-left">
+                            <div className="min-w-0">
+                              <div className="font-medium text-gray-900 truncate">{eq.EquipmentName}</div>
+                              <div className="text-xs text-gray-500">Mã: {eq.EquipmentCode ?? eq.EquipmentId}</div>
+                              <div className="text-[11px] text-gray-500 truncate">Danh mục: {eq.CategoryName ?? '---'}</div>
+                              <div className="mt-1">
+                                <span className="text-[11px] text-gray-500 mr-1">Trạng thái:</span>
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusClass} border`}>{statusLabel}</span>
+                              </div>
+                            </div>
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${isSelected ? 'bg-sky-600 text-white' : 'bg-slate-200/80'}`} aria-hidden>
+                              {isSelected ? <Check size={9} strokeWidth={3} /> : null}
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {visibleCount < displayItems.length && (
+                      <div ref={sentinelRef} className="py-2 text-center text-xs text-slate-400">Đang tải thêm...</div>
+                    )}
+                  </div>
+                )}
+
+                {selectedEquipmentIds.length > 0 && (
+                  <p className="text-[11px] text-sky-700/90 font-medium mt-2">Đã chọn {selectedEquipmentIds.length} thiết bị</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="mt-auto bg-white/95 backdrop-blur border-t border-gray-100 pt-3">
-          {reserveSubmitError && (
-            <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg mb-3">{reserveSubmitError}</p>
-          )}
-
+          {submitError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg mb-3">{submitError}</p>}
           <div className="flex justify-end gap-3 pb-1">
-            <Button type="button" variant="outline" className="border-gray-300 text-black bg-white" onClick={onClose}>
-              Hủy
-            </Button>
-            <Button
-              type="button"
-              className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50"
-              disabled={validReservationRows.length === 0 || reserveSubmitLoading}
-              onClick={() => void handleReserveSubmit()}
+            <Button type="button" variant="outline" className="border-gray-300 text-black bg-white" onClick={onClose}>Hủy</Button>
+            <Button type="button" className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white disabled:opacity-50"
+              disabled={!canSubmit || submitLoading}
+              onClick={() => void handleSubmit()}
             >
-              {reserveSubmitLoading ? 'Đang xử lý...' : 'Đặt trước'}
+              {submitLoading ? 'Đang xử lý...' : 'Đặt trước'}
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Image preview popup */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div className="relative max-h-[90vh] max-w-[90vw]">
-            <button
-              type="button"
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
-            >
-              <X className="h-8 w-8" />
-            </button>
-            <img
-              src={previewImage}
-              alt="Ảnh thiết bị"
-              className="max-h-[90vh] max-w-full object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        </div>
-      )}
     </>
   );
 }
-

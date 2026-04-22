@@ -1,8 +1,14 @@
 import { Outlet } from 'react-router-dom';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 export default function AuthLayout() {
   const [image, setImage] = useState('/img/login.png');
+
+  const handleSetImage = useCallback((src: string) => {
+    setImage(src);
+  }, []);
+
+  const outletContext = useMemo(() => ({ setImage: handleSetImage }), [handleSetImage]);
 
   return (
     <div className="h-screen bg-[#A9B9D6] overflow-hidden">
@@ -16,7 +22,7 @@ export default function AuthLayout() {
 
         {/* RIGHT CONTENT */}
         <div className="absolute right-12 top-0 h-full w-1/2 px-40 py-12 text-white flex flex-col justify-center">
-          <Outlet context={{ setImage }} />
+          <Outlet context={outletContext} />
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { message, Popover } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import assignmentApi from '@/modules/assignment/api/assignmentApi';
@@ -38,6 +39,7 @@ export default function TeamLeaderStaffAssignmentPanel({
   const [taSearchByAssignmentId, setTaSearchByAssignmentId] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedTaIds, setExpandedTaIds] = useState<Set<number>>(new Set());
 
   // Load TA assignments
   useEffect(() => {
@@ -157,7 +159,13 @@ export default function TeamLeaderStaffAssignmentPanel({
       setSaving(true);
       await assignmentApi.assignMembers(changedTaAssignments);
       
-      // Reload data từ server để lấy status mới
+      message.success('Đã lưu phân công sinh viên.');
+      setTaEditMode(false);
+      
+      // Gọi callback để parent component reload data
+      await onAssignmentUpdated?.();
+      
+      // Sau khi parent reload xong, reload lại local state
       const detail = await sessionService.getById(sessionId);
       const taSlots = (detail.Assignments ?? []).filter((a) => {
         const role = String(a.StaffRole ?? '').toUpperCase();
@@ -173,10 +181,6 @@ export default function TeamLeaderStaffAssignmentPanel({
           return acc;
         }, {})
       );
-      
-      message.success('Đã lưu phân công sinh viên.');
-      setTaEditMode(false);
-      onAssignmentUpdated?.();
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && 'message' in err
@@ -314,35 +318,79 @@ export default function TeamLeaderStaffAssignmentPanel({
                               Không có gợi ý phù hợp.
                             </p>
                           ) : (
-                            filteredSuggestions.map((staff) => (
-                              <button
-                                key={staff.memberId}
-                                type="button"
-                                className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50 transition-colors"
-                                onClick={() => {
-                                  handleAssignTaToSlot(assignmentId, staff.memberId);
-                                }}
-                              >
-                                <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 shrink-0">
-                                  <img
-                                    src={getAvatarSrc(staff.avatarUrl)}
-                                    alt={staff.fullName}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC;
-                                    }}
-                                  />
+                            filteredSuggestions.map((staff) => {
+                              const isExpanded = expandedTaIds.has(staff.memberId);
+                              return (
+                                <div key={staff.memberId} className="border border-slate-200 rounded-lg overflow-hidden mb-1">
+                                  <div className="flex items-center gap-2 px-2 py-2 hover:bg-slate-50 transition-colors">
+                                    <button
+                                      type="button"
+                                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                                      onClick={() => handleAssignTaToSlot(assignmentId, staff.memberId)}
+                                    >
+                                      <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 shrink-0">
+                                        <img
+                                          src={getAvatarSrc(staff.avatarUrl)}
+                                          alt={staff.fullName}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = DEFAULT_AVATAR_SRC; }}
+                                        />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-medium text-slate-900 truncate">{staff.fullName || '—'}</p>
+                                        <p className="text-[11px] text-slate-500 truncate">{staff.email || staff.roleName || '—'}</p>
+                                      </div>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedTaIds((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(staff.memberId)) next.delete(staff.memberId);
+                                          else next.add(staff.memberId);
+                                          return next;
+                                        });
+                                      }}
+                                      className="shrink-0 p-1 rounded-md hover:bg-slate-100 transition-colors"
+                                    >
+                                      <DownOutlined className={`text-slate-400 text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                    </button>
+                                  </div>
+                                  {isExpanded && (
+                                    <div className="px-3 py-2.5 bg-slate-50 border-t border-slate-200 space-y-1.5">
+                                      {staff.skills && staff.skills.length > 0 ? (
+                                        <div>
+                                          <p className="text-[10px] font-semibold text-slate-700 mb-1">Kỹ năng:</p>
+                                          <div className="flex flex-wrap gap-1">
+                                            {staff.skills.map((skill, idx) => (
+                                              <span key={skill?.skillId ?? idx} className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-700">
+                                                {typeof skill === 'string' ? skill : skill?.skillName ?? 'N/A'}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                      {staff.skillMatchCount != null ? (
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-[10px] font-semibold text-slate-700">Số kỹ năng phù hợp:</p>
+                                          <p className="text-[10px] font-semibold text-slate-700">{staff.skillMatchCount}</p>
+                                        </div>
+                                      ) : null}
+                                      {staff.assignmentCountIn30Days != null ? (
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-[10px] font-semibold text-slate-700">Số buổi trong 30 ngày:</p>
+                                          <p className="text-[10px] font-semibold text-slate-700">{staff.assignmentCountIn30Days} buổi</p>
+                                        </div>
+                                      ) : null}
+                                      {(!staff.skills || staff.skills.length === 0) && staff.skillMatchCount == null && staff.assignmentCountIn30Days == null ? (
+                                        <p className="text-xs text-slate-500 italic">Chưa có thông tin chi tiết</p>
+                                      ) : null}
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-medium text-slate-900 truncate">
-                                    {staff.fullName || '—'}
-                                  </p>
-                                  <p className="text-[11px] text-slate-500 truncate">
-                                    {staff.email || staff.roleName || '—'}
-                                  </p>
-                                </div>
-                              </button>
-                            ))
+                              );
+                            })
                           )}
                         </div>
                       </div>

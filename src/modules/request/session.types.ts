@@ -75,6 +75,7 @@ export type SessionTopicRef = {
   Description?: string | null;
   /** Thời lượng buổi (vd. "02:00:00") — BE có thể trả kèm subjectSession/eventSession */
   Duration?: string | null;
+  [key: string]: unknown;
 };
 
 export type SessionResponse = {

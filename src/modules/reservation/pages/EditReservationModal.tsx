@@ -14,6 +14,7 @@ import {
 } from '@/modules/reservation/utils/normalizeReservationResponse';
 import categoryApi from '@/modules/category/api/categoryApi';
 import type { CategoryListItem } from '@/modules/category/category';
+import { EQUIPMENT_STATUS_OPTIONS, getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/status';
 
 type Props = {
   open: boolean;
@@ -56,6 +57,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
 
   const [categories, setCategories] = useState<CategoryListItem[]>([]);
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [availabilityItems, setAvailabilityItems] = useState<EquipmentResponse[]>([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
@@ -100,6 +102,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
     setSelectedEquipmentById(Object.fromEntries(byDetail));
     setSearch('');
     setCategoryId(null);
+    setStatusFilter(null);
     setAvailabilityError(null);
   }, [open, reservation?.ReservationId]);
 
@@ -119,6 +122,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
           StartAt: start.format('YYYY-MM-DDTHH:mm:ss'),
           EndAt: end.format('YYYY-MM-DDTHH:mm:ss'),
           CategoryIds: categoryId != null ? [categoryId] : undefined,
+          Statuses: statusFilter != null ? [statusFilter] : undefined,
           PageNumber: 1,
           PageSize: AVAIL_PAGE,
         }),
@@ -142,7 +146,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
       void loadAvailability();
     }, 350);
     return () => window.clearTimeout(t);
-  }, [open, reservation?.ReservationId, startAtLocal, endAtLocal, categoryId, loadAvailability]);
+  }, [open, reservation?.ReservationId, startAtLocal, endAtLocal, categoryId, statusFilter, loadAvailability]);
 
   const mergedEquipmentList = useMemo(() => {
     if (!reservation) return [];
@@ -362,6 +366,22 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
                   ))}
                 </SelectContent>
               </Select>
+              <Select
+                value={statusFilter != null ? String(statusFilter) : 'all'}
+                onValueChange={(v) => setStatusFilter(v === 'all' ? null : Number(v))}
+              >
+                <SelectTrigger className="h-9 w-[170px] text-xs bg-white text-gray-700 border-gray-300">
+                  <SelectValue placeholder="Trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {availabilityLoading ? (
@@ -406,9 +426,14 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
                         onClick={() => selectEquipment(eq, !isSelected)}
                         className="flex-1 flex items-center justify-between gap-2 text-left min-w-0"
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="font-medium text-gray-900 truncate">{eq.EquipmentName}</div>
-                          <div className="text-xs text-gray-500">Mã: {eq.EquipmentCode}</div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-gray-500">Mã: {eq.EquipmentCode}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${getEquipmentStatusColor(eq.Status)}`}>
+                              {getEquipmentStatusDisplay(eq.Status)}
+                            </span>
+                          </div>
                         </div>
                         <span
                           className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
@@ -430,7 +455,12 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
               <Button type="button" variant="outline" onClick={onClose} disabled={submitLoading}>
                 Hủy
               </Button>
-              <Button type="button" onClick={() => void handleSubmit()} disabled={submitLoading || hasEnded}>
+              <Button 
+                type="button" 
+                onClick={() => void handleSubmit()} 
+                disabled={submitLoading || hasEnded}
+                className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+              >
                 {submitLoading ? 'Đang lưu…' : 'Lưu thay đổi'}
               </Button>
             </div>

@@ -1,302 +1,216 @@
-import { useEffect, useRef, useState } from 'react';
-import { message } from 'antd';
-import type { ColumnDef } from '@tanstack/react-table';
-import { Plus } from 'lucide-react';
-import { useLocation, useOutletContext, useSearchParams } from 'react-router-dom';
-import { DataTable } from '@/shared/components/common/DataTable';
+import { useMemo, useState } from 'react';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
+import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
-import { Dialog } from '@/shared/components/ui/dialog';
-import type { CategoryListItem } from '@/modules/category/category';
+import type { ColumnDef, Row } from '@tanstack/react-table';
 import { useCategories } from '../hooks/useCategories';
-import categoryApi from '../api/categoryApi';
+import type { CategoryListItem } from '../category';
 import CreateCategoryModal from './CreateCategoryModal';
 import EditCategoryModal from './EditCategoryModal';
 import CategoryDetailSidebar from './CategoryDetailSidebar';
+import { message, Modal } from 'antd';
+import categoryApi from '../api/categoryApi';
+import { useLocation } from 'react-router-dom';
 
 export default function CategoriesManagement() {
-  const context = useOutletContext<{ position?: string }>();
   const location = useLocation();
   const isEquipmentManager = location.pathname.startsWith('/em/');
-  const isStandalonePage = !context?.position;
-  const [openCreateModal, setOpenCreateModal] = useState(false);
+  const { data: categories, loading, refetch } = useCategories();
+  const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editCategory, setEditCategory] = useState<CategoryListItem | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<CategoryListItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCategory, setDetailCategory] = useState<CategoryListItem | null>(null);
+  const [search, setSearch] = useState('');
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const openDetailFromUrl = searchParams.get('openDetail');
-  const categoryIdFromUrl = searchParams.get('categoryId');
+  const filteredCategories = useMemo(() => {
+    if (!search.trim()) return categories;
+    const searchLower = search.toLowerCase().trim();
+    return categories.filter(
+      (cat) =>
+        cat.categoryName?.toLowerCase().includes(searchLower) ||
+        cat.description?.toLowerCase().includes(searchLower)
+    );
+  }, [categories, search]);
 
-  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
-  const skipNextAutoOpenRef = useRef(false);
+  const handleView = async (category: CategoryListItem) => {
+    try {
+      // Gọi API getById để lấy đầy đủ thông tin bao gồm equipment
+      const fullCategory = await categoryApi.getById(category.categoryId);
+      setDetailCategory(fullCategory);
+      setDetailOpen(true);
+    } catch (err) {
+      message.error('Không tải được thông tin danh mục');
+      console.error('fetch category detail error:', err);
+    }
+  };
 
-  const closeDetailFromUrl = () => {
-    skipNextAutoOpenRef.current = true;
-    setDetailOpen(false);
-    setDetailCategory(null);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete('openDetail');
-      next.delete('categoryId');
-      return next;
+  const handleEdit = (category: CategoryListItem) => {
+    setEditCategory(category);
+    setEditOpen(true);
+  };
+
+  const handleDelete = (category: CategoryListItem) => {
+    Modal.confirm({
+      title: 'Xác nhận xóa danh mục',
+      content: `Bạn có chắc chắn muốn xóa danh mục "${category.categoryName}"? Thao tác này không thể hoàn tác.`,
+      okText: 'Xóa',
+      cancelText: 'Hủy',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await categoryApi.remove(category.categoryId);
+          message.success('Xóa danh mục thành công');
+          refetch();
+        } catch (err: any) {
+          const errorMsg = err?.response?.data?.message || 'Xóa danh mục thất bại';
+          message.error(errorMsg);
+        }
+      },
     });
   };
 
-  const {
-    data,
-    loading,
-    search,
-    setSearch,
-    pageNumber,
-    pageSize,
-    totalItems,
-    setPageNumber,
-    refetch,
-  } = useCategories();
-
-  const handleRowClick = async (category: CategoryListItem) => {
-    try {
-      const full = await categoryApi.getById(category.categoryId);
-      setDetailCategory(full);
-      setDetailOpen(true);
-    } catch {
-      message.error('Không tải được thông tin danh mục');
-    }
-  };
-
-  useEffect(() => {
-    if (openDetailFromUrl !== '1') return;
-    if (!categoryIdFromUrl) return;
-    if (skipNextAutoOpenRef.current) {
-      skipNextAutoOpenRef.current = false;
-      return;
-    }
-
-    const id = Number(categoryIdFromUrl);
-    if (!id || Number.isNaN(id)) return;
-
-    if (detailOpen && detailCategory?.categoryId === id) return;
-
-    (async () => {
-      try {
-        const full = await categoryApi.getById(id);
-        setDetailCategory(full);
-        setDetailOpen(true);
-      } catch {
-        message.error('Không tải được thông tin danh mục');
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openDetailFromUrl, categoryIdFromUrl, detailOpen, detailCategory?.categoryId]);
-
-  const handleDeleteConfirm = async () => {
-    if (!isEquipmentManager) return;
-    if (!categoryToDelete) return;
-    try {
-      await categoryApi.remove(categoryToDelete.categoryId);
-      message.success('Đã xóa danh mục');
-      setDeleteOpen(false);
-      setCategoryToDelete(null);
-      refetch();
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : null;
-      message.error(msg || 'Xóa danh mục thất bại');
-    }
-  };
-
-  const columns: ColumnDef<CategoryListItem>[] = [
-    {
-      accessorKey: 'categoryName',
-      header: 'Tên danh mục',
-      cell: ({ row }) => (
-        <div>
-          <div className="font-medium text-[#1a7a99]">{row.original.categoryName}</div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'description',
-      header: 'Mô tả',
-    },
-    {
-      id: 'totalDevices',
-      header: 'Số thiết bị',
-      cell: ({ row }) => {
-        const item = row.original;
-        const count = Number(item.totalEquipment ?? 0);
-        return <span className="font-semibold text-gray-900">{count}</span>;
+  const columns: ColumnDef<CategoryListItem>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'categoryId',
+        header: 'ID',
+        cell: ({ row }) => <span className="font-medium text-[#1a7a99]">#{row.original.categoryId}</span>,
       },
-    },
-    {
-      accessorKey: 'createdAt',
-      header: 'Ngày tạo',
-      cell: ({ row }) =>
-        row.original.createdAt
-          ? new Date(row.original.createdAt).toLocaleDateString('vi-VN')
-          : '—',
-    },
-  ];
+      {
+        accessorKey: 'categoryName',
+        header: 'Tên danh mục',
+        cell: ({ row }) => <span className="font-semibold text-slate-900">{row.original.categoryName}</span>,
+      },
+      {
+        accessorKey: 'description',
+        header: 'Mô tả',
+        cell: ({ row }) => (
+          <span className="text-sm text-slate-600">{row.original.description || '—'}</span>
+        ),
+      },
+      {
+        accessorKey: 'totalEquipment',
+        header: () => <span className="block w-full text-center">Số thiết bị</span>,
+        cell: ({ row }) => (
+          <div className="text-center">
+            <span className="font-medium">{row.original.totalEquipment ?? 0}</span>
+          </div>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="block w-full text-center">Thao tác</span>,
+        enableSorting: false,
+        cell: ({ row }: { row: Row<CategoryListItem> }) => (
+          <div
+            className="flex gap-3"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <span title="Xem chi tiết">
+              <Eye
+                size={16}
+                className="cursor-pointer text-gray-800"
+                onClick={() => handleView(row.original)}
+              />
+            </span>
+            <span title="Chỉnh sửa">
+              <Pencil
+                size={16}
+                className="cursor-pointer text-blue-600"
+                onClick={() => handleEdit(row.original)}
+              />
+            </span>
+            <span title="Xóa">
+              <Trash2
+                size={16}
+                className="cursor-pointer text-red-500"
+                onClick={() => handleDelete(row.original)}
+              />
+            </span>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
-  if (context?.position === 'header') {
-    if (!isEquipmentManager) return null;
-    return (
-      <>
+  return (
+    <div className="p-6 pl-8 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
+      {/* HEADER */}
+      <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
+        <div>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý danh mục thiết bị</h2>
+          <p className="text-xs text-slate-500">Quản lý các danh mục thiết bị trong hệ thống</p>
+        </div>
         <Button
-          onClick={() => setOpenCreateModal(true)}
+          onClick={() => setCreateOpen(true)}
           className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
         >
           <Plus size={16} />
-          Tạo danh mục thiết bị
+          Thêm danh mục
         </Button>
-        <CreateCategoryModal
-          open={openCreateModal}
-          onClose={() => setOpenCreateModal(false)}
-          onCreated={() => {
-            refetch();
-            setOpenCreateModal(false);
-          }}
-        />
-      </>
-    );
-  }
+      </div>
 
-  if (context?.position === 'toolbar') {
-    return (
-      <div className="flex gap-3">
+      {/* SEARCH */}
+      <div className="flex justify-end mb-2">
         <HoverSearch
           placeholder="Tìm tên danh mục..."
           value={search}
           onChange={(value) => setSearch(value)}
         />
       </div>
-    );
-  }
 
-  if (isStandalonePage) {
-    return (
-      <div className="p-6 pl-8 space-y-6 app-page-bg" style={{ minHeight: 'var(--content-height, 100vh)' }}>
-        <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
-          <div>
-            <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý danh mục thiết bị</h2>
-            <p className="text-xs text-slate-500">Quản lý danh mục và phân loại thiết bị trong hệ thống</p>
-          </div>
-          <div className="flex gap-3 items-center">
-            {isEquipmentManager ? (
-              <>
-                <Button
-                  onClick={() => setOpenCreateModal(true)}
-                  className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
-                >
-                  <Plus size={16} />
-                  Tạo danh mục thiết bị
-                </Button>
-                <CreateCategoryModal
-                  open={openCreateModal}
-                  onClose={() => setOpenCreateModal(false)}
-                  onCreated={() => {
-                    refetch();
-                    setOpenCreateModal(false);
-                  }}
-                />
-              </>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mb-2 flex justify-end">
-          <HoverSearch
-            placeholder="Tìm tên danh mục..."
-            value={search}
-            onChange={(value) => setSearch(value)}
+      {/* TABLE */}
+      <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
+        <div className="relative">
+          {loading && (
+            <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
+              <span className="text-sm text-muted-foreground">Đang tải...</span>
+            </div>
+          )}
+          <DataTable
+            columns={columns}
+            data={filteredCategories}
+            pageNumber={1}
+            pageSize={filteredCategories.length}
+            totalItems={filteredCategories.length}
+            onPageChange={() => {}}
+            onRowClick={isEquipmentManager ? undefined : async (row) => {
+              try {
+                const fullCategory = await categoryApi.getById(row.categoryId);
+                setEditCategory(fullCategory);
+                setEditOpen(true);
+              } catch (err) {
+                message.error('Không tải được thông tin danh mục');
+                console.error('fetch category detail error:', err);
+              }
+            }}
+            getRowId={(row) => String(row.categoryId)}
           />
         </div>
-
-        <div className="bg-white rounded-xl border shadow-sm px-6 py-4">
-          <div className="relative">
-            {loading && (
-              <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
-                <span className="text-sm text-muted-foreground">Đang tải...</span>
-              </div>
-            )}
-            <CategoryDetailSidebar
-              open={detailOpen}
-              onClose={closeDetailFromUrl}
-              category={detailCategory}
-            />
-            <EditCategoryModal
-              open={editOpen}
-              onClose={() => {
-                setEditOpen(false);
-                setEditCategory(null);
-              }}
-              category={editCategory}
-              onUpdated={refetch}
-            />
-            <Dialog
-              open={deleteOpen}
-              onClose={() => {
-                setDeleteOpen(false);
-                setCategoryToDelete(null);
-              }}
-              title="Xác nhận xóa danh mục"
-              description={
-                categoryToDelete
-                  ? `Bạn có chắc muốn xóa danh mục "${categoryToDelete.categoryName}"? Hành động này không thể hoàn tác.`
-                  : 'Bạn có chắc muốn xóa danh mục này?'
-              }
-            >
-              <div className="flex gap-3 justify-end pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setDeleteOpen(false);
-                    setCategoryToDelete(null);
-                  }}
-                >
-                  Hủy
-                </Button>
-                <Button
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                  onClick={handleDeleteConfirm}
-                >
-                  Xóa danh mục
-                </Button>
-              </div>
-            </Dialog>
-            <DataTable
-              columns={columns}
-              data={data}
-              pageNumber={pageNumber}
-              pageSize={pageSize}
-              totalItems={totalItems}
-              onPageChange={(page) => setPageNumber(page)}
-              onRowClick={handleRowClick}
-            />
-          </div>
-        </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="relative">
-      {loading && (
-        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-md">
-          <span className="text-sm text-muted-foreground">Đang tải...</span>
-        </div>
-      )}
       <CategoryDetailSidebar
         open={detailOpen}
-        onClose={closeDetailFromUrl}
+        onClose={() => {
+          setDetailOpen(false);
+          setDetailCategory(null);
+        }}
         category={detailCategory}
       />
+
+      <CreateCategoryModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          refetch();
+          setCreateOpen(false);
+        }}
+      />
+
       <EditCategoryModal
         open={editOpen}
         onClose={() => {
@@ -304,47 +218,11 @@ export default function CategoriesManagement() {
           setEditCategory(null);
         }}
         category={editCategory}
-        onUpdated={refetch}
-      />
-      <Dialog
-        open={deleteOpen}
-        onClose={() => {
-          setDeleteOpen(false);
-          setCategoryToDelete(null);
+        onUpdated={() => {
+          refetch();
+          setEditOpen(false);
+          setEditCategory(null);
         }}
-        title="Xác nhận xóa danh mục"
-        description={
-          categoryToDelete
-            ? `Bạn có chắc muốn xóa danh mục "${categoryToDelete.categoryName}"? Hành động này không thể hoàn tác.`
-            : 'Bạn có chắc muốn xóa danh mục này?'
-        }
-      >
-        <div className="flex gap-3 justify-end pt-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setDeleteOpen(false);
-              setCategoryToDelete(null);
-            }}
-          >
-            Hủy
-          </Button>
-          <Button
-            className="bg-red-600 hover:bg-red-700 text-white"
-            onClick={handleDeleteConfirm}
-          >
-            Xóa danh mục
-          </Button>
-        </div>
-      </Dialog>
-      <DataTable
-        columns={columns}
-        data={data}
-        pageNumber={pageNumber}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={(page) => setPageNumber(page)}
-        onRowClick={handleRowClick}
       />
     </div>
   );

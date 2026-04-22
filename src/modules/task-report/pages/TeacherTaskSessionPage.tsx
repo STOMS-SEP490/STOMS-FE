@@ -597,7 +597,7 @@ export default function TeacherTaskSessionPage() {
                       ) : (
                         <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500 hover:border-[#1a7a99] hover:text-[#1a7a99] transition-colors">
                           <ImageIcon className="h-4 w-4" />
-                          Chọn ảnh PNG/JPG (tối đa 5MB)
+                          Chọn ảnh PNG/JPG (tối đa 10MB)
                           <input
                             type="file"
                             accept="image/png,image/jpeg,image/jpg"

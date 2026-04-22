@@ -50,26 +50,16 @@ export default function EditEquipmentModal({
   const handoverMinuteInputRef = useRef<HTMLInputElement | null>(null)
   const imgInputRef = useRef<HTMLInputElement | null>(null)
 
-  // Chuẩn hóa status từ API (có thể là số 1-5 hoặc chuỗi) về enum dùng cho Select
+  // Chuẩn hóa status từ API (có thể là số 1-5 hoặc chuỗi) về string để dùng cho Select
   const normalizeStatusValue = (rawStatus: string | number | null | undefined): string => {
     const s = String(rawStatus ?? '').trim()
-    if (!s) return EQUIPMENT_STATUS.AVAILABLE
-    if (s === '1') return EQUIPMENT_STATUS.AVAILABLE
-    if (s === '2') return EQUIPMENT_STATUS.BORROWED
-    if (s === '3') return EQUIPMENT_STATUS.DAMAGED
-    if (s === '4') return EQUIPMENT_STATUS.LOST
-    if (s === '5') return EQUIPMENT_STATUS.UNAVAILABLE
-    const upper = s.toUpperCase()
-    if (
-      upper === EQUIPMENT_STATUS.AVAILABLE ||
-      upper === EQUIPMENT_STATUS.BORROWED ||
-      upper === EQUIPMENT_STATUS.DAMAGED ||
-      upper === EQUIPMENT_STATUS.LOST ||
-      upper === EQUIPMENT_STATUS.UNAVAILABLE
-    ) {
-      return upper
-    }
-    return EQUIPMENT_STATUS.AVAILABLE
+    if (!s) return String(EQUIPMENT_STATUS.AVAILABLE)
+    if (s === '1' || s === String(EQUIPMENT_STATUS.AVAILABLE)) return String(EQUIPMENT_STATUS.AVAILABLE)
+    if (s === '2' || s === String(EQUIPMENT_STATUS.BORROWED)) return String(EQUIPMENT_STATUS.BORROWED)
+    if (s === '3' || s === String(EQUIPMENT_STATUS.DAMAGED)) return String(EQUIPMENT_STATUS.DAMAGED)
+    if (s === '4' || s === String(EQUIPMENT_STATUS.LOST)) return String(EQUIPMENT_STATUS.LOST)
+    if (s === '5' || s === String(EQUIPMENT_STATUS.UNAVAILABLE)) return String(EQUIPMENT_STATUS.UNAVAILABLE)
+    return String(EQUIPMENT_STATUS.AVAILABLE)
   }
 
   useEffect(() => {
@@ -131,7 +121,7 @@ export default function EditEquipmentModal({
       )
       const nextStatus = normalizeStatusValue(status)
       // Chỉ khóa khi đang Đang mượn; Không khả dụng vẫn cho đổi qua modal
-      if (originalStatus !== EQUIPMENT_STATUS.BORROWED && nextStatus && nextStatus !== originalStatus) {
+      if (originalStatus !== String(EQUIPMENT_STATUS.BORROWED) && nextStatus && nextStatus !== originalStatus) {
         await equipmentApi.updateStatus(equipment.equipmentId, { status: nextStatus })
       }
 
@@ -163,8 +153,8 @@ export default function EditEquipmentModal({
   const statusValue = normalizeStatusValue(
     status || equipment.status || EQUIPMENT_STATUS.AVAILABLE
   )
-  const isBorrowed = statusValue === EQUIPMENT_STATUS.BORROWED
-  const isUnavailable = statusValue === EQUIPMENT_STATUS.UNAVAILABLE
+  const isBorrowed = statusValue === String(EQUIPMENT_STATUS.BORROWED)
+  const isUnavailable = statusValue === String(EQUIPMENT_STATUS.UNAVAILABLE)
   const categoryValue = categoryId || String(equipment.categoryId ?? '')
 
   return (
@@ -293,7 +283,7 @@ export default function EditEquipmentModal({
                     // Không cho chọn Đang mượn (chỉ qua phiếu mượn)
                     opt.value !== EQUIPMENT_STATUS.BORROWED
                 ).map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
+                  <SelectItem key={opt.value} value={String(opt.value)}>
                     {opt.label}
                   </SelectItem>
                 ))}

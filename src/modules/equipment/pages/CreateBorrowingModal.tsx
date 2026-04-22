@@ -9,6 +9,7 @@ import sessionApi from '@/modules/request/api/sessionApi'
 import type { Member } from '@/modules/member/member'
 import type { SessionResponse } from '@/modules/request/session.types'
 import type { BorrowingCreatePayload } from '../borrowing'
+import { getEquipmentStatusDisplay } from '@/constants/status'
 import type {
   EquipmentItemResponse,
   EquipmentReservationItemResponse,
@@ -53,7 +54,7 @@ function equipmentItemToEquipmentResponse(item: EquipmentItemResponse): Equipmen
   }
 }
 
-/** Dòng thiết bị trong đặt trước — dùng khi API availability không trả (vd. Damaged) nhưng vẫn phải hiển thị/chọn theo phiếu đặt. */
+/** Dòng thiết bị trong đơn yêu cầu — dùng khi API availability không trả (vd. Damaged) nhưng vẫn phải hiển thị/chọn theo phiếu đặt. */
 function equipmentReservationToRow(er: EquipmentReservationItemResponse): EquipmentResponse {
   if (er.Equipment) {
     return equipmentItemToEquipmentResponse(er.Equipment)
@@ -106,6 +107,7 @@ export default function CreateBorrowingModal({
   const [description, setDescription] = useState('')
   const [note, setNote] = useState('')
   const [allEquipments, setAllEquipments] = useState<EquipmentResponse[]>([])
+  const [unavailableEquipmentIds, setUnavailableEquipmentIds] = useState<Set<number>>(new Set())
   const [equipmentSearch, setEquipmentSearch] = useState('')
   const [equipmentLoading, setEquipmentLoading] = useState(false)
   const [categories, setCategories] = useState<CategoryListItem[]>([])
@@ -189,10 +191,10 @@ export default function CreateBorrowingModal({
 
     const end = dayjs(detail.EndAt)
     if (!end.isAfter(dayjs())) {
-      message.warning('Thời gian kết thúc đặt trước đã qua — vui lòng kiểm tra lại trước khi tạo phiếu')
+      message.warning('Thời gian kết thúc đơn yêu cầu đã qua — vui lòng kiểm tra lại trước khi tạo phiếu')
     }
 
-    // Theo đặt trước: Người mượn phải chọn từ danh sách thành viên tham gia session.
+    // Theo đơn yêu cầu: Người mượn phải chọn từ danh sách thành viên tham gia session.
     setBorrowedByMemberId(null)
     setSessionBorrowerOptions([])
     setBorrowerSearch('')
@@ -224,14 +226,14 @@ export default function CreateBorrowingModal({
       const detail = normalizeReservationResponse(raw)
       setLoadedReservation(detail)
       const ok = applyReservationDetail(detail)
-      if (ok) message.success('Đã tải thông tin theo đặt trước')
+      if (ok) message.success('Đã tải thông tin theo đơn yêu cầu')
     } catch {
       setLoadedReservation(null)
       setSessionBorrowerOptions([])
       setBorrowedByMemberId(null)
       setBorrowerSearch('')
       setBorrowerOptions([])
-      message.error('Không tải được đặt trước — kiểm tra mã hoặc quyền truy cập')
+      message.error('Không tải được đơn yêu cầu — kiểm tra mã hoặc quyền truy cập')
     } finally {
     }
   }
@@ -447,16 +449,17 @@ export default function CreateBorrowingModal({
   }, [open, isEquipmentManager, selectedRequestId])
 
   // Load thiết bị KHẢ DỤNG theo khung thời gian StartAt/EndAt.
-  // - Nếu có đặt trước: StartAt = thời gian StartAt của đặt trước (nếu có), ngược lại dùng hiện tại
+  // - Nếu có đơn yêu cầu: StartAt = thời gian StartAt của đơn yêu cầu (nếu có), ngược lại dùng hiện tại
   // - EndAt: returnedDueDate (hạn trả)
   //
-  // Khi tạo phiếu theo đặt trước: API availability có thể không trả thiết bị đã đặt (vd. trạng thái Damaged)
-  // nhưng vẫn phải tự chọn đúng thiết bị trong đặt trước — gộp thêm từ loadedReservation và không lọc mất ID đó.
+  // Khi tạo phiếu theo đơn yêu cầu: API availability có thể không trả thiết bị đã đặt (vd. trạng thái Damaged)
+  // nhưng vẫn phải tự chọn đúng thiết bị trong đơn yêu cầu — gộp thêm từ loadedReservation và không lọc mất ID đó.
   useEffect(() => {
     if (!open) return
     if (!returnedDueDate) {
       setAllEquipments([])
       setSelectedEquipmentIds([])
+      setUnavailableEquipmentIds(new Set())
       return
     }
 
@@ -464,7 +467,7 @@ export default function CreateBorrowingModal({
       try {
         setEquipmentLoading(true)
 
-        const startAtDt = loadedReservation?.StartAt ? dayjs(loadedReservation.StartAt) : dayjs()
+        const startAtDt = dayjs()
         const endAtDt = returnedDueDate
 
         // BE yêu cầu EndAt > StartAt.
@@ -482,7 +485,7 @@ export default function CreateBorrowingModal({
           await reservationApi.getAvailability({
             StartAt: startAt,
             EndAt: endAt,
-            IsAvailable: true,
+            Statuses: [1], // 1 = AVAILABLE
             PageNumber: 1,
             PageSize: 500,
           }),
@@ -496,21 +499,26 @@ export default function CreateBorrowingModal({
         )
         const reservationIdSet = new Set(reservationEquipments.map((er) => er.EquipmentId))
 
+        // Track thiết bị từ reservation nhưng không available (đang bị mượn)
+        const unavailableIds = new Set<number>()
         const merged: EquipmentResponse[] = [...items]
         for (const er of reservationEquipments) {
           if (!availableIds.has(er.EquipmentId)) {
             merged.push(equipmentReservationToRow(er))
-            availableIds.add(er.EquipmentId)
+            unavailableIds.add(er.EquipmentId)
           }
         }
 
         setAllEquipments(merged)
+        setUnavailableEquipmentIds(unavailableIds)
+        // Bỏ chọn các thiết bị không còn available
         setSelectedEquipmentIds((prev) =>
           prev.filter((id) => availableIds.has(id) || reservationIdSet.has(id)),
         )
       } catch {
         setAllEquipments([])
         setSelectedEquipmentIds([])
+        setUnavailableEquipmentIds(new Set())
       } finally {
         setEquipmentLoading(false)
       }
@@ -569,12 +577,16 @@ export default function CreateBorrowingModal({
       handleClose()
       onCreated?.()
     } catch (err: unknown) {
+      const res = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { message?: string; title?: string; detail?: string; errors?: Record<string, string[]> } } }).response?.data
+        : null
       const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
-          : null
-      message.error(msg || 'Tạo phiếu mượn thất bại')
+        res?.message ||
+        res?.detail ||
+        res?.title ||
+        (res?.errors ? Object.values(res.errors).flat().join('; ') : null) ||
+        'Tạo phiếu mượn thất bại'
+      message.error(msg)
     } finally {
       setLoading(false)
     }
@@ -590,6 +602,7 @@ export default function CreateBorrowingModal({
     setNote('')
     setEquipmentSearch('')
     setSelectedEquipmentIds([])
+    setUnavailableEquipmentIds(new Set())
     setSessionIds([])
     setError('')
     setLoadedReservation(null)
@@ -732,7 +745,7 @@ export default function CreateBorrowingModal({
     if (reservationId && reservationId > 0) {
       await handleLoadReservation(reservationId)
     } else {
-      // Không có đặt trước -> tạo tự do (user tự chọn hạn trả & thiết bị)
+      // Không có đơn yêu cầu -> tạo tự do (user tự chọn hạn trả & thiết bị)
       setLoadedReservation(null)
       setReturnedDueDate(null)
       setSelectedEquipmentIds([])
@@ -744,7 +757,7 @@ export default function CreateBorrowingModal({
       open={open}
       onClose={handleClose}
       title="Tạo phiếu mượn thiết bị"
-      description="Chọn buổi (nếu có). Nếu buổi có đặt trước thì tự điền thông tin; nếu không thì tạo tự do."
+      description="Nếu buổi có đơn yêu cầu thì chọn yêu cầu và buổi hoặc có thể mượn tự do."
       className="max-w-4xl w-[min(96vw,56rem)] max-h-[92vh]"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -878,7 +891,7 @@ export default function CreateBorrowingModal({
 
         {loadedReservation && (
           <div className="rounded-lg border border-[#2197C0]/30 bg-[#2197C0]/5 px-4 py-3 text-sm text-gray-800">
-            <div className="font-medium text-black">Thông tin đặt trước</div>
+            <div className="font-medium text-black">Thông tin đơn yêu cầu</div>
             <div className="mt-1 grid gap-1 text-xs sm:grid-cols-2">
               <span>
                 <span className="text-gray-600">Bắt đầu: </span>
@@ -1088,7 +1101,7 @@ export default function CreateBorrowingModal({
 
         <div className="space-y-1.5">
           <Label className="text-black font-medium">
-            Thiết bị (nhập mã, phân cách bởi dấu phẩy hoặc khoảng trắng){' '}
+            Thiết bị 
             <span className="text-red-500">*</span>
           </Label>
           <div className="flex gap-2">
@@ -1138,12 +1151,14 @@ export default function CreateBorrowingModal({
                     const isSelected = selectedEquipmentIds.includes(
                       eq.EquipmentId
                     )
+                    const isUnavailable = unavailableEquipmentIds.has(eq.EquipmentId)
                     const cat = (eq.CategoryName ?? '').trim()
                     const code = (eq.EquipmentCode ?? '').trim()
                     const subLine = `${cat || '—'} - ${code || '—'}`
                     const alt = eq.EquipmentName ?? `Equipment ${eq.EquipmentId}`
 
                     const toggle = () => {
+                      if (isUnavailable) return
                       const id = eq.EquipmentId
                       setSelectedEquipmentIds((prev) =>
                         prev.includes(id)
@@ -1157,9 +1172,11 @@ export default function CreateBorrowingModal({
                         key={eq.EquipmentId}
                         className={cn(
                           'flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs transition',
-                          isSelected
-                            ? 'border-[#2197C0] bg-[#2197C0]/10 shadow-[0_1px_2px_rgba(33,151,192,0.18)]'
-                            : 'border-slate-200 bg-white hover:border-[#2197C0]/45 hover:bg-[#2197C0]/5'
+                          isUnavailable
+                            ? 'border-slate-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                            : isSelected
+                              ? 'border-[#2197C0] bg-[#2197C0]/10 shadow-[0_1px_2px_rgba(33,151,192,0.18)]'
+                              : 'border-slate-200 bg-white hover:border-[#2197C0]/45 hover:bg-[#2197C0]/5'
                         )}
                       >
                         <div
@@ -1188,10 +1205,16 @@ export default function CreateBorrowingModal({
                         <button
                           type="button"
                           onClick={toggle}
-                          className="flex min-w-0 flex-1 flex-col gap-0.5 text-left"
+                          disabled={isUnavailable}
+                          className="flex min-w-0 flex-1 flex-col gap-0.5 text-left disabled:cursor-not-allowed"
                         >
-                          <span className="truncate font-medium text-gray-900">
+                          <span className="flex items-center gap-1.5 truncate font-medium text-gray-900">
                             {eq.EquipmentName}
+                            {isUnavailable && (
+                              <span className="shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600">
+                                {getEquipmentStatusDisplay(eq.Status)}
+                              </span>
+                            )}
                           </span>
                           <span className="truncate text-[11px] text-gray-500">
                             {subLine}
@@ -1261,7 +1284,6 @@ export default function CreateBorrowingModal({
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Mô tả chi tiết mục đích/mượn (tùy chọn)"
             className="flex w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 resize-none"
           />
         </div>
@@ -1271,7 +1293,7 @@ export default function CreateBorrowingModal({
           <Input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Ghi chú nội bộ (tùy chọn)"
+        
             className="h-9 text-black border-gray-200"
           />
         </div>
