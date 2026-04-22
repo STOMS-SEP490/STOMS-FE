@@ -92,7 +92,7 @@ export function isSessionAssignmentRejectedStatus(
 export const EQUIPMENT_STATUS_LABEL: Record<number, string> = {
   1: 'Sẵn sàng',
   2: 'Đang mượn',
-  3: 'Hư hỏng',
+  3: 'Hỏng',
   4: 'Mất',
   5: 'Không khả dụng',
 };
@@ -100,7 +100,7 @@ export const EQUIPMENT_STATUS_LABEL: Record<number, string> = {
 export const EQUIPMENT_BORROWING_STATUS_LABEL: Record<number, string> = {
   1: 'Đang mượn',
   2: 'Đã trả',
-  3: 'Hư hỏng',
+  3: 'Hỏng',
   4: 'Mất',
 };
 

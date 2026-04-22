@@ -509,7 +509,6 @@ export default function RequestDetailTeamPanel({
       setSaving(true);
       const items = addedTeamIds.map((teamId) => ({
         teamId,
-        teachersRequired: 0,
         tasRequired: Math.max(0, Number(teamQuantities[teamId]?.tasRequired ?? 0) || 0),
       }));
       await teamSessionApi.replaceForSession(session.sessionId, items);

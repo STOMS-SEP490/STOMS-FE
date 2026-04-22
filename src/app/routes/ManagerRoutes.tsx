@@ -98,15 +98,19 @@ const ManagerRoutes = [
   },
   {
     path: 'equipments/reservations',
-    element: <Navigate to="/manager/borrowings/reservations" replace />,
+    element: <Navigate to="/manager/reservations" replace />,
   },
   {
     path: 'equipments/history/reservations',
-    element: <Navigate to="/manager/borrowings/reservations" replace />,
+    element: <Navigate to="/manager/reservations" replace />,
+  },
+  {
+    path: 'borrowings/reservations',
+    element: <Navigate to="/manager/reservations" replace />,
   },
   { path: 'equipments', element: <EquipmentsManagement /> },
   { path: 'equipments/categories', element: <CategoriesManagement /> },
-  { path: 'borrowings/reservations', element: <ReservationsManagement /> },
+  { path: 'reservations', element: <ReservationsManagement /> },
   { path: 'borrowings', element: <EquipmentsHistory /> },
   {
     path: 'transactions',
@@ -115,9 +119,10 @@ const ManagerRoutes = [
       { index: true, element: <Transactions /> },
       { path: 'expenditure', element: <ExpenditureFund /> },
       { path: 'contribution', element: <ContributionFund /> },
-      { path: 'wallets', element: <WalletsManagement /> },
+      { path: 'wallets', element: <Navigate to="/manager/wallets" replace /> },
     ],
   },
+  { path: 'wallets', element: <WalletsManagement /> },
   { path: 'teams', element: <TeamsManagement /> },
 ];
 

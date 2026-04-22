@@ -1,14 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import {
-  X,
-  CalendarClock,
-  Clock,
-  FileText,
-  Hash,
-  Layers,
-  Sparkles,
-  Tags,
-} from 'lucide-react';
+import { X, Clock, FileText, Layers, Sparkles, Tags } from 'lucide-react';
 import type { EventListItem, EventSession } from '../event';
 import { Badge } from '@/shared/components/ui/badge';
 import { cn } from '@/shared/lib/utils';
@@ -25,34 +16,28 @@ function formatDateTime(date?: string | null) {
 }
 
 export default function EventDetailSidebar({ open, onClose, event }: Props) {
-  if (!event) return null;
+  if (!open || !event) return null;
 
   const eventSessions = (event.eventSessions as EventSession[] | null) ?? [];
 
   return (
     <>
-      {open && (
-        <div
-          className="fixed inset-0 z-40 h-full bg-black/35"
-          onClick={onClose}
-          aria-hidden
-        />
-      )}
+      <div className="fixed inset-0 z-40 h-full bg-black/35" onClick={onClose} aria-hidden />
+
       <div
         className={cn(
           'fixed right-0 top-0 z-50 h-full w-[720px] max-w-[96vw]',
-          'border-l border-slate-200/80 bg-white shadow-2xl',
-          'transition-transform duration-300 ease-out',
-          open ? 'translate-x-0' : 'translate-x-full'
+          'border-l border-slate-200 bg-white shadow-2xl',
+          'translate-x-0 transition-transform duration-300 ease-out',
         )}
       >
-        <div className="flex h-full flex-col overflow-hidden">
-          {/* HEADER */}
-          <header className="shrink-0 border-b border-slate-100 bg-gradient-to-b from-slate-50/90 to-white px-5 pb-4 pt-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1 space-y-3">
+        <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
+          {/* ── HEADER ── */}
+          <header className="w-full shrink-0 border-b border-slate-200 bg-white">
+            <div className="flex w-full items-start justify-between gap-3 px-5 pb-3 pt-4">
+              <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-lg font-semibold tracking-tight text-slate-900">
+                  <h2 className="truncate text-base font-semibold text-black">
                     {event.eventName}
                   </h2>
                   <Badge
@@ -60,102 +45,72 @@ export default function EventDetailSidebar({ open, onClose, event }: Props) {
                       'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium',
                       event.isActive
                         ? 'border-0 bg-emerald-100 text-emerald-800'
-                        : 'border-0 bg-slate-200 text-slate-700'
+                        : 'border-0 bg-slate-200 text-slate-700',
                     )}
                   >
                     {event.isActive ? 'Hoạt động' : 'Ngừng hoạt động'}
                   </Badge>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <HeaderChip icon={Hash} label={event.eventCode || '—'} title="Mã sự kiện" />
-                  <HeaderChip
-                    icon={Clock}
-                    label={event.duration || '—'}
-                    title="Thời lượng tổng"
-                  />
-                  <HeaderChip
-                    icon={Layers}
-                    label={`${event.numberOfSession ?? '—'} buổi`}
-                    title="Số buổi"
-                  />
-                </div>
+                <p className="text-sm text-[#2197C0]">{event.eventCode || '—'}</p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="shrink-0 rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                className="shrink-0 p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Đóng"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
+            <div className="flex w-full flex-col divide-y divide-slate-200 border-t border-slate-200 bg-white sm:flex-row sm:divide-x sm:divide-y-0">
+              <div className="min-w-0 flex-1 px-5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#2197C0]">Số buổi</p>
+                <p className="mt-0.5 text-sm font-medium text-black">{event.numberOfSession ?? '—'}</p>
+              </div>
+              <div className="min-w-0 flex-1 px-5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#2197C0]">Thời lượng</p>
+                <p className="mt-0.5 text-sm font-medium text-black">{event.duration || '—'}</p>
+              </div>
+              <div className="min-w-0 flex-1 px-5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#2197C0]">Ngày tạo</p>
+                <p className="mt-0.5 text-sm font-medium text-black">{formatDateTime(event.createdAt)}</p>
+              </div>
+            </div>
           </header>
 
-          {/* CONTENT */}
-          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 px-5 py-5">
-            <div className="space-y-8">
-              <Section icon={CalendarClock} title="Thông tin chung">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <MetaTile
-                    icon={CalendarClock}
-                    label="Ngày tạo"
-                    value={formatDateTime(event.createdAt)}
-                  />
-                  <MetaTile
-                    icon={CalendarClock}
-                    label="Cập nhật lần cuối"
-                    value={formatDateTime(event.updatedAt)}
-                  />
+          {/* ── BODY ── */}
+          <div className="min-h-0 w-full flex-1 overflow-y-auto bg-white px-5 py-4">
+            <div className="space-y-4">
+
+              {/* Mô tả */}
+              <Section icon={FileText} title="Mô tả">
+                <div className="pl-4">
+                  <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
+                    {event.description?.trim() ? event.description : 'Chưa có mô tả.'}
+                  </p>
                 </div>
               </Section>
 
-              <Section icon={FileText} title="Mô tả">
-                <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
-                  {event.description?.trim() ? event.description : 'Chưa có mô tả.'}
-                </p>
-              </Section>
-
+              {/* Các buổi */}
               <Section icon={Layers} title="Các buổi trong sự kiện">
                 {eventSessions.length > 0 ? (
-                  <ol className="flex flex-col gap-4">
+                  <div className="pl-4 divide-y divide-slate-200">
                     {eventSessions.map((es, index) => (
-                      <SessionBlock
-                        key={es.eventSessionId ?? index}
-                        session={es}
-                        index={index}
-                        isLast={index === eventSessions.length - 1}
-                      />
+                      <SessionBlock key={es.eventSessionId ?? index} session={es} index={index} />
                     ))}
-                  </ol>
+                  </div>
                 ) : (
-                  <p className="text-sm text-slate-500">Chưa có buổi nào trong sự kiện này.</p>
+                  <div className="pl-4 py-2">
+                    <p className="text-sm text-slate-500">Chưa có buổi nào trong sự kiện này.</p>
+                  </div>
                 )}
               </Section>
+
             </div>
           </div>
         </div>
       </div>
     </>
-  );
-}
-
-function HeaderChip({
-  icon: Icon,
-  label,
-  title,
-}: {
-  icon: LucideIcon;
-  label: string;
-  title: string;
-}) {
-  return (
-    <span
-      title={title}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1 text-xs text-slate-700 shadow-sm ring-1 ring-slate-200/80"
-    >
-      <Icon className="h-3.5 w-3.5 text-[#2197C0]" aria-hidden />
-      <span className="font-medium">{label}</span>
-    </span>
   );
 }
 
@@ -169,45 +124,17 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-2.5">
-        <Icon className="h-5 w-5 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+    <section className="space-y-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
+        <Icon className="h-4 w-4 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
+        <h3 className="text-sm font-semibold text-black">{title}</h3>
       </div>
       <div>{children}</div>
     </section>
   );
 }
 
-function MetaTile({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="flex gap-3 rounded-xl bg-white px-3.5 py-3 shadow-sm ring-1 ring-slate-200/60">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#2197C0]/90" aria-hidden />
-      <div className="min-w-0">
-        <div className="text-xs font-medium text-slate-500">{label}</div>
-        <div className="mt-0.5 text-sm font-medium text-slate-900 break-words">{value}</div>
-      </div>
-    </div>
-  );
-}
-
-function SessionBlock({
-  session,
-  index,
-  isLast,
-}: {
-  session: EventSession;
-  index: number;
-  isLast: boolean;
-}) {
+function SessionBlock({ session, index }: { session: EventSession; index: number }) {
   const no = session.sessionNo ?? index + 1;
   const title = session.title || `Buổi ${no}`;
   const skills = (session.eventSessionSkills ?? []).filter((x) => x?.isActive !== false);
@@ -215,79 +142,64 @@ function SessionBlock({
   const desc = session.description?.trim();
 
   return (
-    <li className="relative flex gap-3">
-      <div className="relative flex w-9 shrink-0 flex-col items-center self-stretch">
-        {!isLast ? (
-          <div
-            className="pointer-events-none absolute left-1/2 top-9 bottom-[-1rem] w-px -translate-x-1/2 rounded-full bg-gradient-to-b from-slate-300/90 via-slate-200/80 to-slate-200/50"
-            aria-hidden
-          />
-        ) : null}
-        <div
-          className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200/95 bg-white text-[11px] font-semibold tabular-nums tracking-tight text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.05)] ring-[3px] ring-slate-50"
-          aria-hidden
-        >
+    <div className="py-2.5">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#2197C0]/10 text-[10px] font-semibold text-[#2197C0]">
           {no}
-        </div>
-      </div>
-      <div className="min-w-0 flex-1 space-y-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-200/50">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <h4 className="text-sm font-semibold text-slate-900">{title}</h4>
-          {session.duration ? (
-            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-              <Clock className="h-3 w-3" aria-hidden />
-              {session.duration}
-            </span>
-          ) : null}
-        </div>
-
-        {desc ? (
-          <p className="text-xs leading-relaxed text-slate-600">{desc}</p>
+        </span>
+        <h4 className="text-sm font-semibold text-black">{title}</h4>
+        {session.duration ? (
+          <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-500">
+            <Clock className="h-3 w-3" aria-hidden />
+            {session.duration}
+          </span>
         ) : null}
+      </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-              <Sparkles className="h-3.5 w-3.5 text-violet-500" aria-hidden />
-              Kỹ năng
+      {desc ? (
+        <p className="text-xs leading-relaxed text-slate-600 mb-1.5">{desc}</p>
+      ) : null}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <p className="text-xs font-medium text-[#2197C0] mb-1 flex items-center gap-1">
+            <Sparkles className="h-3 w-3" aria-hidden /> Kỹ năng
+          </p>
+          {skills.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {skills.map((x, i) => (
+                <Badge
+                  key={`${x.eventSessionId}-${x.skillId}-${i}`}
+                  className="rounded-full border-0 bg-violet-50 text-violet-800 text-xs font-medium"
+                >
+                  {x.skillName ?? `#${x.skillId}`}
+                </Badge>
+              ))}
             </div>
-            {skills.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {skills.map((x, i) => (
-                  <span
-                    key={`${x.eventSessionId}-${x.skillId}-${i}`}
-                    className="rounded-lg bg-violet-50 px-2 py-1 text-xs font-medium text-violet-900"
-                  >
-                    {x.skillName ?? `#${x.skillId}`}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <span className="text-xs text-slate-400">Chưa gán kỹ năng</span>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-              <Tags className="h-3.5 w-3.5 text-amber-600" aria-hidden />
-              Chủ đề
+          ) : (
+            <span className="text-xs text-slate-400">Chưa gán</span>
+          )}
+        </div>
+        <div>
+          <p className="text-xs font-medium text-[#2197C0] mb-1 flex items-center gap-1">
+            <Tags className="h-3 w-3" aria-hidden /> Chủ đề
+          </p>
+          {topics.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {topics.map((x, i) => (
+                <Badge
+                  key={`${x.eventSessionId}-${x.topicId}-${i}`}
+                  className="rounded-full border-0 bg-amber-50 text-amber-800 text-xs font-medium"
+                >
+                  {x.topicName ?? `#${x.topicId}`}
+                </Badge>
+              ))}
             </div>
-            {topics.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {topics.map((x, i) => (
-                  <span
-                    key={`${x.eventSessionId}-${x.topicId}-${i}`}
-                    className="rounded-lg bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900"
-                  >
-                    {x.topicName ?? `#${x.topicId}`}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <span className="text-xs text-slate-400">Chưa gán chủ đề</span>
-            )}
-          </div>
+          ) : (
+            <span className="text-xs text-slate-400">Chưa gán</span>
+          )}
         </div>
       </div>
-    </li>
+    </div>
   );
 }

@@ -98,6 +98,5 @@ export type TeamDetail = {
 
 export type TeamSessionBulkItem = {
   teamId: number;
-  teachersRequired: number;
   tasRequired: number;
 };

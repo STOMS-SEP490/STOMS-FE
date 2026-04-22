@@ -31,7 +31,7 @@ export const EQUIPMENT_STATUS_MAP: Record<
     className: 'bg-yellow-100 text-yellow-700',
   },
   [EQUIPMENT_STATUS.DAMAGED]: {
-    label: 'Hỏng hóc',
+    label: 'Hỏng',
     className: 'bg-orange-100 text-orange-700',
   },
   [EQUIPMENT_STATUS.LOST]: {
@@ -45,7 +45,7 @@ export const EQUIPMENT_STATUS_MAP: Record<
   // Numeric từ API (1-5)
   '1': { label: 'Khả dụng', className: 'bg-green-100 text-green-700' },
   '2': { label: 'Đang mượn', className: 'bg-orange-100 text-orange-700' },
-  '3': { label: 'Hỏng hóc', className: 'bg-yellow-100 text-yellow-700' },
+  '3': { label: 'Hỏng', className: 'bg-yellow-100 text-yellow-700' },
   '4': { label: 'Mất', className: 'bg-red-100 text-red-700' },
   '5': { label: 'Không khả dụng', className: 'bg-gray-100 text-gray-700' },
 }
@@ -54,7 +54,7 @@ export const EQUIPMENT_STATUS_MAP: Record<
 export const EQUIPMENT_STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: EQUIPMENT_STATUS.AVAILABLE, label: 'Khả dụng' },
   { value: EQUIPMENT_STATUS.BORROWED, label: 'Đang mượn' },
-  { value: EQUIPMENT_STATUS.DAMAGED, label: 'Hỏng hóc' },
+  { value: EQUIPMENT_STATUS.DAMAGED, label: 'Hỏng' },
   { value: EQUIPMENT_STATUS.LOST, label: 'Mất' },
   { value: EQUIPMENT_STATUS.UNAVAILABLE, label: 'Không khả dụng' },
 ]
