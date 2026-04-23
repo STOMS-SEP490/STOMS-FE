@@ -8,6 +8,8 @@ export type TransactionListItem = {
   transactionDate: string | null;
   createdBy: number | null;
   createdByName: string | null;
+  createdByEmail: string | null;
+  createdByAvatar: string | null;
   createdAt: string | null;
 };
 

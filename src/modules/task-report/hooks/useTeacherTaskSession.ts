@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { message } from 'antd';
 import sessionApi from '@/modules/request/api/sessionApi';
 import type { SessionResponse } from '@/modules/request/session.types';
@@ -14,6 +14,13 @@ type RequestWithTasks = RequestListItem & {
 };
 
 export function useTeacherTaskSession(sessionId: number) {
+  const memberId = useMemo(() => {
+    try {
+      return Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
+    } catch {
+      return 0;
+    }
+  }, []);
   // ── Session & Request data ──
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [request, setRequest] = useState<RequestWithTasks | null>(null);
@@ -28,6 +35,11 @@ export function useTeacherTaskSession(sessionId: number) {
   // ── Expanded expenses ──
   const [expandedExpensesReportId, setExpandedExpensesReportId] = useState<number | null>(null);
   const [searchTitle, setSearchTitle] = useState('');
+
+  // ── Edit expense modal ──
+  const [editExpenseOpen, setEditExpenseOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<{ expenseId: number; taskReportId: number; amount: string; description: string; file: File | null; preview: string } | null>(null);
+  const [savingExpense, setSavingExpense] = useState(false);
 
   // ── Create/Edit modal ──
   const [openModal, setOpenModal] = useState(false);
@@ -44,6 +56,8 @@ export function useTeacherTaskSession(sessionId: number) {
   // ── Expense management ──
   const [hasExpense, setHasExpense] = useState(false);
   const [createExpenses, setCreateExpenses] = useState<CreateExpenseRow[]>([]);
+  // Expenses of the report being edited (for display in edit modal)
+  const [editingReportExpenses, setEditingReportExpenses] = useState<import('../taskReport').TaskReportExpense[]>([]);
 
   // ── Load session & request ──
   useEffect(() => {
@@ -88,6 +102,7 @@ export function useTeacherTaskSession(sessionId: number) {
           requestId: session.RequestId,
           pageNumber: 1,
           pageSize: 100,
+          MemberId: memberId || undefined,
         });
         if (cancelled) return;
         // Filter to only get reports that have requestId but no sessionId
@@ -117,6 +132,7 @@ export function useTeacherTaskSession(sessionId: number) {
           sessionId,
           pageNumber: 1,
           pageSize: 100,
+          MemberId: memberId || undefined,
         });
         if (cancelled) return;
         setSessionReports(res.items ?? []);
@@ -219,6 +235,7 @@ export function useTeacherTaskSession(sessionId: number) {
     });
     setHasExpense(false);
     setCreateExpenses([]);
+    setEditingReportExpenses(r.expenses ?? []);
     setOpenModal(true);
   }, []);
 
@@ -229,6 +246,7 @@ export function useTeacherTaskSession(sessionId: number) {
     setFormState({ title: '', description: '', startAt: '', endAt: '' });
     setHasExpense(false);
     setCreateExpenses([]);
+    setEditingReportExpenses([]);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -394,6 +412,144 @@ export function useTeacherTaskSession(sessionId: number) {
     }
   }, []);
 
+  // ── Edit expense handlers ──
+  const openEditExpense = useCallback((exp: import('../taskReport').TaskReportExpense) => {
+    setEditingExpense({
+      expenseId: exp.expenseId,
+      taskReportId: exp.taskReportId ?? 0,
+      amount: exp.amount != null ? String(exp.amount) : '',
+      description: exp.description ?? '',
+      file: null,
+      preview: '',
+    });
+    setEditExpenseOpen(true);
+  }, []);
+
+  const closeEditExpense = useCallback(() => {
+    setEditExpenseOpen(false);
+    setEditingExpense(null);
+  }, []);
+
+  const handleSaveExpense = useCallback(async () => {
+    if (!editingExpense) return;
+    const amountNum = Number((editingExpense.amount || '').replace(/\D/g, ''));
+    if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return; }
+    if (!editingExpense.description.trim()) { message.warning('Vui lòng nhập mô tả khoản chi.'); return; }
+    setSavingExpense(true);
+    try {
+      const updated = await taskReportApi.updateExpense(editingExpense.expenseId, {
+        amount: amountNum,
+        description: editingExpense.description.trim(),
+        paymentImg: editingExpense.file ?? undefined,
+      });
+      const patchExpense = (reports: TaskReport[]) =>
+        reports.map((r) =>
+          r.taskReportId === editingExpense.taskReportId
+            ? { ...r, expenses: (r.expenses ?? []).map((e) => (e.expenseId === updated.expenseId ? updated : e)) }
+            : r,
+        );
+      setRequestReports((prev) => patchExpense(prev));
+      setSessionReports((prev) => patchExpense(prev));
+      setEditingReportExpenses((prev) => prev.map((e) => (e.expenseId === updated.expenseId ? updated : e)));
+      message.success('Đã cập nhật khoản chi.');
+      closeEditExpense();
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    } finally {
+      setSavingExpense(false);
+    }
+  }, [editingExpense, closeEditExpense]);
+
+  const saveExpenseDirect = useCallback(async (expenseId: number, taskReportId: number, amount: string, description: string, file: File | null): Promise<boolean> => {
+    const amountNum = Number((amount || '').replace(/\D/g, ''));
+    if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return false; }
+    if (!description.trim()) { message.warning('Vui lòng nhập mô tả.'); return false; }
+    setSavingExpense(true);
+    try {
+      const updated = await taskReportApi.updateExpense(expenseId, {
+        amount: amountNum,
+        description: description.trim(),
+        paymentImg: file ?? undefined,
+      });
+      const patchExpense = (reports: TaskReport[]) =>
+        reports.map((r) =>
+          r.taskReportId === taskReportId
+            ? { ...r, expenses: (r.expenses ?? []).map((e) => (e.expenseId === updated.expenseId ? updated : e)) }
+            : r,
+        );
+      setRequestReports((prev) => patchExpense(prev));
+      setSessionReports((prev) => patchExpense(prev));
+      setEditingReportExpenses((prev) => prev.map((e) => (e.expenseId === updated.expenseId ? updated : e)));
+      message.success('Đã cập nhật khoản chi.');
+      return true;
+    } catch (err) {
+      message.error(getErrorMessage(err));
+      return false;
+    } finally {
+      setSavingExpense(false);
+    }
+  }, []);
+
+  // ── Add new expense to existing report ──
+  const handleAddExpenseToReport = useCallback(async (taskReportId: number, amount: string, description: string, file: File | null): Promise<boolean> => {
+    const amountNum = Number((amount || '').replace(/\D/g, ''));
+    if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return false; }
+    if (!description.trim()) { message.warning('Vui lòng nhập mô tả.'); return false; }
+    if (!file) { message.warning('Vui lòng chọn ảnh chứng từ.'); return false; }
+    
+    setSavingExpense(true);
+    try {
+      const newExpense = await taskReportApi.addExpense({
+        taskReportId,
+        amount: amountNum,
+        description: description.trim(),
+        paymentImg: file,
+      });
+      
+      const addExpense = (reports: TaskReport[]) =>
+        reports.map((r) =>
+          r.taskReportId === taskReportId
+            ? { ...r, expenses: [...(r.expenses ?? []), newExpense] }
+            : r,
+        );
+      setRequestReports((prev) => addExpense(prev));
+      setSessionReports((prev) => addExpense(prev));
+      setEditingReportExpenses((prev) => [...prev, newExpense]);
+      message.success('Đã thêm khoản chi.');
+      return true;
+    } catch (err) {
+      message.error(getErrorMessage(err));
+      return false;
+    } finally {
+      setSavingExpense(false);
+    }
+  }, []);
+
+  // ── Delete expense from existing report ──
+  const handleDeleteExpense = useCallback(async (expenseId: number, taskReportId: number): Promise<boolean> => {
+    setSavingExpense(true);
+    try {
+      await taskReportApi.removeExpense(expenseId);
+      
+      const removeExpense = (reports: TaskReport[]) =>
+        reports.map((r) =>
+          r.taskReportId === taskReportId
+            ? { ...r, expenses: (r.expenses ?? []).filter((e) => e.expenseId !== expenseId) }
+            : r,
+        );
+      setRequestReports((prev) => removeExpense(prev));
+      setSessionReports((prev) => removeExpense(prev));
+      setEditingReportExpenses((prev) => prev.filter((e) => e.expenseId !== expenseId));
+      message.success('Đã xóa khoản chi.');
+      return true;
+    } catch (err) {
+      message.error(getErrorMessage(err));
+      return false;
+    } finally {
+      setSavingExpense(false);
+    }
+  }, []);
+
   return {
     // Data
     session,
@@ -438,5 +594,19 @@ export function useTeacherTaskSession(sessionId: number) {
     updateCreateExpense,
     handleCreateExpenseImgChange,
     createEmptyExpense,
+
+    // Edit expense
+    editExpenseOpen,
+    editingExpense,
+    setEditingExpense,
+    savingExpense,
+    openEditExpense,
+    closeEditExpense,
+    handleSaveExpense,
+    saveExpenseDirect,
+    editingReportExpenses,
+    setEditingReportExpenses,
+    handleAddExpenseToReport,
+    handleDeleteExpense,
   };
 }

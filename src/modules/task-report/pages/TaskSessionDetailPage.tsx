@@ -87,6 +87,7 @@ export default function TaskSessionDetailPage() {
     sessionReportsLoading,
     searchTitle,
     setSearchTitle,
+    refetch,
   } = useManagerTaskSession(parsedSessionId, selectedMemberId);
 
   // ── Members derived from assignments ──
@@ -127,6 +128,7 @@ export default function TaskSessionDetailPage() {
   const [selectedExpense, setSelectedExpense] = useState<TaskReportExpense | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [processingExpense, setProcessingExpense] = useState(false);
+  const [showRejectReason, setShowRejectReason] = useState(false);
 
   // ── Edit expense (teacher, pending only) ──
   const [editExpenseMode, setEditExpenseMode] = useState(false);
@@ -234,8 +236,7 @@ export default function TaskSessionDetailPage() {
     const filterByTitle = (reports: typeof requestReports) => {
       if (!searchTitle.trim()) return reports;
       return reports.filter(r => 
-        r.title?.toLowerCase().includes(searchTitle.toLowerCase()) ||
-        r.description?.toLowerCase().includes(searchTitle.toLowerCase())
+        r.title?.toLowerCase().includes(searchTitle.toLowerCase())
       );
     };
 
@@ -301,19 +302,17 @@ export default function TaskSessionDetailPage() {
     try {
       await expenseApi.approve({ walletId: selectedWalletId, expenseIds: [selectedExpense.expenseId] });
       
-      // Reload data to get updated status
-      window.location.reload();
-      
       message.success('Đã duyệt khoản chi.');
       setSelectedExpense(null);
       setRejectReason('');
+      refetch();
     } catch (err) {
       const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : 'Duyệt thất bại.';
       message.error(msg);
     } finally {
       setProcessingExpense(false);
     }
-  }, [selectedExpense, selectedWalletId]);
+  }, [selectedExpense, selectedWalletId, refetch]);
 
   const handleRejectExpense = useCallback(async () => {
     if (!selectedExpense || !rejectReason.trim()) {
@@ -324,19 +323,17 @@ export default function TaskSessionDetailPage() {
     try {
       await expenseApi.reject({ expenseId: selectedExpense.expenseId, reason: rejectReason.trim() });
       
-      // Reload data to get updated status
-      window.location.reload();
-      
       message.success('Đã từ chối khoản chi.');
       setSelectedExpense(null);
       setRejectReason('');
+      refetch();
     } catch (err) {
       const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : 'Từ chối thất bại.';
       message.error(msg);
     } finally {
       setProcessingExpense(false);
     }
-  }, [selectedExpense, rejectReason]);
+  }, [selectedExpense, rejectReason, refetch]);
 
   const openEditExpense = useCallback((exp: TaskReportExpense) => {
     setEditExpenseMode(true);
@@ -349,6 +346,7 @@ export default function TaskSessionDetailPage() {
   const closeExpenseDetail = useCallback(() => {
     setSelectedExpense(null);
     setRejectReason('');
+    setShowRejectReason(false);
     setEditExpenseMode(false);
     setEditExpenseAmount('');
     setEditExpenseDescription('');
@@ -370,7 +368,7 @@ export default function TaskSessionDetailPage() {
       });
       message.success('Đã cập nhật khoản chi.');
       closeExpenseDetail();
-      window.location.reload();
+      refetch();
     } catch (err) {
       const msg = err && typeof err === 'object' && 'response' in err
         ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
@@ -379,7 +377,7 @@ export default function TaskSessionDetailPage() {
     } finally {
       setSavingExpense(false);
     }
-  }, [selectedExpense, editExpenseAmount, editExpenseDescription, editExpenseFile, closeExpenseDetail]);
+  }, [selectedExpense, editExpenseAmount, editExpenseDescription, editExpenseFile, closeExpenseDetail, refetch]);
 
   const sessionTitle = session
     ? (session.SubjectSession?.Title ?? session.EventSession?.Title ?? session.Notes ?? `Buổi ${session.SessionNo}`)
@@ -441,7 +439,7 @@ export default function TaskSessionDetailPage() {
       {/* Search bar */}
       <div className="shrink-0 flex items-center justify-end gap-3">
         <HoverSearch 
-          placeholder="Tìm theo tiêu đề, mô tả..." 
+          placeholder="Tìm theo tiêu đề..." 
           value={searchTitle} 
           onChange={(v) => setSearchTitle(v)} 
         />
@@ -905,7 +903,7 @@ export default function TaskSessionDetailPage() {
                   {createExpenses.map((exp, idx) => (
                     <div key={exp.key} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-600">Khoản chi #{idx + 1}</span>
+                        <span className="text-xs font-medium text-slate-700">Khoản chi #{idx + 1}</span>
                         {createExpenses.length > 1 && (
                           <button
                             type="button"
@@ -1065,45 +1063,49 @@ export default function TaskSessionDetailPage() {
             </div>
           ) : (
             /* ── Detail view ── */
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Mô tả</label>
+            <div className="space-y-0 divide-y divide-slate-200">
+              <div className="py-4">
+                <label className="block text-xs font-semibold text-slate-500 mb-2">Mô tả</label>
                 <p className="text-sm text-slate-900">{selectedExpense.description || '—'}</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Số tiền</label>
-                <p className="text-lg font-bold text-slate-900">
+              <div className="py-4">
+                <label className="block text-xs font-semibold text-slate-500 mb-2">Số tiền</label>
+                <p className="text-2xl font-bold text-slate-900">
                   {selectedExpense.amount != null
                     ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedExpense.amount)
                     : '—'}
                 </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label>
+              <div className="py-4">
+                <label className="block text-xs font-semibold text-slate-500 mb-2">Trạng thái</label>
                 <Badge className={`${getExpenseStatusInfo(selectedExpense.status).className}`}>
                   {getExpenseStatusInfo(selectedExpense.status).label}
                 </Badge>
               </div>
               {selectedExpense.status === 3 && selectedExpense.rejectReason && (
-                <div>
-                  <label className="block text-sm font-medium text-rose-700 mb-1">Lý do từ chối</label>
-                  <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                <div className="py-4">
+                  <label className="block text-xs font-semibold text-rose-600 mb-2">Lý do từ chối</label>
+                  <p className="text-sm text-rose-700 bg-rose-50 px-3 py-2">
                     {selectedExpense.rejectReason}
                   </p>
                 </div>
               )}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Ảnh minh chứng</label>
+              <div className="py-4">
+                <label className="block text-xs font-semibold text-slate-500 mb-3">Ảnh minh chứng</label>
                 {selectedExpense.paymentImg ? (
                   <button
                     type="button"
                     onClick={() => setPreviewImage(selectedExpense.paymentImg)}
-                    className="w-full border border-slate-200 rounded-lg overflow-hidden hover:border-sky-400 transition-colors"
+                    className="border border-slate-200 rounded-lg overflow-hidden hover:border-sky-400 transition-colors"
                   >
-                    <img src={selectedExpense.paymentImg} alt="Ảnh minh chứng" className="w-full h-auto object-contain max-h-64" />
+                    <img 
+                      src={selectedExpense.paymentImg} 
+                      alt="Ảnh minh chứng" 
+                      className="w-32 h-32 object-cover"
+                    />
                   </button>
                 ) : (
-                  <div className="flex items-center justify-center w-full h-32 border border-slate-200 rounded-lg bg-slate-50">
+                  <div className="flex items-center justify-center w-32 h-32 border border-slate-200 bg-slate-50">
                     <div className="text-center">
                       <ImageOff className="h-8 w-8 text-slate-300 mx-auto mb-1" />
                       <p className="text-xs text-slate-400">Không có ảnh</p>
@@ -1114,51 +1116,92 @@ export default function TaskSessionDetailPage() {
 
               {/* Manager: approve/reject */}
               {getExpenseStatusInfo(selectedExpense.status).code === EXPENSE_STATUS.PENDING && isManager && (
-                <div className="space-y-3 pt-3 border-t border-slate-200">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Chọn ví thanh toán *</label>
-                    {walletsLoading ? (
-                      <div className="text-sm text-slate-500">Đang tải danh sách ví...</div>
-                    ) : wallets.length === 0 ? (
-                      <div className="text-sm text-rose-600">Không có ví nào khả dụng</div>
-                    ) : (
-                      <Select value={selectedWalletId?.toString() ?? ''} onValueChange={(v) => setSelectedWalletId(Number(v))}>
-                        <SelectTrigger className="w-full"><SelectValue placeholder="Chọn ví thanh toán" /></SelectTrigger>
-                        <SelectContent>
-                          {wallets.map((wallet) => (
-                            <SelectItem key={wallet.walletId} value={wallet.walletId.toString()}>
-                              {wallet.walletName} - {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(wallet.balance)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Lý do từ chối (nếu từ chối)</label>
-                    <textarea
-                      className="w-full min-h-[60px] resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      placeholder="Nhập lý do từ chối..."
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                    />
-                  </div>
+                <div className="space-y-3 pt-4">
+                  {!showRejectReason && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Chọn ví thanh toán *</label>
+                      {walletsLoading ? (
+                        <div className="text-sm text-slate-500">Đang tải danh sách ví...</div>
+                      ) : wallets.length === 0 ? (
+                        <div className="text-sm text-rose-600">Không có ví nào khả dụng</div>
+                      ) : (
+                        <Select value={selectedWalletId?.toString() ?? ''} onValueChange={(v) => setSelectedWalletId(Number(v))}>
+                          <SelectTrigger className="w-full"><SelectValue placeholder="Chọn ví thanh toán" /></SelectTrigger>
+                          <SelectContent>
+                            {wallets.map((wallet) => (
+                              <SelectItem key={wallet.walletId} value={wallet.walletId.toString()}>
+                                {wallet.walletName} - {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(wallet.balance)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  )}
+                  {showRejectReason && (
+                    <div>
+                      <label className="block text-sm font-medium text-rose-700 mb-1">Lý do từ chối *</label>
+                      <textarea
+                        className="w-full min-h-[60px] resize-y rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                        placeholder="Nhập lý do từ chối..."
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                      />
+                    </div>
+                  )}
                   <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" size="sm" className="border-rose-200 text-rose-700 hover:bg-rose-50"
-                      onClick={() => void handleRejectExpense()} disabled={processingExpense || !rejectReason.trim()}>
-                      Từ chối
-                    </Button>
-                    <Button type="button" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={() => void handleApproveExpense()} disabled={processingExpense || !selectedWalletId || wallets.length === 0}>
-                      {processingExpense ? 'Đang xử lý...' : 'Duyệt'}
-                    </Button>
+                    {showRejectReason ? (
+                      <>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setShowRejectReason(false);
+                            setRejectReason('');
+                          }}
+                        >
+                          Hủy
+                        </Button>
+                        <Button 
+                          type="button" 
+                          size="sm" 
+                          className="bg-rose-600 hover:bg-rose-700 text-white"
+                          onClick={() => void handleRejectExpense()} 
+                          disabled={processingExpense || !rejectReason.trim()}
+                        >
+                          {processingExpense ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                          onClick={() => setShowRejectReason(true)}
+                        >
+                          Từ chối
+                        </Button>
+                        <Button 
+                          type="button" 
+                          size="sm" 
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={() => void handleApproveExpense()} 
+                          disabled={processingExpense || !selectedWalletId || wallets.length === 0}
+                        >
+                          {processingExpense ? 'Đang xử lý...' : 'Duyệt'}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
 
               {/* Teacher: edit if pending */}
               {getExpenseStatusInfo(selectedExpense.status).code === EXPENSE_STATUS.PENDING && !isManager && (
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
                   <Button type="button" variant="outline" size="sm" onClick={closeExpenseDetail}>Đóng</Button>
                   <Button type="button" size="sm" className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
                     onClick={() => openEditExpense(selectedExpense)}>
@@ -1169,7 +1212,7 @@ export default function TaskSessionDetailPage() {
 
               {/* Non-pending: just close */}
               {getExpenseStatusInfo(selectedExpense.status).code !== EXPENSE_STATUS.PENDING && (
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end pt-4 border-t border-slate-200">
                   <Button type="button" variant="outline" size="sm" onClick={closeExpenseDetail}>Đóng</Button>
                 </div>
               )}

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { CalendarClock, CheckCircle, Hash, ImageOff, ListChecks, Pencil, X, XCircle } from 'lucide-react';
+import { CalendarClock, CheckCircle, Info, ImageOff, Package, Pencil, X, XCircle } from 'lucide-react';
 import type { ReservationDetail } from '@/modules/reservation/reservation.types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -60,6 +60,7 @@ export default function ReservationDetailSidebar({
 }: Props) {
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<number[]>([]);
   const [approving, setApproving] = useState(false);
+  const [showApprovalMode, setShowApprovalMode] = useState(false);
 
   const currentUserRole = useMemo(() => {
     try {
@@ -80,8 +81,6 @@ export default function ReservationDetailSidebar({
   const createdBy = reservation.CreatedByUser;
   const showEditButton = false; // EM không được sửa
   const sessions = reservation.Sessions ?? [];
-  const singleSession = sessions.length === 1 ? sessions[0] : null;
-  const showSeparateSessionSection = sessions.length !== 1;
   const equipmentList = reservation.EquipmentReservations ?? [];
   const equipmentCount =
     reservation.TotalEquipments != null && reservation.TotalEquipments >= 0
@@ -162,7 +161,7 @@ export default function ReservationDetailSidebar({
           <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-4 space-y-4">
 
             {/* Thông tin đặt trước */}
-            <Section icon={Hash} title="Thông tin đặt trước">
+            <Section icon={Info} title="Thông tin đặt trước">
               <div className="pl-4 grid grid-cols-2 gap-x-6">
                 <MetaRow label="Mã đặt trước" value={`#${reservation.ReservationId}`} />
                 <MetaRow label="Trạng thái" value={
@@ -183,39 +182,25 @@ export default function ReservationDetailSidebar({
               </div>
             </Section>
 
-            {/* Buổi (single) */}
-            {singleSession && (
-              <Section icon={CalendarClock} title="Buổi liên quan">
-                <div className="pl-4 grid grid-cols-2 gap-x-6">
-                  <MetaRow label="Buổi" value={`Buổi ${singleSession.SessionNo}`} />
-                  <MetaRow label="Trạng thái" value={(() => {
-                    const info = getSessionStatusInfo(singleSession.Status);
-                    return <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold', info.className)}>{info.label}</span>;
-                  })()} />
-                  <MetaRow label="Thời gian" value={`${formatDateTime(singleSession.StartAt)} — ${formatDateTime(singleSession.EndAt)}`} className="col-span-2" />
-                  <MetaRow label="Địa điểm" value={`${singleSession.Location || '—'}${singleSession.IsOnline != null ? (singleSession.IsOnline ? ' · Trực tuyến' : ' · Trực tiếp') : ''}`} />
-                  {singleSession.Notes && <MetaRow label="Ghi chú" value={singleSession.Notes} />}
-                </div>
-              </Section>
-            )}
-
-            {/* Nhiều buổi */}
-            {showSeparateSessionSection && sessions.length > 0 && (
-              <Section icon={ListChecks} title={`Buổi liên quan (${sessions.length})`}>
+            {/* Buổi liên quan */}
+            {sessions.length > 0 && (
+              <Section icon={CalendarClock} title={`Buổi liên quan (${sessions.length})`}>
                 <div className="pl-4 divide-y divide-slate-200">
                   {sessions.map((s) => {
                     const statusInfo = getSessionStatusInfo(s.Status);
                     return (
-                      <div key={s.SessionId} className="py-2.5 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
+                      <div key={s.SessionId} className="py-2.5 space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-semibold text-black">Buổi {s.SessionNo}</span>
-                          <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold', statusInfo.className)}>{statusInfo.label}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-slate-500">Trạng thái:</span>
+                            <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold', statusInfo.className)}>{statusInfo.label}</span>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-x-4 text-xs text-slate-600">
-                          <span><span className="text-slate-400">Thời gian · </span>{formatDateTime(s.StartAt)} — {formatDateTime(s.EndAt)}</span>
-                          <span><span className="text-slate-400">Địa điểm · </span>{s.Location || '—'}{s.IsOnline != null ? (s.IsOnline ? ' · Trực tuyến' : ' · Trực tiếp') : ''}</span>
+                        <div className="space-y-0.5 text-xs text-slate-600">
+                          <div><span className="text-slate-400">Thời gian · </span>{formatDateTime(s.StartAt)} — {formatDateTime(s.EndAt)}</div>
+                          <div><span className="text-slate-400">Địa điểm · </span>{s.Location || '—'}{s.IsOnline != null ? (s.IsOnline ? ' · Trực tuyến' : ' · Trực tiếp') : ''}</div>
                         </div>
-                        {s.Notes && <p className="text-xs text-slate-600"><span className="text-slate-400">Ghi chú · </span>{s.Notes}</p>}
                       </div>
                     );
                   })}
@@ -225,19 +210,32 @@ export default function ReservationDetailSidebar({
 
             {/* Thiết bị */}
             <Section
-              icon={ListChecks}
+              icon={Package}
               title={`Thiết bị (${equipmentList.length})`}
-              action={isEquipmentManager && equipmentList.length > 0 ? (
-                <Checkbox
-                  checked={selectedEquipmentIds.length === equipmentList.length}
-                  indeterminate={selectedEquipmentIds.length > 0 && selectedEquipmentIds.length < equipmentList.length}
-                  onChange={(e) => {
-                    setSelectedEquipmentIds(e.target.checked ? equipmentList.map(er => er.EquipmentId) : []);
-                  }}
-                >
-                  <span className="text-xs text-slate-600">Chọn tất cả</span>
-                </Checkbox>
-              ) : undefined}
+              action={
+                isEquipmentManager && equipmentList.length > 0 ? (
+                  showApprovalMode ? (
+                    <Checkbox
+                      checked={selectedEquipmentIds.length === equipmentList.length}
+                      indeterminate={selectedEquipmentIds.length > 0 && selectedEquipmentIds.length < equipmentList.length}
+                      onChange={(e) => {
+                        setSelectedEquipmentIds(e.target.checked ? equipmentList.map(er => er.EquipmentId) : []);
+                      }}
+                    >
+                      <span className="text-xs text-slate-600">Chọn tất cả</span>
+                    </Checkbox>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setShowApprovalMode(true)}
+                      className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                    >
+                      Duyệt thiết bị
+                    </Button>
+                  )
+                ) : undefined
+              }
             >
               {equipmentList.length === 0 ? (
                 <p className="pl-4 py-2 text-sm text-slate-500">Không có thiết bị.</p>
@@ -249,9 +247,12 @@ export default function ReservationDetailSidebar({
                       const displayName = eq?.EquipmentName?.trim() || 'Thiết bị';
                       const code = eq?.EquipmentCode?.trim();
                       const isSelected = selectedEquipmentIds.includes(er.EquipmentId);
+                      const isCancelled = er.IsTemporarilyCancelled === true;
+                      const isConfirmed = er.IsTemporarilyCancelled === false;
+                      
                       return (
                         <div key={`${code ?? 'eq'}-${idx}`} className="py-3 flex items-center gap-3">
-                          {isEquipmentManager && (
+                          {isEquipmentManager && showApprovalMode && (
                             <Checkbox
                               checked={isSelected}
                               onChange={(e) => {
@@ -275,8 +276,11 @@ export default function ReservationDetailSidebar({
                                 <p className="text-xs text-slate-500">Mã: <span className="font-medium text-slate-700">{code || '—'}</span></p>
                                 <p className="text-xs text-slate-500">Danh mục: <span className="font-medium text-slate-700">{eq?.CategoryName || '—'}</span></p>
                               </div>
-                              {er.IsTemporarilyCancelled && (
-                                <Badge className="shrink-0 border-0 bg-red-50 text-xs text-red-700">Tạm hủy</Badge>
+                              {isCancelled && (
+                                <Badge className="shrink-0 border-0 bg-red-50 text-xs text-red-700">Từ chối</Badge>
+                              )}
+                              {isConfirmed && (
+                                <Badge className="shrink-0 border-0 bg-green-50 text-xs text-green-700">Đã xác nhận</Badge>
                               )}
                             </div>
                           </div>
@@ -285,7 +289,7 @@ export default function ReservationDetailSidebar({
                     })}
                   </div>
 
-                  {isEquipmentManager && selectedEquipmentIds.length > 0 && (
+                  {isEquipmentManager && showApprovalMode && selectedEquipmentIds.length > 0 && (
                     <div className="mt-3 pl-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
                       <span className="text-sm text-slate-600">
                         Đã chọn <span className="font-semibold text-[#2197C0]">{selectedEquipmentIds.length}</span> thiết bị
@@ -298,6 +302,7 @@ export default function ReservationDetailSidebar({
                               await reservationApi.approveEquipments(reservation.ReservationId, selectedEquipmentIds, false);
                               message.success('Đã từ chối thiết bị');
                               setSelectedEquipmentIds([]);
+                              setShowApprovalMode(false);
                               onEquipmentsApproved?.();
                               onClose();
                             } catch (err: any) {
@@ -316,6 +321,7 @@ export default function ReservationDetailSidebar({
                               await reservationApi.approveEquipments(reservation.ReservationId, selectedEquipmentIds, true);
                               message.success('Đã duyệt thiết bị');
                               setSelectedEquipmentIds([]);
+                              setShowApprovalMode(false);
                               onEquipmentsApproved?.();
                               onClose();
                             } catch (err: any) {

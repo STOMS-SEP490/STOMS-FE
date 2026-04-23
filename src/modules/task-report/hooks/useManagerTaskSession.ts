@@ -30,6 +30,7 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
   const [requestReportsLoading, setRequestReportsLoading] = useState(false);
   const [sessionReportsLoading, setSessionReportsLoading] = useState(false);
   const [searchTitle, setSearchTitle] = useState('');
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   // ── Load session & request ──
   useEffect(() => {
@@ -90,7 +91,7 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
     };
     void run();
     return () => { cancelled = true; };
-  }, [session?.RequestId, selectedMemberId]);
+  }, [session?.RequestId, selectedMemberId, refetchTrigger]);
 
   // ── Load session reports ──
   useEffect(() => {
@@ -118,7 +119,11 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
     };
     void run();
     return () => { cancelled = true; };
-  }, [sessionId, selectedMemberId]);
+  }, [sessionId, selectedMemberId, refetchTrigger]);
+
+  const refetch = () => {
+    setRefetchTrigger(prev => prev + 1);
+  };
 
   return {
     // Data
@@ -131,5 +136,6 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
     sessionReportsLoading,
     searchTitle,
     setSearchTitle,
+    refetch,
   };
 }

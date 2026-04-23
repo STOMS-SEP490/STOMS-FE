@@ -233,14 +233,24 @@ export default function ContractsManagement() {
       enableSorting: false,
       cell: ({ row }: { row: { original: ContractListItem } }) => {
         const contract = row.original;
+        const isPaid = contract.isPaid === true;
+        const canMarkPaid = contract.isPaid === false;
         return (
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            {contract.isPaid !== true && (
-              <Pencil size={16} className="text-blue-600 cursor-pointer" onClick={() => handleEdit(contract)} />
-            )}
-            {contract.isPaid === false && (
-              <CheckCircle size={16} className="text-green-600 cursor-pointer" onClick={() => handleMarkAsPaid(contract)} />
-            )}
+          <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div title={isPaid ? 'Không thể sửa hợp đồng đã thanh toán' : 'Sửa hợp đồng'}>
+              <Pencil
+                size={16}
+                className={isPaid ? 'text-gray-300 cursor-not-allowed' : 'text-blue-600 cursor-pointer'}
+                onClick={isPaid ? undefined : () => handleEdit(contract)}
+              />
+            </div>
+            <div title={canMarkPaid ? 'Đánh dấu đã thanh toán' : 'Hợp đồng đã được thanh toán'}>
+              <CheckCircle
+                size={16}
+                className={canMarkPaid ? 'text-green-600 cursor-pointer' : 'text-gray-300 cursor-not-allowed'}
+                onClick={canMarkPaid ? () => handleMarkAsPaid(contract) : undefined}
+              />
+            </div>
           </div>
         );
       },

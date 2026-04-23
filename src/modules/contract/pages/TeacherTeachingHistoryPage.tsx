@@ -3,7 +3,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Funnel, ChevronRight, FileText, PlusCircle, X, Wallet, Plus, ImageIcon } from 'lucide-react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
-import { DatePicker, message } from 'antd';
+import { DatePicker, message, Modal } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
@@ -56,6 +56,32 @@ export default function TeacherTeachingHistoryPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContract, setDetailContract] = useState<ContractListItem | null>(null);
   const [detailRoleLabel, setDetailRoleLabel] = useState<string | null>(null);
+  const [confirmingContract, setConfirmingContract] = useState(false);
+
+  const handleConfirmContract = useCallback((contract: ContractListItem) => {
+    Modal.confirm({
+      title: 'Xác nhận đã thanh toán hợp đồng?',
+      content: `Hợp đồng ${contract.contractCode} sẽ được đánh dấu là ĐÃ THANH TOÁN. Thao tác này không hoàn tác được.`,
+      okText: 'Xác nhận',
+      cancelText: 'Hủy',
+      okButtonProps: { className: 'bg-emerald-600 hover:bg-emerald-700 text-white border-none' },
+      onOk: async () => {
+        setConfirmingContract(true);
+        try {
+          await contractApi.markAsPaid(contract.contractId);
+          message.success('Đã xác nhận thanh toán hợp đồng.');
+          const updated = await contractApi.getById(contract.contractId);
+          setDetailContract(updated);
+          void refetch();
+        } catch (err) {
+          const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : 'Xác nhận thất bại.';
+          message.error(msg);
+        } finally {
+          setConfirmingContract(false);
+        }
+      },
+    });
+  }, [refetch]);
 
   const [sessionDetailOpen, setSessionDetailOpen] = useState(false);
   const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
@@ -664,6 +690,8 @@ export default function TeacherTeachingHistoryPage() {
         }}
         contract={detailContract}
         roleLabel={detailRoleLabel ?? undefined}
+        onConfirm={handleConfirmContract}
+        confirming={confirmingContract}
       />
 
       {/* Create Task Report Modal */}

@@ -56,6 +56,8 @@ export function useTeacherContributionHistory() {
           contributionId: tx.transactionId,
           memberId: Number(tx.createdBy ?? 0),
           memberName: tx.createdByName ?? null,
+          memberEmail: tx.createdByEmail ?? null,
+          memberAvatar: tx.createdByAvatar ?? null,
           transactionId: tx.transactionId,
           transactionType: tx.transactionType,
           amount: tx.amount ?? 0,
@@ -115,12 +117,15 @@ export function useTeacherContributionHistory() {
   }, [items, search]);
 
   const totalAmount = useMemo(
-    () =>
-      items.reduce(
+    () => {
+      // Chỉ tính tổng khi xem "Tất cả khoản của tôi" (selectedWalletId == null)
+      if (selectedWalletId != null) return 0;
+      return items.reduce(
         (sum, item) => sum + (typeof item.amount === 'number' ? item.amount : 0),
         0,
-      ),
-    [items],
+      );
+    },
+    [items, selectedWalletId],
   );
 
   const onSearchChange = useCallback((value: string) => {
