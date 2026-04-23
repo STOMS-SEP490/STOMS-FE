@@ -242,14 +242,14 @@ export default function TeamLeaderAttendanceSlideOver({
 
           const res = await attendanceApi.checkInWithImages(form);
           if (res?.SkippedMemberIds?.length) {
-            message.warning(`Đã bỏ qua ${res.SkippedMemberIds.length} member (không hợp lệ / đã giờ vào).`);
+            message.warning(`Đã bỏ qua ${res.SkippedMemberIds.length} member.`);
           } else {
             message.success(
-              resetTargets.length > 0 ? 'Đã cập nhật giờ vào và xóa ảnh đã chọn.' : 'Đã lưu giờ vào.',
+              resetTargets.length > 0 ? 'Đã cập nhật xác nhận và xóa ảnh đã chọn.' : 'Đã lưu xác nhận.',
             );
           }
         } else if (resetTargets.length > 0) {
-          message.success('Đã xóa ảnh giờ vào đã chọn.');
+          message.success('Đã xóa ảnh xác nhận đã chọn.');
         }
       } else {
         const items = selected.map((memberId) => ({
@@ -359,10 +359,10 @@ export default function TeamLeaderAttendanceSlideOver({
                   <p className="mt-1 text-xs text-gray-500">
                     Upload ảnh minh chứng để{' '}
                     {actionMode === 'delegate'
-                      ? 'ủy quyền xác nhận tham gia (bao gồm giờ ra)'
+                      ? 'ủy quyền xác nhận tham gia'
                       : actionMode === 'checkin'
-                        ? 'giờ vào'
-                        : 'giờ ra'}
+                        ? 'xác nhận'
+                        : 'xác nhận'}
                     .
                   </p>
                 </div>
@@ -534,25 +534,25 @@ export default function TeamLeaderAttendanceSlideOver({
                           {actionMode === 'checkin' ? (
                             isCheckedInEffective ? (
                               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 whitespace-nowrap">
-                                Đã giờ vào
+                                Đã xác nhận
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 whitespace-nowrap">
-                                Chưa giờ vào
+                                Chưa xác nhận
                               </span>
                             )
                           ) : actionMode === 'checkout' ? (
                             !isCheckedInEffective ? (
                               <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 whitespace-nowrap">
-                                Chưa giờ vào
+                                Chưa xác nhận
                               </span>
                             ) : isCheckedOutEffective ? (
                               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 whitespace-nowrap">
-                                Đã giờ ra
+                                Đã xác nhận
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 whitespace-nowrap">
-                                Chưa giờ ra
+                                Chưa xác nhận
                               </span>
                             )
                           ) : (
@@ -566,7 +566,7 @@ export default function TeamLeaderAttendanceSlideOver({
                           {actionMode === 'checkin' && isCheckedInEffective ? (
                             <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
                               <div className="min-w-0">
-                                <div className="text-[11px] font-medium text-slate-600">Ảnh giờ vào</div>
+                                <div className="text-[11px] font-medium text-slate-600">Ảnh xác nhận</div>
                                 {!checkinImgUrlEffective ? (
                                   <div className="text-[11px] text-slate-500">Chưa có ảnh</div>
                                 ) : null}
@@ -575,7 +575,7 @@ export default function TeamLeaderAttendanceSlideOver({
                                 <div className="flex items-center gap-2 shrink-0">
                                   <img
                                     src={checkinImgUrlEffective}
-                                    alt="Ảnh giờ vào"
+                                    alt="Ảnh xác nhận"
                                     className="h-12 w-12 rounded-md object-cover border border-slate-200 cursor-pointer hover:opacity-90"
                                     onClick={() => setPreviewImgUrl(checkinImgUrlEffective)}
                                     onError={(e) => {
