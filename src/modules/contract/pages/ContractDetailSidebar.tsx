@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { CalendarClock, Hash, User, X } from 'lucide-react';
+import { CalendarClock, CheckCircle, Hash, User, X } from 'lucide-react';
 import { Skeleton } from 'antd';
 import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import type { ContractListItem } from '../contract';
 
@@ -12,6 +13,8 @@ type Props = {
   contract: ContractListItem | null;
   loading?: boolean;
   roleLabel?: string | null;
+  onConfirm?: (contract: ContractListItem) => void;
+  confirming?: boolean;
 };
 
 function formatDateTime(date?: string | null) {
@@ -45,7 +48,7 @@ function MetaRow({ label, value, className }: { label: string; value: ReactNode;
   );
 }
 
-export default function ContractDetailSidebar({ open, onClose, contract, loading, roleLabel }: Props) {
+export default function ContractDetailSidebar({ open, onClose, contract, loading, roleLabel, onConfirm, confirming }: Props) {
   if (!open) return null;
 
   const lecturer = contract?.createdByUser?.member;
@@ -221,6 +224,22 @@ export default function ContractDetailSidebar({ open, onClose, contract, loading
               </>
             ) : null}
           </div>
+
+          {/* FOOTER: nút xác nhận khi chưa thanh toán */}
+          {contract && contract.isPaid === false && onConfirm && (
+            <div className="shrink-0 border-t border-slate-200 bg-white px-5 py-3 flex items-center justify-end gap-3">
+           
+              <Button
+                type="button"
+                disabled={confirming}
+                onClick={() => onConfirm(contract)}
+                className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+              >
+                <CheckCircle className="h-4 w-4" />
+                {confirming ? 'Đang xác nhận...' : 'Xác nhận hợp đồng đã được thanh toán'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -94,11 +94,16 @@ export default function EventDetailSidebar({ open, onClose, event }: Props) {
               {/* Các buổi */}
               <Section icon={Layers} title="Các buổi trong sự kiện">
                 {eventSessions.length > 0 ? (
-                  <div className="pl-4 divide-y divide-slate-200">
+                  <ol className="pl-4 flex flex-col gap-0">
                     {eventSessions.map((es, index) => (
-                      <SessionBlock key={es.eventSessionId ?? index} session={es} index={index} />
+                      <SessionRow
+                        key={es.eventSessionId ?? index}
+                        session={es}
+                        index={index}
+                        isLast={index === eventSessions.length - 1}
+                      />
                     ))}
-                  </div>
+                  </ol>
                 ) : (
                   <div className="pl-4 py-2">
                     <p className="text-sm text-slate-500">Chưa có buổi nào trong sự kiện này.</p>
@@ -134,7 +139,15 @@ function Section({
   );
 }
 
-function SessionBlock({ session, index }: { session: EventSession; index: number }) {
+function SessionRow({
+  session,
+  index,
+  isLast,
+}: {
+  session: EventSession;
+  index: number;
+  isLast: boolean;
+}) {
   const no = session.sessionNo ?? index + 1;
   const title = session.title || `Buổi ${no}`;
   const skills = (session.eventSessionSkills ?? []).filter((x) => x?.isActive !== false);
@@ -142,64 +155,74 @@ function SessionBlock({ session, index }: { session: EventSession; index: number
   const desc = session.description?.trim();
 
   return (
-    <div className="py-2.5">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#2197C0]/10 text-[10px] font-semibold text-[#2197C0]">
+    <li className="relative flex gap-3">
+      <div className="relative flex w-8 shrink-0 flex-col items-center self-stretch">
+        {!isLast && (
+          <div
+            className="pointer-events-none absolute bottom-[-0.5rem] left-1/2 top-8 w-0.5 -translate-x-1/2 bg-sky-200"
+            aria-hidden
+          />
+        )}
+        <div
+          className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-[11px] font-bold tabular-nums text-sky-700"
+          aria-hidden
+        >
           {no}
-        </span>
-        <h4 className="text-sm font-semibold text-black">{title}</h4>
-        {session.duration ? (
-          <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-500">
-            <Clock className="h-3 w-3" aria-hidden />
-            {session.duration}
-          </span>
-        ) : null}
-      </div>
-
-      {desc ? (
-        <p className="text-xs leading-relaxed text-slate-600 mb-1.5">{desc}</p>
-      ) : null}
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        <div>
-          <p className="text-xs font-medium text-[#2197C0] mb-1 flex items-center gap-1">
-            <Sparkles className="h-3 w-3" aria-hidden /> Kỹ năng
-          </p>
-          {skills.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {skills.map((x, i) => (
-                <Badge
-                  key={`${x.eventSessionId}-${x.skillId}-${i}`}
-                  className="rounded-full border-0 bg-violet-50 text-violet-800 text-xs font-medium"
-                >
-                  {x.skillName ?? `#${x.skillId}`}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <span className="text-xs text-slate-400">Chưa gán</span>
-          )}
-        </div>
-        <div>
-          <p className="text-xs font-medium text-[#2197C0] mb-1 flex items-center gap-1">
-            <Tags className="h-3 w-3" aria-hidden /> Chủ đề
-          </p>
-          {topics.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {topics.map((x, i) => (
-                <Badge
-                  key={`${x.eventSessionId}-${x.topicId}-${i}`}
-                  className="rounded-full border-0 bg-amber-50 text-amber-800 text-xs font-medium"
-                >
-                  {x.topicName ?? `#${x.topicId}`}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <span className="text-xs text-slate-400">Chưa gán</span>
-          )}
         </div>
       </div>
-    </div>
+      <div className="min-w-0 flex-1 pb-3 pt-1">
+        <div className="flex flex-wrap items-start justify-between gap-1 mb-0.5">
+          <span className="text-sm font-semibold text-black">{title}</span>
+          {session.duration ? (
+            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+              <Clock className="h-3 w-3" aria-hidden />
+              {session.duration}
+            </span>
+          ) : null}
+        </div>
+        {desc ? <p className="text-xs leading-relaxed text-slate-600 mb-2">{desc}</p> : null}
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-medium text-[#2197C0] mb-1 flex items-center gap-1">
+              <Sparkles className="h-3 w-3" aria-hidden /> Kỹ năng
+            </p>
+            {skills.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {skills.map((x, i) => (
+                  <Badge
+                    key={`${x.eventSessionId}-${x.skillId}-${i}`}
+                    className="rounded-full border-0 bg-violet-50 text-violet-800 text-xs font-medium"
+                  >
+                    {x.skillName ?? `#${x.skillId}`}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">Chưa gán</span>
+            )}
+          </div>
+          <div>
+            <p className="text-xs font-medium text-[#2197C0] mb-1 flex items-center gap-1">
+              <Tags className="h-3 w-3" aria-hidden /> Chủ đề
+            </p>
+            {topics.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {topics.map((x, i) => (
+                  <Badge
+                    key={`${x.eventSessionId}-${x.topicId}-${i}`}
+                    className="rounded-full border-0 bg-amber-50 text-amber-800 text-xs font-medium"
+                  >
+                    {x.topicName ?? `#${x.topicId}`}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400">Chưa gán</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </li>
   );
 }

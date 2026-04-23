@@ -13,6 +13,13 @@ import { Label } from '@/shared/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Switch } from '@/shared/components/ui/switch';
 import { cn } from '@/shared/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
 
 type Props = {
   open: boolean;
@@ -25,8 +32,9 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
   const [teamName, setTeamName] = useState('');
   const [leaderMemberId, setLeaderMemberId] = useState<number | null>(null);
   const [candidates, setCandidates] = useState<Member[]>([]);
-  const [leaderOptions, setLeaderOptions] = useState<Member[]>([]);
+  const [teamLeaders, setTeamLeaders] = useState<Member[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [loadingLeaders, setLoadingLeaders] = useState(false);
   const [loadingTopics, setLoadingTopics] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -39,10 +47,13 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
   const [pendingTopicIdsToAdd, setPendingTopicIdsToAdd] = useState<number[]>([]);
   const [showAddTopic, setShowAddTopic] = useState(false);
 
+  const TEAM_LEADER_ROLE_ID = 2;
+
   useEffect(() => {
     const fetchCandidates = async () => {
       if (!open || !team) {
         setCandidates([]);
+        setTeamLeaders([]);
         setSelectedMemberIds([]);
         setCurrentTeamMemberIds([]);
         setTopicCandidates([]);
@@ -66,20 +77,22 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
 
       try {
         setLoadingCandidates(true);
+        setLoadingLeaders(true);
         setLoadingTopics(true);
 
-        const [membersRes, topicsRes, teamDetails] = await Promise.all([
+        const [membersRes, leadersRes, topicsRes, teamDetails] = await Promise.all([
           memberApi.getMembers({ pageSize: 500 }),
+          memberApi.getMembers({ RoleId: TEAM_LEADER_ROLE_ID, pageSize: 100 }),
           topicApi.getTopics({ pageNumber: 1, pageSize: 500 }),
           teamService.getTeamById(team.teamId),
         ]);
 
         const items = ((membersRes as any).items ?? []) as Member[];
+        const leaders = ((leadersRes as any).items ?? []) as Member[];
         const allTopics = (((topicsRes as any).items ?? []) as TopicListItem[]).filter((t) => t?.isActive);
 
         const isInThisTeam = (m: any) => Number(m?.team?.teamId) === Number(team.teamId);
         const isNoTeam = (m: any) => m?.team == null || m?.team?.teamId == null;
-        const isTeamLeaderRole = (m: any) => Number(m?.roleId) === 2;
         const isTeacherOrTa = (m: any) => {
           const roleId = Number(m?.roleId);
           return roleId === 4 || roleId === 5;
@@ -99,36 +112,9 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         ];
 
         const inTeamIds = inTeam.map((m) => m.memberId);
-        let currentLeader =
-          leaderId != null ? items.find((m) => Number(m.memberId) === Number(leaderId)) : undefined;
-
-        // Đảm bảo select có option cho leader hiện tại (tránh case value không match option => hiển thị rỗng)
-        if (!currentLeader && leaderId != null && (teamDetails as any)?.members?.length) {
-          const fromDetail = ((teamDetails as any).members as Member[]).find(
-            (m) => Number(m.memberId) === Number(leaderId),
-          );
-          if (fromDetail) currentLeader = fromDetail;
-        }
-        if (!currentLeader && leaderId != null) {
-          try {
-            const detail = await memberApi.getMemberById(leaderId);
-            currentLeader = detail as unknown as Member;
-          } catch {
-            // ignore: fallback sẽ hiện leaderId nhưng không có tên
-          }
-        }
-
-    
-        const leaderCandidates = items.filter((m: any) => isTeamLeaderRole(m));
-        const leaderMerged = currentLeader
-          ? [
-              currentLeader,
-              ...leaderCandidates.filter((m) => Number(m.memberId) !== Number(currentLeader.memberId)),
-            ]
-          : leaderCandidates;
 
         setCandidates(merged);
-        setLeaderOptions(leaderMerged);
+        setTeamLeaders(leaders);
         setCurrentTeamMemberIds(inTeamIds);
         const ensureLeader = leaderId != null ? Array.from(new Set([...inTeamIds, leaderId])) : inTeamIds;
         setSelectedMemberIds(ensureLeader);
@@ -142,10 +128,11 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         setShowAddTopic(false);
       } catch {
         setCandidates([]);
-        setLeaderOptions([]);
+        setTeamLeaders([]);
         setTopicCandidates([]);
       } finally {
         setLoadingCandidates(false);
+        setLoadingLeaders(false);
         setLoadingTopics(false);
       }
     };
@@ -239,7 +226,7 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
     setTeamName('');
     setLeaderMemberId(null);
     setCandidates([]);
-    setLeaderOptions([]);
+    setTeamLeaders([]);
     setTopicCandidates([]);
     setError('');
     setSelectedMemberIds([]);
@@ -299,33 +286,37 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-black font-medium">
+          <Label htmlFor="edit-leaderMemberId" className="text-black font-medium">
             Trưởng nhóm <span className="text-red-500">*</span>
           </Label>
-          <select
-            value={leaderMemberId != null ? String(leaderMemberId) : ''}
-            onChange={(e) => {
-              const nextLeaderId = e.target.value === '' ? null : Number(e.target.value);
+          <Select
+            value={leaderMemberId?.toString() ?? ''}
+            onValueChange={(value) => {
+              const nextLeaderId = value === '' ? null : Number(value);
               setLeaderMemberId(nextLeaderId);
               if (nextLeaderId != null) {
                 setSelectedMemberIds((prev) => (prev.includes(nextLeaderId) ? prev : [...prev, nextLeaderId]));
               }
             }}
-            className="w-full rounded-md border border-gray-200 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            disabled={loadingLeaders}
           >
-            <option value="">— Chọn trưởng nhóm —</option>
-            {leaderMemberId != null &&
-              !leaderOptions.some((m) => Number(m.memberId) === Number(leaderMemberId)) && (
-                <option value={String(leaderMemberId)}>
-                  Trưởng nhóm hiện tại (ID: {leaderMemberId})
-                </option>
+            <SelectTrigger className="h-10 text-black border-gray-200">
+              <SelectValue placeholder={loadingLeaders ? 'Đang tải...' : 'Chọn trưởng nhóm'} />
+            </SelectTrigger>
+            <SelectContent>
+              {teamLeaders.map((member) => (
+                <SelectItem key={member.memberId} value={member.memberId.toString()}>
+                  {member.fullName || `Member #${member.memberId}`}
+                  {member.team?.teamName ? ` - ${member.team.teamName}` : ''}
+                </SelectItem>
+              ))}
+              {teamLeaders.length === 0 && !loadingLeaders && (
+                <div className="px-2 py-1.5 text-sm text-gray-500">
+                  Không có trưởng nhóm nào
+                </div>
               )}
-            {leaderOptions.map((m) => (
-              <option key={m.memberId} value={String(m.memberId)}>
-                {m.fullName} {m.team?.teamName ? `- ${m.team.teamName}` : ''}
-              </option>
-            ))}
-          </select>
+            </SelectContent>
+          </Select>
           {leaderMemberId != null && (
             <p className="text-sm text-gray-600">
               Trưởng nhóm hiện tại của nhóm {team.teamName}

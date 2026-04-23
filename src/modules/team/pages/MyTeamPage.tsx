@@ -1,27 +1,12 @@
 import { useMemo, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Spin } from 'antd';
-import {
-  Award,
-  Building2,
-  CreditCard,
-  Hash,
-  Mail,
-  MapPin,
-  Phone,
-  RotateCcw,
-  User,
-  Users,
-  X,
-} from 'lucide-react';
+import { Users, X } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { DataTable } from '@/shared/components/common/DataTable';
-import { TableTextAction } from '@/shared/components/common/TableTextAction';
-import HoverSearch from '@/shared/components/ui/search';
 import { getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 import { useMyTeam } from '../hooks/useMyTeam';
 import type { MemberSkillItem, TeamMemberItem, TeamTopicItem } from '../team';
@@ -53,29 +38,17 @@ function formatTopicBadge(t: TeamTopicItem) {
 export default function MyTeamPage() {
   const { data: teamDetail, loading, error, refetch } = useMyTeam();
 
-  const [search, setSearch] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
   const pageSize = 10;
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMemberItem | null>(null);
 
-  const filteredMembers = useMemo(() => {
-    if (!teamDetail?.members) return [];
-    const q = search.trim().toLowerCase();
-    if (!q) return teamDetail.members;
-    return teamDetail.members.filter(
-      (m) =>
-        m.fullName?.toLowerCase().includes(q) ||
-        m.email?.toLowerCase().includes(q) ||
-        m.phone?.toLowerCase().includes(q),
-    );
-  }, [teamDetail, search]);
-
   const pagedMembers = useMemo(() => {
+    if (!teamDetail?.members) return [];
     const start = (pageNumber - 1) * pageSize;
-    return filteredMembers.slice(start, start + pageSize);
-  }, [filteredMembers, pageNumber, pageSize]);
+    return teamDetail.members.slice(start, start + pageSize);
+  }, [teamDetail, pageNumber, pageSize]);
 
   const handleView = (member: TeamMemberItem) => {
     setSelectedMember(member);
@@ -88,16 +61,6 @@ export default function MyTeamPage() {
   };
 
   const columns: ColumnDef<TeamMemberItem>[] = [
-    {
-      id: 'stt',
-      header: 'STT',
-      enableSorting: false,
-      cell: ({ row }) => (
-        <span className="text-xs tabular-nums text-gray-800">
-          {(pageNumber - 1) * pageSize + row.index + 1}
-        </span>
-      ),
-    },
     {
       id: 'user',
       header: 'Thành viên',
@@ -132,10 +95,14 @@ export default function MyTeamPage() {
       ),
     },
     {
-      id: 'actions',
-      header: () => <span className="block w-full text-center">Thao tác</span>,
-      enableSorting: false,
-      cell: ({ row }) => <TableTextAction onClick={() => handleView(row.original)} />,
+      id: 'skillCount',
+      header: 'Số kỹ năng',
+      cell: ({ row }) => {
+        const activeSkills = (row.original.skills ?? []).filter(s => s.isActive);
+        return (
+          <span className="text-sm text-gray-700 tabular-nums">{activeSkills.length}</span>
+        );
+      },
     },
   ];
 
@@ -200,47 +167,24 @@ export default function MyTeamPage() {
       </div>
 
       <div className="shrink-0 px-2 py-1">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {(teamDetail.topics ?? []).length > 0 ? (
-              (teamDetail.topics ?? []).map((t) => formatTopicBadge(t))
-            ) : (
-              <span className="text-xs text-gray-400">Chủ đề nhóm sẽ hiển thị tại đây khi được gán.</span>
-            )}
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <HoverSearch
-              placeholder="Tìm theo tên, email, SĐT..."
-              value={search}
-              onChange={(v) => {
-                setSearch(v);
-                setPageNumber(1);
-              }}
-            />
-            <Button
-              variant="secondary"
-              className="h-9 border-slate-200 bg-white"
-              type="button"
-              onClick={() => {
-                setSearch('');
-                setPageNumber(1);
-              }}
-              title="Đặt lại bộ lọc"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {(teamDetail.topics ?? []).length > 0 ? (
+            (teamDetail.topics ?? []).map((t) => formatTopicBadge(t))
+          ) : (
+            <span className="text-xs text-gray-400">Chủ đề nhóm sẽ hiển thị tại đây khi được gán.</span>
+          )}
         </div>
       </div>
 
-      <div className="relative flex w-full min-w-0 flex-col bg-white rounded-2xl border border-slate-200 shadow-sm p-4 [&_tbody_tr]:min-h-16 [&_tbody_td]:align-middle">
+      <div className="relative flex w-full min-w-0 flex-col bg-white rounded-2xl border border-slate-200 shadow-sm p-4 [&_tbody_tr]:min-h-16 [&_tbody_td]:align-middle [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-slate-50">
         <DataTable
           columns={columns}
           data={pagedMembers}
           pageNumber={pageNumber}
           pageSize={pageSize}
-          totalItems={filteredMembers.length}
+          totalItems={teamDetail?.members.length ?? 0}
           onPageChange={(page) => setPageNumber(page)}
+          onRowClick={(row) => handleView(row)}
           comfortable
         />
       </div>
@@ -263,6 +207,7 @@ function MemberDetailPanel({
 
   const roleLabel = getRoleLabel(member.roleId);
   const skills: MemberSkillItem[] = member.skills ?? [];
+  const activeSkills = skills.filter(s => s.isActive);
 
   return (
     <>
@@ -276,32 +221,28 @@ function MemberDetailPanel({
       )}
 
       <aside
-        className={`fixed top-0 right-0 z-50 flex h-full w-full max-w-[min(100%,560px)] flex-col border-l border-slate-200/80 bg-white shadow-2xl transition-transform duration-300 ease-out ${
+        className={`fixed top-0 right-0 z-50 flex h-full w-[720px] max-w-[96vw] flex-col bg-white shadow-2xl transition-transform duration-300 ease-out ${
           open ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
       >
-        <div className="shrink-0 border-b border-slate-100 bg-gradient-to-b from-slate-50/90 to-white px-5 pb-5 pt-6">
-          <div className="flex justify-between gap-3">
+        {/* Header */}
+        <div className="shrink-0 border-b border-gray-200 bg-sky-50/30 px-6 py-4">
+          <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 gap-4">
-              <div className="relative shrink-0">
-                <img
-                  src={member.avatarUrl || '/img/ava.png'}
-                  alt={member.fullName}
-                  className="h-20 w-20 rounded-2xl object-cover bg-white ring-1 ring-slate-200/80"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/img/ava.png';
-                  }}
-                />
-              </div>
+              <img
+                src={member.avatarUrl || '/img/ava.png'}
+                alt={member.fullName}
+                className="h-16 w-16 shrink-0 border border-slate-200 bg-slate-100 object-cover"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/img/ava.png';
+                }}
+              />
               <div className="min-w-0 pt-0.5">
-                <h2 className="truncate text-lg font-semibold text-slate-900">{member.fullName}</h2>
-                <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-slate-600">
-                  <Mail className="h-3.5 w-3.5 shrink-0 text-slate-500" />
-                  {member.email || '—'}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge className={`${getRoleBadgeClass(member.roleId)} border px-2.5 py-0.5 text-[11px]`}>
+                <h2 className="text-lg font-semibold text-slate-900">{member.fullName}</h2>
+                <p className="mt-1 text-sm text-slate-600">{member.email || '—'}</p>
+                <div className="mt-2">
+                  <Badge className={`${getRoleBadgeClass(member.roleId)} border px-2 py-0.5 text-xs`}>
                     {roleLabel}
                   </Badge>
                 </div>
@@ -310,59 +251,71 @@ function MemberDetailPanel({
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              className="shrink-0 p-2 text-slate-400 transition hover:text-slate-700"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto app-page-bg px-5 py-5">
-          <div className="space-y-8">
-            <DetailSection icon={User} title="Liên hệ & địa chỉ" tone="sky">
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                  <MemberMetaRow icon={Phone} label="Số điện thoại" value={member.phone} />
-                  <MemberMetaRow icon={MapPin} label="Địa chỉ" value={member.address} className="sm:col-span-2" />
-                </div>
+        {/* Content */}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa]">
+          {/* Thông tin liên hệ */}
+          <div className="border-b border-gray-200 bg-white">
+            <div className="border-b border-gray-100 bg-sky-50/30 px-6 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">Thông tin liên hệ</h3>
+            </div>
+            <div className="px-6 py-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <InfoRow label="Số điện thoại" value={member.phone || '—'} />
+                <InfoRow label="Địa chỉ" value={member.address || '—'} className="sm:col-span-2" />
               </div>
-            </DetailSection>
+            </div>
+          </div>
 
-            <DetailSection icon={CreditCard} title="Giấy tờ & ngân hàng" tone="violet">
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                  <MemberMetaRow icon={Hash} label="CMND / CCCD" value={member.cin} />
-                  <MemberMetaRow icon={Hash} label="Mã số thuế" value={member.taxNumber} />
-                  <MemberMetaRow icon={Building2} label="Ngân hàng" value={member.bankName} />
-                  <MemberMetaRow icon={CreditCard} label="Số tài khoản" value={member.bankCode} />
-                </div>
+          {/* Giấy tờ & ngân hàng */}
+          <div className="border-b border-gray-200 bg-white">
+            <div className="border-b border-gray-100 bg-sky-50/30 px-6 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">Giấy tờ & ngân hàng</h3>
+            </div>
+            <div className="px-6 py-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <InfoRow label="CMND / CCCD" value={member.cin || '—'} />
+                <InfoRow label="Mã số thuế" value={member.taxNumber || '—'} />
+                <InfoRow label="Ngân hàng" value={member.bankName || '—'} />
+                <InfoRow label="Số tài khoản" value={member.bankCode || '—'} />
               </div>
-            </DetailSection>
+            </div>
+          </div>
 
-            <DetailSection icon={Award} title="Kỹ năng" tone="amber">
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                {skills.length === 0 ? (
-                  <p className="text-sm text-slate-500">Chưa có kỹ năng được ghi nhận.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {skills.map((s) => (
-                      <span
-                        key={`${s.skillId}-${s.skillName}`}
-                        className={cn(
-                          'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium',
-                          s.isActive
-                            ? 'bg-amber-50/90 text-amber-950 ring-1 ring-amber-100/90'
-                            : 'bg-slate-100/90 text-slate-500 line-through opacity-75 ring-1 ring-slate-200/80',
-                        )}
-                      >
-                        <Award className="h-3.5 w-3.5 shrink-0 opacity-80" />
-                        {s.skillName}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </DetailSection>
+          {/* Kỹ năng */}
+          <div className="border-b border-gray-200 bg-white">
+            <div className="border-b border-gray-100 bg-sky-50/30 px-6 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Kỹ năng {activeSkills.length > 0 && `(${activeSkills.length})`}
+              </h3>
+            </div>
+            <div className="px-6 py-4">
+              {skills.length === 0 ? (
+                <p className="text-sm text-slate-500">Chưa có kỹ năng được ghi nhận.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {skills.map((s) => (
+                    <Badge
+                      key={`${s.skillId}-${s.skillName}`}
+                      className={cn(
+                        'border px-2.5 py-1 text-xs font-medium',
+                        s.isActive
+                          ? 'border-amber-200 bg-amber-50 text-amber-900'
+                          : 'border-slate-200 bg-slate-100 text-slate-500 line-through opacity-75',
+                      )}
+                    >
+                      {s.skillName}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </aside>
@@ -370,54 +323,19 @@ function MemberDetailPanel({
   );
 }
 
-const detailSectionToneClass: Record<'sky' | 'violet' | 'amber', string> = {
-  sky: 'text-sky-600',
-  violet: 'text-violet-600',
-  amber: 'text-amber-600',
-};
-
-/** Cùng pattern với `MetaRow` trong chi tiết hợp đồng — không viền từng ô. */
-function DetailSection({
-  icon: Icon,
-  title,
-  tone,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  tone: keyof typeof detailSectionToneClass;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-2.5">
-        <Icon className={cn('h-5 w-5 shrink-0', detailSectionToneClass[tone])} strokeWidth={2} aria-hidden />
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function MemberMetaRow({
-  icon: Icon,
+function InfoRow({
   label,
   value,
   className,
 }: {
-  icon: LucideIcon;
   label: string;
   value: ReactNode;
   className?: string;
 }) {
-  const display = value == null || value === '' ? '—' : value;
   return (
-    <div className={cn('flex min-w-0 gap-3', className)}>
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#2197C0]" aria-hidden />
-      <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-slate-500">{label}</div>
-        <div className="mt-0.5 break-words text-sm font-medium text-slate-900">{display}</div>
-      </div>
+    <div className={cn('min-w-0', className)}>
+      <div className="text-xs font-medium uppercase tracking-wide text-[#2197C0]">{label}</div>
+      <div className="mt-0.5 text-sm font-medium text-slate-900">{value || '—'}</div>
     </div>
   );
 }
