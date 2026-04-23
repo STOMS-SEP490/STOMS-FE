@@ -1,3 +1,6 @@
+// DEPRECATED: File này đã cũ, đang dùng file mới ở /api/attendanceApi.ts
+// TODO: Migrate tất cả code sang file mới rồi xóa file này
+
 import axiosClient from '@/shared/lib/axios';
 
 import type {
@@ -13,8 +16,9 @@ import type { AttendanceResponse } from '@/modules/request/session.types';
 const attendanceApi = {
   delegate: (payload: AttendanceDelegatePayload): Promise<void> => {
     return axiosClient.post<void, void>('/attendances/delegations', {
-      SessionId: payload.sessionId,
-      DelegateToMemberId: payload.delegateToMemberId,
+      sessionId: payload.sessionId,
+      delegateToMemberId: payload.delegateToMemberId,
+      previousAttendanceByMemberId: payload.previousAttendanceByMemberId ?? 0,
     });
   },
   checkIn: (payload: AttendanceCheckInPayload): Promise<AttendanceBatchResponse> => {

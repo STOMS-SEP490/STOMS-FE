@@ -94,8 +94,34 @@ export default function SessionDetailPopover({
 
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
   const ownerIdFromSession = getAttendanceOwnerId(session?.Attendances ?? null);
+  
+  // Check if current user is assigned to this session (as teacher or TA)
+  const isAssignedToSession = useMemo(() => {
+    if (!session || memberId <= 0) return false;
+    const assignments = session.Assignments ?? [];
+    return assignments.some((a: any) => {
+      const staffMemberId = Number(a.StaffMemberId ?? 0);
+      return staffMemberId === memberId;
+    });
+  }, [session, memberId]);
+  
+  // Check if current user has their own attendance record (meaning they need to self-check-in)
+  const hasOwnAttendanceRecord = useMemo(() => {
+    if (!session || memberId <= 0) return false;
+    const attendances = session.Attendances ?? [];
+    return attendances.some((att: any) => {
+      const attMemberId = Number(att.memberId ?? 0);
+      const attByMemberId = Number(att.attendanceByMemberId ?? 0);
+      // User có attendance record và họ là người được giao xác nhận cho chính mình
+      return attMemberId === memberId && (attByMemberId === memberId || attByMemberId === 0 || attByMemberId == null);
+    });
+  }, [session, memberId]);
+  
   const canSeeAttendanceButton =
-    isTeamLeaderRoute || isTeamLeader || (ownerIdFromSession != null && ownerIdFromSession === memberId);
+    isTeamLeaderRoute || 
+    isTeamLeader || 
+    (ownerIdFromSession != null && ownerIdFromSession === memberId) ||
+    (isAssignedToSession && hasOwnAttendanceRecord); // Teacher/TA chỉ thấy nút nếu họ phải tự điểm danh
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);

@@ -36,7 +36,8 @@ export type TeamLeaderAttendanceSlideOverProps = {
   isSubmitting: boolean;
   setIsSubmitting: (v: boolean) => void;
   setActionMode: Dispatch<SetStateAction<AttendanceActionMode>>;
-  /** Đổi tab Check-in / Check-out / Ủy quyền (đồng bộ chọn member). */
+  isLoadingAttendance?: boolean;
+  /** Đổi tab Giờ vào / Giờ ra / Ủy quyền (đồng bộ chọn member). */
   switchActionMode: (mode: AttendanceTab) => void;
   closePanel: () => void;
   saveAttendance: () => void;
@@ -44,6 +45,8 @@ export type TeamLeaderAttendanceSlideOverProps = {
   refetch?: () => Promise<void>;
   /** z-index lớp phủ (vd. z-[80] khi mở từ popover lịch) */
   overlayZClass?: string;
+  /** Ẩn tab Ủy quyền (dùng cho role Teacher/TA) */
+  hideDelegate?: boolean;
 };
 
 export default function TeamLeaderAttendanceSlideOver({
@@ -62,6 +65,7 @@ export default function TeamLeaderAttendanceSlideOver({
   isSubmitting,
   setIsSubmitting,
   setActionMode,
+  isLoadingAttendance = false,
   switchActionMode,
   closePanel,
   saveAttendance: _saveAttendance,
@@ -69,6 +73,7 @@ export default function TeamLeaderAttendanceSlideOver({
   refetch,
 
   overlayZClass = 'z-[80]',
+  hideDelegate = false,
 }: TeamLeaderAttendanceSlideOverProps) {
   const [checkinImagesByMemberId, setCheckinImagesByMemberId] = useState<Record<number, File | null>>({});
   const [checkoutImagesByMemberId, setCheckoutImagesByMemberId] = useState<Record<number, File | null>>({});
@@ -161,9 +166,9 @@ export default function TeamLeaderAttendanceSlideOver({
       : '';
 
   const tabs: { id: AttendanceTab; label: string }[] = [
-    { id: 'checkin', label: 'Check-in' },
-    { id: 'checkout', label: 'Check-out' },
-    { id: 'delegate', label: 'Ủy quyền' },
+    { id: 'checkin', label: 'Giờ vào' },
+    { id: 'checkout', label: 'Giờ ra' },
+    ...(!hideDelegate ? [{ id: 'delegate' as AttendanceTab, label: 'Ủy quyền' }] : []),
   ];
 
   const closePreview = () => setPreviewImgUrl(null);
@@ -237,14 +242,14 @@ export default function TeamLeaderAttendanceSlideOver({
 
           const res = await attendanceApi.checkInWithImages(form);
           if (res?.SkippedMemberIds?.length) {
-            message.warning(`Đã bỏ qua ${res.SkippedMemberIds.length} member (không hợp lệ / đã check-in).`);
+            message.warning(`Đã bỏ qua ${res.SkippedMemberIds.length} member (không hợp lệ / đã giờ vào).`);
           } else {
             message.success(
-              resetTargets.length > 0 ? 'Đã cập nhật check-in và xóa ảnh đã chọn.' : 'Đã lưu check-in.',
+              resetTargets.length > 0 ? 'Đã cập nhật giờ vào và xóa ảnh đã chọn.' : 'Đã lưu giờ vào.',
             );
           }
         } else if (resetTargets.length > 0) {
-          message.success('Đã xóa ảnh check-in đã chọn.');
+          message.success('Đã xóa ảnh giờ vào đã chọn.');
         }
       } else {
         const items = selected.map((memberId) => ({
@@ -264,14 +269,14 @@ export default function TeamLeaderAttendanceSlideOver({
 
           const res = await attendanceApi.checkOutWithImages(form);
           if (res?.SkippedMemberIds?.length) {
-            message.warning(`Đã bỏ qua ${res.SkippedMemberIds.length} member (không hợp lệ / đã check-out).`);
+            message.warning(`Đã bỏ qua ${res.SkippedMemberIds.length} member.`);
           } else {
             message.success(
-              resetTargets.length > 0 ? 'Đã cập nhật check-out và xóa ảnh đã chọn.' : 'Đã lưu check-out.',
+              resetTargets.length > 0 ? 'Đã cập nhật giờ ra và xóa ảnh đã chọn.' : 'Đã lưu giờ ra.',
             );
           }
         } else if (resetTargets.length > 0) {
-          message.success('Đã xóa ảnh check-out đã chọn.');
+          message.success('Đã xóa ảnh giờ ra đã chọn.');
         }
       }
 
@@ -354,10 +359,10 @@ export default function TeamLeaderAttendanceSlideOver({
                   <p className="mt-1 text-xs text-gray-500">
                     Upload ảnh minh chứng để{' '}
                     {actionMode === 'delegate'
-                      ? 'ủy quyền xác nhận tham gia (bao gồm check-out)'
+                      ? 'ủy quyền xác nhận tham gia (bao gồm giờ ra)'
                       : actionMode === 'checkin'
-                        ? 'check-in'
-                        : 'check-out'}
+                        ? 'giờ vào'
+                        : 'giờ ra'}
                     .
                   </p>
                 </div>
@@ -385,7 +390,7 @@ export default function TeamLeaderAttendanceSlideOver({
               <div className="px-5 pb-5">
               {filteredAttendanceItems.length === 0 && (
                 <div className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                  Chưa có member nào cần xác nhận tham gia.
+                  {isLoadingAttendance ? 'Đang tải danh sách...' : 'Chưa có member nào cần xác nhận tham gia.'}
                 </div>
               )}
 
@@ -504,7 +509,9 @@ export default function TeamLeaderAttendanceSlideOver({
                               await attendanceApi.delegate({
                                 sessionId: activeSession.sessionId,
                                 delegateToMemberId: memberId,
+                                previousAttendanceByMemberId: attendanceByMemberIdForSession,
                               });
+                              message.success('Ủy quyền xác nhận tham gia thành công.');
                               await refreshAttendanceItems();
                               await refetch?.();
                               setActionMode(null);
@@ -527,25 +534,25 @@ export default function TeamLeaderAttendanceSlideOver({
                           {actionMode === 'checkin' ? (
                             isCheckedInEffective ? (
                               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 whitespace-nowrap">
-                                Đã check-in
+                                Đã giờ vào
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 whitespace-nowrap">
-                                Chưa check-in
+                                Chưa giờ vào
                               </span>
                             )
                           ) : actionMode === 'checkout' ? (
                             !isCheckedInEffective ? (
                               <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 whitespace-nowrap">
-                                Chưa check-in
+                                Chưa giờ vào
                               </span>
                             ) : isCheckedOutEffective ? (
                               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 whitespace-nowrap">
-                                Đã check-out
+                                Đã giờ ra
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 whitespace-nowrap">
-                                Chưa check-out
+                                Chưa giờ ra
                               </span>
                             )
                           ) : (
@@ -559,7 +566,7 @@ export default function TeamLeaderAttendanceSlideOver({
                           {actionMode === 'checkin' && isCheckedInEffective ? (
                             <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
                               <div className="min-w-0">
-                                <div className="text-[11px] font-medium text-slate-600">Ảnh check-in</div>
+                                <div className="text-[11px] font-medium text-slate-600">Ảnh giờ vào</div>
                                 {!checkinImgUrlEffective ? (
                                   <div className="text-[11px] text-slate-500">Chưa có ảnh</div>
                                 ) : null}
@@ -568,7 +575,7 @@ export default function TeamLeaderAttendanceSlideOver({
                                 <div className="flex items-center gap-2 shrink-0">
                                   <img
                                     src={checkinImgUrlEffective}
-                                    alt="Ảnh check-in"
+                                    alt="Ảnh giờ vào"
                                     className="h-12 w-12 rounded-md object-cover border border-slate-200 cursor-pointer hover:opacity-90"
                                     onClick={() => setPreviewImgUrl(checkinImgUrlEffective)}
                                     onError={(e) => {
@@ -594,7 +601,7 @@ export default function TeamLeaderAttendanceSlideOver({
                           {actionMode === 'checkout' && isCheckedOutEffective ? (
                             <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
                               <div className="min-w-0">
-                                <div className="text-[11px] font-medium text-slate-600">Ảnh check-out</div>
+                                <div className="text-[11px] font-medium text-slate-600">Ảnh giờ ra</div>
                                 {!checkoutImgUrlEffective ? (
                                   <div className="text-[11px] text-slate-500">Chưa có ảnh</div>
                                 ) : null}
@@ -603,7 +610,7 @@ export default function TeamLeaderAttendanceSlideOver({
                                 <div className="flex items-center gap-2 shrink-0">
                                   <img
                                     src={checkoutImgUrlEffective}
-                                    alt="Ảnh check-out"
+                                    alt="Ảnh giờ ra"
                                     className="h-12 w-12 rounded-md object-cover border border-slate-200 cursor-pointer hover:opacity-90"
                                     onClick={() => setPreviewImgUrl(checkoutImgUrlEffective)}
                                     onError={(e) => {
