@@ -974,8 +974,8 @@ export default function RequestDetailTeamPanel({
           {canEdit && requestedTeachers > selectedTeacherCount && (
             <div className="flex justify-end border-t border-slate-200 pt-2">
               <span className="text-xs text-slate-500">
-                Còn thiếu:{' '}
-                <span className="font-semibold text-amber-600">{requestedTeachers - selectedTeacherCount} Giảng viên</span>
+                {/* Còn thiếu:{' '}
+                <span className="font-semibold text-amber-600">{requestedTeachers - selectedTeacherCount} Giảng viên</span> */}
               </span>
             </div>
           )}
@@ -1224,12 +1224,12 @@ export default function RequestDetailTeamPanel({
           })}
           {canEdit && requestedTas > totals.tas && (
             <div className="flex justify-end">
-              <span className="text-xs text-slate-500">
+              {/* <span className="text-xs text-slate-500">
                 Còn thiếu:{' '}
                 <span className="font-semibold text-amber-600">
                   {requestedTas - totals.tas} Sinh viên
                 </span>
-              </span>
+              </span> */}
             </div>
           )}
         </div>

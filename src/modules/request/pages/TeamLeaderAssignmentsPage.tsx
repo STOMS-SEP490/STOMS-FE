@@ -434,7 +434,16 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {selectedRequest.sessions.map((session) => {
+                    {[...selectedRequest.sessions]
+                      .sort((a, b) => {
+                        // Sort theo startAt để giữ thứ tự nhất quán
+                        const timeA = new Date(a.startAt).getTime();
+                        const timeB = new Date(b.startAt).getTime();
+                        if (timeA !== timeB) return timeA - timeB;
+                        // Nếu cùng thời gian thì sort theo sessionNo
+                        return (a.sessionNo ?? 0) - (b.sessionNo ?? 0);
+                      })
+                      .map((session) => {
                       const detailLoaded = Boolean(sessionDetailsById[session.sessionId]);
                       const stats = getSessionStats(session);
                       const sessionStatusInfo = getSessionStatusInfo(session.status);

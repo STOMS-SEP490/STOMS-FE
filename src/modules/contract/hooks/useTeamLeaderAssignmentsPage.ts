@@ -796,7 +796,14 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         const mapped = rawItems
           .map((session) => mapFilteredSessionLite(session, selectedRequestId))
           .filter((session) => session.sessionId > 0)
-          .sort((a, b) => (a.sessionNo ?? 0) - (b.sessionNo ?? 0));
+          .sort((a, b) => {
+            // Sort theo startAt để giữ thứ tự giống ban đầu
+            const timeA = new Date(a.startAt).getTime();
+            const timeB = new Date(b.startAt).getTime();
+            if (timeA !== timeB) return timeA - timeB;
+            // Nếu cùng thời gian thì sort theo sessionNo
+            return (a.sessionNo ?? 0) - (b.sessionNo ?? 0);
+          });
 
         if (cancelled) return;
 

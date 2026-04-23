@@ -20,7 +20,10 @@ export default function TeamLeaderSidebar() {
   const menus: RoleSidebarMenuItem[] = [
       { label: 'Thống kê', icon: BarChart3, path: '/tl/dashboard' },
       { label: 'Hồ sơ', icon: UserCircle, path: '/tl/profile' },
+            { label: 'Phân công', icon: ClipboardCheck, path: '/tl/assignments' },
+
       { label: 'Nhóm', icon: Users, path: '/tl/teams' },
+      
       {
         kind: 'group',
         label: 'Loại yêu cầu',
@@ -43,7 +46,6 @@ export default function TeamLeaderSidebar() {
       { label: 'Hợp đồng', icon: FileText, path: '/tl/contracts' },
       { label: 'Đóng góp quỹ', icon: Wallet, path: '/tl/fund-contributions' },
       { label: 'Thiết bị', icon: Package, path: '/tl/equipments' },
-      { label: 'Phân công', icon: ClipboardCheck, path: '/tl/assignments' },
     ];
 
   return <RoleSidebar profilePath="/tl/profile" menus={menus} />;
