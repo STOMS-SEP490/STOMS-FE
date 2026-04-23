@@ -85,6 +85,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
   const {
     loading,
     requestSessionsLoading,
+    // sendingAssignments, // Unused variable
     requests,
     filteredRequests,
     selectedRequestId,
@@ -104,15 +105,9 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
   useEffect(() => {
     if (!hasDetailRequestId) return;
     const existedInRequests = requests.some((r) => r.requestId === detailRequestId);
-    // Tránh race lúc mount: có nhịp loading=false nhưng requests chưa sync xong.
-    // Chỉ điều hướng ngược khi đã có danh sách request thực tế và id không tồn tại.
-    if (!loading && requests.length > 0 && !existedInRequests) {
-      navigate('/tl/assignments');
-      return;
-    }
     if (!existedInRequests) return;
     setSelectedRequestId(detailRequestId);
-  }, [detailRequestId, hasDetailRequestId, loading, navigate, requests, setSelectedRequestId]);
+  }, [detailRequestId, hasDetailRequestId, requests, setSelectedRequestId]);
 
   const [reportSessionOpen, setReportSessionOpen] = useState(false);
   const [reportSessionReason, setReportSessionReason] = useState('');
@@ -261,7 +256,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
           <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar pr-1">
           {!selectedRequest ? (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-sm text-gray-500">
-              Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
+              Chọn một yêu cầu để xem chi tiết và phân công.
             </div>
           ) : (
             <div className="space-y-4 flex flex-col min-h-0 flex-1">
@@ -720,9 +715,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           sessionId={activeSession.sessionId}
                           canEdit
                           onAssignmentUpdated={async () => {
-                            // Refresh session detail để lấy status mới
+                            // Refresh session detail và request để lấy status mới
                             await refreshSessionDetailById(activeSession.sessionId);
-                            // Refresh request để lấy request status mới
                             await refetchRequestById(activeSession.requestId);
                           }}
                         />

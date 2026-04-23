@@ -16,11 +16,19 @@ const attendanceApi = {
       },
     ),
 
-  delegateAttendance: (sessionId: number, delegateToMemberId: number): Promise<void> =>
-    axiosClient.post<void, void>('/attendances/delegations', {
-      SessionId: sessionId,
-      DelegateToMemberId: delegateToMemberId,
-    }),
+  delegateAttendance: (
+    sessionId: number,
+    delegateToMemberId: number,
+    previousAttendanceByMemberId?: number | null,
+  ): Promise<void> => {
+    const payload = {
+      sessionId: sessionId,
+      delegateToMemberId: delegateToMemberId,
+      previousAttendanceByMemberId: previousAttendanceByMemberId ?? 0,
+    };
+    console.log('🔥 delegateAttendance payload:', payload);
+    return axiosClient.post<void, void>('/attendances/delegations', payload);
+  },
 
   checkInBatch: (
     sessionId: number,

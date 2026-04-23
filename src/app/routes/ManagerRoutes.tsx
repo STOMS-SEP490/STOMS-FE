@@ -29,7 +29,7 @@ import ManagerDashboard from '@/modules/dashboard/pages/ManagerDashboard';
 
 const RequestPlaceholder = () => (
   <div className="p-6 text-sm text-gray-500">
-    Chọn một yêu cầu ở danh sách bên trái để xem chi tiết và phân công.
+    Chọn một yêu cầu để xem chi tiết và phân công.
   </div>
 );
 

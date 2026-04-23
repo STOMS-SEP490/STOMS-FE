@@ -124,6 +124,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
     closePanel,
     saveAttendance,
     refreshAttendanceItems,
+    isLoadingAttendance,
   } = useTeamLeaderAttendancePanel({ refetch });
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -803,6 +804,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
         closePanel={closePanel}
         saveAttendance={saveAttendance}
         refreshAttendanceItems={refreshAttendanceItems}
+        isLoadingAttendance={isLoadingAttendance}
         refetch={refetch}
       />
     </div>

@@ -517,7 +517,17 @@ export default function RequestDetailTeamPanel({
         teamId,
         tasRequired: Math.max(0, Number(teamQuantities[teamId]?.tasRequired ?? 0) || 0),
       }));
-      await teamSessionApi.replaceForSession(session.sessionId, items);
+      
+      // Nếu chưa có team nào được assign (lần đầu), dùng POST bulk
+      // Nếu đã có team rồi (đang sửa), dùng PUT replace
+      const isFirstTimeAssign = !currentAssignedTeamIds || currentAssignedTeamIds.length === 0;
+      
+      if (isFirstTimeAssign) {
+        await teamSessionApi.bulkAssignToSession(session.sessionId, items);
+      } else {
+        await teamSessionApi.replaceForSession(session.sessionId, items);
+      }
+      
       onAssignSession(session.sessionId, addedTeamIds, finalQuantities);
       setTeamEditMode(false);
       setShowAddTeam(false);
@@ -527,7 +537,7 @@ export default function RequestDetailTeamPanel({
     } finally {
       setSaving(false);
     }
-  }, [addedTeamIds, hasTeamChanges, onAssignSession, session.sessionId, teamQuantities]);
+  }, [addedTeamIds, currentAssignedTeamIds, hasTeamChanges, onAssignSession, session.sessionId, teamQuantities]);
 
   const resetTeamDraftFromCurrent = useCallback(() => {
     const ids = currentAssignedTeamIds ?? [];

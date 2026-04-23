@@ -1,6 +1,7 @@
 export type AttendanceDelegatePayload = {
   sessionId: number;
   delegateToMemberId: number;
+  previousAttendanceByMemberId?: number | null;
 };
 
 export type AttendanceBatchItem = {
