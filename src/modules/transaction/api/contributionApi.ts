@@ -5,6 +5,8 @@ export type ContributionListItem = {
   contributionId: number;
   memberId: number;
   memberName: string | null;
+  memberEmail: string | null;
+  memberAvatar: string | null;
   transactionId: number;
   transactionType?: number | null;
   amount: number | null;
@@ -15,12 +17,14 @@ export type ContributionListItem = {
 
 /** BE `ContributionResponse` trả tên thành viên trong `member.fullName`, không có `memberName` phẳng. */
 function normalizeContribution(raw: Record<string, unknown>): ContributionListItem {
-  const member = raw.member as { fullName?: string | null } | undefined;
+  const member = raw.member as { fullName?: string | null; email?: string | null; avatarUrl?: string | null } | undefined;
   return {
     contributionId: Number(raw.contributionId),
     memberId: Number(raw.memberId),
     memberName:
       (raw.memberName as string | null | undefined) ?? member?.fullName ?? null,
+    memberEmail: member?.email ?? null,
+    memberAvatar: member?.avatarUrl ?? null,
     transactionId: Number(raw.transactionId),
     transactionType:
       raw.transactionType === null || raw.transactionType === undefined

@@ -92,7 +92,13 @@ export type ExpenseCreatePayload = {
   paymentImg?: File | null;
 };
 
-/* ─── Expense filter params (khớp BE ExpenseFilterRequest) ─── */
+/* ─── Expense update payload (multipart/form-data → ExpenseUpdateRequest) ─── */
+
+export type ExpenseUpdatePayload = {
+  amount: number;
+  description: string;
+  paymentImg?: File | null;
+};
 
 export type ExpenseFilterParams = {
   pageNumber?: number;

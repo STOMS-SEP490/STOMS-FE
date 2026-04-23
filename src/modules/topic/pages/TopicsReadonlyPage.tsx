@@ -3,18 +3,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { Drawer, message, Skeleton } from 'antd';
 import { useSearchParams } from 'react-router-dom';
-import type { LucideIcon } from 'lucide-react';
-import {
-  CalendarClock,
-  FileText,
-  GraduationCap,
-  Hash,
-  RotateCcw,
-  ShieldCheck,
-  Sparkles,
-  Users,
-  X,
-} from 'lucide-react';
+import { BookOpen, CalendarClock, Hash, RotateCcw, Users, X } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { MANAGER_ROLE_ID } from '@/constants/role';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -139,10 +128,6 @@ export default function TopicsReadonlyPage() {
     [],
   );
 
-  const subjectsCount = detailTopic?.subjects?.length ?? 0;
-  const eventsCount = detailTopic?.events?.length ?? detailTopic?.eventSessionTopics?.length ?? 0;
-  const teamsCount = detailTopic?.teams?.length ?? detailTopic?.teamTopics?.length ?? 0;
-
   return (
     <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
       <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
@@ -206,130 +191,207 @@ export default function TopicsReadonlyPage() {
             <Skeleton active title={{ width: '60%' }} paragraph={{ rows: 8 }} />
           </div>
         ) : detailTopic ? (
-          <div className="bg-slate-50/70">
-            <header className="border-b border-slate-100 bg-white px-5 pb-4 pt-5">
-              <div className="space-y-3">
+          <div className="flex h-full flex-col">
+            {/* HEADER */}
+            <header className="w-full shrink-0 border-b border-slate-200 bg-white">
+              <div className="px-6 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <h2 className="truncate text-lg font-semibold tracking-tight text-[#1a7a99]">
-                      {detailTopic.topicName || '—'}
-                    </h2>
-                    <Badge
-                      className={cn(
-                        'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT CHỦ ĐỀ</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-semibold text-[#1a7a99]">{detailTopic.topicName}</h2>
+                      <Badge className={cn(
+                        'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium border-0',
                         detailTopic.isActive
-                          ? 'border-0 bg-emerald-100 text-emerald-800'
-                          : 'border-0 bg-slate-200 text-slate-700',
-                      )}
-                    >
-                      {detailTopic.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-                    </Badge>
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-200 text-slate-700',
+                      )}>
+                        {detailTopic.isActive ? 'Đang hoạt động' : 'Vô hiệu hóa'}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">Chủ đề #{detailTopic.topicId}</p>
                   </div>
                   <button
                     type="button"
                     onClick={closeDetailFromUrl}
-                    className="shrink-0 rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                    className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                     aria-label="Đóng"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <HeaderChip icon={Hash} label={`TP-${detailTopic.topicId}`} title="Mã chủ đề" />
-                  <HeaderChip icon={GraduationCap} label={`${subjectsCount} môn`} title="Số môn học" />
-                  <HeaderChip icon={Sparkles} label={`${eventsCount} sự kiện`} title="Số sự kiện" />
-                  <HeaderChip icon={Users} label={`${teamsCount} nhóm`} title="Số nhóm" />
+              </div>
+
+              {/* Meta bar */}
+              <div className="grid w-full grid-cols-3 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
+                <div className="px-5 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Ngày tạo</p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {detailTopic.createdAt ? new Date(detailTopic.createdAt).toLocaleString('vi-VN') : '—'}
+                  </p>
+                </div>
+                <div className="px-5 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Cập nhật lần cuối</p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {detailTopic.updatedAt ? new Date(detailTopic.updatedAt).toLocaleString('vi-VN') : '—'}
+                  </p>
+                </div>
+                <div className="px-5 py-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Trạng thái</p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {detailTopic.isActive ? 'Đang hoạt động' : 'Vô hiệu hóa'}
+                  </p>
                 </div>
               </div>
             </header>
 
-            <div className="space-y-8 px-5 py-5">
-              <Section icon={CalendarClock} title="Thông tin chung">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <MetaTile icon={Hash} label="Topic ID" value={String(detailTopic.topicId)} />
-                  <MetaTile
-                    icon={CalendarClock}
-                    label="Ngày tạo"
-                    value={detailTopic.createdAt ? dayjs(detailTopic.createdAt).format('DD/MM/YYYY HH:mm') : '—'}
-                  />
-                  <MetaTile
-                    icon={ShieldCheck}
-                    label="Trạng thái"
-                    value={detailTopic.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-                  />
-                </div>
-              </Section>
+            {/* BODY */}
+            <div className="relative min-h-0 w-full flex-1 overflow-y-auto bg-white px-5 py-4">
+              <div className="space-y-4">
 
-              <Section icon={FileText} title="Mô tả">
-                <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
-                  {detailTopic.description?.trim() ? detailTopic.description : 'Chưa có mô tả.'}
-                </p>
-              </Section>
-
-              <Section icon={GraduationCap} title="Môn học liên quan">
-                {detailTopic.subjects && detailTopic.subjects.length > 0 ? (
-                  <div className="space-y-2">
-                    {detailTopic.subjects.map((s) => (
-                      <div
-                        key={s.subjectId}
-                        className="rounded-xl bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-slate-200/60"
-                      >
-                        <div className="text-sm font-medium text-slate-900">
-                          {s.subjectCode || `SUB-${s.subjectId}`} — {s.subjectName || '—'}
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {s.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-                        </div>
-                      </div>
-                    ))}
+                {/* Thông tin chung */}
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
+                    <Hash className="h-4 w-4 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
+                    <h3 className="text-sm font-semibold text-black">Thông tin chung</h3>
                   </div>
-                ) : (
-                  <p className="text-sm text-slate-500">Chưa có môn học liên quan.</p>
-                )}
-              </Section>
-
-              <Section icon={Sparkles} title="Sự kiện liên quan">
-                {detailTopic.events && detailTopic.events.length > 0 ? (
-                  <div className="space-y-2">
-                    {detailTopic.events.map((ev) => (
-                      <div
-                        key={ev.eventId}
-                        className="rounded-xl bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-slate-200/60"
-                      >
-                        <div className="text-sm font-medium text-slate-900">
-                          {ev.eventCode || `EV-${ev.eventId}`} — {ev.eventName || '—'}
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {ev.eventSessions?.length ?? 0} buổi · {ev.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="pl-4 divide-y divide-slate-200">
+                    <MetaRow label="Tên chủ đề" value={detailTopic.topicName || '—'} />
+                    <MetaRow
+                      label="Trạng thái"
+                      value={
+                        detailTopic.isActive ? (
+                          <Badge className="border-0 bg-emerald-100 text-emerald-800">Hoạt động</Badge>
+                        ) : (
+                          <Badge className="border-0 bg-orange-100 text-orange-700">Ngừng hoạt động</Badge>
+                        )
+                      }
+                    />
+                    <MetaRow 
+                      label="Ngày tạo" 
+                      value={detailTopic.createdAt ? new Date(detailTopic.createdAt).toLocaleString('vi-VN') : '—'} 
+                    />
+                    <MetaRow 
+                      label="Cập nhật lần cuối" 
+                      value={detailTopic.updatedAt ? new Date(detailTopic.updatedAt).toLocaleString('vi-VN') : '—'} 
+                    />
+                    <MetaRow label="Mô tả" value={detailTopic.description || '—'} />
                   </div>
-                ) : (
-                  <p className="text-sm text-slate-500">Chưa có sự kiện liên quan.</p>
-                )}
-              </Section>
+                </section>
 
-              <Section icon={Users} title="Nhóm liên quan">
-                {detailTopic.teams && detailTopic.teams.length > 0 ? (
-                  <div className="space-y-2">
-                    {detailTopic.teams.map((t) => (
-                      <div
-                        key={t.teamId}
-                        className="rounded-xl bg-white px-3.5 py-2.5 shadow-sm ring-1 ring-slate-200/60"
-                      >
-                        <div className="text-sm font-medium text-slate-900">{t.teamName || `Team #${t.teamId}`}</div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          Trưởng nhóm: {t.leaderMember?.fullName || t.leaderMember?.email || '—'}
-                        </div>
-                      </div>
-                    ))}
+                {/* Sự kiện */}
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
+                    <CalendarClock className="h-4 w-4 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
+                    <h3 className="text-sm font-semibold text-black">Sự kiện ({detailTopic.events?.length ?? 0})</h3>
                   </div>
-                ) : (
-                  <p className="text-sm text-slate-500">Chưa có nhóm liên quan.</p>
-                )}
-              </Section>
+                  {!detailTopic.events || detailTopic.events.length === 0 ? (
+                    <div className="pl-4 py-2">
+                      <p className="text-sm text-slate-500">Chưa có sự kiện nào.</p>
+                    </div>
+                  ) : (
+                    <div className="pl-4 divide-y divide-slate-200">
+                      {detailTopic.events.map((ev) => (
+                        <div key={ev.eventId} className="py-2.5 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded bg-[#2197C0]/10 px-1.5 py-0.5 text-xs font-semibold text-[#2197C0]">
+                              {ev.eventCode}
+                            </span>
+                            <Badge className={cn(
+                              'border-0 text-xs',
+                              ev.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600',
+                            )}>
+                              {ev.isActive ? 'Hoạt động' : 'Vô hiệu hóa'}
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-semibold text-black">{ev.eventName}</p>
+                          {ev.eventSessions && ev.eventSessions.length > 0 && (
+                            <div className="flex flex-col gap-0.5">
+                              {ev.eventSessions.map((s) => (
+                                <span key={s.eventSessionNo} className="text-xs text-slate-500">
+                                  Buổi {s.eventSessionNo}: {s.title}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
 
+                {/* Nhóm */}
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
+                    <Users className="h-4 w-4 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
+                    <h3 className="text-sm font-semibold text-black">Nhóm ({detailTopic.teams?.length ?? 0})</h3>
+                  </div>
+                  {!detailTopic.teams || detailTopic.teams.length === 0 ? (
+                    <div className="pl-4 py-2">
+                      <p className="text-sm text-slate-500">Chưa có nhóm nào.</p>
+                    </div>
+                  ) : (
+                    <div className="pl-4 divide-y divide-slate-200">
+                      {detailTopic.teams.map((team) => (
+                        <div key={team.teamId} className="py-2.5 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-black">{team.teamName}</span>
+                            <Badge className={cn(
+                              'border-0 text-xs',
+                              team.teamTopicIsActive ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600',
+                            )}>
+                              {team.teamTopicIsActive ? 'Hoạt động' : 'Vô hiệu hóa'}
+                            </Badge>
+                          </div>
+                          {team.leaderMember && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-500 shrink-0">Trưởng nhóm:</span>
+                              <img
+                                src={team.leaderMember.avatarUrl?.trim() || '/img/ava.png'}
+                                alt=""
+                                className="h-5 w-5 rounded-full object-cover"
+                              />
+                              <span className="text-xs text-slate-600">
+                                {team.leaderMember.fullName}
+                                <span className="text-slate-400"> · {team.leaderMember.email}</span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {/* Môn học */}
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
+                    <BookOpen className="h-4 w-4 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
+                    <h3 className="text-sm font-semibold text-black">Môn học ({detailTopic.subjects?.length ?? 0})</h3>
+                  </div>
+                  {!detailTopic.subjects || detailTopic.subjects.length === 0 ? (
+                    <div className="pl-4 py-2">
+                      <p className="text-sm text-slate-500">Chưa có môn học nào.</p>
+                    </div>
+                  ) : (
+                    <div className="pl-4 divide-y divide-slate-200">
+                      {detailTopic.subjects.map((sub) => (
+                        <div key={sub.subjectId} className="py-2 flex items-center gap-2">
+                          {sub.subjectCode && (
+                            <span className="shrink-0 rounded bg-[#2197C0]/10 px-1.5 py-0.5 text-xs font-semibold text-[#2197C0]">
+                              {sub.subjectCode}
+                            </span>
+                          )}
+                          <p className="text-sm font-medium text-black">
+                            {sub.subjectName || `#${sub.subjectId}`}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+              </div>
             </div>
           </div>
         ) : (
@@ -340,62 +402,11 @@ export default function TopicsReadonlyPage() {
   );
 }
 
-function HeaderChip({
-  icon: Icon,
-  label,
-  title,
-}: {
-  icon: LucideIcon;
-  label: string;
-  title: string;
-}) {
+function MetaRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <span
-      title={title}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1 text-xs text-slate-700 shadow-sm ring-1 ring-slate-200/80"
-    >
-      <Icon className="h-3.5 w-3.5 text-[#2197C0]" aria-hidden />
-      <span className="font-medium">{label}</span>
-    </span>
-  );
-}
-
-function Section({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-2.5">
-        <Icon className="h-5 w-5 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-      </div>
-      <div>{children}</div>
-    </section>
-  );
-}
-
-function MetaTile({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: ReactNode;
-}) {
-  return (
-    <div className="flex gap-3 rounded-xl bg-white px-3.5 py-3 shadow-sm ring-1 ring-slate-200/60">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#2197C0]/90" aria-hidden />
-      <div className="min-w-0">
-        <div className="text-xs font-medium text-slate-500">{label}</div>
-        <div className="mt-0.5 break-words text-sm font-medium text-slate-900">{value}</div>
-      </div>
+    <div className="py-1.5">
+      <div className="text-xs font-medium text-[#2197C0]">{label}</div>
+      <div className="mt-0.5 break-words text-sm text-black">{value}</div>
     </div>
   );
 }

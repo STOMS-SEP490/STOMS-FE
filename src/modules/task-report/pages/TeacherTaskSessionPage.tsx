@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, Clock, FileText, MapPin, Plus, RotateCcw, Trash2, Wallet, X, Image as ImageIcon } from 'lucide-react';
-import { Spin, Timeline } from 'antd';
+import { ArrowLeft, CalendarDays, Clock, FileText, MapPin, Pencil, Plus, RotateCcw, Trash2, Wallet, X, Image as ImageIcon, ImageOff } from 'lucide-react';
+import { Spin, Timeline, message, Image as AntImage } from 'antd';
 import dayjs from 'dayjs';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -25,6 +25,15 @@ function formatDateRange(start?: string | null, end?: string | null) {
   } catch {
     return `${start} – ${end}`;
   }
+}
+
+// Helper function to check if report has any approved or rejected expenses
+function hasProcessedExpenses(expenses?: Array<{ status?: number | null }> | null) {
+  if (!expenses || expenses.length === 0) return false;
+  return expenses.some(exp => 
+    exp.status === EXPENSE_STATUS.APPROVED || 
+    exp.status === EXPENSE_STATUS.REJECTED
+  );
 }
 
 export default function TeacherTaskSessionPage() {
@@ -64,8 +73,25 @@ export default function TeacherTaskSessionPage() {
     handleCreateExpenseImgChange,
     createEmptyExpense,
     setCreateExpenses,
+    editExpenseOpen,
+    editingExpense,
+    setEditingExpense,
+    savingExpense,
+    closeEditExpense,
+    handleSaveExpense,
+    editingReportExpenses,
+    saveExpenseDirect,
+    handleAddExpenseToReport,
+    handleDeleteExpense,
   } = useTeacherTaskSession(parsedSessionId);
 
+  const [expandedExpenseId, setExpandedExpenseId] = useState<number | null>(null);
+  const [inlineExpenseForm, setInlineExpenseForm] = useState<{ amount: string; description: string; file: File | null; preview: string; existingImgUrl: string | null }>({ amount: '', description: '', file: null, preview: '', existingImgUrl: null });
+  const [isAddingNewExpense, setIsAddingNewExpense] = useState(false);
+  const [newExpenseForm, setNewExpenseForm] = useState<{ amount: string; description: string; file: File | null; preview: string }>({ amount: '', description: '', file: null, preview: '' });
+  const [deleteExpenseDialog, setDeleteExpenseDialog] = useState<{ open: boolean; expenseId: number | null; taskReportId: number | null }>({ open: false, expenseId: null, taskReportId: null });
+  const [deleteReportDialog, setDeleteReportDialog] = useState<{ open: boolean; reportId: number | null }>({ open: false, reportId: null });
+  const [selectedExpenseDetail, setSelectedExpenseDetail] = useState<import('../taskReport').TaskReportExpense | null>(null);
   const { requestReports: sortedRequestReports, sessionReports: sortedSessionReports } = useMemo(() => {
     const filterByTitle = (reports: typeof requestReports) => {
       if (!searchTitle.trim()) return reports;
@@ -242,6 +268,7 @@ export default function TeacherTaskSessionPage() {
                     className="mt-4"
                     items={sortedRequestReports.map((r) => {
                       const hasExpenses = (r.expenses?.length ?? 0) > 0;
+                      const canEdit = !hasProcessedExpenses(r.expenses);
                       return {
                         dot: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
                         children: (
@@ -273,17 +300,33 @@ export default function TeacherTaskSessionPage() {
                                     type="button"
                                     size="sm"
                                     variant="ghost"
-                                    className="h-7 px-2 text-xs text-slate-600"
-                                    onClick={() => startEdit(r)}
+                                    className="h-7 w-7 p-0 text-slate-500 hover:text-[#2197C0] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => {
+                                      if (!canEdit) {
+                                        message.warning('Chỉ được sửa khi chưa có khoản chi nào được duyệt hoặc từ chối');
+                                        return;
+                                      }
+                                      startEdit(r);
+                                    }}
+                                    disabled={!canEdit}
+                                    title={!canEdit ? 'Không thể sửa khi có khoản chi đã được duyệt/từ chối' : 'Sửa báo cáo'}
                                   >
-                                    Sửa
+                                    <Pencil className="h-3.5 w-3.5" />
                                   </Button>
                                   <Button
                                     type="button"
                                     size="sm"
                                     variant="ghost"
-                                    className="h-7 px-1.5 text-red-500 hover:bg-red-50"
-                                    onClick={() => void handleDelete(r.taskReportId)}
+                                    className="h-7 px-1.5 text-red-500 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => {
+                                      if (!canEdit) {
+                                        message.warning('Chỉ được xóa khi chưa có khoản chi nào được duyệt hoặc từ chối');
+                                        return;
+                                      }
+                                      setDeleteReportDialog({ open: true, reportId: r.taskReportId });
+                                    }}
+                                    disabled={!canEdit}
+                                    title={!canEdit ? 'Không thể xóa khi có khoản chi đã được duyệt/từ chối' : 'Xóa báo cáo'}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </Button>
@@ -301,13 +344,14 @@ export default function TeacherTaskSessionPage() {
                                       : info.code === EXPENSE_STATUS.REJECTED ? 'text-rose-900'
                                       : 'text-slate-900';
                                     return (
-                                      <div
+                                      <button
                                         key={exp.expenseId ?? idx}
-                                        className="w-full bg-white border-t border-slate-200 px-4 py-3"
+                                        onClick={() => setSelectedExpenseDetail(exp)}
+                                        className="w-full bg-white border-t border-slate-200 px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer text-left"
                                       >
                                         <div className="flex items-center justify-between gap-3">
                                           <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-slate-900">{exp.description || `Khoản chi ${idx + 1}`}</p>
+                                            <p className="text-sm font-medium text-[#1a7a99]">{exp.description || `Khoản chi ${idx + 1}`}</p>
                                             <div className="mt-1 flex items-center gap-2">
                                               <span className="text-xs text-slate-600">Trạng thái:</span>
                                               <Badge className={`text-[10px] px-2 py-0.5 ${info.className}`}>{info.label}</Badge>
@@ -319,7 +363,7 @@ export default function TeacherTaskSessionPage() {
                                               : '—'}
                                           </span>
                                         </div>
-                                      </div>
+                                      </button>
                                     );
                                   })}
                                 </div>
@@ -374,6 +418,7 @@ export default function TeacherTaskSessionPage() {
                     className="mt-4"
                     items={sortedSessionReports.map((r) => {
                       const hasExpenses = (r.expenses?.length ?? 0) > 0;
+                      const canEdit = !hasProcessedExpenses(r.expenses);
                       return {
                         dot: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
                         children: (
@@ -405,17 +450,33 @@ export default function TeacherTaskSessionPage() {
                                     type="button"
                                     size="sm"
                                     variant="ghost"
-                                    className="h-7 px-2 text-xs text-slate-600"
-                                    onClick={() => startEdit(r)}
+                                    className="h-7 w-7 p-0 text-slate-500 hover:text-[#2197C0] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => {
+                                      if (!canEdit) {
+                                        message.warning('Chỉ được sửa khi chưa có khoản chi nào được duyệt hoặc từ chối');
+                                        return;
+                                      }
+                                      startEdit(r);
+                                    }}
+                                    disabled={!canEdit}
+                                    title={!canEdit ? 'Không thể sửa khi có khoản chi đã được duyệt/từ chối' : 'Sửa báo cáo'}
                                   >
-                                    Sửa
+                                    <Pencil className="h-3.5 w-3.5" />
                                   </Button>
                                   <Button
                                     type="button"
                                     size="sm"
                                     variant="ghost"
-                                    className="h-7 px-1.5 text-red-500 hover:bg-red-50"
-                                    onClick={() => void handleDelete(r.taskReportId)}
+                                    className="h-7 px-1.5 text-red-500 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => {
+                                      if (!canEdit) {
+                                        message.warning('Chỉ được xóa khi chưa có khoản chi nào được duyệt hoặc từ chối');
+                                        return;
+                                      }
+                                      setDeleteReportDialog({ open: true, reportId: r.taskReportId });
+                                    }}
+                                    disabled={!canEdit}
+                                    title={!canEdit ? 'Không thể xóa khi có khoản chi đã được duyệt/từ chối' : 'Xóa báo cáo'}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </Button>
@@ -433,13 +494,14 @@ export default function TeacherTaskSessionPage() {
                                       : info.code === EXPENSE_STATUS.REJECTED ? 'text-rose-900'
                                       : 'text-slate-900';
                                     return (
-                                      <div
+                                      <button
                                         key={exp.expenseId ?? idx}
-                                        className="w-full bg-white border-t border-slate-200 px-4 py-3"
+                                        onClick={() => setSelectedExpenseDetail(exp)}
+                                        className="w-full bg-white border-t border-slate-200 px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer text-left"
                                       >
                                         <div className="flex items-center justify-between gap-3">
                                           <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-slate-900">{exp.description || `Khoản chi ${idx + 1}`}</p>
+                                            <p className="text-sm font-medium text-[#1a7a99]">{exp.description || `Khoản chi ${idx + 1}`}</p>
                                             <div className="mt-1 flex items-center gap-2">
                                               <span className="text-xs text-slate-600">Trạng thái:</span>
                                               <Badge className={`text-[10px] px-2 py-0.5 ${info.className}`}>{info.label}</Badge>
@@ -451,7 +513,7 @@ export default function TeacherTaskSessionPage() {
                                               : '—'}
                                           </span>
                                         </div>
-                                      </div>
+                                      </button>
                                     );
                                   })}
                                 </div>
@@ -537,89 +599,295 @@ export default function TeacherTaskSessionPage() {
           </div>
 
           {/* Expense section */}
-          <div className="rounded-xl bg-slate-50 px-4 py-3 space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={hasExpense}
-                onChange={(e) => handleHasExpenseToggle(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-[#1a7a99] focus:ring-[#1a7a99]"
-              />
-              <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                <Wallet className="h-4 w-4 text-[#1a7a99]" />
-                Chi phí phát sinh
-              </span>
-            </label>
+          {editingId != null ? (
+            editingReportExpenses.length > 0 || isAddingNewExpense ? (
+              <div className="border-t border-b border-gray-200 bg-white">
+                <div className="px-5 py-3 border-b border-gray-100 bg-sky-50/30 flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-[#2197C0]" />
+                  <h3 className="text-sm font-semibold text-[#2197C0]">Khoản chi phí ({editingReportExpenses.length})</h3>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {editingReportExpenses.map((exp, idx) => {
+                    const info = getExpenseStatusInfo(exp.status);
+                    const isPending = info.code === EXPENSE_STATUS.PENDING;
+                    const isExpanded = expandedExpenseId === exp.expenseId;
+                    return (
+                      <div key={exp.expenseId ?? idx}>
+                        <div
+                          className={`px-5 py-3 flex items-center justify-between gap-3 ${isPending ? 'cursor-pointer hover:bg-[#fafafa] transition-colors' : ''}`}
+                          onClick={() => {
+                            if (!isPending) return;
+                            if (isExpanded) {
+                              setExpandedExpenseId(null);
+                            } else {
+                              setExpandedExpenseId(exp.expenseId);
+                              setInlineExpenseForm({
+                                amount: exp.amount != null ? String(exp.amount) : '',
+                                description: exp.description ?? '',
+                                file: null,
+                                preview: '',
+                                existingImgUrl: exp.paymentImg ?? null,
+                              });
+                            }
+                          }}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-900">{exp.description || `Khoản chi ${idx + 1}`}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge className={`text-[10px] px-2 py-0.5 ${info.className}`}>{info.label}</Badge>
+                              <span className="text-xs text-slate-500 tabular-nums">
+                                {exp.amount != null ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(exp.amount) : '—'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {isPending && <Pencil className="h-3.5 w-3.5 text-[#2197C0] shrink-0" />}
+                            {isPending && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteExpenseDialog({ open: true, expenseId: exp.expenseId, taskReportId: editingId });
+                                }}
+                                className="text-red-500 hover:text-red-700 transition-colors p-1"
+                                title="Xóa khoản chi"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
 
-            {hasExpense && (
-              <div className="space-y-3">
-                {createExpenses.map((exp, idx) => (
-                  <div key={exp.key} className="rounded-lg bg-white p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-600">Khoản chi #{idx + 1}</span>
-                      {createExpenses.length > 1 && (
+                        {isPending && isExpanded && (
+                          <div className="border-t border-gray-100 bg-[#fafafa] px-5 py-4 space-y-3">
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-gray-700">Số tiền (VNĐ)</label>
+                              <input
+                                className="w-full border-b border-gray-300 bg-transparent px-0 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#2197C0]"
+                                placeholder="Nhập số tiền..."
+                                value={inlineExpenseForm.amount}
+                                onChange={(e) => setInlineExpenseForm((p) => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-gray-700">Mô tả</label>
+                              <input
+                                className="w-full border-b border-gray-300 bg-transparent px-0 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#2197C0]"
+                                placeholder="Mô tả khoản chi..."
+                                value={inlineExpenseForm.description}
+                                onChange={(e) => setInlineExpenseForm((p) => ({ ...p, description: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-gray-700">Ảnh minh chứng</label>
+                              <div className="flex items-center gap-3">
+                                {(inlineExpenseForm.preview || inlineExpenseForm.existingImgUrl) && (
+                                  <AntImage
+                                    src={inlineExpenseForm.preview || inlineExpenseForm.existingImgUrl!}
+                                    alt="Ảnh minh chứng"
+                                    width={64}
+                                    height={64}
+                                    className="rounded-md object-cover border border-slate-200"
+                                    style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6 }}
+                                  />
+                                )}
+                                <label className="inline-flex cursor-pointer items-center gap-1.5 border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-500 hover:border-[#2197C0] hover:text-[#2197C0] transition-colors rounded-md">
+                                  <ImageIcon className="h-3.5 w-3.5" />
+                                  {inlineExpenseForm.preview || inlineExpenseForm.existingImgUrl ? 'Chọn ảnh khác' : 'Chọn ảnh'}
+                                  <input type="file" accept="image/png,image/jpeg,image/jpg" className="hidden" onChange={(e) => {
+                                    const file = e.target.files?.[0] ?? null;
+                                    if (!file) return;
+                                    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { message.warning('Vui lòng chọn ảnh PNG hoặc JPG.'); return; }
+                                    if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
+                                    const reader = new FileReader();
+                                    reader.onload = () => { if (typeof reader.result === 'string') setInlineExpenseForm((p) => ({ ...p, file, preview: reader.result as string, existingImgUrl: null })); };
+                                    reader.readAsDataURL(file);
+                                  }} />
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Add new expense form */}
+                  {isAddingNewExpense && (
+                    <div className="px-5 py-4 bg-sky-50/20 space-y-3 border-t-2 border-[#2197C0]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium uppercase tracking-wide text-[#2197C0]">Khoản chi mới</span>
                         <button
                           type="button"
-                          onClick={() => setCreateExpenses((prev) => prev.filter((e) => e.key !== exp.key))}
-                          className="text-rose-400 hover:text-rose-600 transition-colors"
+                          onClick={() => {
+                            setIsAddingNewExpense(false);
+                            setNewExpenseForm({ amount: '', description: '', file: null, preview: '' });
+                          }}
+                          className="text-slate-400 hover:text-slate-600 transition-colors"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X className="h-4 w-4" />
                         </button>
-                      )}
-                    </div>
-                    <input
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      placeholder="Số tiền (VNĐ)"
-                      value={exp.amount}
-                      onChange={(e) => updateCreateExpense(exp.key, { amount: e.target.value.replace(/\D/g, '') })}
-                    />
-                    <input
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      placeholder="Mô tả khoản chi"
-                      value={exp.description}
-                      onChange={(e) => updateCreateExpense(exp.key, { description: e.target.value })}
-                    />
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-600">
-                        Ảnh chứng từ *
-                      </label>
-                      {exp.preview ? (
-                        <div className="relative">
-                          <img src={exp.preview} alt="preview" className="h-24 w-full rounded-lg object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => updateCreateExpense(exp.key, { file: null, preview: '' })}
-                            className="absolute top-1 right-1 rounded-full bg-white/80 p-0.5 text-slate-600 hover:text-rose-600 shadow"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Số tiền (VNĐ) *</label>
+                        <input
+                          className="w-full border-b border-gray-300 bg-transparent px-0 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#2197C0]"
+                          placeholder="Nhập số tiền..."
+                          value={newExpenseForm.amount}
+                          onChange={(e) => setNewExpenseForm((p) => ({ ...p, amount: e.target.value.replace(/\D/g, '') }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Mô tả *</label>
+                        <input
+                          className="w-full border-b border-gray-300 bg-transparent px-0 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#2197C0]"
+                          placeholder="Mô tả khoản chi..."
+                          value={newExpenseForm.description}
+                          onChange={(e) => setNewExpenseForm((p) => ({ ...p, description: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Ảnh minh chứng *</label>
+                        <div className="flex items-center gap-3">
+                          {newExpenseForm.preview && (
+                            <AntImage
+                              src={newExpenseForm.preview}
+                              alt="preview"
+                              width={64}
+                              height={64}
+                              style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6 }}
+                              className="border border-slate-200"
+                            />
+                          )}
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-500 hover:border-[#2197C0] hover:text-[#2197C0] transition-colors rounded-md">
+                            <ImageIcon className="h-3.5 w-3.5" />
+                            {newExpenseForm.preview ? 'Chọn ảnh khác' : 'Chọn ảnh'}
+                            <input type="file" accept="image/png,image/jpeg,image/jpg" className="hidden" onChange={(e) => {
+                              const file = e.target.files?.[0] ?? null;
+                              if (!file) return;
+                              if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { message.warning('Vui lòng chọn ảnh PNG hoặc JPG.'); return; }
+                              if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
+                              const reader = new FileReader();
+                              reader.onload = () => { if (typeof reader.result === 'string') setNewExpenseForm((p) => ({ ...p, file, preview: reader.result as string })); };
+                              reader.readAsDataURL(file);
+                            }} />
+                          </label>
                         </div>
-                      ) : (
-                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500 hover:border-[#1a7a99] hover:text-[#1a7a99] transition-colors">
-                          <ImageIcon className="h-4 w-4" />
-                          Chọn ảnh PNG/JPG (tối đa 10MB)
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/jpg"
-                            className="hidden"
-                            onChange={(e) => handleCreateExpenseImgChange(exp.key, e.target.files?.[0] ?? null)}
-                          />
-                        </label>
-                      )}
+                      </div>
                     </div>
+                  )}
+                </div>
+                
+                {/* Add expense button */}
+                {!isAddingNewExpense && (
+                  <div className="px-5 py-3 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingNewExpense(true)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-[#2197C0] hover:text-[#208AAE] transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Thêm khoản chi phí
+                    </button>
                   </div>
-                ))}
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 px-1">
+                Báo cáo này không có khoản chi phí.{' '}
                 <button
                   type="button"
-                  onClick={() => setCreateExpenses((prev) => [...prev, createEmptyExpense()])}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#1a7a99]/50 py-2 text-xs font-medium text-[#1a7a99] hover:bg-[#1a7a99]/5 transition-colors"
+                  onClick={() => setIsAddingNewExpense(true)}
+                  className="text-[#2197C0] hover:underline font-medium"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  Thêm khoản chi
+                  Thêm khoản chi phí
                 </button>
+              </p>
+            )
+          ) : (
+            // Create mode
+            <div className="border-t border-b border-gray-200 bg-white">
+              <div className="px-5 py-3 border-b border-gray-100 bg-sky-50/30">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={hasExpense}
+                    onChange={(e) => handleHasExpenseToggle(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-[#2197C0] focus:ring-[#2197C0]"
+                  />
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-[#2197C0]">
+                    <Wallet className="h-4 w-4" />
+                    Chi phí phát sinh
+                  </span>
+                </label>
               </div>
-            )}
-          </div>
+
+              {hasExpense && (
+                <div className="divide-y divide-gray-100">
+                  {createExpenses.map((exp, idx) => (
+                    <div key={exp.key} className="px-5 py-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-700">Khoản chi #{idx + 1}</span>
+                        {createExpenses.length > 1 && (
+                          <button type="button" onClick={() => setCreateExpenses((prev) => prev.filter((e) => e.key !== exp.key))} className="text-rose-400 hover:text-rose-600 transition-colors">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-700 font-medium mb-1">Số tiền (VNĐ)</div>
+                        <input
+                          className="w-full border-b border-gray-300 bg-transparent px-0 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#2197C0]"
+                          placeholder="Nhập số tiền..."
+                          value={exp.amount}
+                          onChange={(e) => updateCreateExpense(exp.key, { amount: e.target.value.replace(/\D/g, '') })}
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-700 font-medium mb-1">Mô tả</div>
+                        <input
+                          className="w-full border-b border-gray-300 bg-transparent px-0 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#2197C0]"
+                          placeholder="Mô tả khoản chi..."
+                          value={exp.description}
+                          onChange={(e) => updateCreateExpense(exp.key, { description: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Ảnh minh chứng *</label>
+                        <div className="flex items-center gap-3">
+                          {exp.preview && (
+                            <AntImage
+                              src={exp.preview}
+                              alt="preview"
+                              width={64}
+                              height={64}
+                              style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6 }}
+                              className="border border-slate-200"
+                            />
+                          )}
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-500 hover:border-[#2197C0] hover:text-[#2197C0] transition-colors rounded-md">
+                            <ImageIcon className="h-3.5 w-3.5" />
+                            {exp.preview ? 'Chọn ảnh khác' : 'Chọn ảnh'}
+                            <input type="file" accept="image/png,image/jpeg,image/jpg" className="hidden" onChange={(e) => handleCreateExpenseImgChange(exp.key, e.target.files?.[0] ?? null)} />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="px-5 py-3">
+                    <button
+                      type="button"
+                      onClick={() => setCreateExpenses((prev) => [...prev, createEmptyExpense()])}
+                      className="flex items-center gap-1.5 text-xs font-medium text-[#2197C0] hover:text-[#208AAE] transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Thêm khoản chi
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" size="sm" onClick={closeModal} disabled={saving}>
@@ -652,15 +920,259 @@ export default function TeacherTaskSessionPage() {
                 type="button"
                 size="sm"
                 className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-                onClick={() => void handleSave()}
-                disabled={saving}
+                disabled={saving || savingExpense}
+                onClick={async () => {
+                  // If adding new expense, save it first
+                  if (isAddingNewExpense) {
+                    const ok = await handleAddExpenseToReport(
+                      editingId,
+                      newExpenseForm.amount,
+                      newExpenseForm.description,
+                      newExpenseForm.file,
+                    );
+                    if (!ok) return;
+                    setIsAddingNewExpense(false);
+                    setNewExpenseForm({ amount: '', description: '', file: null, preview: '' });
+                  }
+                  // If an expense is expanded, save it first
+                  if (expandedExpenseId != null) {
+                    const ok = await saveExpenseDirect(
+                      expandedExpenseId,
+                      editingReportExpenses.find((e) => e.expenseId === expandedExpenseId)?.taskReportId ?? 0,
+                      inlineExpenseForm.amount,
+                      inlineExpenseForm.description,
+                      inlineExpenseForm.file,
+                    );
+                    if (!ok) return;
+                    setExpandedExpenseId(null);
+                  }
+                  void handleSave();
+                }}
               >
-                {saving ? 'Đang lưu...' : 'Cập nhật'}
+                {saving || savingExpense ? 'Đang lưu...' : isAddingNewExpense ? 'Thêm khoản chi' : 'Cập nhật'}
               </Button>
             )}
           </div>
         </div>
       </Dialog>
+
+      {/* Edit Expense Modal */}
+      <Dialog
+        open={editExpenseOpen}
+        onClose={closeEditExpense}
+        title="Sửa khoản chi"
+        description="Chỉnh sửa thông tin khoản chi đang chờ duyệt."
+        className="max-w-sm"
+      >
+        {editingExpense && (
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Số tiền (VNĐ) *</label>
+              <input
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                placeholder="Số tiền"
+                value={editingExpense.amount}
+                onChange={(e) => setEditingExpense((p) => p ? { ...p, amount: e.target.value.replace(/\D/g, '') } : p)}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Mô tả *</label>
+              <input
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                placeholder="Mô tả khoản chi"
+                value={editingExpense.description}
+                onChange={(e) => setEditingExpense((p) => p ? { ...p, description: e.target.value } : p)}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Ảnh chứng từ (để trống nếu không đổi)</label>
+              {editingExpense.preview ? (
+                <div className="relative">
+                  <img src={editingExpense.preview} alt="preview" className="h-24 w-full rounded-lg object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setEditingExpense((p) => p ? { ...p, file: null, preview: '' } : p)}
+                    className="absolute top-1 right-1 rounded-full bg-white/80 p-0.5 text-slate-600 hover:text-rose-600 shadow"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500 hover:border-[#1a7a99] hover:text-[#1a7a99] transition-colors">
+                  <ImageIcon className="h-4 w-4" />
+                  Chọn ảnh PNG/JPG (tối đa 5MB)
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      if (!file) return;
+                      if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { message.warning('Vui lòng chọn ảnh PNG hoặc JPG.'); return; }
+                      if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        if (typeof reader.result === 'string')
+                          setEditingExpense((p) => p ? { ...p, file, preview: reader.result as string } : p);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={closeEditExpense} disabled={savingExpense}>
+                Hủy
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
+                onClick={() => void handleSaveExpense()}
+                disabled={savingExpense}
+              >
+                {savingExpense ? 'Đang lưu...' : 'Cập nhật'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Delete Expense Confirmation Dialog */}
+      <Dialog
+        open={deleteExpenseDialog.open}
+        onClose={() => setDeleteExpenseDialog({ open: false, expenseId: null, taskReportId: null })}
+        title="Xác nhận xóa khoản chi"
+        description="Bạn có chắc chắn muốn xóa khoản chi này?"
+        className="max-w-sm"
+      >
+        <div className="flex justify-end gap-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setDeleteExpenseDialog({ open: false, expenseId: null, taskReportId: null })}
+            disabled={savingExpense}
+          >
+            Hủy
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-red-500 hover:bg-red-600 text-white"
+            disabled={savingExpense}
+            onClick={async () => {
+              if (deleteExpenseDialog.expenseId && deleteExpenseDialog.taskReportId) {
+                const ok = await handleDeleteExpense(deleteExpenseDialog.expenseId, deleteExpenseDialog.taskReportId);
+                if (ok) {
+                  setDeleteExpenseDialog({ open: false, expenseId: null, taskReportId: null });
+                }
+              }
+            }}
+          >
+            {savingExpense ? 'Đang xóa...' : 'Xóa'}
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* Delete Report Confirmation Dialog */}
+      <Dialog
+        open={deleteReportDialog.open}
+        onClose={() => setDeleteReportDialog({ open: false, reportId: null })}
+        title="Xác nhận xóa báo cáo"
+        description="Bạn có chắc chắn muốn xóa báo cáo này? Tất cả chi phí liên quan cũng sẽ bị xóa."
+        className="max-w-sm"
+      >
+        <div className="flex justify-end gap-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setDeleteReportDialog({ open: false, reportId: null })}
+          >
+            Hủy
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-red-500 hover:bg-red-600 text-white"
+            onClick={async () => {
+              if (deleteReportDialog.reportId) {
+                await handleDelete(deleteReportDialog.reportId);
+                setDeleteReportDialog({ open: false, reportId: null });
+              }
+            }}
+          >
+            Xóa báo cáo
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* Expense Detail Dialog */}
+      {selectedExpenseDetail && (
+        <Dialog
+          open={!!selectedExpenseDetail}
+          onClose={() => setSelectedExpenseDetail(null)}
+          title="Chi tiết khoản chi"
+          description="Thông tin chi tiết về khoản chi phí"
+          className="max-w-lg"
+        >
+          <div className="space-y-0 divide-y divide-slate-200">
+            <div className="py-4">
+              <label className="block text-xs font-semibold text-slate-500 mb-2">Mô tả</label>
+              <p className="text-sm text-slate-900">
+                {selectedExpenseDetail.description || '—'}
+              </p>
+            </div>
+            <div className="py-4">
+              <label className="block text-xs font-semibold text-slate-500 mb-2">Số tiền</label>
+              <p className="text-2xl font-bold text-[#1a7a99]">
+                {selectedExpenseDetail.amount != null
+                  ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedExpenseDetail.amount)
+                  : '—'}
+              </p>
+            </div>
+            <div className="py-4">
+              <label className="block text-xs font-semibold text-slate-500 mb-2">Trạng thái</label>
+              <Badge className={`text-xs px-3 py-1 ${getExpenseStatusInfo(selectedExpenseDetail.status).className}`}>
+                {getExpenseStatusInfo(selectedExpenseDetail.status).label}
+              </Badge>
+            </div>
+            {selectedExpenseDetail.status === 3 && selectedExpenseDetail.rejectReason && (
+              <div className="py-4">
+                <label className="block text-xs font-semibold text-rose-600 mb-2">Lý do từ chối</label>
+                <p className="text-sm text-rose-700 bg-rose-50 px-3 py-2">
+                  {selectedExpenseDetail.rejectReason}
+                </p>
+              </div>
+            )}
+            <div className="py-4">
+              <label className="block text-xs font-semibold text-slate-500 mb-3">Ảnh minh chứng</label>
+              {selectedExpenseDetail.paymentImg ? (
+                <AntImage
+                  src={selectedExpenseDetail.paymentImg}
+                  alt="Ảnh minh chứng"
+                  width={120}
+                  height={120}
+                  className="border border-slate-200 rounded-lg object-cover cursor-pointer"
+                  style={{ width: 120, height: 120, objectFit: 'cover' }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center w-32 h-32 bg-slate-50 border border-slate-200">
+                  <ImageOff className="h-8 w-8 text-slate-300 mb-1" />
+                  <p className="text-xs text-slate-400">Không có ảnh</p>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end pt-4">
+              <Button type="button" variant="outline" size="sm" onClick={() => setSelectedExpenseDetail(null)}>
+                Đóng
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }

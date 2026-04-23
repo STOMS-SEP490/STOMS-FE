@@ -9,7 +9,7 @@ import { cn } from '@/shared/lib/utils';
 import { type ContributionListItem } from '../api/contributionApi';
 import TeacherContributeModal from './TeacherContributeModal';
 import { useTeacherContributionHistory } from '../hooks/useTeacherContributionHistory';
-import { TRANSACTION_TYPE } from '@/constants/status';
+import { TRANSACTION_TYPE, getTransactionTypeInfo } from '@/constants/status';
 
 function getAmountDisplay(item: ContributionListItem, isManager: boolean) {
   const amount = item.amount ?? 0;
@@ -83,37 +83,98 @@ export default function TeacherContributionHistoryPage() {
     () => {
       const baseColumns: ColumnDef<ContributionListItem>[] = [
         {
-        accessorKey: 'amount',
-        header: 'Số tiền',
-        cell: ({ row }) => {
-          const display = getAmountDisplay(row.original, isManager);
-          return <span className={display.className}>{display.text}</span>;
+          accessorKey: 'contributionId',
+          header: 'Mã giao dịch',
+          cell: ({ row }) => {
+            const id = row.original.contributionId;
+            return <span className="font-mono text-sm">#{id}</span>;
+          },
         },
-      },
         {
-        id: 'createdAt',
-        header: 'Thời gian',
-        cell: ({ row }) => {
-          const raw = row.original.createdAt;
-          if (!raw) return '—';
-          const d = new Date(raw);
-          return (
-            <div>
-              <div>{d.toLocaleDateString('vi-VN')}</div>
-              <div className="text-xs text-muted-foreground">
-                {d.toLocaleTimeString('vi-VN')}
+          accessorKey: 'memberName',
+          header: 'Người giao dịch',
+          cell: ({ row }) => {
+            const name = row.original.memberName;
+            const email = row.original.memberEmail;
+            const avatar = row.original.memberAvatar;
+            
+            return (
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-slate-100">
+                  {avatar ? (
+                    <img
+                      src={avatar}
+                      alt={name || 'Avatar'}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs font-medium text-slate-500">
+                      {name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-900">{name || '—'}</div>
+                  <div className="text-xs text-slate-500">{email || '—'}</div>
+                </div>
               </div>
-            </div>
-          );
+            );
+          },
         },
-      },
-        {
-        accessorKey: 'description',
-        header: 'Mô tả',
-      },
       ];
 
-      // Chỉ hiện cột chứng từ ở bảng "Tất cả khoản của tôi".
+      // Chỉ hiện cột "Loại" khi xem theo quỹ cụ thể
+      if (selectedWalletId != null) {
+        baseColumns.push({
+          accessorKey: 'transactionType',
+          header: 'Loại',
+          cell: ({ row }) => {
+            const type = row.original.transactionType;
+            const info = getTransactionTypeInfo(type);
+            return (
+              <span
+                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${info.className}`}
+              >
+                {info.label}
+              </span>
+            );
+          },
+        });
+      }
+
+      baseColumns.push(
+        {
+          accessorKey: 'amount',
+          header: 'Số tiền',
+          cell: ({ row }) => {
+            const display = getAmountDisplay(row.original, isManager);
+            return <span className={display.className}>{display.text}</span>;
+          },
+        },
+        {
+          id: 'createdAt',
+          header: 'Thời gian',
+          cell: ({ row }) => {
+            const raw = row.original.createdAt;
+            if (!raw) return '—';
+            const d = new Date(raw);
+            return (
+              <div>
+                <div>{d.toLocaleDateString('vi-VN')}</div>
+                <div className="text-xs text-muted-foreground">
+                  {d.toLocaleTimeString('vi-VN')}
+                </div>
+              </div>
+            );
+          },
+        },
+        {
+          accessorKey: 'description',
+          header: 'Mô tả',
+        },
+      );
+
+      // Chỉ hiện cột "Chứng từ" khi xem "Tất cả khoản của tôi"
       if (selectedWalletId == null) {
         baseColumns.push({
           id: 'paymentImg',
@@ -157,12 +218,14 @@ export default function TeacherContributionHistoryPage() {
             onChange={onSearchChange}
             placeholder="Tìm theo mã hoặc mô tả..."
           />
-          <div className="text-right shrink-0">
-            <div className="text-xs text-gray-500">Tổng đã đóng góp</div>
-            <div className="text-base font-semibold text-emerald-700">
-              {totalAmount.toLocaleString('vi-VN')} đ
+          {selectedWalletId == null && (
+            <div className="text-right shrink-0">
+              <div className="text-xs text-gray-500">Tổng đã đóng góp</div>
+              <div className="text-base font-semibold text-emerald-700">
+                {totalAmount.toLocaleString('vi-VN')} đ
+              </div>
             </div>
-          </div>
+          )}
           <Button
             type="button"
             className="h-9 shrink-0 bg-[#2197C0] px-4 text-sm font-medium text-white hover:bg-[#208AAE]"

@@ -9,7 +9,7 @@ import type {
 function normalizeTransaction(raw: Record<string, unknown>): TransactionListItem {
   const wallet = raw.wallet as { walletName?: string | null } | undefined
   const createdByMember = raw.createdByMember as
-    | { fullName?: string | null }
+    | { fullName?: string | null; email?: string | null; avatarUrl?: string | null }
     | undefined
 
   return {
@@ -29,6 +29,8 @@ function normalizeTransaction(raw: Record<string, unknown>): TransactionListItem
       (raw.createdByName as string | null | undefined) ??
       createdByMember?.fullName ??
       null,
+    createdByEmail: createdByMember?.email ?? null,
+    createdByAvatar: createdByMember?.avatarUrl ?? null,
     createdAt: (raw.createdAt as string | null) ?? null,
   }
 }

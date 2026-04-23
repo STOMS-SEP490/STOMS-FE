@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import dayjs from 'dayjs';
 import { Modal, message } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
+import { RotateCcw, Eye, Pencil, Trash2 } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
 import { DataTable } from '@/shared/components/common/DataTable';
+import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import type { ColumnDef } from '@tanstack/react-table';
 import reservationApi from '@/modules/reservation/api/reservationApi';
@@ -24,14 +25,6 @@ function getAvatarSrc(src?: string | null) {
   return src && String(src).trim() ? String(src) : DEFAULT_AVATAR_SRC;
 }
 
-/** Cùng cách tách ngày / giờ với bảng phiếu mượn (`EquipmentsHistory`). */
-function formatDateOnly(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('vi-VN');
-}
-
 /** BE: chưa bắt đầu (StartAt > now) và user hiện tại là người tạo. */
 function canDeleteReservationRow(
   item: ReservationListItem,
@@ -39,7 +32,7 @@ function canDeleteReservationRow(
 ): boolean {
   if (!item.StartAt || currentMemberId == null) return false;
   if (item.CreatedByMemberId == null || item.CreatedByMemberId !== currentMemberId) return false;
-  return dayjs(item.StartAt).isAfter(dayjs());
+  return new Date(item.StartAt) > new Date();
 }
 
 export default function ReservationsManagement() {
@@ -58,6 +51,18 @@ export default function ReservationsManagement() {
   const [statusFilter, setStatusFilterState] = useState<number | 'all'>('all');
   const [pageNumber, setPageNumber] = useState(1);
 
+  // Kiểm tra xem có phải Equipment Manager không
+  const isEquipmentManager = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      if (!raw) return false;
+      const roleId = Number(JSON.parse(raw).roleId);
+      return roleId === 6; // ROLE_ID.EQUIPMENT_MANAGER = 6
+    } catch {
+      return false;
+    }
+  }, []);
+
   const setReservationIdSearch = useCallback((value: string) => {
     setReservationIdSearchState(value);
     setPageNumber(1);
@@ -65,6 +70,12 @@ export default function ReservationsManagement() {
 
   const setStatusFilter = useCallback((v: number | 'all') => {
     setStatusFilterState(v);
+    setPageNumber(1);
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    setReservationIdSearchState('');
+    setStatusFilterState('all');
     setPageNumber(1);
   }, []);
   const [totalItems, setTotalItems] = useState(0);
@@ -135,18 +146,35 @@ export default function ReservationsManagement() {
 
     setLoading(true);
     try {
+      // Nếu chọn "Đã xác nhận" hoặc "Chưa xác nhận", get tất cả rồi filter ở FE
+      // Vì BE trả về cả null khi filter IsTemporarilyCancelled=false
+      const shouldFilterInFE = statusFilter === RESERVATION_STATUS.CONFIRMED || statusFilter === RESERVATION_STATUS.PENDING;
+      
       const res = normalizeReservationPagedResponse(
         await reservationApi.getFilter({
           ReservationId: reservationId,
-          IsTemporarilyCancelled: isTemporarilyCancelled,
+          IsTemporarilyCancelled: shouldFilterInFE ? undefined : isTemporarilyCancelled,
           Status: statusFilterValue,
           PageNumber: pageNumber,
           PageSize: PAGE_SIZE,
         }),
       );
 
-      setItems(res.Items ?? []);
-      setTotalItems(res.TotalItems ?? 0);
+      let filteredItems = res.Items ?? [];
+
+      // Filter ở FE nếu cần
+      if (shouldFilterInFE) {
+        if (statusFilter === RESERVATION_STATUS.CONFIRMED) {
+          // Đã xác nhận: IsTemporarilyCancelled === false (không bao gồm null)
+          filteredItems = filteredItems.filter(item => item.IsTemporarilyCancelled === false);
+        } else if (statusFilter === RESERVATION_STATUS.PENDING) {
+          // Chưa xác nhận: IsTemporarilyCancelled === null hoặc undefined
+          filteredItems = filteredItems.filter(item => item.IsTemporarilyCancelled == null);
+        }
+      }
+
+      setItems(filteredItems);
+      setTotalItems(filteredItems.length); // Dùng số lượng sau khi filter
     } catch (err: unknown) {
       console.error('fetchReservations error:', err);
       message.error('Không tải được danh sách lịch sử đặt trước');
@@ -155,7 +183,7 @@ export default function ReservationsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [reservationIdSearch, isTemporarilyCancelled, statusFilterValue, pageNumber]);
+  }, [reservationIdSearch, isTemporarilyCancelled, statusFilterValue, statusFilter, pageNumber]);
 
   const handleDelete = useCallback(
     (item: ReservationListItem) => {
@@ -268,31 +296,15 @@ export default function ReservationsManagement() {
         header: 'Hạn trả',
         cell: ({ row }) => {
           const due = row.original.EndAt ?? null;
-          const cancelled = row.original.IsTemporarilyCancelled === true;
-          const start = row.original.StartAt ? dayjs(row.original.StartAt) : null;
-          const end = due ? dayjs(due) : null;
-          const now = dayjs();
-
-          let subLine: string;
-          let subClass: string;
-          if (cancelled) {
-            subLine = 'Tạm hủy';
-            subClass = 'text-red-500';
-          } else if (end && end.isBefore(now)) {
-            subLine = 'Đã kết thúc';
-            subClass = 'text-green-600';
-          } else if (start && start.isAfter(now)) {
-            subLine = 'Chưa bắt đầu';
-            subClass = 'text-muted-foreground';
-          } else {
-            subLine = 'Chưa đến hạn';
-            subClass = 'text-muted-foreground';
-          }
-
+          if (!due) return '—';
+          const d = new Date(due);
+          if (Number.isNaN(d.getTime())) return '—';
           return (
             <div>
-              <div className="font-semibold text-gray-900">{formatDateOnly(due)}</div>
-              <div className={`text-xs ${subClass}`}>{subLine}</div>
+              <div className="font-semibold text-gray-900">{d.toLocaleDateString('vi-VN')}</div>
+              <div className="text-xs text-muted-foreground">
+                {d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
           );
         },
@@ -349,8 +361,53 @@ export default function ReservationsManagement() {
           );
         },
       },
+      // Chỉ hiển thị cột thao tác nếu KHÔNG phải Equipment Manager
+      ...(!isEquipmentManager ? [{
+        id: 'actions',
+        header: () => <span className="block w-full text-center">Thao tác</span>,
+        enableSorting: false,
+        cell: ({ row }: { row: { original: ReservationListItem } }) => {
+          const item = row.original;
+          const canDelete = canDeleteReservationRow(item, currentMemberId);
+          const canEdit = canDeleteReservationRow(item, currentMemberId); // Cùng điều kiện: chưa bắt đầu và là người tạo
+          return (
+            <div className="flex items-center justify-center gap-3">
+              <span title="Xem">
+                <Eye
+                  size={16}
+                  className="cursor-pointer text-gray-800"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleView(item);
+                  }}
+                />
+              </span>
+              <span title={canEdit ? 'Sửa' : 'Không thể sửa'}>
+                <Pencil
+                  size={16}
+                  className={canEdit ? 'cursor-pointer text-blue-600' : 'cursor-not-allowed text-gray-300'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (canEdit) void handleEditFromList(item);
+                  }}
+                />
+              </span>
+              <span title={canDelete ? 'Xóa' : 'Không thể xóa'}>
+                <Trash2
+                  size={16}
+                  className={canDelete ? 'cursor-pointer text-red-500' : 'cursor-not-allowed text-gray-300'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (canDelete) handleDelete(item);
+                  }}
+                />
+              </span>
+            </div>
+          );
+        },
+      }] as ColumnDef<ReservationListItem>[] : []),
     ],
-    [handleView, handleEditFromList, handleDelete, currentMemberId],
+    [handleView, handleEditFromList, handleDelete, currentMemberId, isEquipmentManager],
   );
 
   // Debounce for reservationId search
@@ -393,7 +450,7 @@ export default function ReservationsManagement() {
       className="space-y-6 p-6 pl-8 app-page-bg"
       style={{ minHeight: 'var(--content-height, 100vh)' }}
     >
-      <div className="mb-6 rounded-xl border bg-white px-6 py-4 shadow-sm">
+      <div className="mb-1 rounded-xl border bg-white px-6 py-4 shadow-sm">
         <h2 className="text-xl font-semibold text-[#1a7a99]">Đơn yêu cầu thiết bị</h2>
         <p className="text-xs text-slate-500">
           Quản lý đơn yêu cầu thiết bị trong hệ thống
@@ -423,6 +480,16 @@ export default function ReservationsManagement() {
                 </SelectContent>
               </Select>
             </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              onClick={resetFilters}
+              type="button"
+              title="Đặt lại bộ lọc"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </div>
