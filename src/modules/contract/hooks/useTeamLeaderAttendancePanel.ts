@@ -66,6 +66,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [actionMode, setActionMode] = useState<AttendanceActionMode>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
 
   const currentMemberId = useMemo(() => {
     const raw = localStorage.getItem('user');
@@ -109,7 +110,31 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
   const resolveAttendanceOwner = useCallback(
     async (detail: SessionDetail) => {
       const ownerIdFromSession = getAttendanceOwnerId(detail.Attendances as any);
-      const ownerId = ownerIdFromSession ?? currentMemberId;
+
+      // Nếu currentMemberId có attendance record với attendanceByMemberId === chính mình
+      // thì ưu tiên dùng currentMemberId (teacher/TA tự xác nhận cho mình).
+      let ownerId: number | null = null;
+      if (currentMemberId != null && currentMemberId > 0) {
+        const attendances = (detail.Attendances ?? []) as Array<{
+          MemberId?: number | string | null;
+          memberId?: number | string | null;
+          AttendanceByMemberId?: number | string | null;
+          attendanceByMemberId?: number | string | null;
+        }>;
+        const hasSelfRecord = attendances.some((a) => {
+          const mId = Number(a.MemberId ?? a.memberId ?? 0);
+          const byId = Number(a.AttendanceByMemberId ?? a.attendanceByMemberId ?? 0);
+          return mId === currentMemberId && (byId === currentMemberId || byId === 0 || isNaN(byId));
+        });
+        if (hasSelfRecord) {
+          ownerId = currentMemberId;
+        }
+      }
+
+      // Fallback: lấy owner từ session (TL được ủy quyền) hoặc currentMemberId
+      if (ownerId == null) {
+        ownerId = ownerIdFromSession ?? currentMemberId;
+      }
 
       setAttendanceByMemberIdForSession(ownerId);
       setAttendanceByMemberFullName('');
@@ -145,6 +170,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
       setMemberSearch('');
       setSelectedMemberIds([]);
       setAttendanceByMemberFullName('');
+      setIsLoadingAttendance(true);
 
       const detail = await sessionApi.getById(row.sessionId);
       setSessionDetail(detail);
@@ -169,12 +195,15 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
       }
 
       const attendanceByMemberId = await resolveAttendanceOwner(detail);
-      const loaded = await loadAttendanceItems(row.sessionId, mode === 'delegate' ? null : attendanceByMemberId);
-      setAttendanceItems(loaded.items);
-      setMembersById(loaded.membersById);
-
-      if (mode === 'checkin' || mode === 'checkout') {
-        setSelectedMemberIds(getSelectedIdsByMode(loaded.items, mode));
+      try {
+        const loaded = await loadAttendanceItems(row.sessionId, mode === 'delegate' ? null : attendanceByMemberId);
+        setAttendanceItems(loaded.items);
+        setMembersById(loaded.membersById);
+        if (mode === 'checkin' || mode === 'checkout') {
+          setSelectedMemberIds(getSelectedIdsByMode(loaded.items, mode));
+        }
+      } finally {
+        setIsLoadingAttendance(false);
       }
     },
     [loadAttendanceItems, resolveAttendanceOwner],
@@ -244,6 +273,7 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
     setSelectedMemberIds,
     isSubmitting,
     setIsSubmitting,
+    isLoadingAttendance,
     openPanel,
     closePanel,
     saveAttendance,

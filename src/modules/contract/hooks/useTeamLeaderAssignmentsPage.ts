@@ -578,6 +578,9 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     return getTeamLeaderRequestStatusInfo(selectedRequest.status);
   }, [selectedRequest]);
 
+  const refetchRequestByIdRef = useRef<(requestId: number) => Promise<void>>(async () => {});
+  const refreshSessionDetailByIdRef = useRef<(sessionId: number) => Promise<void>>(async () => {});
+
   const handleSendAssignments = useCallback(async () => {
     if (!selectedRequest) return;
 
@@ -630,7 +633,8 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       }
       message.success('Đã gửi phân công.');
 
-      await loadInitial(activeTab);
+      const sessionIds2 = selectedRequest.sessions.map((s) => s.sessionId).filter((id) => id > 0);
+      await Promise.all(sessionIds2.map((sid) => refreshSessionDetailByIdRef.current(sid)));
       setActiveSession(null);
     } catch (err) {
       message.error(getErrorMessage(err, 'Gửi phân công thất bại.'));
@@ -643,8 +647,6 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     assignSelections,
     sessionApi,
     assignmentApi,
-    loadInitial,
-    activeTab,
   ]);
 
   const refreshSessionInRequestState = useCallback((detail: SessionDetail) => {
@@ -689,6 +691,8 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     },
     [refreshSessionInRequestState],
   );
+
+  refreshSessionDetailByIdRef.current = refreshSessionDetailById;
 
   const ensureSuggestedStaffForAssignments = useCallback(
     async (
@@ -994,31 +998,28 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   };
 
   const refetchRequestById = useCallback(async (requestId: number) => {
-    if (!requestId || requestId <= 0) return;
+    if (!requestId || requestId <= 0 || !currentTeamId) return;
     try {
-      const request = await requestApi.getById(requestId);
+      // Chỉ fetch đúng 1 request với teamId filter để lấy sessions đúng theo team
+      const res = await requestApi.getRequests({
+        requestId,
+        teamId: currentTeamId,
+        pageNumber: 1,
+        pageSize: 1,
+      });
+      const updated = (res.items ?? []).find((r) => r.requestId === requestId);
+      if (!updated) return;
+      const mapped = mapRequestListItemToTeamRequest(updated);
       setRequests((prev) =>
-        prev.map((item) =>
-          item.requestId !== requestId
-            ? item
-            : {
-                ...item,
-                requestCode: request.requestCode,
-                requestName: request.requestName,
-                customerName: request.customerName,
-                subjectId: request.subjectId,
-                courseId: request.courseId,
-                eventId: request.eventId,
-                status: request.status,
-                startDate: request.startDate,
-                sessions: (request.sessions ?? []).map((session) => mapSessionLite(session, requestId)),
-              },
-        ),
+        prev.map((item) => (item.requestId !== requestId ? item : mapped)),
       );
     } catch (err) {
       message.error(getErrorMessage(err, 'Không thể làm mới thông tin yêu cầu.'));
     }
-  }, []);
+  }, [currentTeamId]);
+
+  // Cập nhật refs để handleSendAssignments có thể gọi mà không bị circular dependency
+  refetchRequestByIdRef.current = refetchRequestById;
 
   useEffect(() => {
     if (!selectedRequest) return;

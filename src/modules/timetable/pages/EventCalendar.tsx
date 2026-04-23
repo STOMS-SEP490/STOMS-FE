@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -157,6 +157,7 @@ export default function EventCalendar() {
     closePanel,
     saveAttendance,
     refreshAttendanceItems,
+    isLoadingAttendance,
   } = useTeamLeaderAttendancePanel({});
 
   const handleOpenAttendanceFromPopover = useCallback(() => {
@@ -168,8 +169,7 @@ export default function EventCalendar() {
   }, [detailSession, openPanel]);
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [currentView, setCurrentView] = useState<'timeGridDay' | 'timeGridWeek' | 'dayGridMonth'>('timeGridWeek');
-  const initialScrollTime = useMemo(() => dayjs().format('HH:mm:ss'), []);
-  const didInitialScrollRef = useRef(false);
+
   // Cột "Lịch sắp tới" mặc định đóng lại.
   const [isUpcomingCollapsed, setIsUpcomingCollapsed] = useState(true);
 
@@ -408,6 +408,42 @@ export default function EventCalendar() {
     return () => cancelAnimationFrame(id);
   }, [isUpcomingCollapsed]);
 
+  const scrollPosRef = useRef<number | null>(null);
+  const isRestoringRef = useRef(false);
+
+  const getScrollEl = useCallback(() => {
+    const calendarApi = calendarRef.current;
+    if (!calendarApi) return null;
+    const el = (calendarApi as any).elRef?.current || (calendarApi as any).el;
+    if (!el) return null;
+    return (el.querySelector('.fc-scroller-liquid-absolute') as HTMLElement | null)
+      ?? (el.querySelector('.fc-scroller') as HTMLElement | null);
+  }, []);
+
+  // Trước mỗi render: lưu scroll position
+  useLayoutEffect(() => {
+    if (isRestoringRef.current) return;
+    const el = getScrollEl();
+    if (el && el.scrollTop > 0) {
+      scrollPosRef.current = el.scrollTop;
+    }
+  });
+
+  const restoreScrollPos = useCallback(() => {
+    if (scrollPosRef.current == null || scrollPosRef.current <= 0) return;
+    const saved = scrollPosRef.current;
+    isRestoringRef.current = true;
+    const el = getScrollEl();
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollTop = saved;
+        isRestoringRef.current = false;
+      });
+    } else {
+      isRestoringRef.current = false;
+    }
+  }, [getScrollEl]);
+
   const calendarContent = (
     <div className="event-calendar-scroll relative flex-1 min-h-0">
       {loading && (
@@ -424,7 +460,7 @@ export default function EventCalendar() {
         locale="vi"
         slotMinTime="00:00:00"
         slotMaxTime="24:00:00"
-        scrollTime={initialScrollTime}
+
         slotDuration="00:30:00"
         slotLabelInterval="01:00:00"
         slotLabelFormat={{
@@ -432,6 +468,8 @@ export default function EventCalendar() {
           minute: '2-digit',
           hour12: false,
         }}
+        scrollTime="00:00:00"
+        scrollTimeReset={false}
         allDaySlot={false}
         height="100%"
         events={fcEvents}
@@ -440,23 +478,8 @@ export default function EventCalendar() {
           const nextView = arg.view.type as 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth';
           setCurrentDate((prev) => (prev.getTime() === nextDate.getTime() ? prev : nextDate));
           setCurrentView((prev) => (prev === nextView ? prev : nextView));
-
-          // Mở lịch ở mốc giờ hiện tại (giống Google Calendar).
-          if (!didInitialScrollRef.current && (nextView === 'timeGridDay' || nextView === 'timeGridWeek')) {
-            didInitialScrollRef.current = true;
-            const api = calendarRef.current?.getApi();
-            if (api) {
-              const now = dayjs().format('HH:mm:ss');
-              requestAnimationFrame(() => {
-                try {
-                  api.scrollToTime(now);
-                } catch {
-                  /* ignore */
-                }
-              });
-            }
-          }
         }}
+        eventsSet={restoreScrollPos}
         eventContent={renderEventContent}
         eventClick={handleEventClick}
         eventDidMount={handleEventDidMount}
@@ -820,6 +843,8 @@ export default function EventCalendar() {
         closePanel={closePanel}
         saveAttendance={saveAttendance}
         refreshAttendanceItems={refreshAttendanceItems}
+        isLoadingAttendance={isLoadingAttendance}
+        hideDelegate={!isTlTimetable}
         overlayZClass="z-[85]"
       />
     </div>

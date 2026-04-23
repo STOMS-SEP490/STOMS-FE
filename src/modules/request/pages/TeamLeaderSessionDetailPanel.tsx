@@ -460,9 +460,11 @@ export default function TeamLeaderSessionDetailPanel({
                                 void (async () => {
                                   setDelegatingMemberId(a.memberId);
                                   try {
+                                    // Lấy previousAttendanceByMemberId từ resolvedAttendanceOwnerId
                                     await attendanceApi.delegateAttendance(
                                       sessionId,
                                       a.memberId,
+                                      resolvedAttendanceOwnerId,
                                     );
                                     const res = await attendanceApi.getBySession(sessionId);
                                     const nextItems = res.items ?? [];
