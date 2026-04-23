@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { message } from 'antd';
 import { Plus, X } from 'lucide-react';
 import memberApi from '@/modules/member/api/memberApi';
+import userService from '@/modules/user/api/userApi';
+import type { User } from '@/modules/user/user';
 import topicApi from '@/modules/topic/api/topicApi';
 import teamService from '../services/teamService';
 import type { Member } from '@/modules/member/member';
@@ -18,7 +20,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/shared/components/ui/select';
 
 type Props = {
@@ -31,6 +32,7 @@ type Props = {
 export default function EditTeamModal({ open, onClose, team, onUpdated }: Props) {
   const [teamName, setTeamName] = useState('');
   const [leaderMemberId, setLeaderMemberId] = useState<number | null>(null);
+  const [leaderMemberName, setLeaderMemberName] = useState<string>('');
   const [candidates, setCandidates] = useState<Member[]>([]);
   const [teamLeaders, setTeamLeaders] = useState<Member[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
@@ -67,6 +69,7 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
       setTeamName(team.teamName ?? '');
       const leaderId = team.leaderMemberId ?? null;
       setLeaderMemberId(leaderId);
+      setLeaderMemberName(team.leaderMemberName ?? '');
       setError('');
       setSelectedMemberIds([]);
       setCurrentTeamMemberIds([]);
@@ -80,15 +83,44 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         setLoadingLeaders(true);
         setLoadingTopics(true);
 
-        const [membersRes, leadersRes, topicsRes, teamDetails] = await Promise.all([
+        const [membersRes, usersRes, topicsRes, teamDetails] = await Promise.all([
           memberApi.getMembers({ pageSize: 500 }),
-          memberApi.getMembers({ RoleId: TEAM_LEADER_ROLE_ID, pageSize: 100 }),
+          userService.getUsers({ RoleId: TEAM_LEADER_ROLE_ID, pageNumber: 1, pageSize: 200 }),
           topicApi.getTopics({ pageNumber: 1, pageSize: 500 }),
           teamService.getTeamById(team.teamId),
         ]);
 
+        // Luôn ưu tiên leader từ API team detail (list teams đôi khi thiếu leaderMemberId/Name)
+        const leaderIdResolved =
+          teamDetails?.leaderMemberId != null ? Number(teamDetails.leaderMemberId) : leaderId;
+        const leaderNameResolved = teamDetails?.leaderMemberName ?? team.leaderMemberName ?? '';
+        setLeaderMemberId(leaderIdResolved ?? null);
+        setLeaderMemberName(leaderNameResolved);
+
         const items = ((membersRes as any).items ?? []) as Member[];
-        const leaders = ((leadersRes as any).items ?? []) as Member[];
+        const users = ((usersRes as any).items ?? []) as User[];
+        const leaderUserIds = new Set(
+          users.filter((u) => Number(u?.roleId) === TEAM_LEADER_ROLE_ID).map((u) => u.userId),
+        );
+        const leaders = items.filter((m) => leaderUserIds.has(m.userId));
+
+        // Đảm bảo leader hiện tại luôn hiển thị trong dropdown
+        // (trường hợp /members/filter không trả về đủ do phân trang/limit)
+        let currentLeader =
+          leaderIdResolved != null
+            ? items.find((m) => Number(m?.memberId) === Number(leaderIdResolved))
+            : undefined;
+        if (!currentLeader && leaderIdResolved != null) {
+          try {
+            currentLeader = await memberApi.getMemberById(leaderIdResolved);
+          } catch {
+            // ignore
+          }
+        }
+        const leadersWithCurrent =
+          currentLeader && !leaders.some((m) => Number(m.memberId) === Number(currentLeader.memberId))
+            ? [currentLeader, ...leaders]
+            : leaders;
         const allTopics = (((topicsRes as any).items ?? []) as TopicListItem[]).filter((t) => t?.isActive);
 
         const isInThisTeam = (m: any) => Number(m?.team?.teamId) === Number(team.teamId);
@@ -114,9 +146,10 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
         const inTeamIds = inTeam.map((m) => m.memberId);
 
         setCandidates(merged);
-        setTeamLeaders(leaders);
+        setTeamLeaders(leadersWithCurrent);
         setCurrentTeamMemberIds(inTeamIds);
-        const ensureLeader = leaderId != null ? Array.from(new Set([...inTeamIds, leaderId])) : inTeamIds;
+        const ensureLeader =
+          leaderIdResolved != null ? Array.from(new Set([...inTeamIds, leaderIdResolved])) : inTeamIds;
         setSelectedMemberIds(ensureLeader);
 
         const rawTopics = (teamDetails?.teamTopics ?? []) as TeamTopic[];
@@ -139,6 +172,20 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
 
     fetchCandidates();
   }, [open, team]);
+
+  const getLeaderLabelById = (id: number | null) => {
+    if (id == null) return '';
+    const fromLeaders = teamLeaders.find((m) => Number(m?.memberId) === Number(id));
+    if (fromLeaders) {
+      return `${fromLeaders.fullName || `Member #${fromLeaders.memberId}`}${fromLeaders.team?.teamName ? ` - ${fromLeaders.team.teamName}` : ''}`;
+    }
+    const fromCandidates = candidates.find((m) => Number(m?.memberId) === Number(id));
+    if (fromCandidates) {
+      return `${fromCandidates.fullName || `Member #${fromCandidates.memberId}`}${fromCandidates.team?.teamName ? ` - ${fromCandidates.team.teamName}` : ''}`;
+    }
+    const fallbackTeamName = team?.teamName ? ` - ${team.teamName}` : '';
+    return (leaderMemberName ? `${leaderMemberName}${fallbackTeamName}` : `Member #${id}${fallbackTeamName}`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -301,7 +348,15 @@ export default function EditTeamModal({ open, onClose, team, onUpdated }: Props)
             disabled={loadingLeaders}
           >
             <SelectTrigger className="h-10 text-black border-gray-200">
-              <SelectValue placeholder={loadingLeaders ? 'Đang tải...' : 'Chọn trưởng nhóm'} />
+              <span className="truncate">
+                {leaderMemberId != null
+                  ? getLeaderLabelById(leaderMemberId)
+                  : leaderMemberName
+                    ? leaderMemberName
+                    : loadingLeaders
+                      ? 'Đang tải...'
+                      : 'Chọn trưởng nhóm'}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {teamLeaders.map((member) => (
