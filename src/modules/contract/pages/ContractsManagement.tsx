@@ -19,6 +19,7 @@ import {
   Plus,
   RotateCcw,
   XCircle,
+  DollarSign,
 } from 'lucide-react';import type { ContractListItem } from '../contract';
 import { useContracts } from '../hooks/useContracts';
 import contractApi from '../api/contractApi';
@@ -27,7 +28,7 @@ import CreateContractModal from './CreateContractModal';
 import EditContractModal from './EditContractModal';
 import { useLocation } from 'react-router-dom';
 import sessionApi from '@/modules/request/api/sessionApi';
-import { dashboardApi, type DashboardContractSummary } from '@/modules/dashboard/api/dashboardApi';
+import { dashboardApi, type DashboardMemberContractSummary } from '@/modules/dashboard/api/dashboardApi';
 
 const columns: ColumnDef<ContractListItem>[] = [
   {
@@ -143,13 +144,29 @@ export default function ContractsManagement() {
     refetch,
   } = useContracts();
 
-  const [contractSummary, setContractSummary] = useState<DashboardContractSummary | null>(null);
+  const [contractSummary, setContractSummary] = useState<DashboardMemberContractSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
 
   useEffect(() => {
+    // Get memberId from localStorage
+    const getMemberId = (): number | null => {
+      const raw = localStorage.getItem('user');
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw) as { memberId?: number | string };
+        const id = Number(parsed.memberId ?? 0);
+        return Number.isFinite(id) && id > 0 ? id : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const memberId = getMemberId();
+    if (!memberId) return;
+
     let cancelled = false;
     setSummaryLoading(true);
-    dashboardApi.getContractSummary()
+    dashboardApi.getMemberContractsStatistics(memberId)
       .then((res) => { if (!cancelled) setContractSummary(res); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setSummaryLoading(false); });
@@ -281,7 +298,7 @@ export default function ContractsManagement() {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-3 gap-4 mb-2">
+      <div className="grid grid-cols-4 gap-4 mb-2">
         <StatCard
           icon={<FileText />}
           label="Tổng hợp đồng"
@@ -303,13 +320,19 @@ export default function ContractsManagement() {
           sub="hợp đồng chưa thanh toán"
           variant="amber"
         />
+        <StatCard
+          icon={<DollarSign />}
+          label="Tổng giá trị"
+          value={summaryLoading ? '—' : (contractSummary?.paidValue ?? 0).toLocaleString('vi-VN')}
+          sub="đồng đã thanh toán"
+          variant="violet"
+        />
       </div>
 
       <div className="flex justify-end gap-3 mb-2 flex-wrap">
         <HoverSearch value={search} onChange={setSearch} placeholder="Tìm mã hợp đồng/yêu cầu..." />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
             <Select
               value={isPaid === undefined ? 'all' : isPaid === true ? 'paid' : 'unpaid'}
               onValueChange={(value) => {
@@ -322,7 +345,7 @@ export default function ContractsManagement() {
                 <SelectValue placeholder="Chọn trạng thái" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="paid">Đã thanh toán</SelectItem>
                 <SelectItem value="unpaid">Chưa thanh toán</SelectItem>
               </SelectContent>

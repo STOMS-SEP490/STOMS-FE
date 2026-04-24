@@ -62,11 +62,20 @@ function normalizeTeamSession(raw: unknown): TeamSessionResponse {
     teamObj && typeof teamObj === 'object'
       ? ((pick(teamObj, 'TeamName', 'teamName') as string | null | undefined) ?? null)
       : null;
+  
+  // Preserve Team object with Members array for PC to display member count
+  const team = teamObj && typeof teamObj === 'object' ? {
+    TeamId: pick(teamObj, 'TeamId', 'teamId') as number | undefined,
+    TeamName: (pick(teamObj, 'TeamName', 'teamName') as string | null | undefined) ?? null,
+    Members: pick(teamObj, 'Members', 'members') as unknown[] | null | undefined,
+  } : undefined;
+  
   return {
     TeamId: teamIdTop ?? teamIdNested,
     TeamName: teamNameTop || teamNameNested || null,
     TeachersRequired: pick(ts, 'TeachersRequired', 'teachersRequired') as number | null | undefined,
     TasRequired: pick(ts, 'TasRequired', 'tasRequired') as number | null | undefined,
+    Team: team,
   };
 }
 

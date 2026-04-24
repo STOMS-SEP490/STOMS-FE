@@ -7,7 +7,6 @@ import { Input } from '@/shared/components/ui/input';
 import assignmentApi from '@/modules/assignment/api/assignmentApi';
 import type { AssignmentResponse } from '@/modules/request/session.types';
 import type { SuggestedStaff } from '@/modules/request/type';
-import sessionService from '@/modules/request/api/sessionApi';
 import { getAssignmentStatusInfo, ASSIGNMENT_STATUS } from '@/constants/status';
 import { isAssistantRole } from '@/constants/role';
 
@@ -18,16 +17,17 @@ function getAvatarSrc(src?: string | null) {
 }
 
 type Props = {
-  sessionId: number;
   canEdit?: boolean;
   onAssignmentUpdated?: () => void;
+  /** Pre-fetched session detail from parent - REQUIRED */
+  sessionDetail: any;
 };
 
 
 export default function TeamLeaderStaffAssignmentPanel({
-  sessionId,
   canEdit = true,
   onAssignmentUpdated,
+  sessionDetail: preFetchedDetail,
 }: Props) {
   const [taAssignments, setTaAssignments] = useState<AssignmentResponse[]>([]);
   const [initialTaAssignments, setInitialTaAssignments] = useState<AssignmentResponse[]>([]);
@@ -41,55 +41,23 @@ export default function TeamLeaderStaffAssignmentPanel({
   const [expandedTaIds, setExpandedTaIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    let cancelled = false;
-    const fetchTaAssignments = async () => {
-      setLoading(true);
-      try {
-        const detail = await sessionService.getById(sessionId);
-        if (cancelled) return;
-        const taSlots = (detail.Assignments ?? []).filter((a) => isAssistantRole(a.StaffRole));
-        setTaAssignments(taSlots);
-        setInitialTaAssignments(taSlots);
-        setInitialTaByAssignmentId(
-          taSlots.reduce<Record<number, number>>((acc, slot) => {
-            const id = Number(slot.AssignmentId ?? 0);
-            if (id > 0) acc[id] = Math.max(0, Number(slot.StaffMemberId ?? 0));
-            return acc;
-          }, {})
-        );
-        const pairs = await Promise.all(
-          taSlots.map(async (a) => {
-            try {
-              const list = await assignmentApi.suggestStaff(Number(a.AssignmentId ?? 0));
-              return [Number(a.AssignmentId ?? 0), list] as const;
-            } catch {
-              return [Number(a.AssignmentId ?? 0), [] as SuggestedStaff[]] as const;
-            }
-          })
-        );
-        if (cancelled) return;
-        setTaSuggestionsByAssignmentId(
-          pairs.reduce<Record<number, SuggestedStaff[]>>((acc, [id, list]) => {
-            if (id > 0) acc[id] = list;
-            return acc;
-          }, {})
-        );
-      } catch (err) {
-        if (!cancelled) {
-          setTaAssignments([]);
-          setInitialTaAssignments([]);
-          setTaSuggestionsByAssignmentId({});
-          setInitialTaByAssignmentId({});
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    void fetchTaAssignments();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId]);
+    if (!preFetchedDetail) {
+      setLoading(false);
+      return;
+    }
+    
+    const taSlots = (preFetchedDetail.Assignments ?? []).filter((a: any) => isAssistantRole(a.StaffRole));
+    setTaAssignments(taSlots);
+    setInitialTaAssignments(taSlots);
+    setInitialTaByAssignmentId(
+      taSlots.reduce((acc: Record<number, number>, slot: any) => {
+        const id = Number(slot.AssignmentId ?? 0);
+        if (id > 0) acc[id] = Math.max(0, Number(slot.StaffMemberId ?? 0));
+        return acc;
+      }, {})
+    );
+    setLoading(false);
+  }, [preFetchedDetail]);
 
   const handleAssignTaToSlot = useCallback(
     (assignmentId: number, staffMemberId: number) => {
@@ -157,22 +125,8 @@ export default function TeamLeaderStaffAssignmentPanel({
       message.success('Đã lưu phân công sinh viên.');
       setTaEditMode(false);
       
-      // Gọi callback để parent component reload data
+      // Parent will refresh session detail, which will update this component via preFetchedDetail prop
       await onAssignmentUpdated?.();
-      
-      // Sau khi parent reload xong, reload lại local state
-      const detail = await sessionService.getById(sessionId);
-      const taSlots = (detail.Assignments ?? []).filter((a) => isAssistantRole(a.StaffRole));
-      
-      setTaAssignments(taSlots);
-      setInitialTaAssignments(taSlots);
-      setInitialTaByAssignmentId(
-        taSlots.reduce<Record<number, number>>((acc, slot) => {
-          const id = Number(slot.AssignmentId ?? 0);
-          if (id > 0) acc[id] = Math.max(0, Number(slot.StaffMemberId ?? 0));
-          return acc;
-        }, {})
-      );
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && 'message' in err
@@ -182,7 +136,7 @@ export default function TeamLeaderStaffAssignmentPanel({
     } finally {
       setSaving(false);
     }
-  }, [changedTaAssignments, saving, sessionId, onAssignmentUpdated]);
+  }, [changedTaAssignments, saving, onAssignmentUpdated]);
 
   const handleCancelTaEdit = useCallback(() => {
     setTaAssignments(initialTaAssignments);

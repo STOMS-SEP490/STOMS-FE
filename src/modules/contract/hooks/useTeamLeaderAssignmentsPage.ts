@@ -328,7 +328,9 @@ const buildRejectedRequests = async (teamId: number): Promise<TeamRequestItem[]>
   }));
 };
 
-export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab) {
+export function useTeamLeaderAssignmentsPage(
+  activeTab: TeamLeaderAssignmentsTab,
+) {
   const [loading, setLoading] = useState(true);
   const [sendingAssignments, setSendingAssignments] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
@@ -340,6 +342,10 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   const [suggestedByAssignmentId, setSuggestedByAssignmentId] = useState<
     Record<number, SuggestedStaff[]>
   >({});
+  const suggestedByAssignmentIdRef = useRef(suggestedByAssignmentId);
+  useEffect(() => {
+    suggestedByAssignmentIdRef.current = suggestedByAssignmentId;
+  }, [suggestedByAssignmentId]);
   const suggestStaffInFlightRef = useRef<Record<number, Promise<SuggestedStaff[]>>>({});
 
   const [search, setSearch] = useState('');
@@ -708,7 +714,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
       const pairsToAwait: Array<readonly [number, Promise<SuggestedStaff[]>]> = [];
 
       for (const aid of unique) {
-        const cached = suggestedByAssignmentId[aid];
+        const cached = suggestedByAssignmentIdRef.current[aid];
         // [] hợp lệ từ API nhưng không coi là “đã cache xong” để tránh không bao giờ gọi lại suggest.
         if (!options.forceRefetch && Array.isArray(cached) && cached.length > 0) {
           result[aid] = cached;
@@ -752,7 +758,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
 
       return result;
     },
-    [suggestedByAssignmentId],
+    [],
   );
 
   useEffect(() => {
@@ -852,6 +858,10 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     if (!activeSession) return;
     const id = activeSession.sessionId;
     if (id <= 0) return;
+    
+    // Check if we already have this session detail to avoid duplicate fetches
+    if (sessionDetailsById[id]) return;
+    
     let cancelled = false;
     void (async () => {
       try {
@@ -868,7 +878,7 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
     return () => {
       cancelled = true;
     };
-  }, [activeSession?.sessionId, refreshSessionInRequestState]);
+  }, [activeSession?.sessionId, sessionDetailsById, refreshSessionInRequestState]);
 
   const flushAutoAssignSession = useCallback(
     async (sessionId: number) => {
@@ -941,6 +951,11 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
         } catch (err) {
           const failedIds = itemsForSession.map((it) => it.assignmentId).filter((id) => id > 0);
           if (failedIds.length) {
+            // Reset lastAutoAssigned để không block retry
+            failedIds.forEach((aid) => {
+              delete lastAutoAssignedStaffByAssignmentRef.current[aid];
+            });
+            
             try {
               const refreshed = await sessionApi.getById(sessionId);
               setSessionDetailsById((prev) => ({ ...prev, [sessionId]: refreshed }));
@@ -1007,23 +1022,54 @@ export function useTeamLeaderAssignmentsPage(activeTab: TeamLeaderAssignmentsTab
   const refetchRequestById = useCallback(async (requestId: number) => {
     if (!requestId || requestId <= 0 || !currentTeamId) return;
     try {
-      // Chỉ fetch đúng 1 request với teamId filter để lấy sessions đúng theo team
-      const res = await requestApi.getRequests({
-        requestId,
-        teamId: currentTeamId,
-        pageNumber: 1,
-        pageSize: 1,
+      // Always use /sessions/filter to sync sessions data (consistent with initial load)
+      const params = activeTab === 'assigning'
+        ? {
+            RequestId: requestId,
+            TeamId: currentTeamId,
+            PageNumber: 1,
+            PageSize: 500,
+          }
+        : {
+            RequestId: requestId,
+            PageNumber: 1,
+            PageSize: 500,
+          };
+      const response = await sessionApi.getFilter(params);
+      const rawItems = response.Items ?? [];
+      const mapped = rawItems
+        .map((session) => mapFilteredSessionLite(session, requestId))
+        .filter((session) => session.sessionId > 0)
+        .sort((a, b) => {
+          const timeA = new Date(a.startAt).getTime();
+          const timeB = new Date(b.startAt).getTime();
+          if (timeA !== timeB) return timeA - timeB;
+          return (a.sessionNo ?? 0) - (b.sessionNo ?? 0);
+        });
+
+      setSessionDetailsById((prev) => {
+        const next = { ...prev };
+        for (const raw of rawItems) {
+          const sid = Number(raw.SessionId ?? 0);
+          if (sid > 0) next[sid] = raw;
+        }
+        return next;
       });
-      const updated = (res.items ?? []).find((r) => r.requestId === requestId);
-      if (!updated) return;
-      const mapped = mapRequestListItemToTeamRequest(updated);
+
       setRequests((prev) =>
-        prev.map((item) => (item.requestId !== requestId ? item : mapped)),
+        prev.map((item) =>
+          item.requestId !== requestId
+            ? item
+            : {
+                ...item,
+                sessions: mapped,
+              },
+        ),
       );
     } catch (err) {
       message.error(getErrorMessage(err, 'Không thể làm mới thông tin yêu cầu.'));
     }
-  }, [currentTeamId]);
+  }, [currentTeamId, activeTab]);
 
   // Cập nhật refs để handleSendAssignments có thể gọi mà không bị circular dependency
   refetchRequestByIdRef.current = refetchRequestById;

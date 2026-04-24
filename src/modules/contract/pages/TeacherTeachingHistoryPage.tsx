@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useCallback } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Funnel, ChevronRight, FileText, PlusCircle, X, Wallet, Plus, ImageIcon } from 'lucide-react';
+import { RotateCcw, ChevronRight, FileText, PlusCircle, X, Wallet, Plus, ImageIcon } from 'lucide-react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { DatePicker, message, Modal } from 'antd';
@@ -629,7 +629,7 @@ export default function TeacherTeachingHistoryPage() {
               <SelectValue placeholder="Lọc hợp đồng" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">Tất cả trạng thái </SelectItem>
               <SelectItem value="yes">Có hợp đồng</SelectItem>
               <SelectItem value="no">Chưa có hợp đồng</SelectItem>
             </SelectContent>
@@ -637,14 +637,16 @@ export default function TeacherTeachingHistoryPage() {
           <Button
             type="button"
             variant="outline"
-            className="h-9 border-slate-200 px-3 text-slate-700"
+            size="icon"
+            className="h-9 w-9 shrink-0 border-slate-200 bg-white text-gray-600 hover:bg-gray-50"
             onClick={() => {
               setSearch('');
               setHasContract('all');
               setPageNumber(1);
             }}
+            title="Đặt lại bộ lọc"
           >
-            <Funnel className="h-4 w-4" />
+            <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
       </div>
