@@ -25,7 +25,6 @@ import type { RequestSessionSummary } from '../request';
 import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 import RequestDetailEquipmentPanel from './RequestDetailEquipmentPanel';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
-import ManagerSessionDetailGate from './ManagerSessionDetailGate';
 import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext } from '../requestDetail.types';
 import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
@@ -1380,11 +1379,7 @@ export default function RequestDetail() {
 
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
-                <ManagerSessionDetailGate
-                  key={rightPanel.session.sessionId}
-                  sessionId={rightPanel.session.sessionId}
-                  reservationId={(rightPanel.session as any).reservationId ?? null}
-                >
+                <>
                   {/* Thông tin buổi luôn ở trên cùng */}
                   <RequestSessionDetailPanel
                     session={
@@ -1447,7 +1442,7 @@ export default function RequestDetail() {
                       ) : null}
                     </div>
                   ) : null}
-                </ManagerSessionDetailGate>
+                </>
               )}
               {rightPanel.mode === 'team' && !isPendingRequest && (
                 <RequestDetailTeamPanel

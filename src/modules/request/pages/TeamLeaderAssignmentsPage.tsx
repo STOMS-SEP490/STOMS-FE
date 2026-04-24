@@ -30,8 +30,7 @@ import {
   getSessionDisplayTitleWithDetail,
 } from '@/modules/request/utils/getSessionDisplayTitle';
 import RequestSessionDetailPanel from '@/modules/request/pages/RequestSessionDetailPanel';
-import TeamLeaderStaffAssignmentPanel from '../../attendance/components/TeamLeaderStaffAssignmentPanel';
-import TeamLeaderSessionDetailGate from '@/modules/request/pages/TeamLeaderSessionDetailGate';
+import TeamLeaderStaffAssignmentPanel from './TeamLeaderStaffAssignmentPanel';
 import { postSessionCannotBeAssigned } from '@/modules/notification/api/notificationApi';
 import type { SessionDetail, SuggestedStaff } from '@/modules/request/type';
 import type { TeamLeaderAssignmentsTab } from '@/modules/contract/hooks/type';
@@ -86,7 +85,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     loading,
     requestSessionsLoading,
     // sendingAssignments, // Unused variable
-    requests,
     filteredRequests,
     selectedRequestId,
     setSelectedRequestId,
@@ -104,10 +102,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
   useEffect(() => {
     if (!hasDetailRequestId) return;
-    const existedInRequests = requests.some((r) => r.requestId === detailRequestId);
-    if (!existedInRequests) return;
     setSelectedRequestId(detailRequestId);
-  }, [detailRequestId, hasDetailRequestId, requests, setSelectedRequestId]);
+  }, [detailRequestId, hasDetailRequestId, setSelectedRequestId]);
 
   const [reportSessionOpen, setReportSessionOpen] = useState(false);
   const [reportSessionReason, setReportSessionReason] = useState('');
@@ -673,16 +669,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   !blockedReportStatuses.has(sessionStatusCodeForReport);
 
                 return (
-                  <TeamLeaderSessionDetailGate
-                    key={activeSession.sessionId}
-                    sessionId={activeSession.sessionId}
-                    currentTeamId={currentTeamId}
-                    reservationId={
-                      detail.ReservationId != null && Number(detail.ReservationId) > 0
-                        ? Number(detail.ReservationId)
-                        : null
-                    }
-                  >
+                  <div key={activeSession.sessionId}>
                     {sessionInfoCard}
 
                     {tab === 'rejected' &&
@@ -721,7 +708,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     ) : (
                       <div className="space-y-6">
                         <TeamLeaderStaffAssignmentPanel
-                          sessionId={activeSession.sessionId}
+                          sessionDetail={sessionDetailsById[activeSession.sessionId]}
                           canEdit
                           onAssignmentUpdated={async () => {
                             // Refresh session detail và request để lấy status mới
@@ -786,7 +773,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         ) : null}
                       </div>
                     </div>
-                  </TeamLeaderSessionDetailGate>
+                  </div>
                 );
               })()}
             </div>

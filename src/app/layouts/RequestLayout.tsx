@@ -184,6 +184,13 @@ export default function RequestLayout() {
     requestQueryOptions,
   );
 
+  // Refresh data when navigating back from detail to table
+  useEffect(() => {
+    if (!isDetailMode) {
+      setSidebarRefreshKey((k) => k + 1);
+    }
+  }, [isDetailMode]);
+
   const filteredRequests = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (requestList ?? []).filter((item) => {
