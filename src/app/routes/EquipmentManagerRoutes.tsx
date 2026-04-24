@@ -9,7 +9,7 @@ import TeacherContributionHistoryPage from '@/modules/transaction/pages/TeacherC
 const EquipmentManagerRoutes = [
   {
     index: true,
-    element: <Navigate to="dashboard" replace />,
+    element: <Navigate to="dashboard"  />,
   },
   {
     path: 'dashboard',
@@ -18,18 +18,6 @@ const EquipmentManagerRoutes = [
   {
     path: 'categories',
     element: <CategoriesManagement />,
-  },
-  {
-    path: 'equipments/history',
-    element: <Navigate to="/em/borrowings" replace />,
-  },
-  {
-    path: 'equipments/reservations',
-    element: <Navigate to="/em/reservations" replace />,
-  },
-  {
-    path: 'equipments/history/reservations',
-    element: <Navigate to="/em/reservations" replace />,
   },
   {
     path: 'equipments',

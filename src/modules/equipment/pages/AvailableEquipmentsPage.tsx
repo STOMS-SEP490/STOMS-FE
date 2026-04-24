@@ -4,7 +4,7 @@ import HoverSearch from '@/shared/components/ui/search';
 import { DataTable } from '@/shared/components/common/DataTable';
 import type { EquipmentListItem } from '@/modules/equipment/equipment';
 import { Badge } from '@/shared/components/ui/badge';
-import { getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/equipment';
+import { getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/status';
 import { useCategories } from '@/modules/category/hooks/useCategories';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import EquipmentsHistory from '@/modules/equipment/pages/EquipmentsHistory';

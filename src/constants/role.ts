@@ -46,14 +46,29 @@ export function getStaffRoleId(staffRole: string | null | undefined): number | n
   const normalized = String(staffRole).toLowerCase().trim();
   
   // Teacher patterns
-  if (normalized.includes('teacher') || normalized.includes('giảng viên') || normalized.includes('gv')) {
+  if (normalized.includes('teacher') || normalized.includes('giảng viên') || normalized.includes('gv') || normalized === 'te') {
     return ROLE_ID.TEACHER;
   }
   
-  // Assistant/Student patterns
-  if (normalized.includes('ta') || normalized.includes('trợ giảng') || normalized.includes('sinh viên') || normalized.includes('assistant')) {
+  // Assistant/Student patterns  
+  if (normalized.includes('ta') || normalized.includes('trợ giảng') || normalized.includes('sinh viên') || normalized.includes('assistant') || normalized.includes('student') || normalized.includes('sv') || normalized.includes('sinh')) {
     return ROLE_ID.ASSISTANT;
   }
   
   return null;
 }
+
+/**
+ * Check if staffRole is a teacher role
+ */
+export function isTeacherRole(staffRole: string | null | undefined): boolean {
+  return getStaffRoleId(staffRole) === ROLE_ID.TEACHER;
+}
+
+/**
+ * Check if staffRole is an assistant/student role
+ */
+export function isAssistantRole(staffRole: string | null | undefined): boolean {
+  return getStaffRoleId(staffRole) === ROLE_ID.ASSISTANT;
+}
+

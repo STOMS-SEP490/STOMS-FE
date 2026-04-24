@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import sessionService from '../api/sessionApi';
 import reservationService from '@/modules/reservation/api/reservationApi';
 import type { SessionResponse } from '../session.types';
+import { isTeacherRole } from '@/constants/role';
 
 // In-memory cache — tồn tại trong session browser, tự clear khi component unmount
 const sessionCache = new Map<number, SessionResponse>();
@@ -71,10 +72,7 @@ export default function ManagerSessionDetailGate({ sessionId, reservationId, chi
 
         // Fetch teacher suggestions song song
         const assignments = (detail as any)?.Assignments ?? [];
-        const teacherSlots = assignments.filter((a: any) => {
-          const role = String(a.StaffRole ?? '').toUpperCase();
-          return role.includes('TEACH') || role === 'TE' || role.includes('GV');
-        });
+        const teacherSlots = assignments.filter((a: any) => isTeacherRole(a.StaffRole));
 
         if (teacherSlots.length > 0) {
           const { default: assignmentApi } = await import('@/modules/assignment/api/assignmentApi');

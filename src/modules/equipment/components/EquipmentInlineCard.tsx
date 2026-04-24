@@ -1,6 +1,6 @@
 import { ImageOff } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
-import { getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/equipment';
+import { getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/status';
 import { cn } from '@/shared/lib/utils';
 
 type Props = {

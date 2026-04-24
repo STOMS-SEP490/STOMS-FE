@@ -9,7 +9,7 @@ import {
   EQUIPMENT_STATUS_OPTIONS,
   getEquipmentStatusColor,
   getEquipmentStatusDisplay,
-} from '@/constants/equipment'
+} from '@/constants/status'
 import { Dialog } from '@/shared/components/ui/dialog'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
