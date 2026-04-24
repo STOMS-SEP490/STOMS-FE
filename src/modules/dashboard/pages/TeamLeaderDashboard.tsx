@@ -324,9 +324,9 @@ export default function TeamLeaderDashboard() {
       <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-[#1a7a99]">Dashboard trưởng nhóm</h2>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Bảng điều khiển</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Tổng quan team của bạn, tiến độ buổi dạy và các mục cần theo dõi.
+              Tổng quan nhóm của bạn, tiến độ các buổi và các mục cần theo dõi.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">

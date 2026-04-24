@@ -66,6 +66,11 @@ export type TeamSessionResponse = {
   TeamName?: string | null;
   TeachersRequired?: number | null;
   TasRequired?: number | null;
+  Team?: {
+    TeamId?: number;
+    TeamName?: string | null;
+    Members?: unknown[] | null;
+  };
 };
 
 export type SessionTopicRef = {

@@ -568,6 +568,7 @@ export const useRequestDetailManager = (params: {
         setApprovingSessionId(sessionId);
         await assignmentService.approve(ids);
         message.success('Đã duyệt các phân công đã chọn.');
+        
         const detail = await sessionService.getById(sessionId);
         const rowsReload = mapSessionAssignments(detail);
         setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));

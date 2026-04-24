@@ -520,7 +520,7 @@ export function getSessionStatusInfo(status: string | number | null | undefined)
     [SESSION_STATUS.REJECTED]: 'bg-rose-50 text-rose-700 border-rose-200',
     [SESSION_STATUS.ASSIGNING]: 'bg-sky-50 text-sky-700 border-sky-200',
     [SESSION_STATUS.ASSIGNMENT_REJECTED]: 'bg-rose-50 text-rose-800 border-rose-200',
-    [SESSION_STATUS.ASSIGNED]: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    [SESSION_STATUS.ASSIGNED]: 'bg-sky-50 text-sky-700 border-sky-200',
     [SESSION_STATUS.CANCELLED]: 'bg-slate-50 text-slate-700 border-slate-200',
     [SESSION_STATUS.ONGOING]: 'bg-cyan-50 text-cyan-700 border-cyan-200',
     [SESSION_STATUS.COMPLETED]: 'bg-emerald-50 text-emerald-700 border-emerald-200',

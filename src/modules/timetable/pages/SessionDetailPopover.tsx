@@ -283,7 +283,7 @@ export default function SessionDetailPopover({
           aria-modal="true"
         >
           {/* Popover header */}
-          <div className="relative border-b border-slate-100 px-4 pt-4 pb-3">
+          <div className="px-4 pt-3 pb-2.5">
             <button
               type="button"
               onClick={() => { closeDetail(); onClose(); }}
@@ -312,7 +312,7 @@ export default function SessionDetailPopover({
           </div>
 
           {/* Time + Location */}
-          <div className="border-b border-slate-100 px-4 py-3 space-y-1.5">
+          <div className="px-4 py-2.5 space-y-1.5 bg-slate-50/50">
             <div className="flex items-baseline gap-2">
               <span className="w-16 shrink-0 text-[11px] text-[#2197C0] font-medium">Thời gian</span>
               <span className="text-xs font-medium text-slate-900">
@@ -327,8 +327,8 @@ export default function SessionDetailPopover({
 
           {/* Staff */}
           <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-3">
-            <div className="flex items-center justify-between ">
-              {session && canSeeAttendanceButton && onOpenAttendancePanel && (
+            {session && canSeeAttendanceButton && onOpenAttendancePanel && (
+              <div className="mb-3">
                 <button
                   type="button"
                   className="inline-flex items-center rounded px-2.5 py-1 text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition-colors"
@@ -338,8 +338,8 @@ export default function SessionDetailPopover({
                 >
                   Xác nhận tham gia
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {staff.length > 0 && !staff.every((s) => !s.name || s.name === '—') ? (
               <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1">
@@ -407,7 +407,7 @@ export default function SessionDetailPopover({
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 flex items-center justify-between border-t border-slate-100 px-4 py-2.5">
+          <div className="shrink-0 flex items-center justify-between bg-slate-50/50 px-4 py-2.5">
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-slate-500">Trạng thái:</span>
               <Badge className={`text-[10px] px-2 py-0.5 ${statusBadgeClass(session.Status)}`}>

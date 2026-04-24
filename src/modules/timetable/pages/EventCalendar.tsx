@@ -41,6 +41,7 @@ import {
   REPORT_BUSY_TOO_SOON_VI,
 } from '@/modules/event/utils/reportBusyEligibility';
 import { Tooltip } from 'antd';
+import { getSessionStatusInfo } from '@/constants/status';
 
 /** Lấy SessionId số để gọi API — id lịch có thể là number hoặc chuỗi số từ FullCalendar. */
 function parseSessionIdFromCalendar(raw: string | number | undefined | null): number | null {
@@ -555,10 +556,10 @@ export default function EventCalendar() {
               <div className="calendar-segmented">
                 <button
                   type="button"
-                  onClick={() => handleViewChange('dayGridMonth')}
-                  className={`calendar-segment-btn ${currentView === 'dayGridMonth' ? 'active' : ''}`}
+                  onClick={() => handleViewChange('timeGridDay')}
+                  className={`calendar-segment-btn ${currentView === 'timeGridDay' ? 'active' : ''}`}
                 >
-                  Tháng
+                  Ngày
                 </button>
                 <button
                   type="button"
@@ -569,10 +570,10 @@ export default function EventCalendar() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleViewChange('timeGridDay')}
-                  className={`calendar-segment-btn ${currentView === 'timeGridDay' ? 'active' : ''}`}
+                  onClick={() => handleViewChange('dayGridMonth')}
+                  className={`calendar-segment-btn ${currentView === 'dayGridMonth' ? 'active' : ''}`}
                 >
-                  Ngày
+                  Tháng
                 </button>
               </div>
               {isUpcomingCollapsed && (
@@ -654,30 +655,30 @@ export default function EventCalendar() {
                         void openSessionFromId(session.sessionId, e.currentTarget.getBoundingClientRect());
                       }}
                     />
-                    <div className="relative z-10 space-y-2 pl-0.5 pointer-events-none">
+                    <div className="relative z-10 space-y-1.5 pl-0.5 pointer-events-none">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold tracking-tight text-slate-900">
+                        <div className="truncate text-xs font-semibold tracking-tight text-slate-900">
                           {session.requestLine}
                         </div>
-                        <div className="mt-0.5 text-[11px] leading-snug text-slate-500 line-clamp-2">
+                        <div className="mt-0.5 text-[10px] leading-snug text-slate-500 line-clamp-2">
                           {session.sessionLine}
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-[11px] text-slate-600">
-                          <span className="flex h-4 w-3.5 shrink-0 items-center justify-center text-slate-400">
-                            <CalendarClock className="h-3.5 w-3.5" aria-hidden strokeWidth={2} />
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                          <span className="flex h-3.5 w-3 shrink-0 items-center justify-center text-slate-400">
+                            <CalendarClock className="h-3 w-3" aria-hidden strokeWidth={2} />
                           </span>
                           <span className="min-w-0 leading-tight">
                             {dayjs(session.start).format('DD/MM/YYYY')} • {dayjs(session.start).format('HH:mm')} —{' '}
                             {dayjs(session.end).format('HH:mm')}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-4 w-3.5 shrink-0 items-center justify-center text-slate-400">
-                            <MapPin className="h-3.5 w-3.5" aria-hidden strokeWidth={2} />
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex h-3.5 w-3 shrink-0 items-center justify-center text-slate-400">
+                            <MapPin className="h-3 w-3" aria-hidden strokeWidth={2} />
                           </span>
-                          <span className="min-w-0 flex-1 truncate text-[11px] leading-tight text-slate-500">
+                          <span className="min-w-0 flex-1 truncate text-[10px] leading-tight text-slate-500">
                             {session.resource}
                           </span>
                           {canReportBusy ? (
@@ -696,9 +697,9 @@ export default function EventCalendar() {
                                   setReportBusyCard(session);
                                 }
                               }}
-                              className="pointer-events-auto inline-flex shrink-0 cursor-pointer select-none items-center gap-0.5 text-[10px] font-semibold text-red-900 hover:text-red-950 hover:underline underline-offset-2"
+                              className="pointer-events-auto inline-flex shrink-0 cursor-pointer select-none items-center gap-0.5 text-[9px] font-semibold text-red-900 hover:text-red-950 hover:underline underline-offset-2"
                             >
-                              <CircleAlert className="h-3 w-3 shrink-0" aria-hidden strokeWidth={2.5} />
+                              <CircleAlert className="h-2.5 w-2.5 shrink-0" aria-hidden strokeWidth={2.5} />
                               Báo bận
                             </span>
                           ) : (
@@ -711,9 +712,9 @@ export default function EventCalendar() {
                                   e.preventDefault();
                                   e.stopPropagation();
                                 }}
-                                className="pointer-events-auto inline-flex shrink-0 cursor-not-allowed select-none items-center gap-0.5 text-[10px] font-semibold text-slate-400"
+                                className="pointer-events-auto inline-flex shrink-0 cursor-not-allowed select-none items-center gap-0.5 text-[9px] font-semibold text-slate-400"
                               >
-                                <CircleAlert className="h-3 w-3 shrink-0 opacity-70" aria-hidden strokeWidth={2.5} />
+                                <CircleAlert className="h-2.5 w-2.5 shrink-0 opacity-70" aria-hidden strokeWidth={2.5} />
                                 Báo bận
                               </span>
                             </Tooltip>
@@ -729,7 +730,9 @@ export default function EventCalendar() {
                   Không có buổi sắp tới.
                 </div>
               ) : (
-                upcomingSessions.map((session) => (
+                upcomingSessions.map((session) => {
+                  const sessionId = parseSessionIdFromCalendar(session.id);
+                  return (
                   <div
                     key={String(session.id)}
                     className="rounded-xl border border-slate-200 p-3 transition relative overflow-hidden bg-white hover:border-slate-300 hover:shadow-sm"
@@ -739,42 +742,63 @@ export default function EventCalendar() {
                       className="absolute left-0 top-0 bottom-0 w-1"
                       style={{ backgroundColor: session.isOngoing ? '#22C55E55' : '#2197C055' }}
                     />
+                    {/* Button click để xem chi tiết */}
+                    <button
+                      type="button"
+                      className="absolute inset-0 z-0 rounded-xl"
+                      aria-label={`Xem chi tiết: ${upcomingAsideRequestLine(session)}`}
+                      onClick={(e) => {
+                        if (sessionId != null) {
+                          setDetailEventMeta({
+                            title: upcomingAsideRequestLine(session),
+                            sessionTitle: session.sessionTitle,
+                            requestCode: session.requestCode,
+                            requestName: session.requestName,
+                            sessionNo: session.sessionNo,
+                          });
+                          void openSessionFromId(sessionId, e.currentTarget.getBoundingClientRect());
+                        }
+                      }}
+                    />
 
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-slate-900">
-                          {upcomingAsideRequestLine(session)}
+                    <div className="relative z-10 pointer-events-none">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs font-semibold text-slate-900">
+                            {upcomingAsideRequestLine(session)}
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-slate-500 leading-snug break-words line-clamp-2">
+                            {upcomingAsideSessionLine(session)}
+                          </div>
                         </div>
-                        <div className="mt-1 text-[11px] text-slate-500 leading-snug break-words line-clamp-2">
-                          {upcomingAsideSessionLine(session)}
-                        </div>
+                        {session.isOngoing && (
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${
+                              getSessionStatusInfo(session.status).className
+                            }`}
+                          >
+                            {getSessionStatusInfo(session.status).label}
+                          </span>
+                        )}
                       </div>
-                      <span
-                        className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
-                          session.isOngoing
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : 'border-[#2197C0]/30 bg-[#2197C0]/10 text-[#2197C0]'
-                        }`}
-                      >
-                        {session.isOngoing ? 'Đang diễn ra' : 'Sắp tới'}
-                      </span>
-                    </div>
 
-                    <div className="mt-2.5 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
-                        <CalendarClock className="h-3.5 w-3.5 shrink-0" />
-                        <span>
-                          {dayjs(session.start).format('DD/MM/YYYY')} • {dayjs(session.start).format('HH:mm')} -{' '}
-                          {dayjs(session.end).format('HH:mm')}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{session.resource || 'Chưa có địa điểm'}</span>
+                      <div className="mt-2 space-y-1">
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                          <CalendarClock className="h-3 w-3 shrink-0" />
+                          <span>
+                            {dayjs(session.start).format('DD/MM/YYYY')} • {dayjs(session.start).format('HH:mm')} -{' '}
+                            {dayjs(session.end).format('HH:mm')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{session.resource || 'Chưa có địa điểm'}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
         </aside>
