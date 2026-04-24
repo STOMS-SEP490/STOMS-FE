@@ -28,15 +28,8 @@ import borrowingApi from '@/modules/equipment/api/borrowingApi'
 import { getEquipmentsListCached } from '@/modules/equipment/utils/equipmentListCache'
 import type { BorrowingListItem } from '@/modules/equipment/borrowing'
 import type { EquipmentListItem } from '@/modules/equipment/equipment'
-import { EQUIPMENT_STATUS } from '@/constants/equipment'
-import {
-  getBorrowingStatusColor,
-  getBorrowingStatusDisplay,
-} from '@/constants/borrowing'
-import {
-  getEquipmentStatusColor,
-  getEquipmentStatusDisplay,
-} from '@/constants/equipment'
+import { EQUIPMENT_STATUS, getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/status'
+import { getBorrowingStatusColor, getBorrowingStatusDisplay } from '@/constants/borrowing'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/shared/lib/utils'

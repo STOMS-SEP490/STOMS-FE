@@ -4,7 +4,7 @@ import { FileText, Hash, Layers, X } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { Image } from 'antd';
 import { Badge } from '@/shared/components/ui/badge';
-import { getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/equipment';
+import { getEquipmentStatusColor, getEquipmentStatusDisplay } from '@/constants/status';
 import type { CategoryListItem } from '../category';
 
 type Props = {

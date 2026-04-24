@@ -14,6 +14,7 @@ import {
   REQUEST_STATUS,
   SESSION_STATUS,
 } from '@/constants/status';
+import { isTeacherRole } from '@/constants/role';
 import {
   canManagerReviewAssignmentRow,
 } from '../utils/assignmentSlotUtils';
@@ -207,9 +208,7 @@ export default function RequestDetail() {
       if (reqTeachers === 0) return true;
       const rows = assignmentsBySessionId[session.sessionId] ?? [];
       const filledTeachers = rows.filter((r) => {
-        const role = String(r.staffRole ?? '').toUpperCase();
-        const isTeacher = role.includes('TEACH') || role === 'TE' || role.includes('GV');
-        return isTeacher && Number(r.staffMemberId ?? 0) > 0;
+        return isTeacherRole(r.staffRole) && Number(r.staffMemberId ?? 0) > 0;
       }).length;
       return filledTeachers >= reqTeachers;
     },

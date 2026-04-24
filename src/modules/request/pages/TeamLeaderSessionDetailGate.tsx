@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import sessionService from '../api/sessionApi';
 import reservationService from '@/modules/reservation/api/reservationApi';
 import type { SessionResponse } from '../session.types';
+import { isAssistantRole } from '@/constants/role';
 
 // In-memory cache — tồn tại trong session browser, tự clear khi component unmount
 const sessionCache = new Map<number, SessionResponse>();
@@ -63,15 +64,12 @@ export default function TeamLeaderSessionDetailGate({ sessionId, reservationId, 
           
           // Filter: TA/student slots thuộc team này
           const teamTaStudentSlots = assignments.filter((a: any) => {
-            const role = String(a.StaffRole ?? '').toUpperCase();
-            const isTA = role.includes('TA');
-            
             // Check if assignment belongs to this team
             const assignmentTeamId = Number(a.TeamId ?? 0);
             const staffMemberTeamId = Number(a.StaffMember?.TeamId ?? 0);
             const belongsToTeam = assignmentTeamId === currentTeamId || staffMemberTeamId === currentTeamId;
             
-            return isTA && belongsToTeam;
+            return isAssistantRole(a.StaffRole) && belongsToTeam;
           });
 
           if (teamTaStudentSlots.length > 0) {
