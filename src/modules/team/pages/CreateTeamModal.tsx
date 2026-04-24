@@ -3,6 +3,8 @@ import { message } from 'antd';
 import { teamApi } from '@/modules/team/api/teamApi';
 import memberApi from '@/modules/member/api/memberApi';
 import type { Member } from '@/modules/member/member';
+import userService from '@/modules/user/api/userApi';
+import type { User } from '@/modules/user/user';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -25,12 +27,19 @@ type Props = {
 export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
   const [teamName, setTeamName] = useState('');
   const [leaderMemberId, setLeaderMemberId] = useState<number | null>(null);
-  const [teamLeaders, setTeamLeaders] = useState<Member[]>([]);
+  const [teamLeaders, setTeamLeaders] = useState<{ user: User; member: Member }[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingLeaders, setLoadingLeaders] = useState(false);
   const [error, setError] = useState('');
 
   const TEAM_LEADER_ROLE_ID = 2;
+  const getLeaderDisplayName = (x: { user: User; member: Member }) => {
+    const fullName = String(x.member?.fullName ?? '').trim();
+    return fullName || x.user.email || `User #${x.user.userId}`;
+  };
+  const getLeaderAvatar = (x: { user: User; member: Member }) => {
+    return x.member?.avatarUrl || x.user?.avatarUrl || '/img/ava.png';
+  };
 
   // Load danh sách trưởng nhóm khi mở modal
   useEffect(() => {
@@ -39,12 +48,28 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
     const loadTeamLeaders = async () => {
       try {
         setLoadingLeaders(true);
-        const res = await memberApi.getMembers({
-          RoleId: TEAM_LEADER_ROLE_ID,
+        const usersRes = await userService.getUsers({
           pageNumber: 1,
           pageSize: 100,
+          RoleId: TEAM_LEADER_ROLE_ID,
         });
-        setTeamLeaders(res.items ?? []);
+
+        const users = (usersRes.items ?? []).filter((u) => Number(u.roleId) === TEAM_LEADER_ROLE_ID);
+        const userIds = new Set(users.map((u) => u.userId));
+
+        // Lấy member để có fullName (join theo userId)
+        const membersRes = await memberApi.getMembers({ pageNumber: 1, pageSize: 500 });
+        const members = (membersRes.items ?? []).filter((m) => userIds.has(m.userId));
+        const memberByUserId = new Map(members.map((m) => [m.userId, m]));
+
+        const joined = users
+          .map((u) => {
+            const m = memberByUserId.get(u.userId);
+            return m ? { user: u, member: m } : null;
+          })
+          .filter(Boolean) as { user: User; member: Member }[];
+
+        setTeamLeaders(joined);
       } catch {
         message.error('Không thể tải danh sách trưởng nhóm');
         setTeamLeaders([]);
@@ -124,11 +149,32 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
               <SelectValue placeholder={loadingLeaders ? 'Đang tải...' : 'Chọn trưởng nhóm'} />
             </SelectTrigger>
             <SelectContent>
-              {teamLeaders.map((member) => (
-                <SelectItem key={member.memberId} value={member.memberId.toString()}>
-                  {member.fullName || `Member #${member.memberId}`}
-                </SelectItem>
-              ))}
+              {teamLeaders
+                .filter((x) => x.member?.memberId != null)
+                .map((x) => (
+                  <SelectItem key={x.user.userId} value={String(x.member.memberId)}>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={getLeaderAvatar(x)}
+                        alt=""
+                        className="h-8 w-8 rounded-full object-cover border border-slate-200 bg-white"
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          img.onerror = null;
+                          img.src = '/img/ava.png';
+                        }}
+                      />
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-slate-900">
+                          {getLeaderDisplayName(x)}
+                        </div>
+                        <div className="truncate text-xs text-slate-500">
+                          {x.user.email || `User #${x.user.userId}`}
+                        </div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                ))}
               {teamLeaders.length === 0 && !loadingLeaders && (
                 <div className="px-2 py-1.5 text-sm text-gray-500">
                   Không có trưởng nhóm nào

@@ -111,8 +111,9 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
     async (detail: SessionDetail) => {
       const ownerIdFromSession = getAttendanceOwnerId(detail.Attendances as any);
 
-      // Nếu currentMemberId có attendance record với attendanceByMemberId === chính mình
-      // thì ưu tiên dùng currentMemberId (teacher/TA tự xác nhận cho mình).
+      // Ưu tiên: nếu buổi đang được ủy quyền cho chính currentMemberId
+      // (tồn tại bất kỳ attendance có AttendanceByMemberId === currentMemberId)
+      // thì filter theo currentMemberId.
       let ownerId: number | null = null;
       if (currentMemberId != null && currentMemberId > 0) {
         const attendances = (detail.Attendances ?? []) as Array<{
@@ -121,12 +122,22 @@ export function useTeamLeaderAttendancePanel(params?: { refetch?: () => Promise<
           AttendanceByMemberId?: number | string | null;
           attendanceByMemberId?: number | string | null;
         }>;
+
+        const delegatedToMe = attendances.some((a) => {
+          const byId = Number(a.AttendanceByMemberId ?? a.attendanceByMemberId ?? 0);
+          return Number.isFinite(byId) && byId > 0 && byId === currentMemberId;
+        });
+
+        // Nếu currentMemberId có attendance record và record đó chưa set AttendanceByMemberId rõ ràng
+        // thì hiểu là tự xác nhận cho mình.
         const hasSelfRecord = attendances.some((a) => {
           const mId = Number(a.MemberId ?? a.memberId ?? 0);
-          const byId = Number(a.AttendanceByMemberId ?? a.attendanceByMemberId ?? 0);
-          return mId === currentMemberId && (byId === currentMemberId || byId === 0 || isNaN(byId));
+          const byRaw = a.AttendanceByMemberId ?? a.attendanceByMemberId ?? null;
+          const byId = byRaw == null ? 0 : Number(byRaw);
+          return mId === currentMemberId && (!Number.isFinite(byId) || byId <= 0 || byId === currentMemberId);
         });
-        if (hasSelfRecord) {
+
+        if (delegatedToMe || hasSelfRecord) {
           ownerId = currentMemberId;
         }
       }
