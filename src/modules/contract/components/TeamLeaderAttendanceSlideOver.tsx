@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { UserCheck, X } from 'lucide-react';
 import HoverSearch from '@/shared/components/ui/search';
-import attendanceApi from '@/modules/attendance/attendanceApi';
+import attendanceApi, { type AttendanceFaceRecognizeResponse } from '@/modules/attendance/attendanceApi';
 import type { TeamLeaderTimetableAssignmentRow } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
 import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/type';
 import { cn } from '@/shared/lib/utils';
@@ -75,21 +75,57 @@ export default function TeamLeaderAttendanceSlideOver({
   overlayZClass = 'z-[80]',
   hideDelegate = false,
 }: TeamLeaderAttendanceSlideOverProps) {
-  const [checkinImagesByMemberId, setCheckinImagesByMemberId] = useState<Record<number, File | null>>({});
-  const [checkoutImagesByMemberId, setCheckoutImagesByMemberId] = useState<Record<number, File | null>>({});
+  const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+  const [checkinProofImage, setCheckinProofImage] = useState<File | null>(null);
+  const [checkoutProofImage, setCheckoutProofImage] = useState<File | null>(null);
+  const [checkedCheckinByMemberId, setCheckedCheckinByMemberId] = useState<Record<number, boolean>>({});
+  const [checkedCheckoutByMemberId, setCheckedCheckoutByMemberId] = useState<Record<number, boolean>>({});
   const [pendingCheckinResetByMemberId, setPendingCheckinResetByMemberId] = useState<Record<number, boolean>>({});
   const [pendingCheckoutResetByMemberId, setPendingCheckoutResetByMemberId] = useState<Record<number, boolean>>({});
   const [previewImgUrl, setPreviewImgUrl] = useState<string | null>(null);
+  const [autoMatchesByAttendanceId, setAutoMatchesByAttendanceId] = useState<Record<number, number>>({});
+  const [autoRecognizing, setAutoRecognizing] = useState(false);
+  const [autoPreviewUrl, setAutoPreviewUrl] = useState<string | null>(null);
+  const [autoDetectedFaces, setAutoDetectedFaces] = useState<
+    Array<{ faceIndex: number; boundingBox: { left: number; top: number; width: number; height: number }; isMatched: boolean }>
+  >([]);
+  const [autoMatchedResults, setAutoMatchedResults] = useState<
+    Array<{
+      attendanceId: number;
+      targetMemberId: number;
+      fullName: string;
+      similarity: number;
+      detectedFaceIndex: number;
+      boundingBox: { left: number; top: number; width: number; height: number };
+    }>
+  >([]);
+  const [autoMatchBoxByAttendanceId, setAutoMatchBoxByAttendanceId] = useState<
+    Record<number, { similarity: number; boundingBox: { left: number; top: number; width: number; height: number } }>
+  >({});
 
   useEffect(() => {
     // Reset ảnh khi đổi mode/buổi để tránh gửi nhầm.
     if (actionMode !== 'checkin' || !activeSession?.sessionId) {
-      setCheckinImagesByMemberId({});
+      setCheckinProofImage(null);
+      setCheckedCheckinByMemberId({});
       setPendingCheckinResetByMemberId({});
+      setAutoMatchesByAttendanceId({});
+      setAutoDetectedFaces([]);
+      setAutoMatchedResults([]);
+      setAutoMatchBoxByAttendanceId({});
+      if (autoPreviewUrl) URL.revokeObjectURL(autoPreviewUrl);
+      setAutoPreviewUrl(null);
     }
     if (actionMode !== 'checkout' || !activeSession?.sessionId) {
-      setCheckoutImagesByMemberId({});
+      setCheckoutProofImage(null);
+      setCheckedCheckoutByMemberId({});
       setPendingCheckoutResetByMemberId({});
+      setAutoMatchesByAttendanceId({});
+      setAutoDetectedFaces([]);
+      setAutoMatchedResults([]);
+      setAutoMatchBoxByAttendanceId({});
+      if (autoPreviewUrl) URL.revokeObjectURL(autoPreviewUrl);
+      setAutoPreviewUrl(null);
     }
   }, [actionMode, activeSession?.sessionId]);
 
@@ -114,14 +150,23 @@ export default function TeamLeaderAttendanceSlideOver({
     return ownerId === uid;
   }, [actionMode, attendanceByMemberIdForSession, currentMemberId]);
 
-  const selectedIdsByImages = useMemo(() => {
-    const m = actionMode === 'checkout' ? checkoutImagesByMemberId : checkinImagesByMemberId;
-    const ids = Object.entries(m)
-      .filter(([, f]) => !!f)
+  const selectedIdsToSubmit = useMemo(() => {
+    if (actionMode !== 'checkin' && actionMode !== 'checkout') return [];
+    const checked = actionMode === 'checkout' ? checkedCheckoutByMemberId : checkedCheckinByMemberId;
+    const proof = actionMode === 'checkout' ? checkoutProofImage : checkinProofImage;
+    if (!proof) return [];
+    const ids = Object.entries(checked)
+      .filter(([, v]) => !!v)
       .map(([k]) => Number(k))
-      .filter((id) => Number.isFinite(id) && id > 0);
+      .filter((id) => Number.isFinite(id) && id > 0)
     return Array.from(new Set(ids));
-  }, [actionMode, checkinImagesByMemberId, checkoutImagesByMemberId]);
+  }, [
+    actionMode,
+    checkinProofImage,
+    checkoutProofImage,
+    checkedCheckinByMemberId,
+    checkedCheckoutByMemberId,
+  ]);
 
   const pendingResetMemberIds = useMemo(() => {
     const m = actionMode === 'checkout' ? pendingCheckoutResetByMemberId : pendingCheckinResetByMemberId;
@@ -131,7 +176,7 @@ export default function TeamLeaderAttendanceSlideOver({
       .filter((id) => Number.isFinite(id) && id > 0);
   }, [actionMode, pendingCheckinResetByMemberId, pendingCheckoutResetByMemberId]);
 
-  const hasPendingChanges = selectedIdsByImages.length > 0 || pendingResetMemberIds.length > 0;
+  const hasPendingChanges = selectedIdsToSubmit.length > 0 || pendingResetMemberIds.length > 0;
 
   const filteredAttendanceItems = useMemo(() => {
     const keyword = memberSearch.trim().toLowerCase();
@@ -184,7 +229,7 @@ export default function TeamLeaderAttendanceSlideOver({
       return;
     }
 
-    const selected = selectedIdsByImages;
+    const selected = selectedIdsToSubmit;
     const pendingResetIds = pendingResetMemberIds;
     if (selected.length === 0 && pendingResetIds.length === 0) {
       message.warning('Vui lòng chọn ảnh hoặc đánh dấu xóa ít nhất 1 member.');
@@ -225,20 +270,58 @@ export default function TeamLeaderAttendanceSlideOver({
       }
 
       if (actionMode === 'checkin') {
-        const items = selected.map((memberId) => ({
-          memberId,
-          note: (memberNotes?.[memberId] ?? '').trim() || null,
-          file: checkinImagesByMemberId[memberId] ?? null,
-        }));
+        const items = selected
+          .map((memberId) => {
+            const attendanceId = Number(
+              attendanceItems.find((a) => {
+                const mid = Number(
+                  (a as unknown as { MemberId?: number; memberId?: number }).MemberId ??
+                    (a as unknown as { MemberId?: number; memberId?: number }).memberId ??
+                    0,
+                );
+                return mid === memberId;
+              }) as unknown as { AttendanceId?: number; attendanceId?: number } | undefined
+                ? (attendanceItems.find((a) => {
+                    const mid = Number(
+                      (a as unknown as { MemberId?: number; memberId?: number }).MemberId ??
+                        (a as unknown as { MemberId?: number; memberId?: number }).memberId ??
+                        0,
+                    );
+                    return mid === memberId;
+                  }) as unknown as { AttendanceId?: number; attendanceId?: number }).AttendanceId ??
+                  (attendanceItems.find((a) => {
+                    const mid = Number(
+                      (a as unknown as { MemberId?: number; memberId?: number }).MemberId ??
+                        (a as unknown as { MemberId?: number; memberId?: number }).memberId ??
+                        0,
+                    );
+                    return mid === memberId;
+                  }) as unknown as { AttendanceId?: number; attendanceId?: number }).attendanceId ??
+                  0
+                : 0,
+            );
+
+            return {
+              memberId,
+              attendanceId,
+              note: (memberNotes?.[memberId] ?? '').trim() || null,
+            };
+          })
+          .filter((x) => Number.isFinite(x.attendanceId) && x.attendanceId > 0);
 
         if (items.length > 0) {
+          if (!checkinProofImage) {
+            message.warning('Vui lòng upload ảnh minh chứng trước khi lưu.');
+            return;
+          }
           const form = new FormData();
           form.append('SessionId', String(activeSession.sessionId));
           items.forEach((x, i) => {
-            form.append(`Items[${i}].MemberId`, String(x.memberId));
+            // BE expects AttendanceId + 1 ảnh dùng chung (Image)
+            form.append(`Items[${i}].AttendanceId`, String(x.attendanceId));
             if (x.note) form.append(`Items[${i}].Note`, x.note);
-            form.append('Images', x.file as File, (x.file as File).name);
           });
+          form.append('Image', checkinProofImage, checkinProofImage.name);
 
           const res = await attendanceApi.checkInWithImages(form);
           if (res?.SkippedMemberIds?.length) {
@@ -252,20 +335,57 @@ export default function TeamLeaderAttendanceSlideOver({
           message.success('Đã xóa ảnh xác nhận đã chọn.');
         }
       } else {
-        const items = selected.map((memberId) => ({
-          memberId,
-          note: (memberNotes?.[memberId] ?? '').trim() || null,
-          file: checkoutImagesByMemberId[memberId] ?? null,
-        }));
+        const items = selected
+          .map((memberId) => {
+            const attendanceId = Number(
+              attendanceItems.find((a) => {
+                const mid = Number(
+                  (a as unknown as { MemberId?: number; memberId?: number }).MemberId ??
+                    (a as unknown as { MemberId?: number; memberId?: number }).memberId ??
+                    0,
+                );
+                return mid === memberId;
+              }) as unknown as { AttendanceId?: number; attendanceId?: number } | undefined
+                ? (attendanceItems.find((a) => {
+                    const mid = Number(
+                      (a as unknown as { MemberId?: number; memberId?: number }).MemberId ??
+                        (a as unknown as { MemberId?: number; memberId?: number }).memberId ??
+                        0,
+                    );
+                    return mid === memberId;
+                  }) as unknown as { AttendanceId?: number; attendanceId?: number }).AttendanceId ??
+                  (attendanceItems.find((a) => {
+                    const mid = Number(
+                      (a as unknown as { MemberId?: number; memberId?: number }).MemberId ??
+                        (a as unknown as { MemberId?: number; memberId?: number }).memberId ??
+                        0,
+                    );
+                    return mid === memberId;
+                  }) as unknown as { AttendanceId?: number; attendanceId?: number }).attendanceId ??
+                  0
+                : 0,
+            );
+
+            return {
+              memberId,
+              attendanceId,
+              note: (memberNotes?.[memberId] ?? '').trim() || null,
+            };
+          })
+          .filter((x) => Number.isFinite(x.attendanceId) && x.attendanceId > 0);
 
         if (items.length > 0) {
+          if (!checkoutProofImage) {
+            message.warning('Vui lòng upload ảnh minh chứng trước khi lưu.');
+            return;
+          }
           const form = new FormData();
           form.append('SessionId', String(activeSession.sessionId));
           items.forEach((x, i) => {
-            form.append(`Items[${i}].MemberId`, String(x.memberId));
+            form.append(`Items[${i}].AttendanceId`, String(x.attendanceId));
             if (x.note) form.append(`Items[${i}].Note`, x.note);
-            form.append('Images', x.file as File, (x.file as File).name);
           });
+          form.append('Image', checkoutProofImage, checkoutProofImage.name);
 
           const res = await attendanceApi.checkOutWithImages(form);
           if (res?.SkippedMemberIds?.length) {
@@ -282,10 +402,149 @@ export default function TeamLeaderAttendanceSlideOver({
 
       await refreshAttendanceItems();
       await refetch?.();
+
+      // Clear chọn/ảnh của mode hiện tại để tránh gửi lại
+      if (actionMode === 'checkin') {
+        setCheckedCheckinByMemberId({});
+        setCheckinProofImage(null);
+        setPendingCheckinResetByMemberId({});
+      }
+      if (actionMode === 'checkout') {
+        setCheckedCheckoutByMemberId({});
+        setCheckoutProofImage(null);
+        setPendingCheckoutResetByMemberId({});
+      }
     } catch (err: unknown) {
       message.error(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleAutoUploadAndRecognize = async (file: File) => {
+    if (!activeSession?.sessionId) {
+      message.error('Không tìm thấy thông tin buổi để nhận diện.');
+      return;
+    }
+    if (actionMode !== 'checkin' && actionMode !== 'checkout') return;
+
+    setAutoRecognizing(true);
+    try {
+      // dùng ảnh này làm ảnh minh chứng để lưu luôn
+      if (actionMode === 'checkin') setCheckinProofImage(file);
+      else setCheckoutProofImage(file);
+
+      if (autoPreviewUrl) URL.revokeObjectURL(autoPreviewUrl);
+      setAutoPreviewUrl(URL.createObjectURL(file));
+
+      const form = new FormData();
+      form.append('SessionId', String(activeSession.sessionId));
+      form.append('ImageFile', file, file.name);
+
+      const res: AttendanceFaceRecognizeResponse = await attendanceApi.recognizeGroupPhoto(form);
+      const raw = res as unknown as Record<string, unknown>;
+      const matchedResultsRaw =
+        (raw.MatchedResults as unknown[]) ??
+        (raw.matchedResults as unknown[]) ??
+        ([] as unknown[]);
+      const matchedAttendanceIdsRaw =
+        (raw.MatchedAttendanceIds as unknown[]) ??
+        (raw.matchedAttendanceIds as unknown[]) ??
+        ([] as unknown[]);
+      const detectedFacesRaw =
+        (raw.DetectedFaces as unknown[]) ??
+        (raw.detectedFaces as unknown[]) ??
+        ([] as unknown[]);
+
+      const map: Record<number, number> = {};
+      (matchedResultsRaw ?? []).forEach((r0) => {
+        const r = (r0 ?? {}) as Record<string, unknown>;
+        const id = Number(r.AttendanceId ?? r.attendanceId ?? 0);
+        const sim = Number(r.Similarity ?? r.similarity ?? 0);
+        if (Number.isFinite(id) && id > 0) map[id] = Number.isFinite(sim) ? sim : 0;
+      });
+      setAutoMatchesByAttendanceId(map);
+
+      const matchedParsed = (matchedResultsRaw ?? [])
+        .map((r0) => {
+          const r = (r0 ?? {}) as Record<string, unknown>;
+          const attendanceId = Number(r.AttendanceId ?? r.attendanceId ?? 0);
+          const detectedFaceIndex = Number(r.DetectedFaceIndex ?? r.detectedFaceIndex ?? -1);
+          const similarity = Number(r.Similarity ?? r.similarity ?? 0);
+          const bbRaw = (r.BoundingBox ?? r.boundingBox ?? {}) as Record<string, unknown>;
+          const boundingBox = {
+            left: Number(bbRaw.Left ?? bbRaw.left ?? 0),
+            top: Number(bbRaw.Top ?? bbRaw.top ?? 0),
+            width: Number(bbRaw.Width ?? bbRaw.width ?? 0),
+            height: Number(bbRaw.Height ?? bbRaw.height ?? 0),
+          };
+          return {
+            attendanceId,
+            targetMemberId: Number(r.TargetMemberId ?? r.targetMemberId ?? 0),
+            fullName: String(r.FullName ?? r.fullName ?? ''),
+            similarity: Number.isFinite(similarity) ? similarity : 0,
+            detectedFaceIndex: Number.isFinite(detectedFaceIndex) ? detectedFaceIndex : -1,
+            boundingBox,
+          };
+        })
+        .filter((x) => Number.isFinite(x.detectedFaceIndex) && x.detectedFaceIndex >= 0 && x.boundingBox.width > 0);
+      setAutoMatchedResults(matchedParsed);
+      const boxMap: Record<number, { similarity: number; boundingBox: { left: number; top: number; width: number; height: number } }> = {};
+      matchedParsed.forEach((m) => {
+        if (!Number.isFinite(m.attendanceId) || m.attendanceId <= 0) return;
+        boxMap[m.attendanceId] = { similarity: m.similarity, boundingBox: m.boundingBox };
+      });
+      setAutoMatchBoxByAttendanceId(boxMap);
+
+      const detectedParsed = (detectedFacesRaw ?? [])
+        .map((f0) => {
+          const f = (f0 ?? {}) as Record<string, unknown>;
+          const bbRaw = (f.BoundingBox ?? f.boundingBox ?? {}) as Record<string, unknown>;
+          const boundingBox = {
+            left: Number(bbRaw.Left ?? bbRaw.left ?? 0),
+            top: Number(bbRaw.Top ?? bbRaw.top ?? 0),
+            width: Number(bbRaw.Width ?? bbRaw.width ?? 0),
+            height: Number(bbRaw.Height ?? bbRaw.height ?? 0),
+          };
+          return {
+            faceIndex: Number(f.FaceIndex ?? f.faceIndex ?? -1),
+            boundingBox,
+            isMatched: Boolean(f.IsMatched ?? f.isMatched ?? false),
+          };
+        })
+        .filter((x) => Number.isFinite(x.faceIndex) && x.faceIndex >= 0 && x.boundingBox.width > 0);
+      setAutoDetectedFaces(detectedParsed);
+
+      // auto tick các member được match
+      const attendanceIdToMemberId = new Map<number, number>();
+      attendanceItems.forEach((a) => {
+        const memberId = Number(
+          (a as unknown as { MemberId?: number; memberId?: number }).MemberId ??
+            (a as unknown as { MemberId?: number; memberId?: number }).memberId ??
+            0,
+        );
+        const attendanceId = Number(
+          (a as unknown as { AttendanceId?: number; attendanceId?: number }).AttendanceId ??
+            (a as unknown as { AttendanceId?: number; attendanceId?: number }).attendanceId ??
+            0,
+        );
+        if (attendanceId > 0 && memberId > 0) attendanceIdToMemberId.set(attendanceId, memberId);
+      });
+
+      const nextChecked: Record<number, boolean> = {};
+      (matchedAttendanceIdsRaw ?? []).forEach((aid) => {
+        const mid = attendanceIdToMemberId.get(Number(aid ?? 0));
+        if (mid) nextChecked[mid] = true;
+      });
+
+      if (actionMode === 'checkin') setCheckedCheckinByMemberId((prev) => ({ ...prev, ...nextChecked }));
+      else setCheckedCheckoutByMemberId((prev) => ({ ...prev, ...nextChecked }));
+
+      message.success(`Nhận diện xong: match ${matchedAttendanceIdsRaw?.length ?? 0} người.`);
+    } catch (err: unknown) {
+      message.error(getErrorMessage(err));
+    } finally {
+      setAutoRecognizing(false);
     }
   };
 
@@ -353,7 +612,7 @@ export default function TeamLeaderAttendanceSlideOver({
 
           <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4">
             <div className="rounded-2xl bg-white shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
                 <div className="min-w-0">
                   <h3 className="text-sm font-semibold text-gray-900">Danh sách member được phân công</h3>
                   <p className="mt-1 text-xs text-gray-500">
@@ -366,16 +625,106 @@ export default function TeamLeaderAttendanceSlideOver({
                     .
                   </p>
                 </div>
-                {(actionMode === 'checkin' || actionMode === 'checkout') && (
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#2197C0] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#208AAE] disabled:opacity-50"
-                    disabled={isSubmitting || !canSaveAttendance || !hasPendingChanges}
-                  >
-                    Lưu xác nhận
-                  </button>
-                )}
+                {(actionMode === 'checkin' || actionMode === 'checkout') ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {/**
+                     * Khi đã upload ảnh thông minh (đã có preview/match),
+                     * khóa upload thường để tránh đổi ảnh làm lệch kết quả nhận diện.
+                     */}
+                    {(() => {
+                      const hasAutoProof = !!autoPreviewUrl || autoMatchedResults.length > 0 || autoDetectedFaces.length > 0;
+                      return (
+                    <label className="inline-flex items-center">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.currentTarget.files?.[0] ?? null;
+                          if (!f) return;
+                          if (f.size >= MAX_UPLOAD_SIZE_BYTES) {
+                            message.warning('Vui lòng chọn ảnh có dung lượng nhỏ hơn 5MB.');
+                            e.currentTarget.value = '';
+                            return;
+                          }
+                          // Upload ảnh bình thường: chỉ set ảnh minh chứng, không nhận diện
+                          if (actionMode === 'checkin') {
+                            setCheckinProofImage(f);
+                            setAutoMatchesByAttendanceId({});
+                          } else {
+                            setCheckoutProofImage(f);
+                            setAutoMatchesByAttendanceId({});
+                          }
+                          e.currentTarget.value = '';
+                        }}
+                        disabled={isSubmitting || autoRecognizing || hasAutoProof}
+                      />
+                      <span
+                        className={cn(
+                          'inline-flex h-8 items-center justify-center rounded-lg border px-3 text-xs font-semibold transition-colors',
+                          isSubmitting || autoRecognizing || hasAutoProof
+                            ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                            : 'cursor-pointer border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                        )}
+                      >
+                        Upload ảnh
+                      </span>
+                    </label>
+                      );
+                    })()}
+
+                    {autoPreviewUrl && (autoDetectedFaces.length > 0 || autoMatchedResults.length > 0) ? (
+                      <button
+                        type="button"
+                        className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        onClick={() => setPreviewImgUrl(autoPreviewUrl)}
+                        disabled={isSubmitting || autoRecognizing}
+                      >
+                        Xem ảnh nhận diện
+                      </button>
+                    ) : null}
+
+                    <label className="inline-flex items-center">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.currentTarget.files?.[0] ?? null;
+                          if (f) {
+                            if (f.size > MAX_UPLOAD_SIZE_BYTES) {
+                              message.warning('Vui lòng chọn ảnh có dung lượng không quá 5MB.');
+                              e.currentTarget.value = '';
+                              return;
+                            }
+                            void handleAutoUploadAndRecognize(f);
+                          }
+                          e.currentTarget.value = '';
+                        }}
+                        disabled={isSubmitting || autoRecognizing}
+                      />
+                      <span
+                        className={cn(
+                          'inline-flex h-8 items-center justify-center rounded-lg border px-3 text-xs font-semibold transition-colors',
+                          isSubmitting || autoRecognizing
+                            ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                            : 'cursor-pointer border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                        )}
+                      >
+                        {autoRecognizing ? 'Đang nhận diện...' : 'Upload ảnh thông minh'}
+                      </span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      className="inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[#2197C0] px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#208AAE] disabled:opacity-50"
+                      disabled={isSubmitting || !canSaveAttendance || !hasPendingChanges}
+                    >
+                      Lưu xác nhận
+                    </button>
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-3 px-5 py-3">
@@ -470,7 +819,7 @@ export default function TeamLeaderAttendanceSlideOver({
                         : 'md:grid-cols-[1fr_auto]',
                     )}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
                         {memberAvatarUrl ? (
                           <img
@@ -488,9 +837,69 @@ export default function TeamLeaderAttendanceSlideOver({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="truncate text-sm font-semibold text-slate-900">{memberName}</div>
+                          {(() => {
+                            const attendanceId = Number(
+                              (attendance as unknown as { AttendanceId?: number; attendanceId?: number }).AttendanceId ??
+                                (attendance as unknown as { AttendanceId?: number; attendanceId?: number }).attendanceId ??
+                                0,
+                            );
+                            const sim = autoMatchesByAttendanceId[attendanceId];
+                            if (!sim) return null;
+                            const tone =
+                              sim >= 90 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : sim >= 80 ? 'bg-sky-50 text-sky-700 border-sky-200'
+                              : sim >= 70 ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200';
+                            return (
+                              <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold', tone)}>
+                                Match {sim.toFixed(1)}%
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="truncate text-xs text-slate-500">{memberEmail}</div>
                       </div>
+                      {(() => {
+                        if (!autoPreviewUrl) return null;
+                        const attendanceId = Number(
+                          (attendance as unknown as { AttendanceId?: number; attendanceId?: number }).AttendanceId ??
+                            (attendance as unknown as { AttendanceId?: number; attendanceId?: number }).attendanceId ??
+                            0,
+                        );
+                        const box = autoMatchBoxByAttendanceId[attendanceId];
+                        if (!box) return null;
+                        const bb = box.boundingBox;
+                        // Crop theo boundingBox ratio (0..1).
+                        // Dùng left/top/width/height thay vì translate(%)
+                        // để tránh trường hợp ảnh bị đẩy ra ngoài khung -> ô trắng.
+                        const w = Number(bb.width);
+                        const h = Number(bb.height);
+                        const l = Number(bb.left);
+                        const t = Number(bb.top);
+                        if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null;
+
+                        const imgW = (1 / w) * 100;
+                        const imgH = (1 / h) * 100;
+                        const imgL = (-l / w) * 100;
+                        const imgT = (-t / h) * 100;
+                        return (
+                          <div className="shrink-0">
+                            <div className="relative h-10 w-10 overflow-hidden rounded-md border border-emerald-200 bg-white shadow-sm">
+                              <img
+                                src={autoPreviewUrl}
+                                alt=""
+                                className="absolute block max-w-none"
+                                style={{
+                                  width: `${imgW}%`,
+                                  height: `${imgH}%`,
+                                  left: `${imgL}%`,
+                                  top: `${imgT}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {actionMode === 'delegate' ? (
@@ -587,7 +996,8 @@ export default function TeamLeaderAttendanceSlideOver({
                                     className="shrink-0 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
                                     onClick={() => {
                                       setPendingCheckinResetByMemberId((prev) => ({ ...prev, [memberId]: true }));
-                                      setCheckinImagesByMemberId((prev) => ({ ...prev, [memberId]: null }));
+                                      setCheckinProofImage(null);
+                                      setCheckedCheckinByMemberId((prev) => ({ ...prev, [memberId]: false }));
                                     }}
                                     disabled={isSubmitting}
                                   >
@@ -622,7 +1032,8 @@ export default function TeamLeaderAttendanceSlideOver({
                                     className="shrink-0 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
                                     onClick={() => {
                                       setPendingCheckoutResetByMemberId((prev) => ({ ...prev, [memberId]: true }));
-                                      setCheckoutImagesByMemberId((prev) => ({ ...prev, [memberId]: null }));
+                                      setCheckoutProofImage(null);
+                                      setCheckedCheckoutByMemberId((prev) => ({ ...prev, [memberId]: false }));
                                     }}
                                     disabled={isSubmitting}
                                   >
@@ -648,86 +1059,56 @@ export default function TeamLeaderAttendanceSlideOver({
                           )}
 
                           {actionMode === 'checkin' && !isCheckedInEffective ? (
-                            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                              <span className="text-[11px] font-medium text-slate-600 whitespace-nowrap">
-                                Ảnh minh chứng <span className="text-rose-500">*</span>
-                              </span>
-
-                              <div className="flex flex-wrap items-center gap-2">
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="block max-w-full text-xs text-transparent file:mr-0 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
-                                  onChange={(e) => {
-                                    const f = e.currentTarget.files?.[0] ?? null;
-                                    setPendingCheckinResetByMemberId((prev) => ({ ...prev, [memberId]: false }));
-                                    setCheckinImagesByMemberId((prev) => ({ ...prev, [memberId]: f }));
-                                  }}
-                                  disabled={isSubmitting}
-                                />
-
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <span className="text-[11px] text-slate-500 truncate">
-                                    {checkinImagesByMemberId[memberId]?.name
-                                      ? checkinImagesByMemberId[memberId]?.name
-                                      : 'Chưa chọn ảnh'}
-                                  </span>
-                                  {checkinImagesByMemberId[memberId]?.name ? (
-                                    <button
-                                      type="button"
-                                      className="shrink-0 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-                                      onClick={() =>
-                                        setCheckinImagesByMemberId((prev) => ({ ...prev, [memberId]: null }))
-                                      }
-                                      disabled={isSubmitting}
-                                    >
-                                      Xóa
-                                    </button>
-                                  ) : null}
+                            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                              <div className="min-w-0">
+                                <div className="text-[11px] font-medium text-slate-600">Xác nhận</div>
+                                <div className="text-[11px] text-slate-500">
+                                  {checkinProofImage ? 'Đã có ảnh minh chứng' : 'Vui lòng upload ảnh ở trên'}
                                 </div>
                               </div>
+                              <label className="inline-flex items-center gap-2 text-xs text-slate-700 shrink-0">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 accent-[#2197C0]"
+                                  checked={!!checkedCheckinByMemberId[memberId]}
+                                  onChange={(e) => {
+                                    const nextChecked = e.target.checked;
+                                    setCheckedCheckinByMemberId((prev) => ({
+                                      ...prev,
+                                      [memberId]: nextChecked,
+                                    }));
+                                  }}
+                                  disabled={isSubmitting || !checkinProofImage}
+                                />
+                                Chọn
+                              </label>
                             </div>
                           ) : null}
 
                           {actionMode === 'checkout' && isCheckedInEffective && !isCheckedOutEffective ? (
-                            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                              <span className="text-[11px] font-medium text-slate-600 whitespace-nowrap">
-                                Ảnh minh chứng <span className="text-rose-500">*</span>
-                              </span>
-
-                              <div className="flex flex-wrap items-center gap-2">
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="block max-w-full text-xs text-transparent file:mr-0 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
-                                  onChange={(e) => {
-                                    const f = e.currentTarget.files?.[0] ?? null;
-                                    setPendingCheckoutResetByMemberId((prev) => ({ ...prev, [memberId]: false }));
-                                    setCheckoutImagesByMemberId((prev) => ({ ...prev, [memberId]: f }));
-                                  }}
-                                  disabled={isSubmitting}
-                                />
-
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <span className="text-[11px] text-slate-500 truncate">
-                                    {checkoutImagesByMemberId[memberId]?.name
-                                      ? checkoutImagesByMemberId[memberId]?.name
-                                      : 'Chưa chọn ảnh'}
-                                  </span>
-                                  {checkoutImagesByMemberId[memberId]?.name ? (
-                                    <button
-                                      type="button"
-                                      className="shrink-0 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-                                      onClick={() =>
-                                        setCheckoutImagesByMemberId((prev) => ({ ...prev, [memberId]: null }))
-                                      }
-                                      disabled={isSubmitting}
-                                    >
-                                      Xóa
-                                    </button>
-                                  ) : null}
+                            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                              <div className="min-w-0">
+                                <div className="text-[11px] font-medium text-slate-600">Xác nhận</div>
+                                <div className="text-[11px] text-slate-500">
+                                  {checkoutProofImage ? 'Đã có ảnh minh chứng' : 'Vui lòng upload ảnh ở trên'}
                                 </div>
                               </div>
+                              <label className="inline-flex items-center gap-2 text-xs text-slate-700 shrink-0">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 accent-[#2197C0]"
+                                  checked={!!checkedCheckoutByMemberId[memberId]}
+                                  onChange={(e) => {
+                                    const nextChecked = e.target.checked;
+                                    setCheckedCheckoutByMemberId((prev) => ({
+                                      ...prev,
+                                      [memberId]: nextChecked,
+                                    }));
+                                  }}
+                                  disabled={isSubmitting || !checkoutProofImage}
+                                />
+                                Chọn
+                              </label>
                             </div>
                           ) : null}
                         </div>
@@ -761,11 +1142,46 @@ export default function TeamLeaderAttendanceSlideOver({
               >
                 <X className="h-4 w-4" />
               </button>
-              <img
-                src={previewImgUrl}
-                alt="Preview"
-                className="max-h-[90vh] w-full rounded-xl object-contain bg-black/20"
-              />
+              <div className="relative w-full rounded-xl bg-black/20 overflow-hidden">
+                <img
+                  src={previewImgUrl}
+                  alt="Preview"
+                  className="max-h-[90vh] w-full object-contain"
+                />
+                {previewImgUrl === autoPreviewUrl ? (
+                  <div className="absolute inset-0 pointer-events-none">
+                    {autoDetectedFaces.map((f) => (
+                      <div
+                        key={`face-${f.faceIndex}`}
+                        className={cn(
+                          'absolute border-2 rounded-[2px]',
+                          f.isMatched ? 'border-emerald-400/90' : 'border-white/50',
+                        )}
+                        style={{
+                          left: `${Math.max(0, Math.min(1, f.boundingBox.left)) * 100}%`,
+                          top: `${Math.max(0, Math.min(1, f.boundingBox.top)) * 100}%`,
+                          width: `${Math.max(0, Math.min(1, f.boundingBox.width)) * 100}%`,
+                          height: `${Math.max(0, Math.min(1, f.boundingBox.height)) * 100}%`,
+                        }}
+                      />
+                    ))}
+                    {autoMatchedResults.map((m) => (
+                      <div
+                        key={`match-${m.attendanceId}-${m.detectedFaceIndex}`}
+                        className="absolute"
+                        style={{
+                          left: `${Math.max(0, Math.min(1, m.boundingBox.left)) * 100}%`,
+                          top: `${Math.max(0, Math.min(1, m.boundingBox.top)) * 100}%`,
+                        }}
+                      >
+                        <div className="translate-y-[-110%] rounded-md bg-emerald-600/90 px-2 py-1 text-[10px] font-semibold text-white shadow">
+                          {m.similarity.toFixed(1)}%
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

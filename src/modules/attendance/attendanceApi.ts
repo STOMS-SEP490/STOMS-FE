@@ -13,6 +13,27 @@ import type {
 } from '@/modules/request/attendance';
 import type { AttendanceResponse } from '@/modules/request/session.types';
 
+export type AttendanceFaceRecognizeResponse = {
+  SessionId: number;
+  TotalFacesDetected: number;
+  MatchedAttendanceIds: number[];
+  MatchedResults: Array<{
+    AttendanceId: number;
+    TargetMemberId: number;
+    FullName: string;
+    Similarity: number;
+    DetectedFaceIndex: number;
+    BoundingBox: { Left: number; Top: number; Width: number; Height: number };
+  }>;
+  DetectedFaces: Array<{
+    FaceIndex: number;
+    BoundingBox: { Left: number; Top: number; Width: number; Height: number };
+    IsMatched: boolean;
+  }>;
+  UnmatchedFaceCount: number;
+  Message: string;
+};
+
 const attendanceApi = {
   delegate: (payload: AttendanceDelegatePayload): Promise<void> => {
     return axiosClient.post<void, void>('/attendances/delegations', {
@@ -54,6 +75,14 @@ const attendanceApi = {
       IsCheckIn: payload.isCheckIn,
       Note: payload.note ?? null,
     });
+  },
+
+  recognizeGroupPhoto: (form: FormData): Promise<AttendanceFaceRecognizeResponse> => {
+    return axiosClient.post<AttendanceFaceRecognizeResponse, AttendanceFaceRecognizeResponse>(
+      '/attendances/recognize-group-photo',
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
   },
   getFilter: (params: AttendanceFilterParams = {}): Promise<AttendanceFilterResponse> => {
     return axiosClient.get<AttendanceFilterResponse, AttendanceFilterResponse>('/attendances/filter', {
