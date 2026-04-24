@@ -9,12 +9,12 @@ export const BORROWING_STATUS_MAP: Record<
   string,
   { label: string; className: string }
 > = {
-  // String enum từ API
+
   Borrowed: { label: 'Đang mượn', className: 'bg-blue-100 text-blue-700' },
   PartialReturned: { label: 'Trả 1 phần', className: 'bg-amber-100 text-amber-700' },
   Returned: { label: 'Đã trả', className: 'bg-green-100 text-green-700' },
   Overdue: { label: 'Quá hạn', className: 'bg-red-100 text-red-600' },
-  // Numeric (1-4) từ API
+
   '1': { label: 'Đang mượn', className: 'bg-blue-100 text-blue-700' },
   '2': { label: 'Trả 1 phần', className: 'bg-amber-100 text-amber-700' },
   '3': { label: 'Đã trả', className: 'bg-green-100 text-green-700' },

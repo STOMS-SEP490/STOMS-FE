@@ -9,6 +9,7 @@ import type { AssignmentResponse } from '@/modules/request/session.types';
 import type { SuggestedStaff } from '@/modules/request/type';
 import sessionService from '@/modules/request/api/sessionApi';
 import { getAssignmentStatusInfo, ASSIGNMENT_STATUS } from '@/constants/status';
+import { isAssistantRole } from '@/constants/role';
 
 const DEFAULT_AVATAR_SRC = '/img/ava.png';
 
@@ -22,9 +23,7 @@ type Props = {
   onAssignmentUpdated?: () => void;
 };
 
-/**
- * Component dành riêng cho Team Leader để phân công sinh viên trong nhóm của mình
- */
+
 export default function TeamLeaderStaffAssignmentPanel({
   sessionId,
   canEdit = true,
@@ -41,7 +40,6 @@ export default function TeamLeaderStaffAssignmentPanel({
   const [loading, setLoading] = useState(false);
   const [expandedTaIds, setExpandedTaIds] = useState<Set<number>>(new Set());
 
-  // Load TA assignments
   useEffect(() => {
     let cancelled = false;
     const fetchTaAssignments = async () => {
@@ -49,10 +47,7 @@ export default function TeamLeaderStaffAssignmentPanel({
       try {
         const detail = await sessionService.getById(sessionId);
         if (cancelled) return;
-        const taSlots = (detail.Assignments ?? []).filter((a) => {
-          const role = String(a.StaffRole ?? '').toUpperCase();
-          return role === 'TA' || role.includes('STUDENT') || role.includes('SV') || role.includes('SINH');
-        });
+        const taSlots = (detail.Assignments ?? []).filter((a) => isAssistantRole(a.StaffRole));
         setTaAssignments(taSlots);
         setInitialTaAssignments(taSlots);
         setInitialTaByAssignmentId(
@@ -167,10 +162,7 @@ export default function TeamLeaderStaffAssignmentPanel({
       
       // Sau khi parent reload xong, reload lại local state
       const detail = await sessionService.getById(sessionId);
-      const taSlots = (detail.Assignments ?? []).filter((a) => {
-        const role = String(a.StaffRole ?? '').toUpperCase();
-        return role === 'TA' || role.includes('STUDENT') || role.includes('SV') || role.includes('SINH');
-      });
+      const taSlots = (detail.Assignments ?? []).filter((a) => isAssistantRole(a.StaffRole));
       
       setTaAssignments(taSlots);
       setInitialTaAssignments(taSlots);
@@ -253,7 +245,6 @@ export default function TeamLeaderStaffAssignmentPanel({
             const assignmentId = Number(slot.AssignmentId ?? 0);
             const statusInfo = getAssignmentStatusInfo(slot.Status);
             const statusCode = statusInfo.code;
-            // Chỉ cho phép chỉnh sửa khi status là PENDING (1), REJECTED (3), hoặc CANCELLED (4)
             const canEditThisSlot = 
               statusCode === ASSIGNMENT_STATUS.PENDING || 
               statusCode === ASSIGNMENT_STATUS.REJECTED || 

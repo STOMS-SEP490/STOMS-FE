@@ -8,8 +8,8 @@ import { cn } from '@/shared/lib/utils'
 import {
   getEquipmentStatusColor,
   getEquipmentStatusDisplay,
-} from '@/constants/equipment'
-import { getEquipmentBorrowingStatusInfo } from '@/constants/status'
+  getEquipmentBorrowingStatusInfo,
+} from '@/constants/status'
 import { getBorrowingStatusColor, getBorrowingStatusDisplay } from '@/constants/borrowing'
 import { Image, Skeleton, message } from 'antd'
 import borrowingApi from '@/modules/equipment/api/borrowingApi'
