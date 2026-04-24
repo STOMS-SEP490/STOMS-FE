@@ -44,6 +44,6 @@ dist-ssr
 
 .cursor/skills/
 
-ARCHITECTURE.md
+*.md
 .cursor
 .kiro

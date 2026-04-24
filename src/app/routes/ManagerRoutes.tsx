@@ -1,4 +1,4 @@
-import { Navigate, useLocation, useParams } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import CoursesManagement from '../../modules/course/pages/CoursesManagement';
 import TopicsManagement from '@/modules/topic/pages/TopicsManagement';
 import SubjectsManagement from '@/modules/subject/pages/SubjectsManagement';
@@ -33,30 +33,11 @@ const RequestPlaceholder = () => (
   </div>
 );
 
-/** Cũ: /manager/requests/all/:id → /manager/requests/:id */
-const RedirectOldRequestsAllId = () => {
-  const { id } = useParams<{ id: string }>();
-  return <Navigate to={`/manager/requests/${id ?? ''}`} replace />;
-};
-
-/** Cũ: /manager/requests-view/:id (readonly) → /manager/requests/:id */
-const RedirectOldRequestsViewId = () => {
-  const { id } = useParams<{ id: string }>();
-  return <Navigate to={`/manager/requests/${id ?? ''}`} replace />;
-};
-
-/** Cũ: /manager/courses/subjects → /manager/subjects (giữ query string) */
-const RedirectCoursesSubjectsToSubjects = () => {
-  const { search } = useLocation();
-  return <Navigate to={{ pathname: '/manager/subjects', search }} replace />;
-};
-
 const ManagerRoutes = [
   { index: true, element: <Navigate to="dashboard" replace /> },
   { path: 'dashboard', element: <ManagerDashboard /> },
   { path: 'events', element: <EventsManagement /> },
   { path: 'timetable', element: <EventCalendar /> },
-  { path: 'courses/subjects', element: <RedirectCoursesSubjectsToSubjects /> },
   { path: 'courses', element: <CoursesManagement /> },
   { path: 'subjects', element: <SubjectsManagement /> },
   { path: 'profile', element: <UserProfile /> },
@@ -71,11 +52,6 @@ const ManagerRoutes = [
   { path: 'skills', element: <SkillsManagement /> },
 
   { path: 'logs', element: <AuditLogs /> },
-  { path: 'requests-all', element: <Navigate to="/manager/requests" replace /> },
-  {
-    path: 'requests-view/:id',
-    element: <RedirectOldRequestsViewId />,
-  },
   {
     path: 'requests',
     element: <RequestLayout />,
@@ -87,26 +63,8 @@ const ManagerRoutes = [
       { path: 'approval/:id', element: <RequestDetail /> },
       { path: 'team-assign', element: <RequestPlaceholder /> },
       { path: 'team-assign/:id', element: <RequestDetail /> },
-      { path: 'all', element: <Navigate to="/manager/requests" replace /> },
-      { path: 'all/:id', element: <RedirectOldRequestsAllId /> },
       { path: ':id', element: <RequestDetail /> },
     ],
-  },
-  {
-    path: 'equipments/history',
-    element: <Navigate to="/manager/borrowings" replace />,
-  },
-  {
-    path: 'equipments/reservations',
-    element: <Navigate to="/manager/reservations" replace />,
-  },
-  {
-    path: 'equipments/history/reservations',
-    element: <Navigate to="/manager/reservations" replace />,
-  },
-  {
-    path: 'borrowings/reservations',
-    element: <Navigate to="/manager/reservations" replace />,
   },
   { path: 'equipments', element: <EquipmentsManagement /> },
   { path: 'equipments/categories', element: <CategoriesManagement /> },

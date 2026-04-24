@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { Badge } from '@/shared/components/ui/badge';
 import sessionService from '../api/sessionApi';
 import { getAssignmentStatusInfo, ASSIGNMENT_STATUS, REQUEST_STATUS, getRequestStatusCode } from '@/constants/status';
+import { isTeacherRole, isAssistantRole } from '@/constants/role';
 
 const DEFAULT_AVATAR_SRC = '/img/ava.png';
 
@@ -135,16 +136,10 @@ export default function PCSessionDetailTeamPanel({
   ).trim();
 
   // Get teacher assignments
-  const teacherAssignments = (sessionDetail.Assignments ?? []).filter((a: any) => {
-    const role = String(a.StaffRole ?? '').toUpperCase();
-    return role.includes('TEACH') || role === 'TE' || role.includes('GV');
-  });
+  const teacherAssignments = (sessionDetail.Assignments ?? []).filter((a: any) => isTeacherRole(a.StaffRole));
 
   // Get student assignments
-  const studentAssignments = (sessionDetail.Assignments ?? []).filter((a: any) => {
-    const role = String(a.StaffRole ?? '').toUpperCase();
-    return role === 'TA' || role.includes('STUDENT') || role.includes('SV') || role.includes('SINH');
-  });
+  const studentAssignments = (sessionDetail.Assignments ?? []).filter((a: any) => isAssistantRole(a.StaffRole));
 
   // Group students by team
   const studentsByTeam: Record<number, any[]> = {};
