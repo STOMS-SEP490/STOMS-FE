@@ -11,6 +11,9 @@ export type ExpenseListItem = {
   status: number;
   approvedByMemberId: number | null;
   approvedByName: string | null;
+  createdByName: string | null;
+  createdByEmail: string | null;
+  createdByAvatar: string | null;
   createdAt: string | null;
   approvedAt: string | null;
   rejectReason: string | null;
@@ -36,6 +39,10 @@ function mapExpenseFromApi(raw: Record<string, unknown>): ExpenseListItem {
     ? String(approvedByRaw['fullName'] ?? approvedByRaw['FullName'] ?? '')
     : '';
 
+  const createdByRaw = (raw['createdByMember'] ?? raw['CreatedByMember'] ?? null) as
+    | Record<string, unknown>
+    | null;
+
   return {
     expenseId: Number(raw['expenseId'] ?? raw['ExpenseId'] ?? 0),
     taskReportId:
@@ -58,6 +65,15 @@ function mapExpenseFromApi(raw: Record<string, unknown>): ExpenseListItem {
         ? Number(raw['approvedByMemberId'] ?? raw['ApprovedByMemberId'])
         : null,
     approvedByName: approvedByName || null,
+    createdByName: createdByRaw
+      ? String(createdByRaw['fullName'] ?? createdByRaw['FullName'] ?? '')
+      : null,
+    createdByEmail: createdByRaw
+      ? String(createdByRaw['email'] ?? createdByRaw['Email'] ?? '')
+      : null,
+    createdByAvatar: createdByRaw
+      ? String(createdByRaw['avatarUrl'] ?? createdByRaw['AvatarUrl'] ?? '')
+      : null,
     createdAt:
       (raw['createdAt'] ?? raw['CreatedAt'] ?? null) != null
         ? String(raw['createdAt'] ?? raw['CreatedAt'])
