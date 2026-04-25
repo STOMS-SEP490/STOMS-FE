@@ -169,7 +169,6 @@ export default function EditEquipmentModal({
   if (!equipment) return null
   const statusValue = normalizeStatusValue(status || equipment.status)
   const isBorrowed = statusValue === String(EQUIPMENT_STATUS.BORROWED)
-  const isUnavailable = statusValue === String(EQUIPMENT_STATUS.UNAVAILABLE)
   const categoryValue = categoryId || String(equipment.categoryId ?? '')
 
   return (
