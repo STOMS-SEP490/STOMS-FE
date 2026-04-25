@@ -4,6 +4,7 @@ import { Dialog } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { CloudUpload } from 'lucide-react';
 import { contributionApi } from '../api/contributionApi';
 import { walletApi, type WalletListItem } from '../api/walletApi';
@@ -133,19 +134,27 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
             <Label className="text-sm font-medium text-black">
               Ví quỹ <span className="text-red-500">*</span>
             </Label>
-            <select
-              value={selectedWalletId ?? ''}
-              onChange={(e) => setSelectedWalletId(Number(e.target.value) || null)}
-              className="w-full h-10 rounded-md border border-gray-200 px-3 text-sm text-black bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+            <Select
+              value={selectedWalletId ? String(selectedWalletId) : ''}
+              onValueChange={(v) => setSelectedWalletId(v ? Number(v) : null)}
               disabled={walletsLoading}
             >
-              <option value="">— Chọn ví quỹ —</option>
-              {wallets.map((w) => (
-                <option key={w.walletId} value={w.walletId}>
-                  {w.walletName} (Số dư: {(w.balance ?? 0).toLocaleString('vi-VN')} đ)
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full bg-white text-black">
+                <SelectValue placeholder="— Chọn ví quỹ —" />
+              </SelectTrigger>
+              <SelectContent>
+                {wallets.map((w) => (
+                  <SelectItem key={w.walletId} value={String(w.walletId)}>
+                    <div className="flex items-center justify-between gap-3 w-full">
+                      <span className="font-medium">{w.walletName}</span>
+                      <span className="text-xs text-slate-500">
+                        Số dư: {(w.balance ?? 0).toLocaleString('vi-VN')} đ
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 

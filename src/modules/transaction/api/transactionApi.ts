@@ -3,6 +3,8 @@ import type { PaginationResponse } from '@/shared/types/api'
 import type {
   TransactionFilterParams,
   TransactionListItem,
+  ExpenseInfo,
+  TaskReportInfo,
 } from '../transaction'
 
 /** BE `TransactionResponse` nests wallet name under `wallet`, not a flat `walletName`. */
@@ -11,6 +13,36 @@ function normalizeTransaction(raw: Record<string, unknown>): TransactionListItem
   const createdByMember = raw.createdByMember as
     | { fullName?: string | null; email?: string | null; avatarUrl?: string | null }
     | undefined
+
+  // Parse expenses array
+  const expensesRaw = (raw.expenses ?? raw.Expenses ?? []) as unknown[];
+  const expenses: ExpenseInfo[] = expensesRaw.map((expRaw: unknown) => {
+    const exp = expRaw as Record<string, unknown>;
+    
+    // Parse taskReport
+    const taskReportRaw = (exp.taskReport ?? exp.TaskReport ?? null) as Record<string, unknown> | null;
+    const taskReport: TaskReportInfo | null = taskReportRaw ? {
+      taskReportId: Number(taskReportRaw.taskReportId ?? taskReportRaw.TaskReportId ?? 0),
+      title: String(taskReportRaw.title ?? taskReportRaw.Title ?? ''),
+      description: String(taskReportRaw.description ?? taskReportRaw.Description ?? ''),
+      startAt: (taskReportRaw.startAt ?? taskReportRaw.StartAt ?? null) as string | null,
+      endAt: (taskReportRaw.endAt ?? taskReportRaw.EndAt ?? null) as string | null,
+      sessionId: taskReportRaw.sessionId != null ? Number(taskReportRaw.sessionId ?? taskReportRaw.SessionId) : null,
+      sessionNo: taskReportRaw.sessionNo != null ? Number(taskReportRaw.sessionNo ?? taskReportRaw.SessionNo) : null,
+      requestCode: (taskReportRaw.requestCode ?? taskReportRaw.RequestCode ?? null) as string | null,
+    } : null;
+
+    return {
+      expenseId: Number(exp.expenseId ?? exp.ExpenseId ?? 0),
+      taskReportId: exp.taskReportId != null ? Number(exp.taskReportId ?? exp.TaskReportId) : null,
+      taskReport,
+      paymentImg: String(exp.paymentImg ?? exp.PaymentImg ?? ''),
+      approvedByMemberId: exp.approvedByMemberId != null ? Number(exp.approvedByMemberId ?? exp.ApprovedByMemberId) : null,
+      approvedByMemberFullName: (exp.approvedByMemberFullName ?? exp.ApprovedByMemberFullName ?? null) as string | null,
+      approvedAt: (exp.approvedAt ?? exp.ApprovedAt ?? null) as string | null,
+      createdAt: (exp.createdAt ?? exp.CreatedAt ?? null) as string | null,
+    };
+  });
 
   return {
     transactionId: Number(raw.transactionId ?? raw.TransactionId),
@@ -32,6 +64,7 @@ function normalizeTransaction(raw: Record<string, unknown>): TransactionListItem
     createdByEmail: createdByMember?.email ?? null,
     createdByAvatar: createdByMember?.avatarUrl ?? null,
     createdAt: (raw.createdAt as string | null) ?? null,
+    expenses: expenses.length > 0 ? expenses : undefined,
   }
 }
 

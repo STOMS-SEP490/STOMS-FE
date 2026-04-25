@@ -2,20 +2,18 @@ import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Button } from '@/shared/components/ui/button';
-import { Badge } from '@/shared/components/ui/badge';
-import { cn } from '@/shared/lib/utils';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Skeleton, message } from 'antd';
-import { CalendarClock, Hash, RotateCcw, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { message } from 'antd';
+import { RotateCcw } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import transactionApi from '../api/transactionApi';
 import { walletApi } from '../api/walletApi';
 import type { WalletListItem } from '../api/walletApi';
-import { TRANSACTION_TYPE, TRANSACTION_TYPE_LABEL, getTransactionTypeInfo } from '@/constants/status';
+import { TRANSACTION_TYPE, getTransactionTypeInfo } from '@/constants/status';
 import type { TransactionListItem } from '../transaction';
 import { useTransactions } from '../hooks/useTransactions';
+import TransactionDetailPanel from '../components/TransactionDetailPanel';
 
 const TX_PAGE = 'txPage';
 const TX_TYPE = 'txType';
@@ -45,127 +43,6 @@ function formatTransactionAmountDisplay(amount: number | undefined, transactionT
     text: `${a >= 0 ? '+ ' : '- '}${abs.toLocaleString('vi-VN')} đ`,
   };
 }
-
-// ── Detail Panel ──────────────────────────────────────────────────────────────
-
-function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
-        <Icon className="h-4 w-4 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
-        <h3 className="text-sm font-semibold text-black">{title}</h3>
-      </div>
-      <div>{children}</div>
-    </section>
-  );
-}
-
-function MetaRow({ label, value, className }: { label: string; value: ReactNode; className?: string }) {
-  return (
-    <div className={cn('py-1.5', className)}>
-      <div className="text-xs font-medium text-[#2197C0]">{label}</div>
-      <div className="mt-0.5 break-words text-sm text-black">{value}</div>
-    </div>
-  );
-}
-
-function TransactionDetailPanel({ item, loading, onClose }: { item: TransactionListItem | null; loading: boolean; onClose: () => void }) {
-  const typeInfo = item ? getTransactionTypeInfo(item.transactionType) : null;
-  const typeLabel = item ? (TRANSACTION_TYPE_LABEL[item.transactionType] ?? String(item.transactionType)) : '—';
-  const amountFmt = item ? formatTransactionAmountDisplay(item.amount, item.transactionType) : null;
-
-  return (
-    <>
-      <div className="fixed inset-0 z-40 h-full bg-black/35" onClick={onClose} aria-hidden />
-      <div className={cn(
-        'fixed right-0 top-0 z-50 h-full w-[560px] max-w-[96vw]',
-        'border-l border-slate-200 bg-white shadow-2xl',
-        'translate-x-0 transition-transform duration-300 ease-out',
-      )}>
-        <div className="flex h-full flex-col overflow-hidden">
-          {/* HEADER */}
-          <header className="w-full shrink-0 border-b border-slate-200 bg-white">
-            {loading && !item ? (
-              <div className="px-5 py-5 pr-14">
-                <Skeleton active title={{ width: '55%' }} paragraph={{ rows: 1 }} />
-              </div>
-            ) : item ? (
-              <>
-                <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT GIAO DỊCH</p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      <h2 className="text-xl font-semibold text-[#1a7a99]">Giao dịch #{item.transactionId}</h2>
-                      {typeInfo && (
-                        <Badge className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium border-0', typeInfo.className)}>
-                          {typeLabel}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">{item.walletName || '—'}</p>
-                  </div>
-                  <button type="button" onClick={onClose} className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors" aria-label="Đóng">
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-                {/* Meta bar */}
-                <div className="grid w-full grid-cols-3 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
-                  <div className="px-5 py-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Số tiền</p>
-                    <p className={cn('mt-0.5 text-sm font-semibold', amountFmt?.className)}>{amountFmt?.text ?? '—'}</p>
-                  </div>
-                  <div className="px-5 py-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Loại</p>
-                    <p className="mt-0.5 text-sm font-semibold text-slate-900">{typeLabel}</p>
-                  </div>
-                  <div className="px-5 py-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Ngày giao dịch</p>
-                    <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                      {item.transactionDate ? new Date(item.transactionDate).toLocaleDateString('vi-VN') : '—'}
-                    </p>
-                  </div>
-                </div>
-              </>
-            ) : null}
-          </header>
-
-          {/* BODY */}
-          <div className="relative min-h-0 flex-1 overflow-y-auto bg-white px-5 py-4 space-y-4">
-            {loading && item && <div className="pointer-events-none absolute inset-0 z-10 bg-white/45" aria-hidden />}
-            {loading && !item ? (
-              <Skeleton active paragraph={{ rows: 5 }} />
-            ) : item ? (
-              <>
-                <Section icon={Hash} title="Thông tin giao dịch">
-                  <div className="pl-4 grid grid-cols-2 gap-x-6">
-                    <MetaRow label="Mã giao dịch" value={`#${item.transactionId}`} />
-                    <MetaRow label="Quỹ" value={item.walletName || '—'} />
-                    <MetaRow label="Loại" value={
-                      typeInfo ? <Badge className={cn('border-0 text-xs', typeInfo.className)}>{typeLabel}</Badge> : typeLabel
-                    } />
-                    <MetaRow label="Số tiền" value={
-                      amountFmt ? <span className={amountFmt.className}>{amountFmt.text}</span> : '—'
-                    } />
-                    <MetaRow label="Người tạo" value={item.createdByName || '—'} />
-                  </div>
-                </Section>
-
-                <Section icon={CalendarClock} title="Thời gian & mô tả">
-                  <div className="pl-4 grid grid-cols-2 gap-x-6">
-                    <MetaRow label="Ngày giao dịch" value={item.transactionDate ? new Date(item.transactionDate).toLocaleString('vi-VN') : '—'} className="col-span-2" />
-                    <MetaRow label="Mô tả" value={item.description || '—'} className="col-span-2" />
-                  </div>
-                </Section>
-              </>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ── Main Component ────────────────────────────────────────────────────────────
 
 export default function Transactions() {
   const context = useOutletContext<{ position: string }>();
@@ -292,57 +169,132 @@ export default function Transactions() {
     );
   }
 
-  const columns = useMemo<ColumnDef<TransactionListItem>[]>(() => [
-    {
-      accessorKey: 'transactionId',
-      header: 'Mã giao dịch',
-      cell: ({ row }) => <span className="font-semibold text-[#1a7a99]">#{row.original.transactionId}</span>,
-    },
-    {
-      accessorKey: 'transactionType',
-      header: 'Loại',
-      cell: ({ row }) => {
-        const typeInfo = getTransactionTypeInfo(row.original.transactionType);
-        return <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${typeInfo.className}`}>{typeInfo.label}</span>;
+  // Check if in manager tab context (no extra padding needed)
+  const isInTabContext = context.position !== 'toolbar';
+
+  const columns = useMemo<ColumnDef<TransactionListItem>[]>(() => {
+    const baseColumns: ColumnDef<TransactionListItem>[] = [
+      {
+        accessorKey: 'transactionId',
+        header: 'Mã giao dịch',
+        cell: ({ row }) => <span className="font-mono text-sm">#{row.original.transactionId}</span>,
       },
-    },
-    {
-      accessorKey: 'amount',
-      header: 'Số tiền',
-      cell: ({ row }) => {
-        const { className, text } = formatTransactionAmountDisplay(row.original.amount, row.original.transactionType);
-        return <span className={className}>{text}</span>;
+      {
+        accessorKey: 'createdByName',
+        header: 'Người giao dịch',
+        cell: ({ row }) => {
+          const name = row.original.createdByName;
+          const email = row.original.createdByEmail;
+          const avatar = row.original.createdByAvatar;
+          
+          return (
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-slate-100">
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt={name || 'Avatar'}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs font-medium text-slate-500">
+                    {name?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="font-medium text-slate-900">{name || '—'}</div>
+                <div className="text-xs text-slate-500">{email || '—'}</div>
+              </div>
+            </div>
+          );
+        },
       },
-    },
-    {
-      accessorKey: 'walletName',
-      header: 'Quỹ',
-      cell: ({ row }) => <span className="text-sm text-slate-700">{row.original.walletName || '—'}</span>,
-    },
-    {
-      accessorKey: 'description',
-      header: 'Mô tả',
-      cell: ({ row }) => <span className="text-sm text-slate-600 line-clamp-2">{row.original.description || '—'}</span>,
-    },
-    {
-      accessorKey: 'transactionDate',
-      header: 'Ngày giao dịch',
-      cell: ({ row }) => row.original.transactionDate ? new Date(row.original.transactionDate).toLocaleDateString('vi-VN') : '—',
-    },
-  ], []);
+    ];
+
+    // Chỉ hiện cột "Loại" khi xem theo quỹ cụ thể
+    if (walletId != null) {
+      baseColumns.push({
+        accessorKey: 'transactionType',
+        header: 'Loại',
+        cell: ({ row }) => {
+          const typeInfo = getTransactionTypeInfo(row.original.transactionType);
+          return (
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${typeInfo.className}`}>
+              {typeInfo.label}
+            </span>
+          );
+        },
+      });
+    }
+
+    baseColumns.push(
+      {
+        accessorKey: 'amount',
+        header: 'Số tiền',
+        cell: ({ row }) => {
+          const { className, text } = formatTransactionAmountDisplay(row.original.amount, row.original.transactionType);
+          return <span className={className}>{text}</span>;
+        },
+      },
+      {
+        id: 'transactionDate',
+        header: 'Thời gian',
+        cell: ({ row }) => {
+          const raw = row.original.transactionDate;
+          if (!raw) return '—';
+          const d = new Date(raw);
+          return (
+            <div>
+              <div>{d.toLocaleDateString('vi-VN')}</div>
+              <div className="text-xs text-muted-foreground">
+                {d.toLocaleTimeString('vi-VN')}
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'description',
+        header: 'Mô tả',
+        cell: ({ row }) => <span className="text-sm text-slate-600">{row.original.description || '—'}</span>,
+      },
+    );
+
+    // Chỉ hiện cột "Quỹ" khi xem tất cả
+    if (walletId == null) {
+      baseColumns.push({
+        accessorKey: 'walletName',
+        header: 'Quỹ',
+        cell: ({ row }) => <span className="text-sm text-slate-700">{row.original.walletName || '—'}</span>,
+      });
+    }
+
+    return baseColumns;
+  }, [walletId]);
 
   return (
-    <div className="px-2 pt-2 pb-2">
-      {loading && <div className="text-xs text-gray-500 mb-2">Đang tải dữ liệu...</div>}
-      <DataTable
-        columns={columns}
-        data={filtered}
-        pageNumber={pageNumber}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={setPageNumber}
-        onRowClick={(item) => void openDetailById(item.transactionId)}
-      />
+    <div className={isInTabContext ? 'space-y-0' : 'px-2 pt-2 pb-2 space-y-2'}>
+      {/* Table */}
+      <div className="relative flex flex-col bg-white p-2">
+        {loading && (
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
+            <span className="text-sm text-slate-500">
+              Đang tải giao dịch...
+            </span>
+          </div>
+        )}
+        <DataTable
+          columns={columns}
+          data={filtered}
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setPageNumber}
+          onRowClick={(item) => void openDetailById(item.transactionId)}
+        />
+      </div>
+
       {openDetail && (
         <TransactionDetailPanel
           item={detailItem}

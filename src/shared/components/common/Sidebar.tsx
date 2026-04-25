@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowLeftRight,
   BarChart3,
   Bookmark,
   CalendarClock,
@@ -231,7 +232,7 @@ export default function Sidebar() {
      
       { kind: 'link', label: 'Quản lý công việc', icon: Tag, path: '/manager/tasks' },
       { kind: 'link', label: 'Quản lý kỹ năng', icon: PieChart, path: '/manager/skills' },
-      { kind: 'link', label: 'Giao dịch', icon: Wallet, path: '/manager/transactions' },
+      { kind: 'link', label: 'Giao dịch', icon: ArrowLeftRight, path: '/manager/transactions' },
       { kind: 'link', label: 'Quỹ', icon: Wallet, path: '/manager/wallets' },
              { kind: 'link', label: 'Nhật ký', icon: ClipboardList, path: '/manager/logs' },
 
