@@ -9,6 +9,23 @@ export type WalletListItem = {
   description: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  member?: {
+    memberId: number;
+    fullName: string;
+    email: string;
+    phone: string;
+    avatarUrl: string;
+  } | null;
+  transactions?: Array<{
+    transactionId: number;
+    amount: number;
+    transactionType: number;
+    description: string;
+    transactionDate: string;
+    createdByMember?: {
+      fullName: string;
+    } | null;
+  }> | null;
 };
 
 export type WalletFilterParams = {
@@ -20,6 +37,9 @@ export type WalletFilterParams = {
 };
 
 function mapWalletFromApi(raw: Record<string, unknown>): WalletListItem {
+  const memberRaw = (raw['member'] ?? raw['Member']) as Record<string, unknown> | null | undefined;
+  const transactionsRaw = (raw['transactions'] ?? raw['Transactions']) as unknown[] | null | undefined;
+
   return {
     walletId: Number(raw['walletId'] ?? raw['WalletId'] ?? 0),
     memberId: Number(raw['memberId'] ?? raw['MemberId'] ?? 0),
@@ -37,6 +57,33 @@ function mapWalletFromApi(raw: Record<string, unknown>): WalletListItem {
       (raw['updatedAt'] ?? raw['UpdatedAt']) != null
         ? String(raw['updatedAt'] ?? raw['UpdatedAt'])
         : null,
+    member: memberRaw
+      ? {
+          memberId: Number(memberRaw['memberId'] ?? memberRaw['MemberId'] ?? 0),
+          fullName: String(memberRaw['fullName'] ?? memberRaw['FullName'] ?? ''),
+          email: String(memberRaw['email'] ?? memberRaw['Email'] ?? ''),
+          phone: String(memberRaw['phone'] ?? memberRaw['Phone'] ?? ''),
+          avatarUrl: String(memberRaw['avatarUrl'] ?? memberRaw['AvatarUrl'] ?? ''),
+        }
+      : null,
+    transactions: transactionsRaw
+      ? transactionsRaw.map((tx) => {
+          const txObj = (tx ?? {}) as Record<string, unknown>;
+          const createdByRaw = (txObj['createdByMember'] ?? txObj['CreatedByMember']) as Record<string, unknown> | null | undefined;
+          return {
+            transactionId: Number(txObj['transactionId'] ?? txObj['TransactionId'] ?? 0),
+            amount: Number(txObj['amount'] ?? txObj['Amount'] ?? 0),
+            transactionType: Number(txObj['transactionType'] ?? txObj['TransactionType'] ?? 0),
+            description: String(txObj['description'] ?? txObj['Description'] ?? ''),
+            transactionDate: String(txObj['transactionDate'] ?? txObj['TransactionDate'] ?? ''),
+            createdByMember: createdByRaw
+              ? {
+                  fullName: String(createdByRaw['fullName'] ?? createdByRaw['FullName'] ?? ''),
+                }
+              : null,
+          };
+        })
+      : null,
   };
 }
 
@@ -77,5 +124,17 @@ export const walletApi = {
       description: payload.description?.trim() || null,
     });
     return mapWalletFromApi((res ?? {}) as unknown as Record<string, unknown>);
+  },
+
+  async update(id: number, payload: { walletName: string; description?: string }): Promise<WalletListItem> {
+    const res = await axiosClient.put<Record<string, unknown>>(`/wallets/${id}`, {
+      walletName: payload.walletName.trim(),
+      description: payload.description?.trim() || null,
+    });
+    return mapWalletFromApi((res ?? {}) as unknown as Record<string, unknown>);
+  },
+
+  async delete(id: number): Promise<void> {
+    await axiosClient.delete(`/wallets/${id}`);
   },
 };
