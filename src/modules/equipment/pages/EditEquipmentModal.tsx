@@ -52,13 +52,28 @@ export default function EditEquipmentModal({
 
   // Chuẩn hóa status từ API (có thể là số 1-5 hoặc chuỗi) về string để dùng cho Select
   const normalizeStatusValue = (rawStatus: string | number | null | undefined): string => {
-    const s = String(rawStatus ?? '').trim()
-    if (!s) return String(EQUIPMENT_STATUS.AVAILABLE)
-    if (s === '1' || s === String(EQUIPMENT_STATUS.AVAILABLE)) return String(EQUIPMENT_STATUS.AVAILABLE)
-    if (s === '2' || s === String(EQUIPMENT_STATUS.BORROWED)) return String(EQUIPMENT_STATUS.BORROWED)
-    if (s === '3' || s === String(EQUIPMENT_STATUS.DAMAGED)) return String(EQUIPMENT_STATUS.DAMAGED)
-    if (s === '4' || s === String(EQUIPMENT_STATUS.LOST)) return String(EQUIPMENT_STATUS.LOST)
-    if (s === '5' || s === String(EQUIPMENT_STATUS.UNAVAILABLE)) return String(EQUIPMENT_STATUS.UNAVAILABLE)
+    if (rawStatus === null || rawStatus === undefined) {
+      console.warn('Status is null/undefined, defaulting to AVAILABLE')
+      return String(EQUIPMENT_STATUS.AVAILABLE)
+    }
+    
+    // Convert to number first
+    const numStatus = Number(rawStatus)
+    
+    // If it's a valid number between 1-5, return it as string
+    if (!Number.isNaN(numStatus) && numStatus >= 1 && numStatus <= 5) {
+      return String(numStatus)
+    }
+    
+    // Try string matching as fallback
+    const s = String(rawStatus).trim().toUpperCase()
+    if (s === 'AVAILABLE') return String(EQUIPMENT_STATUS.AVAILABLE)
+    if (s === 'BORROWED') return String(EQUIPMENT_STATUS.BORROWED)
+    if (s === 'DAMAGED') return String(EQUIPMENT_STATUS.DAMAGED)
+    if (s === 'LOST') return String(EQUIPMENT_STATUS.LOST)
+    if (s === 'UNAVAILABLE') return String(EQUIPMENT_STATUS.UNAVAILABLE)
+    
+    console.warn('Unknown status value:', rawStatus, 'defaulting to AVAILABLE')
     return String(EQUIPMENT_STATUS.AVAILABLE)
   }
 
@@ -72,11 +87,15 @@ export default function EditEquipmentModal({
 
   useEffect(() => {
     if (open && equipment) {
+      console.log('Equipment status from API:', equipment.status, 'Type:', typeof equipment.status)
       setEquipmentName(equipment.equipmentName ?? '')
       setEquipmentCode(equipment.equipmentCode ?? '')
       setCategoryId(String(equipment.categoryId ?? ''))
       setSponsoredBy(equipment.sponsoredBy ?? '')
-      setStatus(normalizeStatusValue(equipment.status ?? EQUIPMENT_STATUS.AVAILABLE))
+      // Sửa: Lấy đúng status hiện tại của thiết bị
+      const normalizedStatus = normalizeStatusValue(equipment.status)
+      console.log('Normalized status:', normalizedStatus)
+      setStatus(normalizedStatus)
       setDescription(equipment.description ?? '')
       setHandoverMinuteImgFile(null)
       setImgFile(null)
@@ -116,9 +135,7 @@ export default function EditEquipmentModal({
         handoverMinuteImgFile: handoverMinuteImgFile ?? null,
       })
 
-      const originalStatus = normalizeStatusValue(
-        equipment.status ?? EQUIPMENT_STATUS.AVAILABLE
-      )
+      const originalStatus = normalizeStatusValue(equipment.status)
       const nextStatus = normalizeStatusValue(status)
       // Chỉ khóa khi đang Đang mượn; Không khả dụng vẫn cho đổi qua modal
       if (originalStatus !== String(EQUIPMENT_STATUS.BORROWED) && nextStatus && nextStatus !== originalStatus) {
@@ -150,9 +167,7 @@ export default function EditEquipmentModal({
   }
 
   if (!equipment) return null
-  const statusValue = normalizeStatusValue(
-    status || equipment.status || EQUIPMENT_STATUS.AVAILABLE
-  )
+  const statusValue = normalizeStatusValue(status || equipment.status)
   const isBorrowed = statusValue === String(EQUIPMENT_STATUS.BORROWED)
   const isUnavailable = statusValue === String(EQUIPMENT_STATUS.UNAVAILABLE)
   const categoryValue = categoryId || String(equipment.categoryId ?? '')
@@ -163,88 +178,102 @@ export default function EditEquipmentModal({
       onClose={handleClose}
       title="Chỉnh sửa thiết bị"
       description={`Cập nhật thông tin thiết bị (${equipment.equipmentCode})`}
-      className="max-w-md"
+      className="max-w-2xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="edit-equipmentName" className="text-black font-medium">
-            Tên thiết bị <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="edit-equipmentName"
-            value={equipmentName}
-            onChange={(e) => setEquipmentName(e.target.value)}
-            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
-          />
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-equipmentName" className="text-black font-medium">
+              Tên thiết bị <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="edit-equipmentName"
+              value={equipmentName}
+              onChange={(e) => setEquipmentName(e.target.value)}
+              className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-equipmentCode" className="text-black font-medium">
+              Mã thiết bị <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="edit-equipmentCode"
+              value={equipmentCode}
+              onChange={(e) => setEquipmentCode(e.target.value)}
+              className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            />
+          </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="edit-equipmentCode" className="text-black font-medium">
-            Mã thiết bị <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="edit-equipmentCode"
-            value={equipmentCode}
-            onChange={(e) => setEquipmentCode(e.target.value)}
-            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
-          />
-        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-black font-medium">
+              Danh mục <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={categoryValue || undefined}
+              onValueChange={setCategoryId}
+            >
+              <SelectTrigger className="h-9 w-full text-black border-gray-200">
+                <SelectValue placeholder="Chọn danh mục" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem
+                    key={c.categoryId}
+                    value={String(c.categoryId)}
+                    className="text-black"
+                  >
+                    {c.categoryName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-black font-medium">
-            Danh mục <span className="text-red-500">*</span>
-          </Label>
-          <Select
-            value={categoryValue || undefined}
-            onValueChange={setCategoryId}
-          >
-            <SelectTrigger className="h-9 w-full text-black border-gray-200">
-              <SelectValue placeholder="Chọn danh mục" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((c) => (
-                <SelectItem
-                  key={c.categoryId}
-                  value={String(c.categoryId)}
-                  className="text-black"
-                >
-                  {c.categoryName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="edit-sponsoredBy" className="text-black font-medium">
-            Bên cung cấp <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="edit-sponsoredBy"
-            value={sponsoredBy}
-            onChange={(e) => setSponsoredBy(e.target.value)}
-            className="h-9 text-black placeholder:text-gray-500 border-gray-200"
-          />
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-sponsoredBy" className="text-black font-medium">
+              Bên cung cấp <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="edit-sponsoredBy"
+              value={sponsoredBy}
+              onChange={(e) => setSponsoredBy(e.target.value)}
+              className="h-9 text-black placeholder:text-gray-500 border-gray-200"
+            />
+          </div>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="edit-handoverMinuteImg" className="text-black font-medium">
-            Biên bản bàn giao (ảnh)
+            Biên bản bàn giao
           </Label>
-          <Input
-            id="edit-handoverMinuteImg"
-            ref={handoverMinuteInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-            onChange={(e) => setHandoverMinuteImgFile(e.target.files?.[0] ?? null)}
-            className="h-auto text-black border-gray-200"
-          />
+          <div className="relative">
+            <input
+              id="edit-handoverMinuteImg"
+              ref={handoverMinuteInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+              onChange={(e) => setHandoverMinuteImgFile(e.target.files?.[0] ?? null)}
+              className="hidden"
+            />
+            <label
+              htmlFor="edit-handoverMinuteImg"
+              className="flex h-9 w-full cursor-pointer items-center rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              <span className="inline-flex items-center justify-center rounded-md bg-[#2197C0] px-3 py-1 text-xs font-medium text-white hover:bg-[#208AAE] mr-3">
+                Chọn tệp
+              </span>
+              <span className="text-gray-500 text-sm">
+                {handoverMinuteImgFile ? handoverMinuteImgFile.name : 'Chưa chọn tệp'}
+              </span>
+            </label>
+          </div>
           <p className="text-xs text-gray-500 break-all">
             Hiện tại: {equipment.handoverMinute}
           </p>
-          {handoverMinuteImgFile && (
-            <p className="text-xs text-gray-600 break-all">{handoverMinuteImgFile.name}</p>
-          )}
         </div>
 
         <div className="space-y-1.5">
@@ -260,18 +289,14 @@ export default function EditEquipmentModal({
                 {getEquipmentStatusDisplay(statusValue)}
               </div>
               <p className="text-xs text-gray-500">
-                Thiết bị đang được mượn. Thay đổi trạng thái “Đang mượn”/kết thúc mượn vui
+                Thiết bị đang được mượn. Thay đổi trạng thái "Đang mượn"/kết thúc mượn vui
                 lòng thao tác qua phiếu mượn.
               </p>
             </>
           ) : (
             <Select value={statusValue} onValueChange={setStatus}>
               <SelectTrigger
-                className={`relative h-9 w-full border-0 pr-8 text-sm font-medium rounded-md ${
-                  isUnavailable
-                    ? 'justify-start text-left [&>span]:text-left [&>span]:justify-start'
-                    : 'justify-center text-center [&>span]:text-center'
-                } [&>span]:w-full [&>svg]:absolute [&>svg]:right-3 [&>svg]:top-1/2 [&>svg]:-translate-y-1/2 ${getEquipmentStatusColor(
+                className={`h-9 w-full border-0 text-sm font-medium rounded-md justify-center text-center [&>span]:text-center [&>span]:w-full ${getEquipmentStatusColor(
                   statusValue
                 )}`}
               >
@@ -300,23 +325,36 @@ export default function EditEquipmentModal({
             id="edit-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={2}
+            rows={3}
             className="flex w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-black placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400 resize-none"
           />
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="edit-img" className="text-black font-medium">
-            Hình ảnh (ảnh)
+            Hình ảnh
           </Label>
-          <Input
-            id="edit-img"
-            ref={imgInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-            onChange={(e) => setImgFile(e.target.files?.[0] ?? null)}
-            className="h-auto text-black border-gray-200"
-          />
+          <div className="relative">
+            <input
+              id="edit-img"
+              ref={imgInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+              onChange={(e) => setImgFile(e.target.files?.[0] ?? null)}
+              className="hidden"
+            />
+            <label
+              htmlFor="edit-img"
+              className="flex h-9 w-full cursor-pointer items-center rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              <span className="inline-flex items-center justify-center rounded-md bg-[#2197C0] px-3 py-1 text-xs font-medium text-white hover:bg-[#208AAE] mr-3">
+                Chọn tệp
+              </span>
+              <span className="text-gray-500 text-sm">
+                {imgFile ? imgFile.name : 'Chưa chọn tệp'}
+              </span>
+            </label>
+          </div>
           {equipment.imgLink ? (
             <p className="text-xs text-gray-500 break-all">
               Hiện tại: {equipment.imgLink}
@@ -324,7 +362,6 @@ export default function EditEquipmentModal({
           ) : (
             <p className="text-xs text-gray-400 italic">Hiện tại: Không có ảnh</p>
           )}
-          {imgFile && <p className="text-xs text-gray-600 break-all">{imgFile.name}</p>}
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -349,4 +386,3 @@ export default function EditEquipmentModal({
     </Dialog>
   )
 }
-
