@@ -166,7 +166,9 @@ export default function WalletsManagement() {
       setCreateDescription('');
       void fetchData();
     } catch (err: any) {
-      message.error(err?.response?.data?.message || err?.message || 'Tạo quỹ thất bại.');
+      // BE trả về BadRequest(message) => error là string trực tiếp
+      const errorMsg = typeof err === 'string' ? err : (err?.message || 'Tạo quỹ thất bại.');
+      message.error(errorMsg);
     } finally {
       setCreateLoading(false);
     }
@@ -189,7 +191,9 @@ export default function WalletsManagement() {
       setEditDescription('');
       void fetchData();
     } catch (err: any) {
-      message.error(err?.response?.data?.message || err?.message || 'Cập nhật quỹ thất bại.');
+      // BE trả về BadRequest(message) => error là string trực tiếp
+      const errorMsg = typeof err === 'string' ? err : (err?.message || 'Cập nhật quỹ thất bại.');
+      message.error(errorMsg);
     } finally {
       setEditLoading(false);
     }
@@ -208,7 +212,9 @@ export default function WalletsManagement() {
           message.success('Đã xóa quỹ.');
           void fetchData();
         } catch (err: any) {
-          message.error(err?.response?.data?.message || err?.message || 'Xóa quỹ thất bại.');
+          // BE trả về BadRequest(message) => error là string trực tiếp
+          const errorMsg = typeof err === 'string' ? err : (err?.message || 'Xóa quỹ thất bại.');
+          message.error(errorMsg);
         }
       },
     });
