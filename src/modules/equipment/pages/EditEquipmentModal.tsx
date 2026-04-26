@@ -14,6 +14,7 @@ import { Dialog } from '@/shared/components/ui/dialog'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import {
   Select,
   SelectContent,
@@ -146,12 +147,35 @@ export default function EditEquipmentModal({
       onClose()
       onUpdated?.()
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
-          : null
-      message.error(msg || 'Cập nhật thiết bị thất bại')
+      const data =
+        err && typeof err === 'object' && err != null && 'response' in err
+          ? (err as { response?: { data?: unknown } }).response?.data
+          : undefined
+
+      const msgFromBe = (() => {
+        if (!data) return null
+        if (typeof data === 'string') return data.trim() || null
+        if (typeof data !== 'object') return null
+
+        const d = data as Record<string, unknown>
+        const direct =
+          (typeof d.message === 'string' && d.message) ||
+          (typeof d.Message === 'string' && d.Message) ||
+          (typeof d.error === 'string' && d.error) ||
+          (typeof d.title === 'string' && d.title) ||
+          null
+        if (direct) return String(direct).trim() || null
+
+        const errors = d.errors
+        if (Array.isArray(errors)) {
+          const first = errors.find((x) => typeof x === 'string' && x.trim())
+          return typeof first === 'string' ? first.trim() : null
+        }
+
+        return null
+      })()
+
+      message.error(msgFromBe || getErrorMessage(err) || 'Cập nhật thiết bị thất bại')
     } finally {
       setLoading(false)
     }
