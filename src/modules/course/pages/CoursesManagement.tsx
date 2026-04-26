@@ -128,7 +128,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
 
   const openCreateModal = useCallback(() => {
     if (!canEdit) {
-      message.warning('Bạn không có quyền thêm khóa học.');
+      message.warning('Bạn không có quyền thêm chương trình học.');
       return;
     }
     setIsCreating(true);
@@ -156,7 +156,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   const openEditModal = useCallback(
     async (c: CourseListItem) => {
       if (!canEdit) {
-        message.warning('Bạn không có quyền chỉnh sửa khóa học.');
+        message.warning('Bạn không có quyền chỉnh sửa chương trình học.');
         return;
       }
       setIsCreating(false);
@@ -176,7 +176,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
           e && typeof e === 'object' && 'response' in e
             ? (e as { response?: { data?: { message?: string } } }).response?.data?.message
             : null;
-        message.error(msg ?? 'Không tải được chi tiết khóa học');
+        message.error(msg ?? 'Không tải được chi tiết chương trình học');
         setEditingCourse(c);
         setCourseCode(c.courseCode ?? '');
         setCourseName(c.courseName ?? '');
@@ -211,7 +211,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
     };
 
     if (!payloadBase.courseCode || !payloadBase.courseName || !payloadBase.description) {
-      message.warning('Vui lòng nhập đầy đủ mã, tên và mô tả khóa học');
+      message.warning('Vui lòng nhập đầy đủ mã, tên và mô tả chương trình học');
       return;
     }
 
@@ -231,7 +231,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         ).filter((id) => Number(id) > 0);
 
         if (subjectIds.length === 0) {
-          message.warning('Vui lòng chọn ít nhất một môn học cho khóa học');
+          message.warning('Vui lòng chọn ít nhất một môn học cho chương trình học');
           return;
         }
 
@@ -242,7 +242,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
           courseSubjects: subjectIds.map((id) => ({ subjectId: id })),
         });
 
-        message.success('Tạo khóa học thành công');
+        message.success('Tạo chương trình học thành công');
         setOpenEdit(false);
         await refetch();
         void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey });
@@ -281,7 +281,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         await courseSubjectApi.assignBulk(editingCourse.courseId, toAddIds);
       }
 
-      message.success('Cập nhật khóa học thành công');
+      message.success('Cập nhật chương trình học thành công');
       setOpenEdit(false);
       await refetch();
       void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey });
@@ -295,10 +295,10 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   const handleToggleActive = useCallback(
     (c: CourseListItem) => {
       Modal.confirm({
-        title: c.isActive ? 'Vô hiệu hóa khóa học?' : 'Kích hoạt khóa học?',
+        title: c.isActive ? 'Vô hiệu hóa chương trình học?' : 'Kích hoạt chương trình học?',
         content: c.isActive
-          ? 'Khóa học sẽ bị vô hiệu hóa và có thể ảnh hưởng tới các yêu cầu liên quan.'
-          : 'Khóa học sẽ được kích hoạt lại.',
+          ? 'Chương trình học sẽ bị vô hiệu hóa và có thể ảnh hưởng tới các yêu cầu liên quan.'
+          : 'Chương trình học sẽ được kích hoạt lại.',
         okText: c.isActive ? 'Vô hiệu hóa' : 'Kích hoạt',
         cancelText: 'Hủy',
         okButtonProps: { danger: c.isActive },
@@ -306,7 +306,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
           try {
             if (c.isActive) await courseApi.deactivate(c.courseId);
             else await courseApi.activate(c.courseId);
-            message.success('Cập nhật trạng thái khóa học thành công');
+            message.success('Cập nhật trạng thái chương trình học thành công');
             await refetch();
             void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey });
           } catch (e: unknown) {
@@ -329,14 +329,14 @@ export default function CoursesManagement({ readOnly = false }: Props) {
     () => [
       {
         accessorKey: 'courseCode',
-        header: 'Mã khóa học',
+        header: 'Mã chương trình học',
         cell: ({ row }) => (
           <span className="text-sm font-semibold text-[#1a7a99]">{row.original.courseCode}</span>
         ),
       },
       {
         accessorKey: 'courseName',
-        header: 'Tên khóa học',
+        header: 'Tên chương trình học',
         cell: ({ row }) => (
           <div className="min-w-0 truncate text-sm font-medium text-[#1a7a99]">{row.original.courseName}</div>
         ),
@@ -444,7 +444,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       <div className="flex shrink-0 items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
         <div>
           <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý giáo trình</h2>
-          <p className="text-xs text-slate-500">Quản lý khóa học trong hệ thống</p>
+          <p className="text-xs text-slate-500">Quản lý chương trình học trong hệ thống</p>
         </div>
         {canEdit && (
           <Button
@@ -452,7 +452,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
             className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white px-3 py-2 rounded-md"
           >
             <Plus size={16} />
-            Thêm khóa học
+            Thêm chương trình học
           </Button>
         )}
       </div>
@@ -460,7 +460,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 shrink-0">
         <StatCard
           icon={<GraduationCap className={iconClass} strokeWidth={2} />}
-          label="Tổng khóa học"
+          label="Tổng chương trình học"
           value={statValue(summaryLoading, totalCourses)}
           sub="Tất cả khóa trong hệ thống"
           variant="blue"
@@ -469,7 +469,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
           icon={<CheckCircle2 className={iconClass} strokeWidth={2} />}
           label="Đang hoạt động"
           value={statValue(summaryLoading, totalActiveCourses)}
-          sub="Khóa học đang bật"
+          sub="Chương trình học đang bật"
           variant="green"
         />
         <StatCard
@@ -491,11 +491,11 @@ export default function CoursesManagement({ readOnly = false }: Props) {
       <div className="shrink-0 px-2 py-1">
         {!isManager ? (
           <div className="flex gap-3 items-center justify-end">
-            <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={setSearch} />
+            <HoverSearch placeholder="Tìm chương trình học..." value={search} onChange={setSearch} />
           </div>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            <HoverSearch placeholder="Tìm khóa học..." value={search} onChange={(value) => setSearch(value)} />
+            <HoverSearch placeholder="Tìm chương trình học..." value={search} onChange={(value) => setSearch(value)} />
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
@@ -577,12 +577,12 @@ export default function CoursesManagement({ readOnly = false }: Props) {
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">
-                  {isCreating ? 'Tạo khóa học' : 'Cập nhật khóa học'}
+                  {isCreating ? 'Tạo chương trình học' : 'Cập nhật chương trình học'}
                 </h2>
                 <p className="text-sm text-slate-500">
                   {isCreating
-                    ? 'Tạo mới một khóa học trong hệ thống.'
-                    : 'Chỉnh sửa thông tin cơ bản của khóa học.'}
+                    ? 'Tạo mới một chương trình học trong hệ thống.'
+                    : 'Chỉnh sửa thông tin cơ bản của chương trình học.'}
                 </p>
               </div>
               <button
@@ -601,7 +601,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>
-                      Mã khóa học <span className="text-rose-600">*</span>
+                      Mã chương trình học <span className="text-rose-600">*</span>
                     </Label>
                     <Input
                       value={courseCode}
@@ -611,12 +611,12 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                   </div>
                   <div className="space-y-2">
                     <Label>
-                      Tên khóa học <span className="text-rose-600">*</span>
+                      Tên chương trình học <span className="text-rose-600">*</span>
                     </Label>
                     <Input
                       value={courseName}
                       onChange={(e) => setCourseName(e.target.value)}
-                      placeholder="Nhập tên khóa học"
+                      placeholder="Nhập tên chương trình học"
                     />
                   </div>
                 </div>
@@ -631,7 +631,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     className="w-full min-h-28 resize-y rounded-xl border border-input bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    placeholder="Nhập mô tả khóa học"
+                    placeholder="Nhập mô tả chương trình học"
                   />
                 </div>
               </div>

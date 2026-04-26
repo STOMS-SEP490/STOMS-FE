@@ -135,7 +135,7 @@ export default function TopicsReadonlyPage() {
         <p className="text-xs text-gray-500">Xem thông tin các chủ đề trong hệ thống</p>
       </div>
 
-      <div className="shrink-0 px-2 py-1">
+      <div className="shrink-0 px-2">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <HoverSearch
             value={search}

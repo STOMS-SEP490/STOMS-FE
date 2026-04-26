@@ -63,7 +63,7 @@ export default function SkillsManagement() {
     let cancelled = false;
     setStatsLoading(true);
     dashboardApi.getSkillStatistics()
-      .then((res) => { if (!cancelled) setSkillStats(res); })
+      .then((res: any) => { if (!cancelled) setSkillStats(res); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setStatsLoading(false); });
     return () => { cancelled = true; };

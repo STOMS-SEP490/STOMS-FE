@@ -153,10 +153,6 @@ function resolveRange(effectiveRange: NonNullable<DashboardRangeParams['range']>
   }
 }
 
-function toDateOnly(iso: string) {
-  return dayjs(iso).format('YYYY-MM-DD');
-}
-
 function TeachingHistoryRow(props: { item: DashboardTeachingHistoryItem }) {
   const it = props.item;
 
@@ -206,7 +202,7 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
   const it = props.item;
   const missingCheckin = !it.checkinAt;
   const missingCheckout = !!it.checkinAt && !it.checkoutAt;
-  const badgeLabel = missingCheckin ? 'Chưa xác nhận' : missingCheckout ? 'Thiếu cuối giờ' : '—';
+  const badgeLabel = missingCheckin ? 'Chưa xác nhận' : missingCheckout ? 'Thiếu xác nhận' : '—';
   const badgeTone = missingCheckin || missingCheckout ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600';
   return (
     <div
@@ -225,10 +221,10 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3.5 w-3.5 text-slate-400" />
-              {dayjs(it.session.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.session.endAt).format('HH:mm')}
+              {dayjs(it.session?.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.session?.endAt).format('HH:mm')}
             </span>
             <span className="text-slate-300">•</span>
-            <span className="truncate">{it.session.location || '—'}</span>
+            <span className="truncate">{it.session?.location || '—'}</span>
           </div>
         </div>
 
@@ -266,9 +262,7 @@ export default function TeacherDashboard() {
     queryFn: () =>
       dashboardApi.getUserTeachingHistory(memberId as number, {
         from,
-        toExclusive,
-        pageNumber: 1,
-        pageSize: 6,
+        to: toInclusiveIso,
       }),
     enabled: memberId != null,
   });
@@ -278,11 +272,7 @@ export default function TeacherDashboard() {
     queryFn: () =>
       dashboardApi.getUserAttendanceHistory(memberId as number, {
         from,
-        toExclusive,
-        // Teacher dashboard: các buổi chưa xác nhận tham gia (chưa check-in)
-        missingCheckin: true,
-        pageNumber: 1,
-        pageSize: 6,
+        to: toInclusiveIso,
       }),
     enabled: memberId != null,
   });
@@ -291,11 +281,7 @@ export default function TeacherDashboard() {
     queryKey: ['teacher-dashboard', 'contracts', memberId ?? 0, effectiveRange],
     queryFn: () =>
       dashboardApi.getMemberContractsStatistics(memberId as number, {
-        // Endpoint này thường filter theo DateOnly => gửi yyyy-mm-dd để tránh mismatch
-        fromDate: toDateOnly(from),
-        toDate: toDateOnly(toInclusiveIso),
-        pageNumber: 1,
-        pageSize: 5,
+        range: effectiveRange,
       }),
     enabled: memberId != null,
   });
@@ -426,7 +412,7 @@ export default function TeacherDashboard() {
                     <p className="text-xs text-slate-400 mt-1">Dữ liệu sẽ hiển thị khi bạn tham gia buổi học</p>
                   </div>
                 ) : (
-                  teachingItems.map((it) => <TeachingHistoryRow key={it.sessionId} item={it} />)
+                  teachingItems.map((it: any) => <TeachingHistoryRow key={it.sessionId} item={it} />)
                 )}
               </div>
             </div>
@@ -452,7 +438,7 @@ export default function TeacherDashboard() {
                     <p className="text-xs text-slate-500 mt-1">Đã xác nhận tham gia tất cả các buổi</p>
                   </div>
                 ) : (
-                  attendanceItems.map((it) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
+                  attendanceItems.map((it: any) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
                 )}
               </div>
             </div>

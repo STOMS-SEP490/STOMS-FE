@@ -219,7 +219,7 @@ export default function EquipmentDashboard() {
 
   const categoryBarData = useMemo(
     () =>
-      (categoryDistribution ?? []).slice(0, 8).map((c) => ({
+      (categoryDistribution ?? []).slice(0, 8).map((c: any) => ({
         name:
           c.categoryName.length > 14 ? `${c.categoryName.slice(0, 12)}…` : c.categoryName,
         total: c.totalEquipment,

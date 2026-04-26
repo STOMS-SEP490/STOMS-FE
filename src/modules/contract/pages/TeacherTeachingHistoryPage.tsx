@@ -483,7 +483,7 @@ export default function TeacherTeachingHistoryPage() {
 
   return (
     <div
-      className="relative flex min-h-0 flex-col gap-3 overflow-hidden app-page-bg p-6 pl-8"
+      className="relative flex min-h-0 flex-col gap-2 overflow-hidden app-page-bg p-6 pl-8"
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {sessionDetailOpen && (
@@ -603,52 +603,52 @@ export default function TeacherTeachingHistoryPage() {
         </div>
       )}
 
-      {/* HEADER: tiêu đề + tìm kiếm / lọc cùng một thẻ như attendance-history */}
-      <div className="flex shrink-0 flex-col gap-4 rounded-xl border bg-white px-6 py-4 shadow-sm min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách buổi đã tham gia</h2>
-          <p className="text-xs text-gray-500">Các buổi bạn đã tham gia cùng trạng thái hợp đồng.</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 min-[900px]:gap-3">
-          <HoverSearch
-            value={search}
-            onChange={(v) => {
-              setPageNumber(1);
-              setSearch(v);
-            }}
-            placeholder="Tìm theo tên buổi..."
-          />
-          <Select
-            value={hasContract}
-            onValueChange={(v) => {
-              setPageNumber(1);
-              setHasContract(v as typeof hasContract);
-            }}
-          >
-            <SelectTrigger className="h-9 w-[160px] border-slate-200 bg-white text-sm">
-              <SelectValue placeholder="Lọc hợp đồng" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái </SelectItem>
-              <SelectItem value="yes">Có hợp đồng</SelectItem>
-              <SelectItem value="no">Chưa có hợp đồng</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0 border-slate-200 bg-white text-gray-600 hover:bg-gray-50"
-            onClick={() => {
-              setSearch('');
-              setHasContract('all');
-              setPageNumber(1);
-            }}
-            title="Đặt lại bộ lọc"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-        </div>
+      {/* HEADER */}
+      <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+        <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách buổi đã tham gia</h2>
+        <p className="text-xs text-gray-500">Các buổi bạn đã tham gia cùng trạng thái hợp đồng.</p>
+      </div>
+
+      {/* FILTER BAR */}
+      <div className="shrink-0 flex justify-end items-center gap-3">
+        <HoverSearch
+          value={search}
+          onChange={(v) => {
+            setPageNumber(1);
+            setSearch(v);
+          }}
+          placeholder="Tìm theo tên buổi..."
+        />
+        <Select
+          value={hasContract}
+          onValueChange={(v) => {
+            setPageNumber(1);
+            setHasContract(v as typeof hasContract);
+          }}
+        >
+          <SelectTrigger className="h-9 w-[160px] border-slate-200 bg-white text-sm">
+            <SelectValue placeholder="Lọc hợp đồng" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả trạng thái</SelectItem>
+            <SelectItem value="yes">Có hợp đồng</SelectItem>
+            <SelectItem value="no">Chưa có hợp đồng</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0 border-slate-200 bg-white text-gray-600 hover:bg-gray-50"
+          onClick={() => {
+            setSearch('');
+            setHasContract('all');
+            setPageNumber(1);
+          }}
+          title="Đặt lại bộ lọc"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Bảng kéo giãn theo chiều cao màn hình, giữ padding ô mặc định (không comfortable) */}

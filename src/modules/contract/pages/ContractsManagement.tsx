@@ -167,7 +167,7 @@ export default function ContractsManagement() {
     let cancelled = false;
     setSummaryLoading(true);
     dashboardApi.getMemberContractsStatistics(memberId)
-      .then((res) => { if (!cancelled) setContractSummary(res); })
+      .then((res: DashboardMemberContractSummary) => { if (!cancelled) setContractSummary(res); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setSummaryLoading(false); });
     return () => { cancelled = true; };

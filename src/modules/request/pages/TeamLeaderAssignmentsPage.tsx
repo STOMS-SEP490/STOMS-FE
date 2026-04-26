@@ -283,7 +283,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                   sessions.find((s) => (s.subjectSession?.description ?? '').trim())?.subjectSession?.description?.trim() ??
                   null;
                 const sourceNameLabel = selectedRequest.courseId
-                  ? 'Tên khóa học'
+                  ? 'Tên chương trình học'
                   : selectedRequest.eventId
                     ? 'Tên sự kiện'
                     : selectedRequest.subjectId
@@ -639,7 +639,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     requestId={activeSession.requestId}
                     requestCode={selectedRequest?.requestCode ?? ''}
                     sectionMode="info"
-                    showTeamSummary={false}
                     showReservedEquipment={false}
                   />
                 );
@@ -738,7 +737,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         requestId={activeSession.requestId}
                         requestCode={selectedRequest?.requestCode ?? ''}
                         sectionMode="equipment"
-                        showTeamSummary={false}
                         canEditReservation={false}
                         onReservationUpdated={() =>
                           void refreshSessionDetailById(activeSession.sessionId)

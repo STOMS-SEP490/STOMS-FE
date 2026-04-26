@@ -237,6 +237,7 @@ export const teamApi = {
       const st = e.response?.status;
       if (st === 401) throw e;
       if (st != null && st >= 500) throw e;
+      // 403, 404 → fallback
     }
 
     const me = await memberApi.getMemberById(memberId);

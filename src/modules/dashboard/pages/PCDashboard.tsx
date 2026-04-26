@@ -92,7 +92,7 @@ function RequestPipelineCard(props: { r: RequestListItem; onClick: () => void })
     props.r.eventId != null
       ? 'Sự kiện'
       : props.r.courseId != null
-        ? 'Khóa học'
+        ? 'Chương trình học'
         : props.r.subjectId != null
           ? 'Môn học'
           : 'Khác'
@@ -205,7 +205,7 @@ export default function PCDashboard() {
 
     const rows = [
       { key: 'Sự kiện', value: eventCount },
-      { key: 'Khóa học', value: courseCount },
+      { key: 'Chương trình học', value: courseCount },
       { key: 'Môn học', value: subjectCount },
       { key: 'Khác', value: otherCount },
     ]
@@ -411,7 +411,7 @@ export default function PCDashboard() {
           <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
             <div className="mb-2">
               <p className="text-sm font-semibold text-slate-900">Request theo loại nội dung</p>
-              <p className="text-xs text-slate-500">Event / Khóa học / Môn học (lấy mẫu trang 1)</p>
+              <p className="text-xs text-slate-500">Event / Chương trình học / Môn học (lấy mẫu trang 1)</p>
             </div>
             {requestTypeCounts?.length > 0 ? (
               <div className="h-[260px] w-full">

@@ -29,7 +29,6 @@ import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext } from '../requestDetail.types';
 import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
 import sessionService from '../api/sessionApi';
-import assignmentService from '@/modules/assignment/api/assignmentApi';
 import reservationService from '@/modules/reservation/api/reservationApi';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import { teamApi } from '@/modules/team/api/teamApi';
@@ -98,7 +97,7 @@ export default function RequestDetail() {
     refreshDetail,
     reloadAssignmentsForSession,
     handleAssignSession,
-    handleOpenRejectAssignment,
+    handleOpenRejectAssignment, // Used in JSX onClick handler
     handleConfirmRejectAssignment,
     handleConfirmApprove,
     handleSaveTeamAssignments,
@@ -111,6 +110,9 @@ export default function RequestDetail() {
     viewMode,
     refreshRequestSidebar,
   });
+
+  // Suppress TS6133: handleOpenRejectAssignment is used in JSX onClick handler below
+  void handleOpenRejectAssignment;
 
   const canReserveEquipment = useMemo(() => {
     if (!request?.status) return false;
@@ -228,34 +230,7 @@ export default function RequestDetail() {
   const [cancelSessionReason, setCancelSessionReason] = useState('');
   const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
   const [cancelTargetSessionId, setCancelTargetSessionId] = useState<number | null>(null);
-  const [approvingAssignmentIds, setApprovingAssignmentIds] = useState<Record<number, boolean>>({});
   const [sessionDetailReloadKey, setSessionDetailReloadKey] = useState(0);
-
-  const handleApproveSingleAssignment = useCallback(
-    async (assignmentId: number, sessionId: number) => {
-      if (!assignmentId || assignmentId <= 0) return;
-      try {
-        setApprovingAssignmentIds((prev) => ({ ...prev, [assignmentId]: true }));
-        await assignmentService.approve([assignmentId]);
-        message.success('Đã duyệt phân công.');
-        await reloadAssignmentsForSession(sessionId);
-        await refreshDetail();
-        setSessionDetailReloadKey((k) => k + 1);
-        refreshRequestSidebar?.();
-      } catch (err) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const msg = (err as any)?.message || 'Duyệt phân công thất bại.';
-        message.error(msg);
-      } finally {
-        setApprovingAssignmentIds((prev) => {
-          const next = { ...prev };
-          delete next[assignmentId];
-          return next;
-        });
-      }
-    },
-    [refreshDetail, refreshRequestSidebar, reloadAssignmentsForSession]
-  );
 
   const loadApprovePreview = useCallback(async (): Promise<ApproveSessionPreview[]> => {
     if (!sessions.length) {
@@ -399,7 +374,7 @@ export default function RequestDetail() {
   const isRequestCancelled = requestStatusCode === REQUEST_STATUS.CANCELLED;
   const sessionCount = sessions.length || request.sessionsRequired || 0;
   const requestTypeLabel = request.courseId
-    ? 'Khóa học'
+    ? 'Chương trình học'
     : request.eventId
       ? 'Sự kiện'
       : request.subjectId
@@ -438,7 +413,7 @@ export default function RequestDetail() {
         ? String(subjectRaw?.subjectName ?? subjectRaw?.SubjectName ?? '').trim()
         : '';
   const sourceNameLabel = request.courseId
-    ? 'Tên khóa học'
+    ? 'Tên chương trình học'
     : request.eventId
       ? 'Tên sự kiện'
       : request.subjectId
@@ -526,7 +501,7 @@ export default function RequestDetail() {
                           className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
                           style={{ borderColor: `${approveAccentColor}33`, backgroundColor: `${approveAccentColor}10`, color: approveAccentColor }}
                         >
-                          {approveSourceType === 'subject' ? 'Môn học' : approveSourceType === 'course' ? 'Khóa học' : 'Sự kiện'}
+                          {approveSourceType === 'subject' ? 'Môn học' : approveSourceType === 'course' ? 'Chương trình học' : 'Sự kiện'}
                         </span>
                         {sourceName ? (
                           <span className="ml-1 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
@@ -1380,18 +1355,20 @@ export default function RequestDetail() {
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
                 <>
-                  {/* Thông tin buổi luôn ở trên cùng */}
+                  {/* Session info */}
                   <RequestSessionDetailPanel
                     session={
                       sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
                     }
                     requestId={Number(request.requestId)}
                     requestCode={request.requestCode ?? ''}
-                    assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                     showReservedEquipment={false}
                     sectionMode="info"
-                    showTeamSummary={isApprovalView || isPendingRequest}
+                    canEditReservation={!isPendingRequest}
+                    onReservationUpdated={isPendingRequest ? undefined : handleEquipmentSuccess}
                   />
+                  
+                  {/* Team panel */}
                   <div className="mt-6">
                     {!isApprovalView && !isPendingRequest ? (
                       <RequestDetailTeamPanel
@@ -1414,7 +1391,9 @@ export default function RequestDetail() {
                       />
                     ) : null}
                   </div>
-                  {!isApprovalView && !isPendingRequest ? (
+
+                  {/* Equipment section - moved to bottom */}
+                  {!isApprovalView && !isPendingRequest && (
                     <div className="mt-6">
                       <RequestSessionDetailPanel
                         session={
@@ -1422,12 +1401,14 @@ export default function RequestDetail() {
                         }
                         requestId={Number(request.requestId)}
                         requestCode={request.requestCode ?? ''}
+                        showReservedEquipment={true}
                         sectionMode="equipment"
                         canEditReservation={!isPendingRequest}
-                        onReservationUpdated={isPendingRequest ? undefined : handleEquipmentSuccess}
+                        onReservationUpdated={handleEquipmentSuccess}
                       />
                     </div>
-                  ) : null}
+                  )}
+
                   {resolvedDetailSession ? (
                     <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
                       {canCancelDetailSession ? (
@@ -1472,30 +1453,7 @@ export default function RequestDetail() {
                       reloadKey={sessionDetailReloadKey}
                       requestId={Number(request.requestId)}
                       requestCode={request.requestCode ?? ''}
-                      assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                       showReservedEquipment={false}
-                      showTeamSummary
-                      reviewMode
-                      requestStatus={request.status}
-                      onApproveAssignment={async (assignment) => {
-                        await handleApproveSingleAssignment(
-                          Number(assignment.AssignmentId ?? 0),
-                          rightPanel.session.sessionId
-                        );
-                      }}
-                      onRejectAssignment={(assignment) =>
-                        handleOpenRejectAssignment(rightPanel.session.sessionId, {
-                          assignmentId: Number(assignment.AssignmentId ?? 0),
-                          staffMemberId: Number(assignment.StaffMemberId ?? 0),
-                          staffRole: String(assignment.StaffRole ?? '').toUpperCase(),
-                          status: String(assignment.Status ?? ''),
-                          reason: String(assignment.Reason ?? '').trim() || undefined,
-                          fullName: String(assignment.StaffMember?.FullName ?? '').trim() || '—',
-                          email: String(assignment.StaffMember?.Email ?? assignment.StaffMember?.User?.Email ?? '').trim(),
-                          avatarUrl: String(assignment.StaffMember?.AvatarUrl ?? '').trim(),
-                        })
-                      }
-                      isApprovingAssignment={(assignmentId) => Boolean(approvingAssignmentIds[assignmentId])}
                       sectionMode="info"
                     />
                   ) : null}
