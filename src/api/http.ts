@@ -11,10 +11,7 @@ const http: AxiosInstance = axios.create({
   withCredentials: false,
 });
 
-// Request interceptor example: attach auth token if present
 http.interceptors.request.use((config) => {
-  // const token = localStorage.getItem('auth_token')
-  // if (token) config.headers = { ...config.headers, Authorization: `Bearer ${token}` }
   return config;
 });
 
