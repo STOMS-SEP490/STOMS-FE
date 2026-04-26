@@ -69,7 +69,6 @@ function normalizeTransaction(raw: Record<string, unknown>): TransactionListItem
 }
 
 const transactionApi = {
-  // GET PAGED + FILTER
   getTransactions: async (
     params?: TransactionFilterParams
   ): Promise<PaginationResponse<TransactionListItem>> => {
@@ -113,7 +112,6 @@ const transactionApi = {
     }
   },
 
-  // GET BY ID
   getById: async (id: number): Promise<TransactionListItem> => {
     const raw = (await axiosClient.get(`/transactions/${id}`)) as Record<
       string,
@@ -122,18 +120,15 @@ const transactionApi = {
     return normalizeTransaction(raw)
   },
 
-  // CREATE
   create: (data: Partial<TransactionListItem>): Promise<void> =>
     axiosClient.post('/transactions', data),
 
-  // UPDATE
   update: (
     id: number,
     data: Partial<TransactionListItem>
   ): Promise<void> =>
     axiosClient.put(`/transactions/${id}`, data),
 
-  // DELETE
   remove: (id: number): Promise<void> =>
     axiosClient.delete(`/transactions/${id}`),
 }

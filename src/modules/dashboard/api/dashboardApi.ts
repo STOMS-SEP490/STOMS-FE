@@ -134,7 +134,7 @@ export const dashboardApi = {
   // Stub methods to fix TypeScript errors - return empty/default data
   getUsersOverview: async (): Promise<any> => {
     try {
-      return await axiosClient.get('/dashboard/users/overview');
+      return await axiosClient.get('/dashboard/users/statistics');
     } catch {
       return { roleDistribution: [] };
     }
@@ -153,7 +153,7 @@ export const dashboardApi = {
       const query = new URLSearchParams();
       if (params?.range) query.set('Range', params.range);
       const qs = query.toString();
-      return await axiosClient.get(`/dashboard/requests/summary${qs ? `?${qs}` : ''}`);
+      return await axiosClient.get(`/dashboard/request/summary${qs ? `?${qs}` : ''}`);
     } catch {
       return {};
     }
@@ -175,7 +175,7 @@ export const dashboardApi = {
       const query = new URLSearchParams();
       if (params?.range) query.set('Range', params.range);
       const qs = query.toString();
-      return await axiosClient.get(`/dashboard/wallets/summary${qs ? `?${qs}` : ''}`);
+      return await axiosClient.get(`/dashboard/wallet/summary${qs ? `?${qs}` : ''}`);
     } catch {
       return [];
     }
@@ -186,7 +186,7 @@ export const dashboardApi = {
       const query = new URLSearchParams();
       if (params?.range) query.set('Range', params.range);
       const qs = query.toString();
-      return await axiosClient.get(`/dashboard/wallets/metrics${qs ? `?${qs}` : ''}`);
+      return await axiosClient.get(`/dashboard/wallet/metrics${qs ? `?${qs}` : ''}`);
     } catch {
       return {};
     }
@@ -197,7 +197,7 @@ export const dashboardApi = {
       const query = new URLSearchParams();
       if (params.range) query.set('Range', params.range);
       const qs = query.toString();
-      return await axiosClient.get(`/dashboard/wallets/${params.walletId}/top-contributors${qs ? `?${qs}` : ''}`);
+      return await axiosClient.get(`/dashboard/wallet/${params.walletId}/top-contributors${qs ? `?${qs}` : ''}`);
     } catch {
       return { topContributors: [] };
     }
@@ -221,7 +221,7 @@ export const dashboardApi = {
 
   getTopicTeamDistribution: async (): Promise<any> => {
     try {
-      return await axiosClient.get('/dashboard/topics/team-distribution');
+      return await axiosClient.get('/dashboard/team-topics/distribution');
     } catch {
       return [];
     }
@@ -351,7 +351,7 @@ export const dashboardApi = {
       const query = new URLSearchParams();
       if (params?.range) query.set('Range', params.range);
       const qs = query.toString();
-      return await axiosClient.get(`/dashboard/members/${memberId}/contracts/statistics${qs ? `?${qs}` : ''}`);
+      return await axiosClient.get(`/dashboard/members/${memberId}/contracts-statistics${qs ? `?${qs}` : ''}`);
     } catch {
       return { paidContracts: 0, unpaidContracts: 0, paidValue: 0 };
     }

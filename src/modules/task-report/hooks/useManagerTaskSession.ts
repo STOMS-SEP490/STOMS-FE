@@ -18,13 +18,14 @@ type RequestWithTasks = RequestListItem & {
   Tasks?: TaskItem[];
 };
 
-export function useManagerTaskSession(sessionId: number, selectedMemberId: number | null) {
-  // ── Session & Request data ──
+export function useManagerTaskSession(
+  sessionId: number,
+  selectedMemberId: number | null,
+  showPendingExpenseOnly = false,
+) {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [request, setRequest] = useState<RequestWithTasks | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
-
-  // ── Task reports ──
   const [requestReports, setRequestReports] = useState<TaskReport[]>([]);
   const [sessionReports, setSessionReports] = useState<TaskReport[]>([]);
   const [requestReportsLoading, setRequestReportsLoading] = useState(false);
@@ -32,7 +33,7 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
   const [searchTitle, setSearchTitle] = useState('');
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  // ── Load session & request ──
+  // Load session & request
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
@@ -42,7 +43,6 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
         const s = await sessionApi.getById(sessionId);
         if (cancelled) return;
         setSession(s);
-        
         if (s.RequestId) {
           try {
             const req = await requestApi.getById(s.RequestId);
@@ -63,7 +63,7 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
     return () => { cancelled = true; };
   }, [sessionId]);
 
-  // ── Load request reports ──
+  // Load request reports
   useEffect(() => {
     if (!session?.RequestId || !selectedMemberId) return;
     let cancelled = false;
@@ -71,6 +71,14 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
       setRequestReportsLoading(true);
       setRequestReports([]);
       try {
+        let pendingTaskReportIds: Set<number> | null = null;
+        if (showPendingExpenseOnly) {
+          const expenseRes = await taskReportApi.getExpenses({ status: 1, pageNumber: 1, pageSize: 500 });
+          if (cancelled) return;
+          pendingTaskReportIds = new Set(
+            (expenseRes.items ?? []).map((e) => e.taskReportId).filter((id): id is number => id != null)
+          );
+        }
         const res = await taskReportApi.getAll({
           requestId: session.RequestId,
           MemberId: selectedMemberId,
@@ -78,9 +86,11 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
           pageSize: 100,
         });
         if (cancelled) return;
-        // Filter to only get reports that have requestId but no sessionId
-        const filteredReports = (res.items ?? []).filter(r => r.requestId && !r.sessionId);
-        setRequestReports(filteredReports);
+        let items = (res.items ?? []).filter((r) => r.requestId && !r.sessionId);
+        if (pendingTaskReportIds) {
+          items = items.filter((r) => pendingTaskReportIds!.has(r.taskReportId));
+        }
+        setRequestReports(items);
       } catch {
         if (cancelled) return;
         message.error('Không tải được báo cáo cho yêu cầu.');
@@ -91,9 +101,9 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
     };
     void run();
     return () => { cancelled = true; };
-  }, [session?.RequestId, selectedMemberId, refetchTrigger]);
+  }, [session?.RequestId, selectedMemberId, refetchTrigger, showPendingExpenseOnly]);
 
-  // ── Load session reports ──
+  // Load session reports
   useEffect(() => {
     if (!sessionId || !selectedMemberId) return;
     let cancelled = false;
@@ -101,6 +111,14 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
       setSessionReportsLoading(true);
       setSessionReports([]);
       try {
+        let pendingTaskReportIds: Set<number> | null = null;
+        if (showPendingExpenseOnly) {
+          const expenseRes = await taskReportApi.getExpenses({ status: 1, pageNumber: 1, pageSize: 500 });
+          if (cancelled) return;
+          pendingTaskReportIds = new Set(
+            (expenseRes.items ?? []).map((e) => e.taskReportId).filter((id): id is number => id != null)
+          );
+        }
         const res = await taskReportApi.getAll({
           sessionId,
           MemberId: selectedMemberId,
@@ -108,7 +126,11 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
           pageSize: 100,
         });
         if (cancelled) return;
-        setSessionReports(res.items ?? []);
+        let items = res.items ?? [];
+        if (pendingTaskReportIds) {
+          items = items.filter((r) => pendingTaskReportIds!.has(r.taskReportId));
+        }
+        setSessionReports(items);
       } catch {
         if (cancelled) return;
         message.error('Không tải được báo cáo cho buổi.');
@@ -119,14 +141,11 @@ export function useManagerTaskSession(sessionId: number, selectedMemberId: numbe
     };
     void run();
     return () => { cancelled = true; };
-  }, [sessionId, selectedMemberId, refetchTrigger]);
+  }, [sessionId, selectedMemberId, refetchTrigger, showPendingExpenseOnly]);
 
-  const refetch = () => {
-    setRefetchTrigger(prev => prev + 1);
-  };
+  const refetch = () => setRefetchTrigger((prev) => prev + 1);
 
   return {
-    // Data
     session,
     request,
     requestReports,
