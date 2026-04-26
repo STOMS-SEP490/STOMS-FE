@@ -110,9 +110,9 @@ export default function ReservationDetailSidebar({
             <div className="px-5 pt-5 pb-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT ĐẶT TRƯỚC</p>
+                  <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT ĐƠN YÊU CẦU THIẾT BỊ</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <h2 className="text-xl font-semibold text-[#1a7a99]">Đặt trước #{reservation.ReservationId}</h2>
+                    <h2 className="text-xl font-semibold text-[#1a7a99]">Đơn yêu cầu thiết bị #{reservation.ReservationId}</h2>
                     <Badge className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium border-0', statusBadgeClass)}>
                       {displayStatus}
                     </Badge>
