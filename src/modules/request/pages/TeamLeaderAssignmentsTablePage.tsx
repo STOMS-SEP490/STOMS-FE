@@ -29,7 +29,7 @@ function getRequestTypeInfo(row: {
   eventId?: number | null;
 }): { key: keyof typeof REQUEST_TYPE_BADGE_CLASS; label: string } {
   if (row.subjectId) return { key: 'subject', label: 'Môn học' };
-  if (row.courseId) return { key: 'course', label: 'Khóa học' };
+  if (row.courseId) return { key: 'course', label: 'Chương trình học' };
   if (row.eventId) return { key: 'event', label: 'Sự kiện' };
   return { key: 'other', label: 'Khác' };
 }
@@ -124,7 +124,7 @@ export default function TeamLeaderAssignmentsTablePage({ tab }: { tab: TeamLeade
               <SelectItem value="all">Tất cả loại</SelectItem>
               <SelectItem value="event">Sự kiện</SelectItem>
               <SelectItem value="subject">Môn học</SelectItem>
-              <SelectItem value="course">Khóa học</SelectItem>
+              <SelectItem value="course">Chương trình học</SelectItem>
             </SelectContent>
           </Select>
           <Select

@@ -16,6 +16,7 @@ import { Button } from '@/shared/components/ui/button';
 import HoverSearch from '@/shared/components/ui/search';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { Dialog } from '@/shared/components/ui/dialog';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 const TEAM_PAGE_PARAM = 'teamPage';
 const TEAM_Q_PARAM = 'teamQ';
@@ -179,11 +180,7 @@ function TeamsContent() {
       setTeamToDelete(null);
       invalidateTeamList();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : null;
-      message.error(msg || 'Xóa nhóm thất bại');
+      message.error(getErrorMessage(err) || 'Xóa nhóm thất bại');
     }
   }, [teamToDelete, invalidateTeamList]);
 
@@ -214,7 +211,7 @@ function TeamsContent() {
       },
       {
         id: 'topics',
-        header: 'Số topic',
+        header: 'Số chủ đề',
         cell: ({ row }) =>
           row.original.teamTopics?.filter((tt) => tt.isActive !== false).length ?? 0,
       },

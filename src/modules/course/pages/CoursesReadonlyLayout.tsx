@@ -59,7 +59,7 @@ export default function CoursesReadonlyLayout() {
               <HoverSearch
                 value={courseSearch}
                 onChange={(v) => setCourseSearch(v)}
-                placeholder="Tìm theo tên khóa học..."
+                placeholder="Tìm theo tên chương trình học..."
               />
             ) : currentTab === 'subjects' ? (
               <HoverSearch

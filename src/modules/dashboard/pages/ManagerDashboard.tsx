@@ -97,14 +97,6 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function formatLocalDateTimeNoTz(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return (
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-  );
-}
-
 function KpiCard(props: {
   title: string;
   value: React.ReactNode;
@@ -197,9 +189,9 @@ export default function ManagerDashboard() {
     queryFn: () =>
       dashboardApi.getWalletTopContributors({
         range: effectiveRange,
-        top: 5,
-        walletId: contributorsWalletId ?? undefined,
+        walletId: contributorsWalletId ?? 0,
       }),
+    enabled: contributorsWalletId != null,
   });
 
   const { data: totalIncomeExpenseSeries } = useQuery({
@@ -217,8 +209,8 @@ export default function ManagerDashboard() {
 
       return ranges.map((r, idx) => {
         const arr = results[idx] ?? [];
-        const totalContribution = arr.reduce((sum, x) => sum + (Number(x.totalContribution) || 0), 0);
-        const totalExpense = arr.reduce((sum, x) => sum + (Number(x.totalExpense) || 0), 0);
+        const totalContribution = arr.reduce((sum: number, x: any) => sum + (Number(x.totalContribution) || 0), 0);
+        const totalExpense = arr.reduce((sum: number, x: any) => sum + (Number(x.totalExpense) || 0), 0);
         return {
           range: r,
           label: rangeLabelMap[r],
@@ -275,22 +267,10 @@ export default function ManagerDashboard() {
     queryFn: () => dashboardApi.getEventSessionStatistics(),
   });
 
-  const formatDateOnly = (d: Date) => {
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
   const { data: upcomingEventsPaged } = useQuery({
     queryKey: ['dashboard', 'upcoming-events'],
     queryFn: () => {
-      const from = new Date();
-      const to = new Date();
-      to.setDate(to.getDate() + 7);
       return dashboardApi.getUpcomingEvents({
-        fromDate: formatDateOnly(from),
-        toDate: formatDateOnly(to),
         pageNumber: 1,
         pageSize: 6,
       });
@@ -313,11 +293,11 @@ export default function ManagerDashboard() {
   });
 
   const totalWalletBalance =
-    walletSummary?.reduce((sum, w) => sum + (Number(w.balance) || 0), 0) ?? 0;
+    walletSummary?.reduce((sum: number, w: any) => sum + (Number(w.balance) || 0), 0) ?? 0;
 
   const totalTransactionsInRange =
     walletSummary?.reduce(
-      (sum, w) =>
+      (sum: number, w: any) =>
         sum +
         (Number(w.totalContributionTransactions) || 0) +
         (Number(w.totalExpenseTransactions) || 0),
@@ -325,7 +305,7 @@ export default function ManagerDashboard() {
     ) ?? 0;
 
   const roleDistributionData =
-    usersOverview?.roleDistribution?.map((r) => ({
+    usersOverview?.roleDistribution?.map((r: any) => ({
       name: getRoleLabel(r.roleId) || r.roleName,
       value: r.userCount,
     })) ?? [];
@@ -347,7 +327,7 @@ export default function ManagerDashboard() {
   };
 
   const eventStatusData =
-    eventStatus?.map((s) => ({
+    eventStatus?.map((s: any) => ({
       status: viEventStatus(s.status),
       total: s.totalEvents,
     })) ?? [];
@@ -379,9 +359,9 @@ export default function ManagerDashboard() {
   const topWalletsByBalance =
     walletSummary
       ?.slice()
-      .sort((a, b) => Number(b.balance) - Number(a.balance))
+      .sort((a: any, b: any) => Number(b.balance) - Number(a.balance))
       .slice(0, 5)
-      .map((w) => ({
+      .map((w: any) => ({
         name: w.walletName,
         balance: Number(w.balance),
       })) ?? [];
@@ -389,56 +369,58 @@ export default function ManagerDashboard() {
   const pieColors = ['#2563eb', '#16a34a', '#f97316', '#e11d48', '#7c3aed', '#0f766e'];
 
   const walletMetricsChartData =
-    walletMetrics
-      ?.slice()
-      .sort((a, b) => Number(b.totalContribution + b.totalExpense) - Number(a.totalContribution + a.totalExpense))
-      .slice(0, 6)
-      .map((m) => ({
-        name: m.walletName,
-        contribution: m.totalContribution,
-        expense: m.totalExpense,
-        net: m.netAmount,
-      })) ?? [];
+    Array.isArray(walletMetrics)
+      ? walletMetrics
+          .slice()
+          .sort((a: any, b: any) => Number(b.totalContribution + b.totalExpense) - Number(a.totalContribution + a.totalExpense))
+          .slice(0, 6)
+          .map((m: any) => ({
+            name: m.walletName,
+            contribution: m.totalContribution,
+            expense: m.totalExpense,
+            net: m.netAmount,
+          }))
+      : [];
 
   const topSkillsData =
-    skillStats?.skillDistribution?.slice(0, 6).map((s) => ({
+    skillStats?.skillDistribution?.slice(0, 6).map((s: any) => ({
       name: s.skillName,
       members: s.memberCount,
     })) ?? [];
 
   const topicTeamData =
-    topicTeamDistribution?.slice(0, 8).map((t) => ({
+    topicTeamDistribution?.slice(0, 8).map((t: any) => ({
       name: t.topicName,
       teams: t.teamCount,
     })) ?? [];
 
   const equipmentCategoryData =
-    equipmentCategoryDistribution?.slice(0, 8).map((c) => ({
+    equipmentCategoryDistribution?.slice(0, 8).map((c: any) => ({
       name: c.categoryName,
       total: c.totalEquipment,
     })) ?? [];
 
   const subjectTopicData =
-    subjectTopicDistribution?.slice(0, 8).map((t) => ({
+    subjectTopicDistribution?.slice(0, 8).map((t: any) => ({
       name: t.topicName,
       subjects: t.totalSubjects,
     })) ?? [];
 
   const popularCoursesData =
-    popularCourses?.slice(0, 8).map((c) => ({
+    popularCourses?.slice(0, 8).map((c: any) => ({
       name: c.courseName,
       enrollments: c.totalEnrollments,
     })) ?? [];
 
   const eventSessionDistData =
-    eventSessionStatistics?.sessionDistribution?.map((x) => ({
+    eventSessionStatistics?.sessionDistribution?.map((x: any) => ({
       name: x.range,
       events: x.totalEvents,
       percent: x.percent,
     })) ?? [];
 
   const subjectSessionDistData =
-    subjectSessionStatistics?.sessionDistribution?.map((x) => ({
+    subjectSessionStatistics?.sessionDistribution?.map((x: any) => ({
       name: x.range,
       subjects: x.totalSubjects,
       percent: x.percent,
@@ -447,10 +429,10 @@ export default function ManagerDashboard() {
   const upcomingEvents = upcomingEventsPaged?.items ?? [];
 
   const topTeamsBySessions =
-    teamsStatisticsPaged?.items?.slice().sort((a, b) => (b.totalSessions || 0) - (a.totalSessions || 0)).slice(0, 8) ?? [];
+    teamsStatisticsPaged?.items?.slice().sort((a: any, b: any) => (b.totalSessions || 0) - (a.totalSessions || 0)).slice(0, 8) ?? [];
 
   const walletsForContributorSelect =
-    walletSummary?.slice().sort((a, b) => Number(b.balance) - Number(a.balance)) ?? [];
+    walletSummary?.slice().sort((a: any, b: any) => Number(b.balance) - Number(a.balance)) ?? [];
 
   const selectedContributorWallet =
     walletTopContributors && walletTopContributors.length > 0
@@ -460,7 +442,7 @@ export default function ManagerDashboard() {
       : null;
 
   const contributorChartData =
-    selectedContributorWallet?.topContributors?.map((c) => ({
+    selectedContributorWallet?.topContributors?.map((c: any) => ({
       name: c.fullName,
       amount: Number(c.totalContribution) || 0,
     })) ?? [];
@@ -547,10 +529,7 @@ export default function ManagerDashboard() {
             try {
               setExporting(true);
               const blob = await dashboardApi.exportDashboard({
-                // BE dùng Postgres timestamp without time zone => tránh gửi ISO có 'Z' (UTC).
-                StartAt: formatLocalDateTimeNoTz(exportStartAt),
-                EndAt: formatLocalDateTimeNoTz(exportEndAt),
-                SheetTypes: selectedSheetTypes,
+                range: effectiveRange,
               });
               downloadBlob(blob, 'STOMS_Reports.xlsx');
               message.success('Đã xuất báo cáo');
@@ -681,7 +660,7 @@ export default function ManagerDashboard() {
                       outerRadius={80}
                       paddingAngle={2}
                     >
-                      {roleDistributionData.map((entry, index) => (
+                      {roleDistributionData.map((entry: any, index: number) => (
                         <Cell key={entry.name} fill={pieColors[index % pieColors.length]} />
                       ))}
                     </Pie>
@@ -1121,7 +1100,7 @@ export default function ManagerDashboard() {
                 }}
               >
                 <option value="all">Tất cả quỹ</option>
-                {walletsForContributorSelect.map((w) => (
+                {walletsForContributorSelect.map((w: any) => (
                   <option key={w.walletId} value={String(w.walletId)}>
                     {w.walletName}
                   </option>
@@ -1307,7 +1286,7 @@ export default function ManagerDashboard() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Khóa học & môn học
+                  Chương trình học & môn học
                 </p>
                 <p className="text-sm text-gray-600">Tổng quan số lượng trong hệ thống</p>
               </div>
@@ -1315,7 +1294,7 @@ export default function ManagerDashboard() {
             {courseSummary ? (
               <div className="grid grid-cols-2 gap-3 text-xs text-gray-700">
                 <div className="space-y-1">
-                  <p className="text-[11px] text-gray-400 uppercase font-semibold">Khóa học</p>
+                  <p className="text-[11px] text-gray-400 uppercase font-semibold">Chương trình học</p>
                   <p className="text-lg font-semibold text-slate-900">{courseSummary.totalCourses}</p>
                   <p className="text-[11px] text-gray-500">
                     Hoạt động:{' '}
@@ -1332,7 +1311,7 @@ export default function ManagerDashboard() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu khóa học/môn học.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu chương trình học/môn học.</p>
             )}
           </div>
 
@@ -1405,7 +1384,7 @@ export default function ManagerDashboard() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Khóa học phổ biến
+                  Chương trình học phổ biến
                 </p>
                 <p className="text-sm text-gray-600">Top theo lượt đăng ký</p>
               </div>
@@ -1426,7 +1405,7 @@ export default function ManagerDashboard() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu khóa học phổ biến.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu chương trình học phổ biến.</p>
             )}
           </div>
 
@@ -1564,7 +1543,7 @@ export default function ManagerDashboard() {
             {upcomingEvents.length > 0 ? (
               <div className="stoms-scrollbar max-h-60 overflow-y-auto">
                 <ul className="space-y-2 text-xs">
-                  {upcomingEvents.map((e) => (
+                  {upcomingEvents.map((e: any) => (
                     <li key={e.requestId} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -1604,7 +1583,7 @@ export default function ManagerDashboard() {
             </div>
             {topTeamsBySessions.length > 0 ? (
               <div className="space-y-2 text-xs">
-                {topTeamsBySessions.map((t) => (
+                {topTeamsBySessions.map((t: any) => (
                   <div key={t.teamId} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold text-slate-900 truncate">{t.teamName}</p>

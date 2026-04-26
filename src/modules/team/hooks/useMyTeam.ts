@@ -29,7 +29,11 @@ export function useMyTeam() {
     } catch (e) {
       console.error('load my team error', e);
       setData(null);
-      setError('Không tải được dữ liệu nhóm. Vui lòng thử lại.');
+      // Không set error nếu là 404 (chưa có team) - để UI hiển thị empty state
+      const isNotFound = (e as any)?.status === 404 || (e as any)?.response?.status === 404;
+      if (!isNotFound) {
+        setError('Không tải được dữ liệu nhóm. Vui lòng thử lại.');
+      }
     } finally {
       setLoading(false);
     }

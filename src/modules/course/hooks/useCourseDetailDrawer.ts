@@ -5,7 +5,7 @@ import courseApi from '../api/courseApi';
 import type { CourseListItem } from '../courseType';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 
-/** Drawer chi tiết khóa học + đồng bộ query `openDetail` / `courseId`. */
+/** Drawer chi tiết chương trình học + đồng bộ query `openDetail` / `courseId`. */
 export function useCourseDetailDrawer() {
   const [searchParams, setSearchParams] = useSearchParams();
   const openDetailFromUrl = searchParams.get('openDetail');

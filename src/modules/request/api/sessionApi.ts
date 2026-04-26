@@ -7,32 +7,14 @@ import {
   normalizeSessionResponse,
 } from '../utils/normalizeSessionResponse';
 
-// Short-lived in-memory cache (5 giây) để tránh fetch lại khi nhiều component cùng request
-const _sessionCache = new Map<number, { data: SessionResponse; ts: number }>();
-const _teamsCache = new Map<number, { data: Team[]; ts: number }>();
-const CACHE_TTL = 5000; // 5 seconds
-
 const sessionApi = {
-  suggestTeams: (sessionId: number): Promise<Team[]> => {
-    const cached = _teamsCache.get(sessionId);
-    if (cached && Date.now() - cached.ts < CACHE_TTL) return Promise.resolve(cached.data);
-    return axiosClient.get<Team[], Team[]>(`/sessions/${sessionId}/team-suggestions`).then((data) => {
-      _teamsCache.set(sessionId, { data, ts: Date.now() });
-      return data;
-    });
-  },
+  suggestTeams: (sessionId: number): Promise<Team[]> =>
+    axiosClient.get<Team[], Team[]>(`/sessions/${sessionId}/team-suggestions`),
 
-  getById: (id: number): Promise<SessionResponse> => {
-    const cached = _sessionCache.get(id);
-    if (cached && Date.now() - cached.ts < CACHE_TTL) return Promise.resolve(cached.data);
-    return axiosClient
+  getById: (id: number): Promise<SessionResponse> =>
+    axiosClient
       .get<SessionResponse, SessionResponse>(`/sessions/${id}`)
-      .then((raw) => {
-        const normalized = normalizeSessionResponse(raw as SessionResponse);
-        _sessionCache.set(id, { data: normalized, ts: Date.now() });
-        return normalized;
-      });
-  },
+      .then((raw) => normalizeSessionResponse(raw as SessionResponse)),
 
   getFilter: (params: SessionFilterRequest = {}): Promise<PagedResponse<SessionResponse>> =>
     axiosClient

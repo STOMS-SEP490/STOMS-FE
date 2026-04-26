@@ -276,9 +276,9 @@ export default function PCSessionDetailTeamPanel({
             </div>
           </div>
 
-          <div className="border-t border-slate-100" />
+      
 
-          <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2 mb-2">
             <div>
               <span className="uppercase tracking-wide">Tạo lúc: </span>
               <span className="text-slate-600">

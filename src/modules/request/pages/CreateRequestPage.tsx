@@ -324,7 +324,7 @@ export default function CreateRequestPage() {
     const list = await loadCourseSubjects(value)
     setCourseSubjects(list)
 
-    // Khi chọn "Khóa học" => phải tạo đủ sessions của TẤT CẢ môn trong khóa
+    // Khi chọn "Chương trình học" => phải tạo đủ sessions của TẤT CẢ môn trong khóa
     const combinedSessions = (
       await Promise.all(
         list.map(async (s) => {
@@ -384,7 +384,7 @@ export default function CreateRequestPage() {
       return
     }
     if (sourceType === 'course' && !finalCourseId) {
-      message.error('Vui lòng chọn khóa học.')
+      message.error('Vui lòng chọn chương trình học.')
       return
     }
     if (sourceType === 'event' && !finalEventId) {
@@ -515,11 +515,11 @@ export default function CreateRequestPage() {
                       className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
                       style={{ borderColor: `${accentColor}33`, backgroundColor: `${accentColor}10`, color: accentColor }}
                     >
-                      {sourceType === 'subject' ? 'Môn học' : sourceType === 'course' ? 'Khóa học' : 'Sự kiện'}
+                      {sourceType === 'subject' ? 'Môn học' : sourceType === 'course' ? 'Chương trình học' : 'Sự kiện'}
                     </span>
                     {sourceType === 'course' && sourceName ? (
                       <span className="ml-1 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
-                        Tên khóa học: {sourceName}
+                        Tên chương trình học: {sourceName}
                       </span>
                     ) : null}
                     {sourceType !== 'course' && sourceName ? (
@@ -858,7 +858,7 @@ export default function CreateRequestPage() {
                   {(
                     [
                       { value: 'subject', label: 'Môn học', icon: BookOpen, color: '#2197C0' },
-                      { value: 'course', label: 'Khóa học', icon: GraduationCap, color: '#8B5CF6' },
+                      { value: 'course', label: 'Chương trình học', icon: GraduationCap, color: '#8B5CF6' },
                       { value: 'event', label: 'Sự kiện', icon: Calendar, color: '#F59E0B' },
                     ] as const
                   ).map((item) => (
@@ -914,11 +914,11 @@ export default function CreateRequestPage() {
               {sourceType === 'course' && (
                 <div className="space-y-1.5">
                   <Label className="text-xs text-gray-600">
-                    Chọn khóa học <span className="text-red-500">*</span>
+                    Chọn chương trình học <span className="text-red-500">*</span>
                   </Label>
                   <AntdSelect
                     showSearch
-                    placeholder="Tìm và chọn khóa học"
+                    placeholder="Tìm và chọn chương trình học"
                     loading={loadingCourses}
                     allowClear
                     style={{ width: '100%' }}
@@ -1118,7 +1118,7 @@ export default function CreateRequestPage() {
                           : cn('bg-white text-gray-600 border-gray-200', accentHoverBorderTextClass)
                       )}
                       onClick={() => scrollToCourseSubjectSessions(s.subjectId)}
-                      title="Trong chế độ Khóa học, hệ thống tự tạo đủ sessions của tất cả môn trong khóa."
+                      title="Trong chế độ Chương trình học, hệ thống tự tạo đủ sessions của tất cả môn trong khóa."
                     >
                       {s.subjectName}
                     </button>

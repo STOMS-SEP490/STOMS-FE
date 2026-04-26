@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { message } from 'antd';
 import type { RequestListItem, RequestSessionSummary, SessionTopicInfo } from '../request';
 import requestService from '../api/requestApi';
@@ -196,7 +196,6 @@ export const useRequestDetailManager = (params: {
   }>({ open: false, assignmentId: null, sessionId: null, displayName: '' });
   const [rejectAssignmentReason, setRejectAssignmentReason] = useState('');
   const [, setRejectAssignmentLoading] = useState(false);
-  const lastFilterSyncKeyRef = useRef<string>('');
 
   const applySessionState = useCallback((mappedSessions: SessionWithFlags[]) => {
     const nextUiAssigned = mappedSessions.reduce<Record<number, number[]>>((acc, s) => {
@@ -306,30 +305,6 @@ export const useRequestDetailManager = (params: {
 
     void fetchData();
   }, [id, applySessionState, loadSessionsByRequestId]);
-
-  useEffect(() => {
-    if (!request?.requestId) return;
-    const rightPanelSessionId = rightPanel && 'session' in rightPanel ? rightPanel.session?.sessionId : null;
-    if (!rightPanelSessionId) return;
-    const syncKey = `${request.requestId}-${rightPanelSessionId}`;
-    if (lastFilterSyncKeyRef.current === syncKey) return;
-    lastFilterSyncKeyRef.current = syncKey;
-
-    let cancelled = false;
-    const syncSessionsByFilter = async () => {
-      try {
-        const byFilter = await loadSessionsByRequestId(Number(request.requestId));
-        if (cancelled || !byFilter.length) return;
-        applySessionState(byFilter);
-      } catch {
-        // keep current list if filter API fails
-      }
-    };
-    void syncSessionsByFilter();
-    return () => {
-      cancelled = true;
-    };
-  }, [request?.requestId, rightPanel, loadSessionsByRequestId, applySessionState]);
 
   const requestStatusCode = request ? getRequestStatusCode(request.status) : null;
   const shouldLoadSessionAssignments =
@@ -568,11 +543,27 @@ export const useRequestDetailManager = (params: {
         setApprovingSessionId(sessionId);
         await assignmentService.approve(ids);
         message.success('Đã duyệt các phân công đã chọn.');
-        
+
         const detail = await sessionService.getById(sessionId);
         const rowsReload = mapSessionAssignments(detail);
         setAssignmentsBySessionId((prev) => ({ ...prev, [sessionId]: rowsReload }));
         setSelectedAssignmentIdsBySessionId((prev) => ({ ...prev, [sessionId]: [] }));
+
+        // Nếu tất cả assignments đều đã approved → cập nhật status session ngay lập tức
+        const allApproved =
+          rowsReload.length > 0 &&
+          rowsReload.every((r) => {
+            const s = String(r.status ?? '').toUpperCase().replace(/[\s_-]/g, '');
+            const n = Number(r.status);
+            return s === 'APPROVED' || s === '2' || (!Number.isNaN(n) && n === 2);
+          });
+        if (allApproved) {
+          setSessions((prev) =>
+            prev.map((s) => (s.sessionId === sessionId ? { ...s, status: '6' } : s))
+          );
+        }
+
+        // Refresh entire request detail to update session status
         await refreshDetail();
         refreshRequestSidebar?.();
       } catch (err) {

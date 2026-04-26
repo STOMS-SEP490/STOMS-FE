@@ -11,14 +11,53 @@ const axiosClient = axios.create({
 
 let refreshPromise: Promise<string> | null = null;
 
-axiosClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('accessToken');
+// Proactive refresh: nếu token còn < 2 phút thì refresh trước khi gửi request
+async function getValidAccessToken(): Promise<string | null> {
+  const token = localStorage.getItem('accessToken');
+  const expiresAt = localStorage.getItem('accessTokenExpiresAt');
 
-    if (token) {
-      // FormData request có thể không có config.headers => luôn đảm bảo có chỗ để set token
-      config.headers = config.headers ?? {};
-      config.headers.Authorization = `Bearer ${token}`;
+  if (!token) return null;
+
+  // Nếu còn hơn 2 phút thì dùng luôn
+  if (expiresAt) {
+    const expiresMs = new Date(expiresAt).getTime();
+    const nowMs = Date.now();
+    const remainingMs = expiresMs - nowMs;
+    if (remainingMs > 2 * 60 * 1000) return token;
+  }
+
+  // Token sắp hết hạn → refresh trước
+  try {
+    if (!refreshPromise) {
+      refreshPromise = (async () => {
+        const refreshToken = localStorage.getItem('refreshToken');
+        const rawUser = localStorage.getItem('user');
+        const deviceUid = rawUser ? JSON.parse(rawUser).deviceUid : null;
+        if (!refreshToken || !deviceUid) throw new Error('Missing refresh token or deviceUid');
+        const tokens = await authService.refresh({ refreshToken, deviceUid });
+        updateTokensInStorage(tokens);
+        return tokens.accessToken;
+      })().finally(() => { refreshPromise = null; });
+    }
+    return await refreshPromise;
+  } catch {
+    return token; // fallback dùng token cũ, để response interceptor xử lý 401
+  }
+}
+
+axiosClient.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    const isAuthEndpoint =
+      config.url?.includes('/auth/login') ||
+      config.url?.includes('/auth/refresh') ||
+      config.url?.includes('/auth/logout');
+
+    if (!isAuthEndpoint) {
+      const token = await getValidAccessToken();
+      if (token) {
+        config.headers = config.headers ?? {};
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
 
     return config;

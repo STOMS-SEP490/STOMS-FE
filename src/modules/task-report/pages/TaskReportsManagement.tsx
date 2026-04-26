@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw } from 'lucide-react';
-import { DatePicker, Spin } from 'antd';
+import { DatePicker, Spin, Switch } from 'antd';
 import dayjs from 'dayjs';
 
 import { Badge } from '@/shared/components/ui/badge';
@@ -24,6 +24,7 @@ export default function TaskReportsManagement() {
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
   // ── fetch sessions ──
   const { data: sessionsPaged, isLoading: sessionsLoading } = useQuery({
@@ -45,20 +46,35 @@ export default function TaskReportsManagement() {
   // client-side search by request name / session no
   const filteredSessions = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return sessions;
-    return sessions.filter((s) => {
-      const reqName = String(s.Request?.RequestName ?? '').toLowerCase();
-      const reqCode = String(s.Request?.RequestCode ?? '').toLowerCase();
-      const loc = String(s.Location ?? '').toLowerCase();
-      return reqName.includes(q) || reqCode.includes(q) || loc.includes(q);
-    });
-  }, [sessions, search]);
+    let result = sessions;
+    
+    // Filter by search query
+    if (q) {
+      result = result.filter((s) => {
+        const reqName = String(s.Request?.RequestName ?? '').toLowerCase();
+        const reqCode = String(s.Request?.RequestCode ?? '').toLowerCase();
+        const loc = String(s.Location ?? '').toLowerCase();
+        return reqName.includes(q) || reqCode.includes(q) || loc.includes(q);
+      });
+    }
+    
+    // Filter by pending approval
+    if (showPendingOnly) {
+      result = result.filter((s) => {
+        const reports = (s.TaskReports as any[] | null | undefined) ?? [];
+        return reports.some((r: any) => r.Status === 1 || r.Status === 'Pending');
+      });
+    }
+    
+    return result;
+  }, [sessions, search, showPendingOnly]);
 
   const resetFilters = () => {
     setSearch('');
     setFilterStartDate('');
     setFilterEndDate('');
     setPageNumber(1);
+    setShowPendingOnly(false);
   };
 
   // ── columns ──
@@ -152,10 +168,8 @@ export default function TaskReportsManagement() {
       </div>
 
       {/* FILTER BAR */}
-      <div className="shrink-0 flex justify-end gap-3">
-        <div>
-          <HoverSearch placeholder="Tìm theo tên yêu cầu, địa điểm..." value={search} onChange={(v) => { setSearch(v); setPageNumber(1); }} />
-        </div>
+      <div className="shrink-0 flex justify-end items-center gap-3">
+        <HoverSearch placeholder="Tìm theo tên yêu cầu, địa điểm..." value={search} onChange={(v) => { setSearch(v); setPageNumber(1); }} />
         <DatePicker
           format="DD/MM/YYYY"
           placeholder="Từ ngày"
@@ -171,6 +185,14 @@ export default function TaskReportsManagement() {
           onChange={(d) => { setFilterEndDate(d ? d.format('YYYY-MM-DD') : ''); setPageNumber(1); }}
           className="w-[140px]"
         />
+        <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+          <Switch
+            checked={showPendingOnly}
+            onChange={setShowPendingOnly}
+            className="bg-slate-200"
+          />
+          <span className="text-sm text-slate-700 whitespace-nowrap">Chỉ task cần duyệt</span>
+        </div>
         <Button variant="outline" size="icon" className="h-9 w-9" onClick={resetFilters}>
           <RotateCcw size={16} />
         </Button>
