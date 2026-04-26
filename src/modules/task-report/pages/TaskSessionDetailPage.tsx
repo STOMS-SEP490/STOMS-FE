@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, Clock, FileText, MapPin, Plus, RotateCcw, Trash2, Users, Wallet, X, Image as ImageIcon, ImageOff } from 'lucide-react';
-import { message, Spin, Timeline } from 'antd';
+import { message, Spin, Switch, Timeline } from 'antd';
 import dayjs from 'dayjs';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -75,6 +75,7 @@ export default function TaskSessionDetailPage() {
 
   // ── Selected member ──
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
+  const [showPendingExpenseOnly, setShowPendingExpenseOnly] = useState(false);
 
   // ── Use manager task session hook ──
   const {
@@ -88,7 +89,7 @@ export default function TaskSessionDetailPage() {
     searchTitle,
     setSearchTitle,
     refetch,
-  } = useManagerTaskSession(parsedSessionId, selectedMemberId);
+  } = useManagerTaskSession(parsedSessionId, selectedMemberId, showPendingExpenseOnly);
 
   // ── Members derived from assignments ──
   const members = useMemo<MemberSlot[]>(() => {
@@ -385,6 +386,7 @@ export default function TaskSessionDetailPage() {
 
   const resetFilters = () => {
     setSearchTitle('');
+    setShowPendingExpenseOnly(false);
   };
 
   return (
@@ -443,6 +445,16 @@ export default function TaskSessionDetailPage() {
           value={searchTitle} 
           onChange={(v) => setSearchTitle(v)} 
         />
+        {isManager && (
+          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+            <Switch
+              checked={showPendingExpenseOnly}
+              onChange={(v) => setShowPendingExpenseOnly(v)}
+              style={{ backgroundColor: showPendingExpenseOnly ? '#2197C0' : undefined }}
+            />
+            <span className="text-sm text-slate-700 whitespace-nowrap">Có khoản chi chưa duyệt</span>
+          </div>
+        )}
         <Button 
           variant="outline" 
           size="icon" 
