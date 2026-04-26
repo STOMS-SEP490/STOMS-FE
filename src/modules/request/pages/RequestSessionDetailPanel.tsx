@@ -438,7 +438,7 @@ export default function RequestSessionDetailPanel({
                   disabled={editReservationLoading}
                   onClick={() => void handleOpenEditReservation()}
                 >
-                  Sửa đặt trước
+                  Sửa đơn yêu cầu thiết bị
                 </Button>
               ) : null}
             </div>
