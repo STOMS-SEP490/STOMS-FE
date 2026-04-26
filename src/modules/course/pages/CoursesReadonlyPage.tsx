@@ -57,9 +57,12 @@ export default function CoursesReadonlyPage() {
         },
       },
       {
-        id: 'requests',
-        header: 'Số yêu cầu',
-        cell: ({ row }) => `${row.original.requests?.length ?? 0} yêu cầu`,
+        id: 'numberOfSession',
+        header: 'Số buổi',
+        cell: ({ row }) => {
+          const count = row.original.numberOfSession ?? 0;
+          return `${count} buổi`;
+        },
       },
       {
         accessorKey: 'updatedAt',
