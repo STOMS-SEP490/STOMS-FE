@@ -853,14 +853,15 @@ export function useTeamLeaderAssignmentsPage(
     };
   }, [selectedRequestId, currentTeamId, activeTab]);
 
-  /** Mỗi lần mở buổi: luôn gọi GET /sessions/:id để đồng bộ chi tiết drawer (không dùng cache từ filter). */
+  /** Mỗi lần mở buổi: chỉ fetch nếu chưa có trong cache. */
   useEffect(() => {
     if (!activeSession) return;
     const id = activeSession.sessionId;
     if (id <= 0) return;
     
     // Check if we already have this session detail to avoid duplicate fetches
-    if (sessionDetailsById[id]) return;
+    const cached = sessionDetailsById[id];
+    if (cached) return;
     
     let cancelled = false;
     void (async () => {
@@ -878,7 +879,7 @@ export function useTeamLeaderAssignmentsPage(
     return () => {
       cancelled = true;
     };
-  }, [activeSession?.sessionId, sessionDetailsById, refreshSessionInRequestState]);
+  }, [activeSession?.sessionId, refreshSessionInRequestState]);
 
   const flushAutoAssignSession = useCallback(
     async (sessionId: number) => {

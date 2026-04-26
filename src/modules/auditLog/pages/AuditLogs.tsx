@@ -24,7 +24,7 @@ import { auditLogApi } from '../api/auditLogApi';
 
 const entityTypeLabelMap: Record<string, string> = {
   '1': 'Phân công', '2': 'Xác nhận tham gia', '3': 'Buổi đăng nhập',
-  '4': 'Phiếu mượn', '5': 'Danh mục', '6': 'Khóa học',
+  '4': 'Phiếu mượn', '5': 'Danh mục', '6': 'Chương trình học',
   '7': 'Thiết bị', '8': 'Mượn thiết bị', '9': 'Sự kiện',
   '10': 'Tài khoản', '11': 'Thành viên', '12': 'Yêu cầu',
   '13': 'Buổi học', '14': 'Kỹ năng', '15': 'Buổi môn học',

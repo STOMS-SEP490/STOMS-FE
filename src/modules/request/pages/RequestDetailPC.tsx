@@ -94,7 +94,7 @@ export default function RequestDetailPC() {
   }
 
   const requestTypeLabel = request.courseId
-    ? 'Khóa học'
+    ? 'Chương trình học'
     : request.eventId
       ? 'Sự kiện'
       : request.subjectId
@@ -136,7 +136,7 @@ export default function RequestDetailPC() {
         ? String(subjectRaw?.subjectName ?? subjectRaw?.SubjectName ?? '').trim()
         : '';
   const sourceNameLabel = request.courseId
-    ? 'Tên khóa học'
+    ? 'Tên chương trình học'
     : request.eventId
       ? 'Tên sự kiện'
       : request.subjectId

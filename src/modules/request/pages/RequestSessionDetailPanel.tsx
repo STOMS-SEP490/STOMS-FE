@@ -11,7 +11,6 @@ import EditReservationModal from '@/modules/reservation/pages/EditReservationMod
 import type { RequestSessionSummary } from '../request';
 import sessionService from '../api/sessionApi';
 import type { AssignmentResponse, SessionResponse } from '../session.types';
-import RequestDetailTeamPanel from './RequestDetailTeamPanel';
 import { SESSION_STATUS, getSessionStatusCode } from '@/constants/status';
 
 export type SessionDetailProps = {
@@ -23,7 +22,6 @@ export type SessionDetailProps = {
   requestId: number;
   requestCode: string;
   assignedTeamIds?: number[];
-  showTeamSummary?: boolean;
   showReservedEquipment?: boolean;
   sectionMode?: 'all' | 'info' | 'equipment';
   canEditReservation?: boolean;
@@ -39,13 +37,10 @@ export default function RequestSessionDetailPanel({
   session,
   reloadKey = 0,
   requestCode,
-  assignedTeamIds = [],
-  showTeamSummary: showTeamSummaryProp = true,
   showReservedEquipment = true,
   sectionMode = 'all',
   canEditReservation = true,
   onReservationUpdated,
-  requestStatus,
 }: SessionDetailProps) {
   const renderInfoCard = sectionMode === 'all' || sectionMode === 'info';
   const renderEquipmentCard = (sectionMode === 'all' || sectionMode === 'equipment') && showReservedEquipment;
@@ -59,7 +54,6 @@ export default function RequestSessionDetailPanel({
     sessionStatusCode === SESSION_STATUS.ASSIGNMENT_REJECTED || // 5
     sessionStatusCode === SESSION_STATUS.ASSIGNED;          // 6
   const effectiveCanEditReservation = canEditReservation && canEditReservationByStatus;
-  const showTeamBlock = renderInfoCard && showTeamSummaryProp;
 
   const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(null);
   const [sessionLoading, setSessionLoading] = useState(() => shouldFetchSessionDetail);
@@ -106,29 +100,25 @@ export default function RequestSessionDetailPanel({
     };
   }, [session.sessionId, shouldFetchSessionDetail, reloadKey]);
 
-  const mergedSession = useMemo(() => {
-    return sessionDetail;
-  }, [sessionDetail]);
-
-  const startAt = mergedSession?.StartAt ?? (mergedSession as any)?.startAt ?? null;
-  const endAt = mergedSession?.EndAt ?? (mergedSession as any)?.endAt ?? null;
-  const location = mergedSession?.Location ?? (mergedSession as any)?.location ?? null;
+  const startAt = sessionDetail?.StartAt ?? (sessionDetail as any)?.startAt ?? null;
+  const endAt = sessionDetail?.EndAt ?? (sessionDetail as any)?.endAt ?? null;
+  const location = sessionDetail?.Location ?? (sessionDetail as any)?.location ?? null;
   const teachersRequired =
-    mergedSession?.TeachersRequired ?? (mergedSession as any)?.teachersRequired ?? null;
-  const tasRequired = mergedSession?.TasRequired ?? (mergedSession as any)?.tasRequired ?? null;
+    sessionDetail?.TeachersRequired ?? (sessionDetail as any)?.teachersRequired ?? null;
+  const tasRequired = sessionDetail?.TasRequired ?? (sessionDetail as any)?.tasRequired ?? null;
   const notes = String(
-    mergedSession?.Notes ??
-      (mergedSession as any)?.notes ??
+    sessionDetail?.Notes ??
+      (sessionDetail as any)?.notes ??
       '',
   ).trim();
   const isOnlineRaw =
-    mergedSession?.IsOnline ??
-    (mergedSession as any)?.isOnline ??
+    sessionDetail?.IsOnline ??
+    (sessionDetail as any)?.isOnline ??
     null;
-  const createdAt = mergedSession?.CreatedAt ?? (mergedSession as any)?.createdAt ?? null;
-  const updatedAt = mergedSession?.UpdatedAt ?? (mergedSession as any)?.updatedAt ?? null;
-  const eventSession = mergedSession?.EventSession ?? (mergedSession as any)?.eventSession ?? null;
-  const subjectSession = mergedSession?.SubjectSession ?? (mergedSession as any)?.subjectSession ?? null;
+  const createdAt = sessionDetail?.CreatedAt ?? (sessionDetail as any)?.createdAt ?? null;
+  const updatedAt = sessionDetail?.UpdatedAt ?? (sessionDetail as any)?.updatedAt ?? null;
+  const eventSession = sessionDetail?.EventSession ?? (sessionDetail as any)?.eventSession ?? null;
+  const subjectSession = sessionDetail?.SubjectSession ?? (sessionDetail as any)?.subjectSession ?? null;
   const sessionDescription = String(
     eventSession?.Description ??
       eventSession?.description ??
@@ -145,7 +135,7 @@ export default function RequestSessionDetailPanel({
   ).trim();
 
   const skills = useMemo(() => {
-    const detail = mergedSession as SessionResponse | null;
+    const detail = sessionDetail as SessionResponse | null;
     const list = [
       ...(Array.isArray(detail?.EventSessionSkill) ? detail.EventSessionSkill : []),
       ...(Array.isArray(detail?.SubjectSkill) ? detail.SubjectSkill : []),
@@ -157,10 +147,10 @@ export default function RequestSessionDetailPanel({
       .map((s: any) => String(s?.SkillName ?? s?.skillName ?? '').trim())
       .filter(Boolean);
     return Array.from(new Set(names));
-  }, [mergedSession]);
+  }, [sessionDetail]);
 
   const topics = useMemo(() => {
-    const detailAny = mergedSession as any;
+    const detailAny = sessionDetail as any;
     const fromEvent = (Array.isArray(detailAny?.EventSession?.topics ?? detailAny?.eventSession?.topics)
       ? (detailAny?.EventSession?.topics ?? detailAny?.eventSession?.topics)
       : []) as any[];
@@ -180,18 +170,18 @@ export default function RequestSessionDetailPanel({
 
     if (subjectTopicName) names.push(subjectTopicName);
     return Array.from(new Set(names));
-  }, [mergedSession]);
+  }, [sessionDetail]);
 
   const resolvedReservationId = useMemo(() => {
     const raw =
-      (mergedSession as unknown as { ReservationId?: number | string | null })?.ReservationId ??
+      (sessionDetail as unknown as { ReservationId?: number | string | null })?.ReservationId ??
       session.reservationId ??
-      (mergedSession as any)?.reservationId ??
+      (sessionDetail as any)?.reservationId ??
       null;
     if (raw == null) return null;
     const n = Number(raw);
     return !Number.isNaN(n) && n > 0 ? n : null;
-  }, [mergedSession, session.reservationId]);
+  }, [sessionDetail, session.reservationId]);
 
   useEffect(() => {
     if (!showReservedEquipment) {
@@ -372,9 +362,8 @@ export default function RequestSessionDetailPanel({
               </div>
             </div>
 
-            <div className="border-t border-slate-100" />
 
-            <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2 pb-2">
               <div>
                 <span className="uppercase tracking-wide">Tạo lúc: </span>
                 <span className="text-slate-600">{createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm:ss') : '—'}</span>
@@ -385,42 +374,6 @@ export default function RequestSessionDetailPanel({
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {showTeamBlock && sessionDetail && (
-        <div className="mt-6">
-          <RequestDetailTeamPanel
-            session={{
-              sessionId: session.sessionId,
-              sessionNo: session.sessionNo ?? 0,
-              startAt: startAt ?? '',
-              endAt: endAt ?? '',
-              teachersRequired: teachersRequired,
-              tasRequired: tasRequired,
-            }}
-            currentTeamQuantities={
-              sessionDetail.TeamSessions
-                ? sessionDetail.TeamSessions.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>((acc, ts) => {
-                    const teamId = Number(ts.TeamId ?? 0);
-                    if (teamId > 0) {
-                      acc[teamId] = {
-                        teachersRequired: Math.max(0, Number(ts.TeachersRequired ?? 0)),
-                        tasRequired: Math.max(0, Number(ts.TasRequired ?? 0)),
-                      };
-                    }
-                    return acc;
-                  }, {})
-                : undefined
-            }
-            currentAssignedTeamIds={assignedTeamIds}
-            separateTeacherSelection={true}
-            canEdit={false}
-            requestStatus={requestStatus}
-            onAssignSession={() => {
-              // Read-only mode, no action needed
-            }}
-          />
         </div>
       )}
 
