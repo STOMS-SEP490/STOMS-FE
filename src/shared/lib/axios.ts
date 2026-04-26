@@ -52,7 +52,15 @@ axiosClient.interceptors.request.use(
       config.url?.includes('/auth/refresh') ||
       config.url?.includes('/auth/logout');
 
-    if (!isAuthEndpoint) {
+    if (isAuthEndpoint) {
+      // Auth endpoints: attach token hiện tại, không proactive refresh
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        config.headers = config.headers ?? {};
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } else {
+      // Các endpoint khác: proactive refresh nếu token sắp hết hạn
       const token = await getValidAccessToken();
       if (token) {
         config.headers = config.headers ?? {};
