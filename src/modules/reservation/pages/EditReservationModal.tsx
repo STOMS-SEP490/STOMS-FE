@@ -248,7 +248,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
     <Dialog
       open={open}
       onClose={onClose}
-      title={`Sửa đặt trước #${reservation.ReservationId}`}
+      title={`Sửa đơn yêu cầu thiết bị #${reservation.ReservationId}`}
       description={
         hasEnded
           ? 'Đặt trước đã kết thúc, không thể chỉnh sửa.'
