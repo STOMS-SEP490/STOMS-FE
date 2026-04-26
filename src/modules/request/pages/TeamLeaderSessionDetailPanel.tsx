@@ -150,11 +150,11 @@ export default function TeamLeaderSessionDetailPanel({
 
   // Derived from fetched session detail
   const sessionId = 'SessionId' in session ? session.SessionId : session.sessionId;
-  const startAt = sessionDetail?.StartAt ?? ('StartAt' in session ? session.StartAt : session.startAt);
-  const endAt = sessionDetail?.EndAt ?? ('EndAt' in session ? session.EndAt : session.endAt);
+  // const startAt = sessionDetail?.StartAt ?? ('StartAt' in session ? session.StartAt : session.startAt);
+  // const endAt = sessionDetail?.EndAt ?? ('EndAt' in session ? session.EndAt : session.endAt);
   const location = sessionDetail?.Location ?? ('Location' in session ? session.Location : (session as any).location) ?? null;
-  const teachersRequired = sessionDetail?.TeachersRequired ?? ('TeachersRequired' in session ? session.TeachersRequired : ((session as any).teachersRequired ?? null)) ?? null;
-  const tasRequired = sessionDetail?.TasRequired ?? ('TasRequired' in session ? session.TasRequired : ((session as any).tasRequired ?? null)) ?? null;
+  // const teachersRequired = sessionDetail?.TeachersRequired ?? ('TeachersRequired' in session ? session.TeachersRequired : ((session as any).teachersRequired ?? null)) ?? null;
+  // const tasRequired = sessionDetail?.TasRequired ?? ('TasRequired' in session ? session.TasRequired : ((session as any).tasRequired ?? null)) ?? null;
   const notes = String(sessionDetail?.Notes ?? ('Notes' in session ? session.Notes : (session as any)?.notes) ?? '').trim();
   const sessionNo = sessionDetail?.SessionNo ?? ('SessionNo' in session ? session.SessionNo : session.sessionNo) ?? null;
   const isOnlineRaw = sessionDetail?.IsOnline ?? null;
@@ -204,36 +204,24 @@ export default function TeamLeaderSessionDetailPanel({
   return (
     <div className="space-y-4 text-sm">
       {/* Thông tin buổi — layout 2 cột giống manager/PC */}
-      <div className="bg-white border-t border-b border-gray-200">
-        <div className="pt-3 space-y-4 text-sm">
+      <div className="bg-white">
+        <div className="p-4 space-y-4 text-sm">
           {sessionLoading && <p className="text-xs text-slate-500">Đang tải...</p>}
 
-          <div className="grid grid-cols-1 gap-1">
-            <p className="text-xs text-slate-500">
-              {startAt && endAt
-                ? `${dayjs(startAt).format('DD/MM/YYYY HH:mm')} - ${dayjs(endAt).format('HH:mm')}`
-                : '—'}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã buổi</p>
-              <p className="mt-1 font-semibold text-[#2197C0]">{sessionId ?? '—'}</p>
-            </div>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-3">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Mã yêu cầu</p>
-              <p className="mt-1 font-semibold text-[#2197C0]">{requestCode || '—'}</p>
+              <p className="mt-1 font-semibold text-slate-900">{requestCode || '—'}</p>
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Buổi số</p>
-              <p className="mt-1 font-semibold text-[#2197C0]">{sessionNo ?? '—'}</p>
+              <p className="mt-1 font-semibold text-slate-900">{sessionNo ?? '—'}</p>
             </div>
             <div>
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Thời lượng</p>
               <p className="mt-1 font-semibold text-[#2197C0]">{sessionDuration || '—'}</p>
             </div>
-            <div>
+            <div className="md:col-span-2">
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Địa điểm</p>
               <p className="mt-1 font-semibold text-[#2197C0]">{location || '—'}</p>
             </div>
@@ -243,18 +231,10 @@ export default function TeamLeaderSessionDetailPanel({
                 {isOnlineRaw == null ? '—' : isOnlineRaw ? 'Trực tuyến' : 'Trực tiếp'}
               </p>
             </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Giảng viên yêu cầu</p>
-              <p className="mt-1 font-semibold text-[#2197C0]">{teachersRequired ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Sinh viên yêu cầu</p>
-              <p className="mt-1 font-semibold text-[#2197C0]">{tasRequired ?? '—'}</p>
-            </div>
           </div>
 
           {teamNames.length > 0 && (
-            <div>
+            <div className="pt-3 border-t border-slate-100">
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Nhóm phụ trách</p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {teamNames.map((name, idx) => (
@@ -266,77 +246,77 @@ export default function TeamLeaderSessionDetailPanel({
             </div>
           )}
 
-          {(sessionDescription || notes) && <div className="border-t border-slate-100" />}
+          {(sessionDescription || notes) && (
+            <div className="pt-3 border-t border-slate-100 space-y-3">
+              {sessionDescription ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Mô tả nội dung</p>
+                  <p className="mt-1 text-slate-700 leading-6">{sessionDescription}</p>
+                </div>
+              ) : null}
 
-          {sessionDescription ? (
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mô tả nội dung</p>
-              <p className="mt-1 text-slate-700 leading-6">{sessionDescription}</p>
+              {notes ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Ghi chú</p>
+                  <p className="mt-1 text-slate-700 leading-6">{notes}</p>
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          )}
 
-          {notes ? (
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Ghi chú</p>
-              <p className="mt-1 text-slate-700 leading-6">{notes}</p>
-            </div>
-          ) : null}
+          {(topics.length > 0 || skills.length > 0) && (
+            <div className="pt-3 border-t border-slate-100 space-y-3">
+              {topics.length > 0 && (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Chủ đề</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {topics.map((name) => (
+                      <Badge key={name} className="bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[11px] font-medium">
+                        {name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          <div className="grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Chủ đề</p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {topics.length === 0 ? (
-                  <span className="text-slate-700">—</span>
-                ) : (
-                  topics.map((name) => (
-                    <Badge key={name} className="bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[11px] font-medium">
-                      {name}
-                    </Badge>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">Kỹ năng</p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {skills.length === 0 ? (
-                <span className="text-slate-700">—</span>
-              ) : (
-                skills.map((name) => (
-                  <Badge key={name} className="bg-sky-50 text-sky-700 border border-sky-200 rounded-full text-[11px] font-medium">
-                    {name}
-                  </Badge>
-                ))
+              {skills.length > 0 && (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Kỹ năng</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {skills.map((name) => (
+                      <Badge key={name} className="bg-sky-50 text-sky-700 border border-sky-200 rounded-full text-[11px] font-medium">
+                        {name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
-          </div>
+          )}
 
-          <div className="border-t border-slate-100" />
-
-          <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2">
-            <div>
-              <span className="uppercase tracking-wide">Tạo lúc: </span>
-              <span className="text-slate-600">
-                {createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm:ss') : '—'}
-              </span>
-            </div>
-            <div>
-              <span className="uppercase tracking-wide">Cập nhật: </span>
-              <span className="text-slate-600">
-                {updatedAt ? dayjs(updatedAt).format('DD/MM/YYYY HH:mm:ss') : '—'}
-              </span>
+          <div className="pt-3 border-t border-slate-100">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2 pb-2">
+              <div>
+                <span className="uppercase tracking-wide">Tạo lúc: </span>
+                <span className="text-slate-600">
+                  {createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm:ss') : '—'}
+                </span>
+              </div>
+              <div>
+                <span className="uppercase tracking-wide">Cập nhật: </span>
+                <span className="text-slate-600">
+                  {updatedAt ? dayjs(updatedAt).format('DD/MM/YYYY HH:mm:ss') : '—'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Danh sách thành viên tham dự (đầu giờ / cuối giờ  theo từng thành viên) */}
-      <div className="bg-white border-t border-b border-gray-200">
-        <div className="py-3 border-b border-gray-200">
-          <div className="flex items-center justify-between gap-3 px-4">
+      <div className="bg-white">
+        <div className="px-4 py-3 border-t border-slate-200">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <h3 className="font-semibold text-[#2197C0] text-sm">Danh sách thành viên</h3>
               <span className="text-xs text-gray-500">
@@ -358,15 +338,15 @@ export default function TeamLeaderSessionDetailPanel({
 
         <div className="space-y-2">
           {attLoading ? (
-            <p className="text-xs text-gray-500 px-4">Đang tải dữ liệu xác nhận tham gia...</p>
+            <p className="text-xs text-gray-500 px-4 py-3">Đang tải dữ liệu xác nhận tham gia...</p>
           ) : attError ? (
-            <p className="text-xs text-red-600 px-4">{attError}</p>
+            <p className="text-xs text-red-600 px-4 py-3">{attError}</p>
           ) : attendances.length === 0 ? (
-            <p className="text-xs text-gray-500 px-4">Không có dữ liệu xác nhận tham gia cho buổi này.</p>
+            <p className="text-xs text-gray-500 px-4 py-3">Không có dữ liệu xác nhận tham gia cho buổi này.</p>
           ) : (
-            <div className="overflow-hidden bg-white border-t border-gray-200">
+            <div className="overflow-hidden">
               <div
-                className={`grid ${gridClass} gap-2 bg-gray-50 px-4 py-2.5 text-xs font-semibold text-gray-600 border-b border-gray-200`}
+                className={`grid ${gridClass} gap-2 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-gray-600`}
               >
                 <div>Thông tin thành viên</div>
                 <div className="text-center">Vai trò</div>

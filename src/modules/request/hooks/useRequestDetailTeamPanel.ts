@@ -179,74 +179,21 @@ export function useRequestDetailTeamPanel({
     void fetchTeams();
   }, [session.sessionId]);
 
-  // Fetch teacher assignments
-  useEffect(() => {
-    if (!separateTeacherSelection) {
-      setTeacherAssignments([]);
-      setTeacherSuggestionsByAssignmentId({});
-      setInitialTeacherByAssignmentId({});
-      return;
-    }
-    let cancelled = false;
-    const fetchTeacherAssignments = async () => {
-      try {
-        const detail = await sessionService.getById(session.sessionId);
-        if (cancelled) return;
-        const teacherSlots = (detail.Assignments ?? []).filter((a) => isTeacherAssignmentRole(a.StaffRole));
-        setTeacherAssignments(teacherSlots);
-        setInitialTeacherAssignments(teacherSlots);
-        setInitialTeacherByAssignmentId(
-          teacherSlots.reduce<Record<number, number>>((acc, slot) => {
-            const assignmentId = Number(slot.AssignmentId ?? 0);
-            if (assignmentId > 0) {
-              acc[assignmentId] = Math.max(0, Number(slot.StaffMemberId ?? 0));
-            }
-            return acc;
-          }, {})
-        );
-        const pairs = await Promise.all(
-          teacherSlots.map(async (a) => {
-            try {
-              const list = await assignmentApi.suggestStaff(Number(a.AssignmentId ?? 0));
-              return [Number(a.AssignmentId ?? 0), list] as const;
-            } catch {
-              const empty: SuggestedStaff[] = [];
-              return [Number(a.AssignmentId ?? 0), empty] as const;
-            }
-          })
-        );
-        if (cancelled) return;
-        setTeacherSuggestionsByAssignmentId(
-          pairs.reduce<Record<number, SuggestedStaff[]>>((acc, [id, list]) => {
-            if (id > 0) acc[id] = list;
-            return acc;
-          }, {})
-        );
-      } catch {
-        if (!cancelled) {
-          setTeacherAssignments([]);
-          setInitialTeacherAssignments([]);
-          setTeacherSuggestionsByAssignmentId({});
-          setInitialTeacherByAssignmentId({});
-        }
-      }
-    };
-    void fetchTeacherAssignments();
-    return () => {
-      cancelled = true;
-    };
-  }, [session.sessionId, separateTeacherSelection]);
-
-  // Fetch session detail for student assignments
+  // Fetch session detail once — used for both teacher assignments and student assignment display
   useEffect(() => {
     const statusCode = getRequestStatusCode(requestStatus);
-    const shouldLoadAssignments = 
+    const shouldLoadStudentAssignments =
       statusCode === REQUEST_STATUS.ASSIGNING ||
       statusCode === REQUEST_STATUS.PUBLISHED ||
       statusCode === REQUEST_STATUS.COMPLETED ||
       statusCode === REQUEST_STATUS.CANCELLED;
-    
-    if (!shouldLoadAssignments) {
+
+    const needsSessionDetail = separateTeacherSelection || shouldLoadStudentAssignments;
+
+    if (!needsSessionDetail) {
+      setTeacherAssignments([]);
+      setTeacherSuggestionsByAssignmentId({});
+      setInitialTeacherByAssignmentId({});
       setSessionDetail(null);
       setSessionDetailLoading(false);
       return;
@@ -254,13 +201,61 @@ export function useRequestDetailTeamPanel({
 
     let cancelled = false;
     const fetchSessionDetail = async () => {
-      setSessionDetailLoading(true);
+      if (shouldLoadStudentAssignments) setSessionDetailLoading(true);
       try {
         const detail = await sessionService.getById(session.sessionId);
         if (cancelled) return;
-        setSessionDetail(detail);
-      } catch (err) {
+
+        // Update session detail for student assignments display
+        if (shouldLoadStudentAssignments) {
+          setSessionDetail(detail);
+        } else {
+          setSessionDetail(null);
+        }
+
+        // Update teacher assignments
+        if (separateTeacherSelection) {
+          const teacherSlots = (detail.Assignments ?? []).filter((a) => isTeacherAssignmentRole(a.StaffRole));
+          setTeacherAssignments(teacherSlots);
+          setInitialTeacherAssignments(teacherSlots);
+          setInitialTeacherByAssignmentId(
+            teacherSlots.reduce<Record<number, number>>((acc, slot) => {
+              const assignmentId = Number(slot.AssignmentId ?? 0);
+              if (assignmentId > 0) {
+                acc[assignmentId] = Math.max(0, Number(slot.StaffMemberId ?? 0));
+              }
+              return acc;
+            }, {})
+          );
+          const pairs = await Promise.all(
+            teacherSlots.map(async (a) => {
+              try {
+                const list = await assignmentApi.suggestStaff(Number(a.AssignmentId ?? 0));
+                return [Number(a.AssignmentId ?? 0), list] as const;
+              } catch {
+                const empty: SuggestedStaff[] = [];
+                return [Number(a.AssignmentId ?? 0), empty] as const;
+              }
+            })
+          );
+          if (cancelled) return;
+          setTeacherSuggestionsByAssignmentId(
+            pairs.reduce<Record<number, SuggestedStaff[]>>((acc, [id, list]) => {
+              if (id > 0) acc[id] = list;
+              return acc;
+            }, {})
+          );
+        } else {
+          setTeacherAssignments([]);
+          setTeacherSuggestionsByAssignmentId({});
+          setInitialTeacherByAssignmentId({});
+        }
+      } catch {
         if (!cancelled) {
+          setTeacherAssignments([]);
+          setInitialTeacherAssignments([]);
+          setTeacherSuggestionsByAssignmentId({});
+          setInitialTeacherByAssignmentId({});
           setSessionDetail(null);
         }
       } finally {
@@ -271,7 +266,7 @@ export function useRequestDetailTeamPanel({
     return () => {
       cancelled = true;
     };
-  }, [session.sessionId, requestStatus]);
+  }, [session.sessionId, separateTeacherSelection, requestStatus]);
 
   // Sync with current assigned teams
   const assignedIdsKey = useMemo(
@@ -531,14 +526,19 @@ export function useRequestDetailTeamPanel({
       message.success(`Đã duyệt ${assignmentIds.length} sinh viên.`);
       setStudentApprovalMode(false);
       setSelectedStudentAssignmentIds(new Set());
+      
+      // Fetch updated session detail
       const detail = await sessionService.getById(session.sessionId);
       setSessionDetail(detail);
+      
+      // Trigger parent refresh to update session status
+      await onTeacherAssignmentUpdated?.();
     } catch (err: unknown) {
       message.error(getErrorMessage(err));
     } finally {
       setBulkApprovingStudents(false);
     }
-  }, [selectedStudentAssignmentIds, session.sessionId]);
+  }, [selectedStudentAssignmentIds, session.sessionId, onTeacherAssignmentUpdated]);
 
   const handleOpenRejectModal = useCallback((assignmentId: number) => {
     setRejectingAssignmentId(assignmentId);
@@ -560,14 +560,19 @@ export function useRequestDetailTeamPanel({
       setRejectModalOpen(false);
       setRejectingAssignmentId(null);
       setRejectReason('');
+      
+      // Fetch updated session detail
       const detail = await sessionService.getById(session.sessionId);
       setSessionDetail(detail);
+      
+      // Trigger parent refresh to update session status
+      await onTeacherAssignmentUpdated?.();
     } catch (err: unknown) {
       message.error(getErrorMessage(err));
     } finally {
       setRejectingStudent(false);
     }
-  }, [rejectingAssignmentId, rejectReason, session.sessionId]);
+  }, [rejectingAssignmentId, rejectReason, session.sessionId, onTeacherAssignmentUpdated]);
 
   const updateTeamQuantity = useCallback(
     (teamId: number, nextValue: number) => {

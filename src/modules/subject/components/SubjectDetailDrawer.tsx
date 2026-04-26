@@ -190,14 +190,14 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
                   </div>
                 </Section>
 
-                {/* Khóa học */}
+                {/* Chương trình học */}
                 {courseCount > 0 && (
-                  <Section icon={Link2} title="Khóa học đang sử dụng môn này">
+                  <Section icon={Link2} title="Chương trình học đang sử dụng môn này">
                     <div className="pl-4 divide-y divide-slate-200">
                       {courseLinks.map((cs) => (
                         <div key={`${cs.courseId}-${cs.subjectId}`} className="py-1.5">
                           <p className="text-sm font-medium text-black">
-                            {cs.courseName?.trim() || cs.course?.courseName?.trim() || `Khóa #${cs.courseId}`}
+                            {cs.courseName?.trim() || cs.course?.courseName?.trim() || `Chương trình #${cs.courseId}`}
                           </p>
                           {cs.createdAt ? (
                             <p className="text-xs text-slate-500">Gắn {dayjs(cs.createdAt).format('DD/MM/YYYY')}</p>

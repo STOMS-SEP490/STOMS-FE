@@ -87,7 +87,7 @@ export default function ProgramCoordinatorTeamsPage() {
     },
     {
       id: 'topics',
-      header: 'Số topic',
+      header: 'Số chủ đê',
       cell: ({ row }) => row.original.teamTopics?.filter((tt) => tt.isActive !== false).length ?? 0,
     },
     {

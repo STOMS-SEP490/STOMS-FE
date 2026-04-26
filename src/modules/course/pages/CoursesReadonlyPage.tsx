@@ -33,12 +33,12 @@ export default function CoursesReadonlyPage() {
     () => [
       {
         accessorKey: 'courseCode',
-        header: 'Mã khóa học',
+        header: 'Mã chương trình học',
         cell: ({ row }) => <span className="font-semibold text-[#1a7a99]">{row.original.courseCode}</span>,
       },
       {
         accessorKey: 'courseName',
-        header: 'Tên khóa học',
+        header: 'Tên chương trình học',
         cell: ({ row }) => (
           <div className="min-w-0 truncate font-medium text-[#1a7a99]">{row.original.courseName}</div>
         ),
@@ -73,8 +73,8 @@ export default function CoursesReadonlyPage() {
   return (
     <div className="relative flex min-h-[var(--content-height)] flex-col gap-2 app-page-bg p-6 pl-8 pb-8">
       <div className="flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách khóa học</h2>
-        <p className="text-xs text-gray-500">Xem thông tin các khóa học trong hệ thống</p>
+        <h2 className="text-xl font-semibold text-[#1a7a99]">Danh sách chương trình học</h2>
+        <p className="text-xs text-gray-500">Xem thông tin các chương trình học trong hệ thống</p>
       </div>
 
       <div className="shrink-0 px-2 py-1">
@@ -82,7 +82,7 @@ export default function CoursesReadonlyPage() {
           <HoverSearch
             value={search}
             onChange={(v) => setSearch(v)}
-            placeholder="Tìm theo tên khóa học..."
+            placeholder="Tìm theo tên chương trình học..."
           />
           <Button variant="secondary" className="bg-white h-9 border-slate-200" onClick={resetFilters} type="button">
             <RotateCcw className="h-4 w-4" />

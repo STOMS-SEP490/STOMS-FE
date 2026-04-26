@@ -64,7 +64,7 @@ export default function RequestCard({
   onMouseLeave,
 }: RequestCardProps) {
   const typeInfo = getRequestType({ subjectId, courseId, eventId });
-  // Thanh màu bên trái theo type (môn học: xanh, khóa học: tím, sự kiện: cam)
+  // Thanh màu bên trái theo type (môn học: xanh, chương trình học: tím, sự kiện: cam)
   const accentColor = eventId
     ? '#F59E0B'
     : courseId

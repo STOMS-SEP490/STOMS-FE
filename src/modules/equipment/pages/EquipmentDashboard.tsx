@@ -219,7 +219,7 @@ export default function EquipmentDashboard() {
 
   const categoryBarData = useMemo(
     () =>
-      (categoryDistribution ?? []).slice(0, 8).map((c) => ({
+      (categoryDistribution ?? []).slice(0, 8).map((c: any) => ({
         name:
           c.categoryName.length > 14 ? `${c.categoryName.slice(0, 12)}…` : c.categoryName,
         total: c.totalEquipment,
@@ -244,9 +244,9 @@ export default function EquipmentDashboard() {
     <div className={cn('min-h-full p-6 space-y-6', PAGE_BG)}>
       <div className="mb-2 flex items-center justify-between rounded-xl border bg-white px-6 py-4 shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold text-[#1a7a99]">Dashboard thiết bị</h2>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Bảng điều khiển</h2>
           <p className="text-xs text-gray-500">
-            Tổng quan tồn kho, phiếu mượn và thiết bị cần xử lý.
+            Tổng quan trạng thái thiết bị, phiếu mượn và yêu cầu đặt trước cần xử lý.
           </p>
         </div>
       </div>

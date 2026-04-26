@@ -148,16 +148,16 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
             <SelectTrigger className="h-10 text-black border-gray-200">
               <SelectValue placeholder={loadingLeaders ? 'Đang tải...' : 'Chọn trưởng nhóm'} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[320px]">
               {teamLeaders
                 .filter((x) => x.member?.memberId != null)
                 .map((x) => (
-                  <SelectItem key={x.user.userId} value={String(x.member.memberId)}>
+                  <SelectItem key={x.user.userId} value={String(x.member.memberId)} className="py-2 px-3">
                     <div className="flex items-center gap-3">
                       <img
                         src={getLeaderAvatar(x)}
                         alt=""
-                        className="h-8 w-8 rounded-full object-cover border border-slate-200 bg-white"
+                        className="h-9 w-9 shrink-0 rounded-full object-cover border border-slate-200 bg-white"
                         onError={(e) => {
                           const img = e.currentTarget;
                           img.onerror = null;
@@ -165,10 +165,10 @@ export default function CreateTeamModal({ open, onClose, onCreated }: Props) {
                         }}
                       />
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-slate-900">
+                        <div className="text-sm font-medium text-slate-900">
                           {getLeaderDisplayName(x)}
                         </div>
-                        <div className="truncate text-xs text-slate-500">
+                        <div className="text-xs text-slate-500">
                           {x.user.email || `User #${x.user.userId}`}
                         </div>
                       </div>

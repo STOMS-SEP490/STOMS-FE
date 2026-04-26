@@ -463,7 +463,7 @@ export default function SubjectsManagement() {
     Modal.confirm({
       title: s.isActive ? 'Vô hiệu hóa môn học?' : 'Kích hoạt môn học?',
       content: s.isActive
-        ? 'Môn học sẽ bị vô hiệu hóa và có thể ảnh hưởng tới các khóa học liên quan.'
+        ? 'Môn học sẽ bị vô hiệu hóa và có thể ảnh hưởng tới các chương trình học liên quan.'
         : 'Môn học sẽ được kích hoạt lại.',
       okText: s.isActive ? 'Vô hiệu hóa' : 'Kích hoạt',
       cancelText: 'Hủy',

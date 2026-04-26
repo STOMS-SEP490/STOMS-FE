@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { UserCheck, X } from 'lucide-react';
-import HoverSearch from '@/shared/components/ui/search';
+import { Image, message } from 'antd';
 import attendanceApi, { type AttendanceFaceRecognizeResponse } from '@/modules/attendance/attendanceApi';
 import type { TeamLeaderTimetableAssignmentRow } from '@/modules/contract/hooks/useTeamLeaderTimetableAssignments';
 import type { AttendanceItem, MemberDetail, SessionDetail } from '@/modules/request/type';
 import { cn } from '@/shared/lib/utils';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
-import { message } from 'antd';
 
 type AttendanceActionMode = 'delegate' | 'checkin' | 'checkout' | null;
 type AttendanceTab = Exclude<AttendanceActionMode, null>;
@@ -37,7 +36,7 @@ export type TeamLeaderAttendanceSlideOverProps = {
   setIsSubmitting: (v: boolean) => void;
   setActionMode: Dispatch<SetStateAction<AttendanceActionMode>>;
   isLoadingAttendance?: boolean;
-  /** Đổi tab Giờ vào / Giờ ra / Ủy quyền (đồng bộ chọn member). */
+  /** Đổi tab Đầu giờ / Cuối giờ / Ủy quyền (đồng bộ chọn thành viên). */
   switchActionMode: (mode: AttendanceTab) => void;
   closePanel: () => void;
   saveAttendance: () => void;
@@ -57,7 +56,7 @@ export default function TeamLeaderAttendanceSlideOver({
   membersById,
   attendanceByMemberIdForSession,
   memberSearch,
-  setMemberSearch,
+  setMemberSearch: _setMemberSearch,
   memberNotes,
   setMemberNotes,
   selectedMemberIds: _selectedMemberIds,
@@ -211,8 +210,8 @@ export default function TeamLeaderAttendanceSlideOver({
       : '';
 
   const tabs: { id: AttendanceTab; label: string }[] = [
-    { id: 'checkin', label: 'Giờ vào' },
-    { id: 'checkout', label: 'Giờ ra' },
+    { id: 'checkin', label: 'Đầu giờ' },
+    { id: 'checkout', label: 'Cuối giờ' },
     ...(!hideDelegate ? [{ id: 'delegate' as AttendanceTab, label: 'Ủy quyền' }] : []),
   ];
 
@@ -232,7 +231,7 @@ export default function TeamLeaderAttendanceSlideOver({
     const selected = selectedIdsToSubmit;
     const pendingResetIds = pendingResetMemberIds;
     if (selected.length === 0 && pendingResetIds.length === 0) {
-      message.warning('Vui lòng chọn ảnh hoặc đánh dấu xóa ít nhất 1 member.');
+      message.warning('Vui lòng chọn ảnh hoặc đánh dấu xóa ít nhất 1 thành viên.');
       return;
     }
 
@@ -311,7 +310,7 @@ export default function TeamLeaderAttendanceSlideOver({
 
         if (items.length > 0) {
           if (!checkinProofImage) {
-            message.warning('Vui lòng upload ảnh minh chứng trước khi lưu.');
+            message.warning('Vui lòng tải ảnh minh chứng trước khi lưu.');
             return;
           }
           const form = new FormData();
@@ -376,7 +375,7 @@ export default function TeamLeaderAttendanceSlideOver({
 
         if (items.length > 0) {
           if (!checkoutProofImage) {
-            message.warning('Vui lòng upload ảnh minh chứng trước khi lưu.');
+            message.warning('Vui lòng tải ảnh minh chứng trước khi lưu.');
             return;
           }
           const form = new FormData();
@@ -611,18 +610,14 @@ export default function TeamLeaderAttendanceSlideOver({
           </div>
 
           <div className="flex-1 overflow-y-auto no-scrollbar px-6 py-4">
-            <div className="rounded-2xl bg-white shadow-sm">
+            <div className="bg-white">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
                 <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-gray-900">Danh sách member được phân công</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Danh sách thành viên được phân công</h3>
                   <p className="mt-1 text-xs text-gray-500">
-                    Upload ảnh minh chứng để{' '}
                     {actionMode === 'delegate'
-                      ? 'ủy quyền xác nhận tham gia'
-                      : actionMode === 'checkin'
-                        ? 'xác nhận'
-                        : 'xác nhận'}
-                    .
+                      ? 'Chọn thành viên để ủy quyền xác nhận tham gia.'
+                      : `Tải ảnh minh chứng để ${actionMode === 'checkin' ? 'xác nhận' : 'xác nhận'}.`}
                   </p>
                 </div>
                 {(actionMode === 'checkin' || actionMode === 'checkout') ? (
@@ -661,13 +656,13 @@ export default function TeamLeaderAttendanceSlideOver({
                       />
                       <span
                         className={cn(
-                          'inline-flex h-8 items-center justify-center rounded-lg border px-3 text-xs font-semibold transition-colors',
+                          'inline-flex h-8 items-center justify-center rounded-md border px-3 text-xs font-semibold transition-colors',
                           isSubmitting || autoRecognizing || hasAutoProof
                             ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
                             : 'cursor-pointer border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
                         )}
                       >
-                        Upload ảnh
+                        Tải ảnh
                       </span>
                     </label>
                       );
@@ -676,7 +671,7 @@ export default function TeamLeaderAttendanceSlideOver({
                     {autoPreviewUrl && (autoDetectedFaces.length > 0 || autoMatchedResults.length > 0) ? (
                       <button
                         type="button"
-                        className="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                         onClick={() => setPreviewImgUrl(autoPreviewUrl)}
                         disabled={isSubmitting || autoRecognizing}
                       >
@@ -705,20 +700,20 @@ export default function TeamLeaderAttendanceSlideOver({
                       />
                       <span
                         className={cn(
-                          'inline-flex h-8 items-center justify-center rounded-lg border px-3 text-xs font-semibold transition-colors',
+                          'inline-flex h-8 items-center justify-center rounded-md border px-3 text-xs font-semibold transition-colors',
                           isSubmitting || autoRecognizing
                             ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
                             : 'cursor-pointer border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
                         )}
                       >
-                        {autoRecognizing ? 'Đang nhận diện...' : 'Upload ảnh thông minh'}
+                        {autoRecognizing ? 'Đang nhận diện...' : 'Tải ảnh thông minh'}
                       </span>
                     </label>
 
                     <button
                       type="button"
                       onClick={handleSave}
-                      className="inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[#2197C0] px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#208AAE] disabled:opacity-50"
+                      className="inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md bg-[#2197C0] px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#208AAE] disabled:opacity-50"
                       disabled={isSubmitting || !canSaveAttendance || !hasPendingChanges}
                     >
                       Lưu xác nhận
@@ -727,24 +722,50 @@ export default function TeamLeaderAttendanceSlideOver({
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 px-5 py-3">
-              <HoverSearch
-                value={memberSearch}
-                onChange={setMemberSearch}
-                placeholder="Tìm theo tên/email member..."
-              />
-              <div className="ml-auto flex flex-wrap items-center gap-2" />
-              </div>
+              {/* Preview ảnh đã tải */}
+              {(actionMode === 'checkin' || actionMode === 'checkout') && (
+                (actionMode === 'checkin' && checkinProofImage) || (actionMode === 'checkout' && checkoutProofImage)
+              ) ? (
+                <div className="px-5 py-3 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-600">Ảnh đã tải:</span>
+                    <Image
+                      src={URL.createObjectURL(actionMode === 'checkin' ? checkinProofImage! : checkoutProofImage!)}
+                      alt="Xem trước"
+                      width={80}
+                      height={80}
+                      className="rounded border border-slate-200"
+                      style={{ width: '80px', height: '80px', objectFit: 'cover' }}
+                      
+                    />
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-rose-600 hover:text-rose-700"
+                      onClick={() => {
+                        if (actionMode === 'checkin') {
+                          setCheckinProofImage(null);
+                          setCheckedCheckinByMemberId({});
+                        } else {
+                          setCheckoutProofImage(null);
+                          setCheckedCheckoutByMemberId({});
+                        }
+                      }}
+                    >
+                      Xóa ảnh
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="px-5 pb-5">
               {filteredAttendanceItems.length === 0 && (
-                <div className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                  {isLoadingAttendance ? 'Đang tải danh sách...' : 'Chưa có member nào cần xác nhận tham gia.'}
+                <div className="bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                  {isLoadingAttendance ? 'Đang tải danh sách...' : 'Chưa có thành viên nào cần xác nhận tham gia.'}
                 </div>
               )}
 
               {filteredAttendanceItems.length > 0 && (
-              <div className="flex flex-col divide-y divide-slate-100 overflow-hidden rounded-xl bg-slate-50/50">
+              <div className="flex flex-col divide-y divide-slate-100">
               {filteredAttendanceItems.map((attendance) => {
                 const memberId = Number(
                   (attendance as unknown as { MemberId?: number; memberId?: number }).MemberId ??
@@ -851,8 +872,8 @@ export default function TeamLeaderAttendanceSlideOver({
                               : sim >= 70 ? 'bg-amber-50 text-amber-700 border-amber-200'
                               : 'bg-rose-50 text-rose-700 border-rose-200';
                             return (
-                              <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold', tone)}>
-                                Match {sim.toFixed(1)}%
+                              <span className={cn('inline-flex items-center border px-2 py-0.5 text-[10px] font-semibold', tone)}>
+                                Khớp {sim.toFixed(1)}%
                               </span>
                             );
                           })()}
@@ -884,7 +905,7 @@ export default function TeamLeaderAttendanceSlideOver({
                         const imgT = (-t / h) * 100;
                         return (
                           <div className="shrink-0">
-                            <div className="relative h-10 w-10 overflow-hidden rounded-md border border-emerald-200 bg-white shadow-sm">
+                            <div className="relative h-10 w-10 overflow-hidden border border-emerald-200 bg-white shadow-sm">
                               <img
                                 src={autoPreviewUrl}
                                 alt=""
@@ -942,25 +963,25 @@ export default function TeamLeaderAttendanceSlideOver({
                         <div className="flex items-center justify-end gap-3 md:justify-self-end">
                           {actionMode === 'checkin' ? (
                             isCheckedInEffective ? (
-                              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 whitespace-nowrap">
                                 Đã xác nhận
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500 whitespace-nowrap">
                                 Chưa xác nhận
                               </span>
                             )
                           ) : actionMode === 'checkout' ? (
                             !isCheckedInEffective ? (
-                              <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-700 whitespace-nowrap">
                                 Chưa xác nhận
                               </span>
                             ) : isCheckedOutEffective ? (
-                              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 whitespace-nowrap">
                                 Đã xác nhận
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500 whitespace-nowrap">
                                 Chưa xác nhận
                               </span>
                             )
@@ -970,146 +991,184 @@ export default function TeamLeaderAttendanceSlideOver({
                           {null}
                         </div>
 
-                        {/* Row 2: ghi chú + ảnh minh chứng (xuống hàng) */}
+                        {/* Row 2: ghi chú + ảnh minh chứng (cùng hàng) */}
                         <div className="md:col-span-2 w-full space-y-2">
                           {actionMode === 'checkin' && isCheckedInEffective ? (
-                            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-medium text-slate-600">Ảnh xác nhận</div>
-                                {!checkinImgUrlEffective ? (
-                                  <div className="text-[11px] text-slate-500">Chưa có ảnh</div>
-                                ) : null}
+                            <div className="flex items-center gap-3">
+                              <input
+                                className="h-9 flex-1 border-b border-slate-200 bg-transparent px-2 text-xs placeholder:text-slate-400 focus:outline-none focus:border-slate-400"
+                                placeholder="Ghi chú..."
+                                value={memberNotes[memberId] ?? ''}
+                                onChange={(event) =>
+                                  setMemberNotes((prev) => ({
+                                    ...prev,
+                                    [memberId]: event.target.value,
+                                  }))
+                                }
+                              />
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-[11px] text-slate-500">Ảnh xác nhận:</span>
+                                {checkinImgUrlEffective ? (
+                                  <>
+                                    <Image
+                                      src={checkinImgUrlEffective}
+                                      alt="Ảnh xác nhận"
+                                      width={36}
+                                      height={36}
+                                      className="rounded object-cover border border-slate-200 cursor-pointer"
+                                      style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                      preview={{
+                                        mask: <div className="text-[10px]">Xem</div>,
+                                      }}
+                                      fallback="/img/ava.png"
+                                    />
+                                    <button
+                                      type="button"
+                                      className="shrink-0 text-[11px] font-medium text-rose-600 hover:text-rose-700"
+                                      onClick={() => {
+                                        setPendingCheckinResetByMemberId((prev) => ({ ...prev, [memberId]: true }));
+                                        setCheckinProofImage(null);
+                                        setCheckedCheckinByMemberId((prev) => ({ ...prev, [memberId]: false }));
+                                      }}
+                                      disabled={isSubmitting}
+                                    >
+                                      Xóa
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400">Chưa có</span>
+                                )}
                               </div>
-                              {checkinImgUrlEffective ? (
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <img
-                                    src={checkinImgUrlEffective}
-                                    alt="Ảnh xác nhận"
-                                    className="h-12 w-12 rounded-md object-cover border border-slate-200 cursor-pointer hover:opacity-90"
-                                    onClick={() => setPreviewImgUrl(checkinImgUrlEffective)}
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                    }}
-                                  />
-                                  <button
-                                    type="button"
-                                    className="shrink-0 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-                                    onClick={() => {
-                                      setPendingCheckinResetByMemberId((prev) => ({ ...prev, [memberId]: true }));
-                                      setCheckinProofImage(null);
-                                      setCheckedCheckinByMemberId((prev) => ({ ...prev, [memberId]: false }));
-                                    }}
-                                    disabled={isSubmitting}
-                                  >
-                                    Xóa
-                                  </button>
-                                </div>
-                              ) : null}
                             </div>
                           ) : null}
 
                           {actionMode === 'checkout' && isCheckedOutEffective ? (
-                            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-medium text-slate-600">Ảnh giờ ra</div>
-                                {!checkoutImgUrlEffective ? (
-                                  <div className="text-[11px] text-slate-500">Chưa có ảnh</div>
-                                ) : null}
+                            <div className="flex items-center gap-3">
+                              <input
+                                className="h-9 flex-1 border-b border-slate-200 bg-transparent px-2 text-xs placeholder:text-slate-400 focus:outline-none focus:border-slate-400"
+                                placeholder="Ghi chú..."
+                                value={memberNotes[memberId] ?? ''}
+                                onChange={(event) =>
+                                  setMemberNotes((prev) => ({
+                                    ...prev,
+                                    [memberId]: event.target.value,
+                                  }))
+                                }
+                              />
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-[11px] text-slate-500">Ảnh giờ ra:</span>
+                                {checkoutImgUrlEffective ? (
+                                  <>
+                                    <Image
+                                      src={checkoutImgUrlEffective}
+                                      alt="Ảnh giờ ra"
+                                      width={36}
+                                      height={36}
+                                      className="rounded object-cover border border-slate-200 cursor-pointer"
+                                      style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                      preview={{
+                                        mask: <div className="text-[10px]">Xem</div>,
+                                      }}
+                                      fallback="/img/ava.png"
+                                    />
+                                    <button
+                                      type="button"
+                                      className="shrink-0 text-[11px] font-medium text-rose-600 hover:text-rose-700"
+                                      onClick={() => {
+                                        setPendingCheckoutResetByMemberId((prev) => ({ ...prev, [memberId]: true }));
+                                        setCheckoutProofImage(null);
+                                        setCheckedCheckoutByMemberId((prev) => ({ ...prev, [memberId]: false }));
+                                      }}
+                                      disabled={isSubmitting}
+                                    >
+                                      Xóa
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400">Chưa có</span>
+                                )}
                               </div>
-                              {checkoutImgUrlEffective ? (
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <img
-                                    src={checkoutImgUrlEffective}
-                                    alt="Ảnh giờ ra"
-                                    className="h-12 w-12 rounded-md object-cover border border-slate-200 cursor-pointer hover:opacity-90"
-                                    onClick={() => setPreviewImgUrl(checkoutImgUrlEffective)}
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                    }}
-                                  />
-                                  <button
-                                    type="button"
-                                    className="shrink-0 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-                                    onClick={() => {
-                                      setPendingCheckoutResetByMemberId((prev) => ({ ...prev, [memberId]: true }));
-                                      setCheckoutProofImage(null);
-                                      setCheckedCheckoutByMemberId((prev) => ({ ...prev, [memberId]: false }));
-                                    }}
-                                    disabled={isSubmitting}
-                                  >
-                                    Xóa
-                                  </button>
-                                </div>
-                              ) : null}
                             </div>
                           ) : null}
 
-                          {!(actionMode === 'checkout' && !isCheckedInEffective) && (
-                            <input
-                              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs placeholder:text-slate-400"
-                              placeholder="Ghi chú..."
-                              value={memberNotes[memberId] ?? ''}
-                              onChange={(event) =>
-                                setMemberNotes((prev) => ({
-                                  ...prev,
-                                  [memberId]: event.target.value,
-                                }))
-                              }
-                            />
-                          )}
-
                           {actionMode === 'checkin' && !isCheckedInEffective ? (
-                            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-medium text-slate-600">Xác nhận</div>
-                                <div className="text-[11px] text-slate-500">
-                                  {checkinProofImage ? 'Đã có ảnh minh chứng' : 'Vui lòng upload ảnh ở trên'}
+                            <>
+                              <input
+                                className="h-9 w-full border-b border-slate-200 bg-transparent px-2 text-xs placeholder:text-slate-400 focus:outline-none focus:border-slate-400"
+                                placeholder="Ghi chú..."
+                                value={memberNotes[memberId] ?? ''}
+                                onChange={(event) =>
+                                  setMemberNotes((prev) => ({
+                                    ...prev,
+                                    [memberId]: event.target.value,
+                                  }))
+                                }
+                              />
+                              <div className="flex items-center justify-between gap-3 border-l-2 border-slate-200 bg-slate-50/30 px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="text-[11px] font-medium text-slate-600">Xác nhận</div>
+                                  <div className="text-[11px] text-slate-500">
+                                    {checkinProofImage ? 'Đã có ảnh minh chứng' : 'Vui lòng tải ảnh ở trên'}
+                                  </div>
                                 </div>
+                                <label className="inline-flex items-center gap-2 text-xs text-slate-700 shrink-0">
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 accent-[#2197C0]"
+                                    checked={!!checkedCheckinByMemberId[memberId]}
+                                    onChange={(e) => {
+                                      const nextChecked = e.target.checked;
+                                      setCheckedCheckinByMemberId((prev) => ({
+                                        ...prev,
+                                        [memberId]: nextChecked,
+                                      }));
+                                    }}
+                                    disabled={isSubmitting || !checkinProofImage}
+                                  />
+                                  Chọn
+                                </label>
                               </div>
-                              <label className="inline-flex items-center gap-2 text-xs text-slate-700 shrink-0">
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4 accent-[#2197C0]"
-                                  checked={!!checkedCheckinByMemberId[memberId]}
-                                  onChange={(e) => {
-                                    const nextChecked = e.target.checked;
-                                    setCheckedCheckinByMemberId((prev) => ({
-                                      ...prev,
-                                      [memberId]: nextChecked,
-                                    }));
-                                  }}
-                                  disabled={isSubmitting || !checkinProofImage}
-                                />
-                                Chọn
-                              </label>
-                            </div>
+                            </>
                           ) : null}
 
                           {actionMode === 'checkout' && isCheckedInEffective && !isCheckedOutEffective ? (
-                            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-medium text-slate-600">Xác nhận</div>
-                                <div className="text-[11px] text-slate-500">
-                                  {checkoutProofImage ? 'Đã có ảnh minh chứng' : 'Vui lòng upload ảnh ở trên'}
+                            <>
+                              <input
+                                className="h-9 w-full border-b border-slate-200 bg-transparent px-2 text-xs placeholder:text-slate-400 focus:outline-none focus:border-slate-400"
+                                placeholder="Ghi chú..."
+                                value={memberNotes[memberId] ?? ''}
+                                onChange={(event) =>
+                                  setMemberNotes((prev) => ({
+                                    ...prev,
+                                    [memberId]: event.target.value,
+                                  }))
+                                }
+                              />
+                              <div className="flex items-center justify-between gap-3 border-l-2 border-slate-200 bg-slate-50/30 px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="text-[11px] font-medium text-slate-600">Xác nhận</div>
+                                  <div className="text-[11px] text-slate-500">
+                                    {checkoutProofImage ? 'Đã có ảnh minh chứng' : 'Vui lòng tải ảnh ở trên'}
+                                  </div>
                                 </div>
+                                <label className="inline-flex items-center gap-2 text-xs text-slate-700 shrink-0">
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 accent-[#2197C0]"
+                                    checked={!!checkedCheckoutByMemberId[memberId]}
+                                    onChange={(e) => {
+                                      const nextChecked = e.target.checked;
+                                      setCheckedCheckoutByMemberId((prev) => ({
+                                        ...prev,
+                                        [memberId]: nextChecked,
+                                      }));
+                                    }}
+                                    disabled={isSubmitting || !checkoutProofImage}
+                                  />
+                                  Chọn
+                                </label>
                               </div>
-                              <label className="inline-flex items-center gap-2 text-xs text-slate-700 shrink-0">
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4 accent-[#2197C0]"
-                                  checked={!!checkedCheckoutByMemberId[memberId]}
-                                  onChange={(e) => {
-                                    const nextChecked = e.target.checked;
-                                    setCheckedCheckoutByMemberId((prev) => ({
-                                      ...prev,
-                                      [memberId]: nextChecked,
-                                    }));
-                                  }}
-                                  disabled={isSubmitting || !checkoutProofImage}
-                                />
-                                Chọn
-                              </label>
-                            </div>
+                            </>
                           ) : null}
                         </div>
                       </>
@@ -1145,7 +1204,7 @@ export default function TeamLeaderAttendanceSlideOver({
               <div className="relative w-full rounded-xl bg-black/20 overflow-hidden">
                 <img
                   src={previewImgUrl}
-                  alt="Preview"
+                  alt="Xem trước"
                   className="max-h-[90vh] w-full object-contain"
                 />
                 {previewImgUrl === autoPreviewUrl ? (

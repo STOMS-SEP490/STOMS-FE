@@ -72,69 +72,77 @@ export default function CategoriesManagement() {
   };
 
   const columns: ColumnDef<CategoryListItem>[] = useMemo(
-    () => [
-      {
-        accessorKey: 'categoryId',
-        header: 'ID',
-        cell: ({ row }) => <span className="font-medium text-[#1a7a99]">#{row.original.categoryId}</span>,
-      },
-      {
-        accessorKey: 'categoryName',
-        header: 'Tên danh mục',
-        cell: ({ row }) => <span className="font-semibold text-slate-900">{row.original.categoryName}</span>,
-      },
-      {
-        accessorKey: 'description',
-        header: 'Mô tả',
-        cell: ({ row }) => (
-          <span className="text-sm text-slate-600">{row.original.description || '—'}</span>
-        ),
-      },
-      {
-        accessorKey: 'totalEquipment',
-        header: () => <span className="block w-full text-center">Số thiết bị</span>,
-        cell: ({ row }) => (
-          <div className="text-center">
-            <span className="font-medium">{row.original.totalEquipment ?? 0}</span>
-          </div>
-        ),
-      },
-      {
-        id: 'actions',
-        header: () => <span className="block w-full text-center">Thao tác</span>,
-        enableSorting: false,
-        cell: ({ row }: { row: Row<CategoryListItem> }) => (
-          <div
-            className="flex gap-3"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            <span title="Xem chi tiết">
-              <Eye
-                size={16}
-                className="cursor-pointer text-gray-800"
-                onClick={() => handleView(row.original)}
-              />
-            </span>
-            <span title="Chỉnh sửa">
-              <Pencil
-                size={16}
-                className="cursor-pointer text-blue-600"
-                onClick={() => handleEdit(row.original)}
-              />
-            </span>
-            <span title="Xóa">
-              <Trash2
-                size={16}
-                className="cursor-pointer text-red-500"
-                onClick={() => handleDelete(row.original)}
-              />
-            </span>
-          </div>
-        ),
-      },
-    ],
-    []
+    () => {
+      const baseColumns: ColumnDef<CategoryListItem>[] = [
+        {
+          accessorKey: 'categoryId',
+          header: 'ID',
+          cell: ({ row }) => <span className="font-medium text-[#1a7a99]">#{row.original.categoryId}</span>,
+        },
+        {
+          accessorKey: 'categoryName',
+          header: 'Tên danh mục',
+          cell: ({ row }) => <span className="font-semibold text-slate-900">{row.original.categoryName}</span>,
+        },
+        {
+          accessorKey: 'description',
+          header: 'Mô tả',
+          cell: ({ row }) => (
+            <span className="text-sm text-slate-600">{row.original.description || '—'}</span>
+          ),
+        },
+        {
+          accessorKey: 'totalEquipment',
+          header: () => <span className="block w-full text-center">Số thiết bị</span>,
+          cell: ({ row }) => (
+            <div className="text-center">
+              <span className="font-medium">{row.original.totalEquipment ?? 0}</span>
+            </div>
+          ),
+        },
+      ];
+
+      // Chỉ thêm cột thao tác cho Equipment Manager
+      if (isEquipmentManager) {
+        baseColumns.push({
+          id: 'actions',
+          header: () => <span className="block w-full text-center">Thao tác</span>,
+          enableSorting: false,
+          cell: ({ row }: { row: Row<CategoryListItem> }) => (
+            <div
+              className="flex gap-3"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <span title="Xem chi tiết">
+                <Eye
+                  size={16}
+                  className="cursor-pointer text-gray-800"
+                  onClick={() => handleView(row.original)}
+                />
+              </span>
+              <span title="Chỉnh sửa">
+                <Pencil
+                  size={16}
+                  className="cursor-pointer text-blue-600"
+                  onClick={() => handleEdit(row.original)}
+                />
+              </span>
+              <span title="Xóa">
+                <Trash2
+                  size={16}
+                  className="cursor-pointer text-red-500"
+                  onClick={() => handleDelete(row.original)}
+                />
+              </span>
+            </div>
+          ),
+        });
+      }
+
+      return baseColumns;
+    },
+    [isEquipmentManager]
   );
 
   return (
@@ -145,13 +153,15 @@ export default function CategoriesManagement() {
           <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý danh mục thiết bị</h2>
           <p className="text-xs text-slate-500">Quản lý các danh mục thiết bị trong hệ thống</p>
         </div>
-        <Button
-          onClick={() => setCreateOpen(true)}
-          className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
-        >
-          <Plus size={16} />
-          Thêm danh mục
-        </Button>
+        {isEquipmentManager && (
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="gap-2 bg-[#2197C0] hover:bg-[#208AAE] text-white"
+          >
+            <Plus size={16} />
+            Thêm danh mục
+          </Button>
+        )}
       </div>
 
       {/* SEARCH */}
@@ -178,11 +188,18 @@ export default function CategoriesManagement() {
             pageSize={filteredCategories.length}
             totalItems={filteredCategories.length}
             onPageChange={() => {}}
-            onRowClick={isEquipmentManager ? undefined : async (row) => {
+            onRowClick={async (row) => {
               try {
                 const fullCategory = await categoryApi.getById(row.categoryId);
-                setEditCategory(fullCategory);
-                setEditOpen(true);
+                if (isEquipmentManager) {
+                  // EM: Mở modal edit
+                  setEditCategory(fullCategory);
+                  setEditOpen(true);
+                } else {
+                  // Manager: Mở sidebar detail
+                  setDetailCategory(fullCategory);
+                  setDetailOpen(true);
+                }
               } catch (err) {
                 message.error('Không tải được thông tin danh mục');
                 console.error('fetch category detail error:', err);

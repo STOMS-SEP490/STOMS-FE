@@ -228,7 +228,7 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
               </Section>
 
               <Section icon={Sparkles} title="Kỹ năng">
-                <div className="border-t border-slate-200 pl-4 pt-3">
+                <div className="pl-4 py-2">
                   <p className="mb-2 text-xs font-medium text-[#2197C0]">Các kỹ năng đã gắn</p>
                   {displaySkillNames.length === 0 ? (
                     <p className="text-sm text-slate-500">Chưa có kỹ năng nào.</p>
@@ -289,40 +289,12 @@ export default function MemberDetailSidebar({ open, onClose, member }: Props) {
                   ) : !workload ? (
                     <p className="px-4 py-4 text-sm text-slate-500">Đang tải…</p>
                   ) : (
-                    <>
-                      
-                        <div className="flex flex-col divide-y divide-slate-200 sm:flex-row sm:divide-x sm:divide-y-0">
-                          <WorkloadMetricCell
-                            label="Tổng giờ giảng"
-                            value={`${Number(workload.totalTeachingHours ?? 0).toFixed(1)}h`}
-                            changePercent={workload.totalTeachingHoursChangePercent ?? 0}
-                            deltaClass="text-sky-600"
-                          />
-                          <WorkloadMetricCell
-                            label="Buổi hoàn thành"
-                            value={Number(workload.completedSessions ?? 0)}
-                            changePercent={workload.completedSessionsChangePercent ?? 0}
-                            deltaClass="text-emerald-600"
-                          />
-                          <WorkloadMetricCell
-                            label="Buổi bị hủy"
-                            value={Number(workload.canceledSessions ?? 0)}
-                            changePercent={workload.canceledSessionsChangePercent ?? 0}
-                            deltaClass="text-rose-600"
-                          />
-                          <WorkloadMetricCell
-                            label="Thu nhập ước tính"
-                            value={Number(workload.estimatedIncome ?? 0).toLocaleString('vi-VN', {
-                              style: 'currency',
-                              currency: 'VND',
-                              maximumFractionDigits: 0,
-                            })}
-                            changePercent={workload.estimatedIncomeChangePercent ?? 0}
-                            deltaClass="text-amber-700"
-                          />
-                        </div>
-                      
-                    </>
+                    <div className="flex flex-col divide-y divide-slate-200 sm:flex-row sm:divide-x sm:divide-y-0">
+                      <WorkloadMetricCell label="Tổng giờ giảng" value={`${Number(workload.totalTeachingHours ?? 0).toFixed(1)}h`} changePercent={workload.totalTeachingHoursChangePercent ?? 0} deltaClass="text-sky-600" />
+                      <WorkloadMetricCell label="Buổi hoàn thành" value={Number(workload.completedSessions ?? 0)} changePercent={workload.completedSessionsChangePercent ?? 0} deltaClass="text-emerald-600" />
+                      <WorkloadMetricCell label="Buổi bị hủy" value={Number(workload.canceledSessions ?? 0)} changePercent={workload.canceledSessionsChangePercent ?? 0} deltaClass="text-rose-600" />
+                      <WorkloadMetricCell label="Thu nhập ước tính" value={`${Number(workload.estimatedIncome ?? 0).toLocaleString('vi-VN')} đ`} changePercent={workload.estimatedIncomeChangePercent ?? 0} deltaClass="text-amber-700" />
+                    </div>
                   )}
                 </div>
               </Section>

@@ -1,6 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { Image } from 'antd';
-import { CheckCircle2, WalletCards } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { DataTable } from '@/shared/components/common/DataTable';
 import HoverSearch from '@/shared/components/ui/search';
@@ -239,8 +239,7 @@ export default function TeacherContributionHistoryPage() {
       {canViewWalletList && (
         <div className="shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex flex-col gap-2 min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between">
-            <div className="flex items-center gap-2">
-              <WalletCards className="h-4 w-4 text-slate-500" />
+            <div className="flex items-center gap-2"> 
               <h3 className="text-sm font-semibold text-slate-800">Chọn quỹ để xem giao dịch</h3>
             </div>
             <div className="flex flex-wrap items-center gap-2 min-[900px]:justify-end">

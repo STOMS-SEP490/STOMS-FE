@@ -6,25 +6,28 @@ import {
   Clock,
   AlertTriangle,
   FileText,
-  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  CheckCircle2,
+  XCircle,
+  DollarSign,
 } from 'lucide-react';
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
 import {
   dashboardApi,
   type DashboardRangeParams,
   type DashboardTeachingHistoryItem,
   type DashboardAttendanceHistoryItem,
 } from '@/modules/dashboard/api/dashboardApi';
+import { getStaffRoleId, getRoleBadgeClass, ROLE_MAP } from '@/constants/role';
 
 type KpiTone = 'sky' | 'indigo' | 'emerald' | 'amber' | 'rose';
 
@@ -34,6 +37,8 @@ function KpiCard(props: {
   sub?: React.ReactNode;
   icon: React.ReactNode;
   tone: KpiTone;
+  trend?: number;
+  trendLabel?: string;
 }) {
   const toneClass: Record<KpiTone, { ring: string; iconBg: string; iconFg: string }> = {
     sky: { ring: 'ring-sky-100/80', iconBg: 'bg-sky-50', iconFg: 'text-sky-600' },
@@ -43,13 +48,26 @@ function KpiCard(props: {
     rose: { ring: 'ring-rose-100/80', iconBg: 'bg-rose-50', iconFg: 'text-rose-600' },
   };
   const t = toneClass[props.tone];
+  
+  const showTrend = props.trend !== undefined && props.trend !== null;
+  const isPositive = (props.trend ?? 0) >= 0;
+  const trendColor = isPositive ? 'text-emerald-600' : 'text-rose-600';
+  const TrendIcon = isPositive ? TrendingUp : TrendingDown;
+
   return (
     <div className={cn('rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1', t.ring)}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{props.title}</p>
           <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{props.value}</p>
           {props.sub != null && <p className="mt-1 text-[11px] text-slate-400">{props.sub}</p>}
+          {showTrend && (
+            <div className={cn('mt-2 flex items-center gap-1 text-xs font-medium', trendColor)}>
+              <TrendIcon className="h-3.5 w-3.5" />
+              <span>{Math.abs(props.trend ?? 0).toFixed(1)}%</span>
+              {props.trendLabel && <span className="text-slate-500 font-normal ml-1">{props.trendLabel}</span>}
+            </div>
+          )}
         </div>
         <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', t.iconBg, t.iconFg)}>
           {props.icon}
@@ -135,61 +153,45 @@ function resolveRange(effectiveRange: NonNullable<DashboardRangeParams['range']>
   }
 }
 
-function toDateOnly(iso: string) {
-  return dayjs(iso).format('YYYY-MM-DD');
-}
-
 function TeachingHistoryRow(props: { item: DashboardTeachingHistoryItem }) {
   const it = props.item;
 
-  // Use staff role as "type" to color the card border.
-  // This keeps the UI consistent and avoids using completion/cancel status for coloring.
-  const normalizedRole = (it.role ?? '').toLowerCase();
-  const isAssistant =
-    normalizedRole.includes('trợ') ||
-    normalizedRole.includes('tro') ||
-    normalizedRole.includes('ta') ||
-    normalizedRole.includes('assistant') ||
-    normalizedRole.includes('tutor');
-  const isTeacher =
-    normalizedRole.includes('giáo viên') ||
-    normalizedRole.includes('giao vien') ||
-    normalizedRole.includes('teacher');
-
-  const containerBorder = isAssistant ? 'border-emerald-200/70' : isTeacher ? 'border-sky-200/70' : 'border-slate-200/70';
-  const containerBg = isAssistant ? 'bg-emerald-50/30' : isTeacher ? 'bg-sky-50/40' : 'bg-slate-50/40';
-  const roleBadgeToneClass = isAssistant
-    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-    : isTeacher
-      ? 'border-sky-200 bg-sky-50 text-sky-700'
-      : 'border-slate-200 bg-slate-50 text-slate-700';
+  // Get role ID and use constants for styling
+  const roleId = getStaffRoleId(it.role);
+  const roleLabel = roleId ? ROLE_MAP[roleId] : (it.role || '—');
+  const badgeClass = roleId ? getRoleBadgeClass(roleId) : 'bg-slate-100 text-slate-600 border-slate-200';
+  
+  // Container styling based on role
+  const containerBorder = roleId === 4 ? 'border-violet-200/70' : roleId === 5 ? 'border-amber-200/70' : 'border-slate-200/70';
+  const containerBg = roleId === 4 ? 'bg-violet-50/30' : roleId === 5 ? 'bg-amber-50/30' : 'bg-slate-50/40';
 
   return (
     <div className={cn('rounded-xl border p-3', containerBorder, containerBg)}>
-      <div className="flex items-start gap-3">
-        <div className="min-w-0">
+      <div className="flex flex-col gap-2">
+        <div>
           <div className="text-sm font-semibold text-slate-900 truncate">{it.sessionTitle || `Buổi ${it.sessionNo}`}</div>
           <div className="mt-1 text-xs text-slate-500 truncate">
             {it.request?.requestCode ? `${it.request.requestCode} · ` : ''}
             {it.request?.requestName ?? '—'}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 min-w-0">
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3.5 w-3.5 text-slate-400" />
               {dayjs(it.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.endAt).format('HH:mm')}
             </span>
             <span className="text-slate-300">•</span>
             <span className="truncate">{it.location || '—'}</span>
-            <span className="text-slate-300">•</span>
-            <span
-              className={cn(
-                'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap shrink-0',
-                roleBadgeToneClass,
-              )}
-            >
-              {it.role || '—'}
-            </span>
           </div>
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap shrink-0',
+              badgeClass
+            )}
+          >
+            {roleLabel}
+          </span>
         </div>
       </div>
     </div>
@@ -200,7 +202,7 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
   const it = props.item;
   const missingCheckin = !it.checkinAt;
   const missingCheckout = !!it.checkinAt && !it.checkoutAt;
-  const badgeLabel = missingCheckin ? 'Thiếu đầu giờ' : missingCheckout ? 'Thiếu cuối giờ ' : '—';
+  const badgeLabel = missingCheckin ? 'Chưa xác nhận' : missingCheckout ? 'Thiếu xác nhận' : '—';
   const badgeTone = missingCheckin || missingCheckout ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600';
   return (
     <div
@@ -210,7 +212,7 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-slate-900 truncate">{it.session?.sessionTitle ?? '—'}</div>
           <div className="mt-1 text-xs text-slate-500 truncate">
             {it.request?.requestCode ? `${it.request.requestCode} · ` : ''}
@@ -219,10 +221,10 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3.5 w-3.5 text-slate-400" />
-              {dayjs(it.session.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.session.endAt).format('HH:mm')}
+              {dayjs(it.session?.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.session?.endAt).format('HH:mm')}
             </span>
             <span className="text-slate-300">•</span>
-            <span className="truncate">{it.session.location || '—'}</span>
+            <span className="truncate">{it.session?.location || '—'}</span>
           </div>
         </div>
 
@@ -260,9 +262,7 @@ export default function TeacherDashboard() {
     queryFn: () =>
       dashboardApi.getUserTeachingHistory(memberId as number, {
         from,
-        toExclusive,
-        pageNumber: 1,
-        pageSize: 6,
+        to: toInclusiveIso,
       }),
     enabled: memberId != null,
   });
@@ -272,11 +272,7 @@ export default function TeacherDashboard() {
     queryFn: () =>
       dashboardApi.getUserAttendanceHistory(memberId as number, {
         from,
-        toExclusive,
-        // Teacher dashboard ưu tiên nhắc thiếu checkout (đã checkin nhưng chưa checkout)
-        missingCheckout: true,
-        pageNumber: 1,
-        pageSize: 6,
+        to: toInclusiveIso,
       }),
     enabled: memberId != null,
   });
@@ -285,11 +281,7 @@ export default function TeacherDashboard() {
     queryKey: ['teacher-dashboard', 'contracts', memberId ?? 0, effectiveRange],
     queryFn: () =>
       dashboardApi.getMemberContractsStatistics(memberId as number, {
-        // Endpoint này thường filter theo DateOnly => gửi yyyy-mm-dd để tránh mismatch
-        fromDate: toDateOnly(from),
-        toDate: toDateOnly(toInclusiveIso),
-        pageNumber: 1,
-        pageSize: 5,
+        range: effectiveRange,
       }),
     enabled: memberId != null,
   });
@@ -297,35 +289,35 @@ export default function TeacherDashboard() {
   const teachingItems = teachingHistoryQ.data?.items ?? [];
   const attendanceItems = attendanceIssuesQ.data?.items ?? [];
 
-  const missingCheckoutTotal = Number(attendanceIssuesQ.data?.totalItems ?? 0) || 0;
+  const missingCheckinTotal = Number(attendanceIssuesQ.data?.totalItems ?? 0) || 0;
 
   const firstError =
     workloadQ.error ?? teachingHistoryQ.error ?? attendanceIssuesQ.error ?? contractsQ.error ?? null;
 
   return (
-    <div className="min-h-full space-y-5 app-page-bg p-6 pl-8">
+    <div className="min-h-full space-y-4 app-page-bg p-6 pl-8">
       <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-[#1a7a99]">Dashboard giảng viên</h2>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Bảng điều khiển</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Tổng quan khối lượng giảng dạy, thu nhập ước tính và các buổi cần bạn chú ý.
+              Tổng quan khối lượng tham gia, thu nhập ước tính và các buổi cần bạn chú ý.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="text-xs text-slate-500">Khoảng thời gian:</span>
-            <select
-              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400/30 min-w-[160px]"
-              value={effectiveRange}
-              onChange={(e) => setRange(e.target.value as NonNullable<DashboardRangeParams['range']>)}
-            >
-              <option value="today">Hôm nay</option>
-              <option value="thisweek">Tuần này</option>
-              <option value="thismonth">Tháng này</option>
-              <option value="last3months">3 tháng gần đây</option>
-              <option value="last6months">6 tháng gần đây</option>
-              <option value="1year">1 năm gần đây</option>
-            </select>
+            <Select value={effectiveRange} onValueChange={(value) => setRange(value as NonNullable<DashboardRangeParams['range']>)}>
+              <SelectTrigger className="w-[180px] h-9 border-slate-200 bg-white">
+                <SelectValue placeholder="Chọn khoảng thời gian" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Hôm nay</SelectItem>
+                <SelectItem value="thisweek">Tuần này</SelectItem>
+                <SelectItem value="thismonth">Tháng này</SelectItem>
+                <SelectItem value="last3months">3 tháng gần đây</SelectItem>
+                <SelectItem value="last6months">6 tháng gần đây</SelectItem>
+                <SelectItem value="1year">1 năm gần đây</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
@@ -342,127 +334,186 @@ export default function TeacherDashboard() {
             </div>
           ) : null}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
+          {/* KPI Cards - 4 metrics */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             <KpiCard
               tone="sky"
-              title="Giờ dạy (hoàn thành)"
+              title="Giờ dạy hoàn thành"
               value={workloadQ.data ? Number(workloadQ.data.totalTeachingHours ?? 0).toFixed(1) : '—'}
               sub={rangeLabelMap[effectiveRange]}
               icon={<Clock className="h-5 w-5" />}
+              trend={workloadQ.data?.totalTeachingHoursChangePercent}
+              trendLabel="so với kỳ trước"
+            />
+            <KpiCard
+              tone="emerald"
+              title="Buổi hoàn thành"
+              value={workloadQ.data?.completedSessions ?? '—'}
+              sub={rangeLabelMap[effectiveRange]}
+              icon={<CheckCircle2 className="h-5 w-5" />}
+              trend={workloadQ.data?.completedSessionsChangePercent}
+              trendLabel="so với kỳ trước"
+            />
+            <KpiCard
+              tone="rose"
+              title="Buổi bị hủy"
+              value={workloadQ.data?.canceledSessions ?? '—'}
+              sub={rangeLabelMap[effectiveRange]}
+              icon={<XCircle className="h-5 w-5" />}
+              trend={workloadQ.data?.canceledSessionsChangePercent}
+              trendLabel="so với kỳ trước"
+            />
+            <KpiCard
+              tone="indigo"
+              title="Thu nhập ước tính"
+              value={
+                workloadQ.data
+                  ? new Intl.NumberFormat('vi-VN', {
+                      style: 'currency',
+                      currency: 'VND',
+                      maximumFractionDigits: 0,
+                    }).format(workloadQ.data.estimatedIncome ?? 0)
+                  : '—'
+              }
+              sub={rangeLabelMap[effectiveRange]}
+              icon={<DollarSign className="h-5 w-5" />}
+              trend={workloadQ.data?.estimatedIncomeChangePercent}
+              trendLabel="so với kỳ trước"
             />
           </div>
 
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-sky-600" />
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Khối lượng giảng dạy</p>
-                  <p className="text-xs text-slate-500">Giờ dạy theo {rangeLabelMap[effectiveRange]}</p>
-                </div>
-              </div>
-            </div>
-
-            {workloadQ.data?.teachingHoursSeries?.length ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={workloadQ.data.teachingHoursSeries}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value: any) => `${Number(value ?? 0).toFixed(1)} giờ`}
-                      wrapperClassName="text-xs"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="completedTeachingHours"
-                      name="Giờ dạy"
-                      stroke="#0ea5e9"
-                      strokeWidth={2}
-                      dot={{ r: 2 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="py-4 text-center text-xs text-slate-500">Chưa có dữ liệu workload.</p>
-            )}
-          </div>
-
+          {/* Teaching History & Attendance Issues */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {/* Teaching History - Takes 2 columns */}
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-2">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Buổi đã tham gia gần đây</p>
-                  <p className="text-xs text-slate-500">Trong {rangeLabelMap[effectiveRange]}</p>
+                  <p className="text-xs text-slate-500">
+                    {teachingItems.length} buổi trong {rangeLabelMap[effectiveRange]}
+                  </p>
                 </div>
-                <Button type="button" variant="ghost" size="sm" className="text-sky-700" onClick={() => (window.location.href = '/teacher/teaching-history')}>
-                  Xem danh sách
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-sky-700 hover:text-sky-800 hover:bg-sky-50"
+                  onClick={() => (window.location.href = '/teacher/teaching-history')}
+                >
+                  Xem tất cả
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>
               <div className="space-y-3">
                 {teachingItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Chưa có dữ liệu.</p>
+                  <div className="py-12 text-center">
+                    <Clock className="mx-auto h-12 w-12 text-slate-300 mb-3" />
+                    <p className="text-sm text-slate-500">Chưa có buổi học nào</p>
+                    <p className="text-xs text-slate-400 mt-1">Dữ liệu sẽ hiển thị khi bạn tham gia buổi học</p>
+                  </div>
                 ) : (
-                  teachingItems.map((it) => <TeachingHistoryRow key={it.sessionId} item={it} />)
+                  teachingItems.map((it: any) => <TeachingHistoryRow key={it.sessionId} item={it} />)
                 )}
               </div>
             </div>
 
+            {/* Attendance Issues - Takes 1 column */}
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Cần chú ý</p>
                   <p className="text-xs text-slate-500">
-                    Thiếu cuối giờ : <span className="font-semibold text-amber-700">{missingCheckoutTotal}</span>
+                    <span className="font-semibold text-amber-700">{missingCheckinTotal}</span> buổi chưa xác nhận tham gia
                   </p>
                 </div>
-                <div className="shrink-0 flex items-center gap-2 text-amber-600">
-                  <AlertTriangle className="h-4 w-4" />
+                <div className="shrink-0 rounded-lg bg-amber-50 p-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
                 </div>
               </div>
               <div className="space-y-3">
                 {attendanceItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Không có buổi thiếu cuối giờ .</p>
+                  <div className="py-12 text-center">
+                    <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-300 mb-3" />
+                    <p className="text-sm text-emerald-600 font-medium">Tuyệt vời!</p>
+                    <p className="text-xs text-slate-500 mt-1">Đã xác nhận tham gia tất cả các buổi</p>
+                  </div>
                 ) : (
-                  attendanceItems.map((it) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
+                  attendanceItems.map((it: any) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
                 )}
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-start justify-between gap-3">
+          {/* Contracts Section */}
+          <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-indigo-600" />
+                <div className="rounded-lg bg-indigo-50 p-2">
+                  <FileText className="h-5 w-5 text-indigo-600" />
+                </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Hợp đồng & thanh toán</p>
+                  <p className="text-sm font-semibold text-slate-900">Hợp đồng & Thanh toán</p>
                   <p className="text-xs text-slate-500">Tổng quan trong {rangeLabelMap[effectiveRange]}</p>
                 </div>
               </div>
-              <Button type="button" variant="ghost" size="sm" className="text-sky-700" onClick={() => (window.location.href = '/teacher/contracts')}>
-                Xem hợp đồng
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-sky-700 hover:text-sky-800 hover:bg-sky-50"
+                onClick={() => (window.location.href = '/teacher/contracts')}
+              >
+                Xem chi tiết
                 <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             </div>
 
             {contractsQ.data ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
-                  <p className="text-[11px] text-slate-500 font-medium uppercase">Tổng hợp đồng</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{contractsQ.data.totalContracts}</p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-200/70 bg-gradient-to-br from-slate-50 to-white p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-slate-500 font-medium uppercase">Tổng hợp đồng</p>
+                    <FileText className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900">{contractsQ.data.totalContracts}</p>
+                  <p className="text-xs text-slate-500 mt-1">Hợp đồng đã ký</p>
                 </div>
-                <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
-                  <p className="text-[11px] text-slate-500 font-medium uppercase">Hợp đồng gần đây</p>
-                  <p className="mt-1 text-xs text-slate-600">
-                    {contractsQ.data.contracts?.items?.length ?? 0} mục (trang 1)
+
+                <div className="rounded-xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-emerald-600 font-medium uppercase">Đã thanh toán</p>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  </div>
+                  <p className="text-2xl font-bold text-emerald-700">{contractsQ.data.paidContracts ?? 0}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {new Intl.NumberFormat('vi-VN', {
+                      style: 'currency',
+                      currency: 'VND',
+                      maximumFractionDigits: 0,
+                    }).format(contractsQ.data.paidValue ?? 0)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-amber-600 font-medium uppercase">Chưa thanh toán</p>
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <p className="text-2xl font-bold text-amber-700">{contractsQ.data.unpaidContracts ?? 0}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {new Intl.NumberFormat('vi-VN', {
+                      style: 'currency',
+                      currency: 'VND',
+                      maximumFractionDigits: 0,
+                    }).format(contractsQ.data.unpaidValue ?? 0)}
                   </p>
                 </div>
               </div>
             ) : (
-              <p className="py-6 text-center text-xs text-slate-500">Chưa có dữ liệu hợp đồng.</p>
+              <div className="py-12 text-center">
+                <FileText className="mx-auto h-12 w-12 text-slate-300 mb-3" />
+                <p className="text-sm text-slate-500">Chưa có dữ liệu hợp đồng</p>
+              </div>
             )}
           </div>
         </>

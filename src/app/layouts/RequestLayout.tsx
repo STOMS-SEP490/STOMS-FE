@@ -43,7 +43,7 @@ const REQUEST_TYPE_BADGE_CLASS: Record<RequestTypeKey, string> = {
 
 const getRequestTypeInfo = (row: RequestListItem): { key: RequestTypeKey; label: string } => {
   if (row.subjectId) return { key: 'subject', label: 'Môn học' };
-  if (row.courseId) return { key: 'course', label: 'Khóa học' };
+  if (row.courseId) return { key: 'course', label: 'Chương trình học' };
   if (row.eventId) return { key: 'event', label: 'Sự kiện' };
   return { key: 'other', label: 'Khác' };
 };
@@ -183,6 +183,13 @@ export default function RequestLayout() {
     sidebarRefreshKey,
     requestQueryOptions,
   );
+
+  // Refresh data when navigating back from detail to table
+  useEffect(() => {
+    if (!isDetailMode) {
+      setSidebarRefreshKey((k) => k + 1);
+    }
+  }, [isDetailMode]);
 
   const filteredRequests = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -434,7 +441,7 @@ export default function RequestLayout() {
                     <SelectItem value="all">Tất cả loại</SelectItem>
                     <SelectItem value="event">Sự kiện</SelectItem>
                     <SelectItem value="subject">Môn học</SelectItem>
-                    <SelectItem value="course">Khóa học</SelectItem>
+                    <SelectItem value="course">Chương trình học</SelectItem>
                   </SelectContent>
                 </Select>
 
