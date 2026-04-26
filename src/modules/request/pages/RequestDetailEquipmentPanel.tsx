@@ -463,7 +463,7 @@ export default function RequestDetailEquipmentPanel({ sessions, createdByMemberI
               disabled={!canSubmit || submitLoading}
               onClick={() => void handleSubmit()}
             >
-              {submitLoading ? 'Đang xử lý...' : 'Đặt trước'}
+              {submitLoading ? 'Đang xử lý...' : 'Xác nhận'}
             </Button>
           </div>
         </div>
