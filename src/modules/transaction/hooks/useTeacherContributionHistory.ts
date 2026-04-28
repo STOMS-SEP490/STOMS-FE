@@ -141,7 +141,8 @@ export function useTeacherContributionHistory() {
   const onContributionSubmitted = useCallback(() => {
     setPageNumber(1);
     void fetchContributions();
-  }, [fetchContributions]);
+    void fetchWallets(); // Fetch lại wallets để cập nhật số dư
+  }, [fetchContributions, fetchWallets]);
 
   return {
     loading,
