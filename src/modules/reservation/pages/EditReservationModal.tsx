@@ -68,6 +68,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
   const hasEnded = reservation ? !dayjs(reservation.EndAt).isAfter(dayjs()) : false;
 
   useEffect(() => {
+    if (!open) return; 
     let cancelled = false;
     const load = async () => {
       try {
@@ -81,7 +82,7 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [open]); // Thêm open vào dependency
 
   useEffect(() => {
     if (!open || !reservation) return;

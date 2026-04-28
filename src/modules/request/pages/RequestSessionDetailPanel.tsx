@@ -11,7 +11,7 @@ import EditReservationModal from '@/modules/reservation/pages/EditReservationMod
 import type { RequestSessionSummary } from '../request';
 import sessionService from '../api/sessionApi';
 import type { AssignmentResponse, SessionResponse } from '../session.types';
-import { SESSION_STATUS, getSessionStatusCode } from '@/constants/status';
+import { SESSION_STATUS, getSessionStatusCode, getEquipmentStatusDisplay, getEquipmentStatusColor } from '@/constants/status';
 
 export type SessionDetailProps = {
   session: RequestSessionSummary & {
@@ -440,6 +440,24 @@ export default function RequestSessionDetailPanel({
 
                         <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500">
                           <span className="truncate">Danh mục: {eq?.CategoryName || '—'}</span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <div>
+                            <span className="text-[11px] text-gray-500 mr-1">Trạng thái thiết bị:</span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getEquipmentStatusColor(eq?.Status ?? '')} border`}>
+                              {getEquipmentStatusDisplay(eq?.Status ?? '')}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[11px] text-gray-500 mr-1">Trạng thái duyệt:</span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                              er.IsTemporarilyCancelled 
+                                ? 'bg-red-50 text-red-700 border-red-200' 
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}>
+                              {er.IsTemporarilyCancelled ? 'Tạm hủy' : 'Đã duyệt'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </li>

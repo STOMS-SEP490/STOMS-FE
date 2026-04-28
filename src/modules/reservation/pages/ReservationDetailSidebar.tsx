@@ -6,7 +6,7 @@ import type { ReservationDetail } from '@/modules/reservation/reservation.types'
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox, message } from 'antd';
-import { getSessionStatusInfo, getReservationStatusInfo, RESERVATION_STATUS } from '@/constants/status';
+import { getSessionStatusInfo, getReservationStatusInfo, RESERVATION_STATUS, getEquipmentStatusDisplay, getEquipmentStatusColor } from '@/constants/status';
 import { cn } from '@/shared/lib/utils';
 import { Image } from 'antd';
 import { ROLE_ID } from '@/constants/role';
@@ -88,8 +88,15 @@ export default function ReservationDetailSidebar({
       : equipmentList.length;
 
   // Xác định trạng thái hiển thị - map từ IsTemporarilyCancelled
-  const cancelled = reservation.IsTemporarilyCancelled === true;
-  const mappedStatus = cancelled ? RESERVATION_STATUS.REJECTED : RESERVATION_STATUS.PENDING;
+  // true = Từ chối, false = Đã xác nhận, null/undefined = Chưa xác nhận
+  let mappedStatus: number;
+  if (reservation.IsTemporarilyCancelled === true) {
+    mappedStatus = RESERVATION_STATUS.REJECTED; // 3
+  } else if (reservation.IsTemporarilyCancelled === false) {
+    mappedStatus = RESERVATION_STATUS.CONFIRMED; // 2
+  } else {
+    mappedStatus = RESERVATION_STATUS.PENDING; // 1
+  }
   const statusInfo = getReservationStatusInfo(mappedStatus);
   const displayStatus = statusInfo.label;
   const statusBadgeClass = `border ${statusInfo.className}`;
@@ -111,12 +118,7 @@ export default function ReservationDetailSidebar({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT ĐƠN YÊU CẦU THIẾT BỊ</p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <h2 className="text-xl font-semibold text-[#1a7a99]">Đơn yêu cầu thiết bị #{reservation.ReservationId}</h2>
-                    <Badge className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium border-0', statusBadgeClass)}>
-                      {displayStatus}
-                    </Badge>
-                  </div>
+                  <h2 className="mt-1.5 text-xl font-semibold text-[#1a7a99]">Đơn yêu cầu thiết bị #{reservation.ReservationId}</h2>
                   {createdBy && (
                     <div className="mt-2 flex items-center gap-2">
                       <img src={createdBy.AvatarUrl?.trim() || '/img/ava.png'} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
@@ -247,8 +249,6 @@ export default function ReservationDetailSidebar({
                       const displayName = eq?.EquipmentName?.trim() || 'Thiết bị';
                       const code = eq?.EquipmentCode?.trim();
                       const isSelected = selectedEquipmentIds.includes(er.EquipmentId);
-                      const isCancelled = er.IsTemporarilyCancelled === true;
-                      const isConfirmed = er.IsTemporarilyCancelled === false;
                       
                       return (
                         <div key={`${code ?? 'eq'}-${idx}`} className="py-3 flex items-center gap-3">
@@ -275,13 +275,27 @@ export default function ReservationDetailSidebar({
                                 <p className="truncate text-sm font-semibold text-[#2197C0]">{displayName}</p>
                                 <p className="text-xs text-slate-500">Mã: <span className="font-medium text-slate-700">{code || '—'}</span></p>
                                 <p className="text-xs text-slate-500">Danh mục: <span className="font-medium text-slate-700">{eq?.CategoryName || '—'}</span></p>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  <div>
+                                    <span className="text-[11px] text-gray-500 mr-1">Trạng thái thiết bị:</span>
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getEquipmentStatusColor(eq?.Status ?? '')} border`}>
+                                      {getEquipmentStatusDisplay(eq?.Status ?? '')}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[11px] text-gray-500 mr-1">Trạng thái duyệt:</span>
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                                      er.IsTemporarilyCancelled 
+                                        ? 'bg-red-50 text-red-700 border-red-200' 
+                                        : er.IsTemporarilyCancelled === false
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                                    }`}>
+                                      {er.IsTemporarilyCancelled ? 'Từ chối' : er.IsTemporarilyCancelled === false ? 'Đã duyệt' : 'Chưa xác nhận'}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                              {isCancelled && (
-                                <Badge className="shrink-0 border-0 bg-red-50 text-xs text-red-700">Từ chối</Badge>
-                              )}
-                              {isConfirmed && (
-                                <Badge className="shrink-0 border-0 bg-green-50 text-xs text-green-700">Đã xác nhận</Badge>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -303,7 +317,7 @@ export default function ReservationDetailSidebar({
                               message.success('Đã từ chối thiết bị');
                               setSelectedEquipmentIds([]);
                               setShowApprovalMode(false);
-                              onEquipmentsApproved?.();
+                              await onEquipmentsApproved?.();
                               onClose();
                             } catch (err: any) {
                               message.error(err?.response?.data?.message || err?.message || 'Từ chối thất bại');
@@ -322,7 +336,7 @@ export default function ReservationDetailSidebar({
                               message.success('Đã duyệt thiết bị');
                               setSelectedEquipmentIds([]);
                               setShowApprovalMode(false);
-                              onEquipmentsApproved?.();
+                              await onEquipmentsApproved?.();
                               onClose();
                             } catch (err: any) {
                               message.error(err?.response?.data?.message || err?.message || 'Duyệt thất bại');

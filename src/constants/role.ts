@@ -15,7 +15,7 @@ export const ROLE_MAP: Record<number, string> = {
   3: 'Điều phối chương trình',
   4: 'Giảng viên',
   5: 'Sinh viên',
-  6: 'Quản lý thiết bị',
+  6: 'Giám sát thiết bị',
 };
 
 export const ROLE_BADGE_CLASS: Record<number, string> = {

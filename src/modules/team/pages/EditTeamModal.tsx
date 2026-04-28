@@ -31,7 +31,7 @@ type Props = {
 };
 
 const ROLE_LABEL: Record<number, string> = {
-  1: 'Quản lý', 2: 'Trưởng nhóm', 3: 'Điều phối', 4: 'Giáo viên', 5: 'Sinh viên', 6: 'Quản lý thiết bị',
+  1: 'Quản lý', 2: 'Trưởng nhóm', 3: 'Điều phối', 4: 'Giáo viên', 5: 'Sinh viên', 6: 'Giám sát thiết bị',
 };
 
 export default function EditTeamModal({ open, onClose, team, onUpdated }: Props) {

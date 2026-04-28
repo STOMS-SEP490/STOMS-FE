@@ -109,9 +109,9 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
         paymentImg: imageFile,
       });
       message.success('Đóng góp quỹ thành công.');
+      onSubmitted?.(); // Fetch lại data trước
       resetState();
-      onClose();
-      onSubmitted?.();
+      onClose(); // Đóng modal sau
     } catch (err) {
       console.error('teacher contribute error:', err);
       message.error('Đóng góp quỹ thất bại. Vui lòng thử lại.');
@@ -185,7 +185,7 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
               type="text"
               inputMode="numeric"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
               placeholder="Nhập số tiền"
               className="border-0 focus-visible:ring-0 text-black placeholder:text-gray-500"
             />

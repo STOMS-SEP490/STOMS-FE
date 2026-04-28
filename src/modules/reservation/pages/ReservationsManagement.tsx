@@ -93,9 +93,16 @@ export default function ReservationsManagement() {
     }
   }, []);
 
-  const isTemporarilyCancelled = statusFilter === 'all' ? undefined : statusFilter === RESERVATION_STATUS.REJECTED;
-
   const statusFilterValue = undefined; // Backend không có Status field
+  
+  // Map statusFilter sang IsTemporarilyCancelledStatuses string
+  const isTemporarilyCancelledStatuses = useMemo(() => {
+    if (statusFilter === 'all') return undefined;
+    if (statusFilter === RESERVATION_STATUS.PENDING) return 'null'; // Chưa xác nhận
+    if (statusFilter === RESERVATION_STATUS.CONFIRMED) return 'false'; // Đã xác nhận
+    if (statusFilter === RESERVATION_STATUS.REJECTED) return 'true'; // Từ chối
+    return undefined;
+  }, [statusFilter]);
 
   const closeDetail = useCallback(() => {
     skipNextAutoOpenRef.current = true;
@@ -146,35 +153,18 @@ export default function ReservationsManagement() {
 
     setLoading(true);
     try {
-      // Nếu chọn "Đã xác nhận" hoặc "Chưa xác nhận", get tất cả rồi filter ở FE
-      // Vì BE trả về cả null khi filter IsTemporarilyCancelled=false
-      const shouldFilterInFE = statusFilter === RESERVATION_STATUS.CONFIRMED || statusFilter === RESERVATION_STATUS.PENDING;
-      
       const res = normalizeReservationPagedResponse(
         await reservationApi.getFilter({
           ReservationId: reservationId,
-          IsTemporarilyCancelled: shouldFilterInFE ? undefined : isTemporarilyCancelled,
+          IsTemporarilyCancelledStatuses: isTemporarilyCancelledStatuses,
           Status: statusFilterValue,
           PageNumber: pageNumber,
           PageSize: PAGE_SIZE,
         }),
       );
 
-      let filteredItems = res.Items ?? [];
-
-      // Filter ở FE nếu cần
-      if (shouldFilterInFE) {
-        if (statusFilter === RESERVATION_STATUS.CONFIRMED) {
-          // Đã xác nhận: IsTemporarilyCancelled === false (không bao gồm null)
-          filteredItems = filteredItems.filter(item => item.IsTemporarilyCancelled === false);
-        } else if (statusFilter === RESERVATION_STATUS.PENDING) {
-          // Chưa xác nhận: IsTemporarilyCancelled === null hoặc undefined
-          filteredItems = filteredItems.filter(item => item.IsTemporarilyCancelled == null);
-        }
-      }
-
-      setItems(filteredItems);
-      setTotalItems(filteredItems.length); // Dùng số lượng sau khi filter
+      setItems(res.Items ?? []);
+      setTotalItems(res.TotalItems ?? 0);
     } catch (err: unknown) {
       console.error('fetchReservations error:', err);
       message.error('Không tải được danh sách lịch sử đặt trước');
@@ -183,7 +173,7 @@ export default function ReservationsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [reservationIdSearch, isTemporarilyCancelled, statusFilterValue, statusFilter, pageNumber]);
+  }, [reservationIdSearch, isTemporarilyCancelledStatuses, statusFilterValue, pageNumber]);
 
   const handleDelete = useCallback(
     (item: ReservationListItem) => {
@@ -410,17 +400,10 @@ export default function ReservationsManagement() {
     [handleView, handleEditFromList, handleDelete, currentMemberId, isEquipmentManager],
   );
 
-  // Debounce for reservationId search
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Fetch when filters change
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      void fetchReservations();
-    }, 400);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [reservationIdSearch, isTemporarilyCancelled, statusFilterValue, pageNumber, fetchReservations]);
+    void fetchReservations();
+  }, [fetchReservations]);
 
   useEffect(() => {
     if (openDetailFromUrl !== '1') return;

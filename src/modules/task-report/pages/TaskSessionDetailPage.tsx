@@ -16,10 +16,11 @@ import HoverSearch from '@/shared/components/ui/search';
 import { getExpenseStatusInfo, EXPENSE_STATUS } from '@/constants/status';
 import { getStaffRoleId, getRoleLabel, getRoleBadgeClass } from '@/constants/role';
 
-import type { TaskReport, TaskReportExpense } from '../taskReport';
-import { expenseApi } from '@/modules/transaction/api/expenseApi';
-import { walletApi, type WalletListItem } from '@/modules/transaction/api/walletApi';
+import type { TaskReport } from '../taskReport';
 import { useManagerTaskSession } from '../hooks/useManagerTaskSession';
+import { useExpenseManagement } from '../hooks/useExpenseManagement';
+import { useExpenseForm } from '../hooks/useExpenseForm';
+import { useWalletSelection } from '../hooks/useWalletSelection';
 
 
 
@@ -54,14 +55,6 @@ type ReportFormState = {
   description: string;
   startAt: string;
   endAt: string;
-};
-
-type CreateExpenseRow = {
-  key: string;
-  amount: string;
-  description: string;
-  file: File | null;
-  preview: string;
 };
 
 export default function TaskSessionDetailPage() {
@@ -122,109 +115,15 @@ export default function TaskSessionDetailPage() {
   // ── Expanded expenses ──
   const [expandedExpensesReportId, setExpandedExpensesReportId] = useState<number | null>(null);
 
-  // ── Image preview popup ──
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-
-  // ── Expense detail popup ──
-  const [selectedExpense, setSelectedExpense] = useState<TaskReportExpense | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
-  const [processingExpense, setProcessingExpense] = useState(false);
-  const [showRejectReason, setShowRejectReason] = useState(false);
-
-  // ── Edit expense (teacher, pending only) ──
-  const [editExpenseMode, setEditExpenseMode] = useState(false);
-  const [editExpenseAmount, setEditExpenseAmount] = useState('');
-  const [editExpenseDescription, setEditExpenseDescription] = useState('');
-  const [editExpenseFile, setEditExpenseFile] = useState<File | null>(null);
-  const [editExpensePreview, setEditExpensePreview] = useState('');
-  const [savingExpense, setSavingExpense] = useState(false);
-  
-  // ── Wallets for approval ──
-  const [wallets, setWallets] = useState<WalletListItem[]>([]);
-  const [selectedWalletId, setSelectedWalletId] = useState<number | null>(null);
-  const [walletsLoading, setWalletsLoading] = useState(false);
+  // ── Use custom hooks ──
+  const expenseManagement = useExpenseManagement(refetch);
+  const expenseForm = useExpenseForm(refetch);
+  const { wallets, selectedWalletId, setSelectedWalletId, walletsLoading } = useWalletSelection(isManager);
 
   // ── Create/Edit modal ──
   const [openModal, setOpenModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formState, setFormState] = useState<ReportFormState>({ title: '', description: '', startAt: '', endAt: '' });
-
-  // ── Expense rows for create (non-manager only) ──
-  const [hasExpense, setHasExpense] = useState(false);
-  const [createExpenses, setCreateExpenses] = useState<CreateExpenseRow[]>([]);
-
-  const createEmptyExpense = useCallback(
-    (): CreateExpenseRow => ({
-      key: `ce-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      amount: '',
-      description: '',
-      file: null,
-      preview: '',
-    }),
-    [],
-  );
-
-  const handleHasExpenseToggle = useCallback(
-    (checked: boolean) => {
-      setHasExpense(checked);
-      if (checked) {
-        setCreateExpenses([createEmptyExpense()]);
-      } else {
-        setCreateExpenses([]);
-      }
-    },
-    [createEmptyExpense],
-  );
-
-  const updateCreateExpense = useCallback(
-    (key: string, patch: Partial<CreateExpenseRow>) => {
-      setCreateExpenses((prev) => prev.map((e) => (e.key === key ? { ...e, ...patch } : e)));
-    },
-    [],
-  );
-
-  const handleCreateExpenseImgChange = useCallback(
-    (key: string, file: File | null) => {
-      if (!file) { updateCreateExpense(key, { file: null, preview: '' }); return; }
-      if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
-        message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
-      updateCreateExpense(key, { file, preview: '' });
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') updateCreateExpense(key, { preview: reader.result });
-      };
-      reader.readAsDataURL(file);
-    },
-    [updateCreateExpense],
-  );
-
-  // ── Load wallets (for manager) ──
-  useEffect(() => {
-    if (!isManager) return;
-    let cancelled = false;
-    const run = async () => {
-      setWalletsLoading(true);
-      try {
-        const res = await walletApi.getWallets({ pageNumber: 1, pageSize: 50 });
-        if (cancelled) return;
-        setWallets(res.items ?? []);
-        if (res.items && res.items.length > 0) {
-          setSelectedWalletId(res.items[0].walletId);
-        }
-      } catch {
-        if (cancelled) return;
-        message.error('Không tải được danh sách ví.');
-      } finally {
-        if (cancelled) return;
-        setWalletsLoading(false);
-      }
-    };
-    void run();
-    return () => { cancelled = true; };
-  }, [isManager]);
 
   // ── Auto-select first member ──
   useEffect(() => {
@@ -263,26 +162,23 @@ export default function TaskSessionDetailPage() {
   const openAddModal = useCallback(() => {
     setEditingId(null);
     setFormState({ title: '', description: '', startAt: '', endAt: '' });
-    setHasExpense(false);
-    setCreateExpenses([]);
+    expenseForm.resetCreateExpenses();
     setOpenModal(true);
-  }, []);
+  }, [expenseForm]);
 
   const startEdit = useCallback((r: TaskReport) => {
     setEditingId(r.taskReportId);
     setFormState({ title: r.title ?? '', description: r.description ?? '', startAt: r.startAt ?? '', endAt: r.endAt ?? '' });
-    setHasExpense(false);
-    setCreateExpenses([]);
+    expenseForm.resetCreateExpenses();
     setOpenModal(true);
-  }, []);
+  }, [expenseForm]);
 
   const closeModal = useCallback(() => {
     setOpenModal(false);
     setEditingId(null);
     setFormState({ title: '', description: '', startAt: '', endAt: '' });
-    setHasExpense(false);
-    setCreateExpenses([]);
-  }, []);
+    expenseForm.resetCreateExpenses();
+  }, [expenseForm]);
 
   const handleSave = useCallback(async () => {
     // Manager không thể tạo/sửa báo cáo
@@ -294,91 +190,43 @@ export default function TaskSessionDetailPage() {
     message.warning('Bạn không có quyền xóa báo cáo.');
   }, []);
 
-  const handleApproveExpense = useCallback(async () => {
-    if (!selectedExpense || !selectedWalletId) {
-      message.warning('Vui lòng chọn ví để thanh toán.');
-      return;
-    }
-    setProcessingExpense(true);
-    try {
-      await expenseApi.approve({ walletId: selectedWalletId, expenseIds: [selectedExpense.expenseId] });
-      
-      message.success('Đã duyệt khoản chi.');
-      setSelectedExpense(null);
-      setRejectReason('');
-      refetch();
-    } catch (err) {
-      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : 'Duyệt thất bại.';
-      message.error(msg);
-    } finally {
-      setProcessingExpense(false);
-    }
-  }, [selectedExpense, selectedWalletId, refetch]);
+  // Destructure hooks for easier access
+  const {
+    selectedExpense,
+    setSelectedExpense,
+    rejectReason,
+    setRejectReason,
+    processingExpense,
+    showRejectReason,
+    setShowRejectReason,
+    previewImage,
+    setPreviewImage,
+    handleApproveExpense,
+    handleRejectExpense,
+    closeExpenseDetail,
+  } = expenseManagement;
 
-  const handleRejectExpense = useCallback(async () => {
-    if (!selectedExpense || !rejectReason.trim()) {
-      message.warning('Vui lòng nhập lý do từ chối.');
-      return;
-    }
-    setProcessingExpense(true);
-    try {
-      await expenseApi.reject({ expenseId: selectedExpense.expenseId, reason: rejectReason.trim() });
-      
-      message.success('Đã từ chối khoản chi.');
-      setSelectedExpense(null);
-      setRejectReason('');
-      refetch();
-    } catch (err) {
-      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : 'Từ chối thất bại.';
-      message.error(msg);
-    } finally {
-      setProcessingExpense(false);
-    }
-  }, [selectedExpense, rejectReason, refetch]);
-
-  const openEditExpense = useCallback((exp: TaskReportExpense) => {
-    setEditExpenseMode(true);
-    setEditExpenseAmount(exp.amount != null ? String(exp.amount) : '');
-    setEditExpenseDescription(exp.description ?? '');
-    setEditExpenseFile(null);
-    setEditExpensePreview(exp.paymentImg ?? '');
-  }, []);
-
-  const closeExpenseDetail = useCallback(() => {
-    setSelectedExpense(null);
-    setRejectReason('');
-    setShowRejectReason(false);
-    setEditExpenseMode(false);
-    setEditExpenseAmount('');
-    setEditExpenseDescription('');
-    setEditExpenseFile(null);
-    setEditExpensePreview('');
-  }, []);
-
-  const handleSaveEditExpense = useCallback(async () => {
-    if (!selectedExpense) return;
-    const amount = Number(editExpenseAmount.replace(/\D/g, ''));
-    if (!amount || amount <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return; }
-    setSavingExpense(true);
-    try {
-      await expenseApi.update({
-        expenseId: selectedExpense.expenseId,
-        amount,
-        description: editExpenseDescription.trim() || undefined,
-        paymentImg: editExpenseFile ?? undefined,
-      });
-      message.success('Đã cập nhật khoản chi.');
-      closeExpenseDetail();
-      refetch();
-    } catch (err) {
-      const msg = err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-        : null;
-      message.error(msg || 'Cập nhật khoản chi thất bại.');
-    } finally {
-      setSavingExpense(false);
-    }
-  }, [selectedExpense, editExpenseAmount, editExpenseDescription, editExpenseFile, closeExpenseDetail, refetch]);
+  const {
+    hasExpense,
+    createExpenses,
+    setCreateExpenses,
+    handleHasExpenseToggle,
+    updateCreateExpense,
+    handleCreateExpenseImgChange,
+    createEmptyExpense,
+    editExpenseMode,
+    setEditExpenseMode,
+    editExpenseAmount,
+    setEditExpenseAmount,
+    editExpenseDescription,
+    setEditExpenseDescription,
+    setEditExpenseFile,
+    editExpensePreview,
+    setEditExpensePreview,
+    savingExpense,
+    openEditExpense,
+    handleSaveEditExpense,
+  } = expenseForm;
 
   const sessionTitle = session
     ? (session.SubjectSession?.Title ?? session.EventSession?.Title ?? session.Notes ?? `Buổi ${session.SessionNo}`)
@@ -1067,7 +915,7 @@ export default function TaskSessionDetailPage() {
                   size="sm"
                   className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
                   disabled={savingExpense}
-                  onClick={() => void handleSaveEditExpense()}
+                  onClick={() => void handleSaveEditExpense(selectedExpense)}
                 >
                   {savingExpense ? 'Đang lưu...' : 'Lưu'}
                 </Button>
@@ -1076,7 +924,7 @@ export default function TaskSessionDetailPage() {
           ) : (
             /* ── Detail view ── */
             <div className="space-y-0 divide-y divide-slate-200">
-              <div className="py-4">
+              <div className="pb-4">
                 <label className="block text-xs font-semibold text-slate-500 mb-2">Mô tả</label>
                 <p className="text-sm text-slate-900">{selectedExpense.description || '—'}</p>
               </div>
@@ -1200,7 +1048,7 @@ export default function TaskSessionDetailPage() {
                           type="button" 
                           size="sm" 
                           className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={() => void handleApproveExpense()} 
+                          onClick={() => void handleApproveExpense(selectedWalletId)} 
                           disabled={processingExpense || !selectedWalletId || wallets.length === 0}
                         >
                           {processingExpense ? 'Đang xử lý...' : 'Duyệt'}

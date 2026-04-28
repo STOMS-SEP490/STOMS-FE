@@ -29,7 +29,7 @@ export function getRoleLabelById(roleId: number | null | undefined): string {
     case ROLE_ID.ASSISTANT:
       return 'Sinh viên';
     case ROLE_ID.EQUIPMENT_MANAGER:
-      return 'Quản lý thiết bị';
+      return 'Giám sát thiết bị';
     default:
       return `Role ${roleId}`;
   }

@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { Image } from 'antd';
+import { Image, Switch } from 'antd';
 import { CheckCircle2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { DataTable } from '@/shared/components/common/DataTable';
@@ -242,20 +242,18 @@ export default function TeacherContributionHistoryPage() {
             <div className="flex items-center gap-2"> 
               <h3 className="text-sm font-semibold text-slate-800">Chọn quỹ để xem giao dịch</h3>
             </div>
-            <div className="flex flex-wrap items-center gap-2 min-[900px]:justify-end">
-              <Button
-                type="button"
-                variant={selectedWalletId == null ? 'default' : 'outline'}
-                className={cn(
-                  'h-8 rounded-full px-3 text-xs',
-                  selectedWalletId == null
-                    ? 'bg-[#2197C0] text-white hover:bg-[#208AAE]'
-                    : 'border-slate-200 text-slate-600',
-                )}
-                onClick={() => onSelectWallet(null)}
-              >
-                Tất cả khoản của tôi
-              </Button>
+            <div className="flex flex-wrap items-center gap-3 min-[900px]:justify-end">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={selectedWalletId == null}
+                  onChange={(checked) => onSelectWallet(checked ? null : wallets[0]?.walletId ?? null)}
+                  className="bg-slate-300"
+                  style={{
+                    backgroundColor: selectedWalletId == null ? '#2197C0' : undefined,
+                  }}
+                />
+                <span className="text-xs font-medium text-slate-700">Tất cả khoản của tôi</span>
+              </div>
               {selectedWalletId != null && (
                 <span className="rounded-full bg-[#2197C0]/10 px-2.5 py-1 text-xs font-medium text-[#208AAE]">
                   Đang lọc theo quỹ đã chọn
