@@ -306,8 +306,8 @@ export default function EquipmentsManagement() {
       {/* HEADER */}
       <div className="bg-white flex justify-between items-center px-6 py-4 mb-2 rounded-xl border shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý thiết bị</h2>
-          <p className="text-xs text-slate-500">Quản lý thiết bị và loại thiết bị trong hệ thống</p>
+          <h2 className="text-xl font-semibold text-[#1a7a99]">Giám sát thiết bị</h2>
+          <p className="text-xs text-slate-500">Giám sát thiết bị và loại thiết bị trong hệ thống</p>
         </div>
         <div className="flex gap-3 items-center">
           {isEquipmentManager ? (

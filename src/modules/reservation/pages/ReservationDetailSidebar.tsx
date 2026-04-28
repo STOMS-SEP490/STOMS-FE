@@ -88,8 +88,15 @@ export default function ReservationDetailSidebar({
       : equipmentList.length;
 
   // Xác định trạng thái hiển thị - map từ IsTemporarilyCancelled
-  const cancelled = reservation.IsTemporarilyCancelled === true;
-  const mappedStatus = cancelled ? RESERVATION_STATUS.REJECTED : RESERVATION_STATUS.PENDING;
+  // true = Từ chối, false = Đã xác nhận, null/undefined = Chưa xác nhận
+  let mappedStatus: number;
+  if (reservation.IsTemporarilyCancelled === true) {
+    mappedStatus = RESERVATION_STATUS.REJECTED; // 3
+  } else if (reservation.IsTemporarilyCancelled === false) {
+    mappedStatus = RESERVATION_STATUS.CONFIRMED; // 2
+  } else {
+    mappedStatus = RESERVATION_STATUS.PENDING; // 1
+  }
   const statusInfo = getReservationStatusInfo(mappedStatus);
   const displayStatus = statusInfo.label;
   const statusBadgeClass = `border ${statusInfo.className}`;
@@ -111,12 +118,7 @@ export default function ReservationDetailSidebar({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT ĐƠN YÊU CẦU THIẾT BỊ</p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <h2 className="text-xl font-semibold text-[#1a7a99]">Đơn yêu cầu thiết bị #{reservation.ReservationId}</h2>
-                    <Badge className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium border-0', statusBadgeClass)}>
-                      {displayStatus}
-                    </Badge>
-                  </div>
+                  <h2 className="mt-1.5 text-xl font-semibold text-[#1a7a99]">Đơn yêu cầu thiết bị #{reservation.ReservationId}</h2>
                   {createdBy && (
                     <div className="mt-2 flex items-center gap-2">
                       <img src={createdBy.AvatarUrl?.trim() || '/img/ava.png'} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
@@ -249,6 +251,7 @@ export default function ReservationDetailSidebar({
                       const isSelected = selectedEquipmentIds.includes(er.EquipmentId);
                       const isCancelled = er.IsTemporarilyCancelled === true;
                       const isConfirmed = er.IsTemporarilyCancelled === false;
+                      const isPending = er.IsTemporarilyCancelled == null;
                       
                       return (
                         <div key={`${code ?? 'eq'}-${idx}`} className="py-3 flex items-center gap-3">
@@ -281,6 +284,9 @@ export default function ReservationDetailSidebar({
                               )}
                               {isConfirmed && (
                                 <Badge className="shrink-0 border-0 bg-green-50 text-xs text-green-700">Đã xác nhận</Badge>
+                              )}
+                              {isPending && (
+                                <Badge className="shrink-0 border-0 bg-amber-50 text-xs text-amber-700">Chưa xác nhận</Badge>
                               )}
                             </div>
                           </div>

@@ -38,7 +38,7 @@ function getDisplayTopics(team: Team) {
 
 function roleLabel(roleId: number | null | undefined) {
   switch (roleId) {
-    case 6: return 'Quản lý thiết bị';
+    case 6: return 'Giám sát thiết bị';
     case 5: return 'Sinh viên';
     case 4: return 'Giảng viên';
     case 3: return 'Điều phối chương trình';

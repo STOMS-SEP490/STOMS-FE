@@ -219,7 +219,9 @@ export default function TaskReportsManagement() {
     >
       <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
         <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý báo cáo công việc</h2>
-        <p className="text-xs text-slate-500">Xem danh sách buổi học, click vào buổi để xem báo cáo công việc.</p>
+        <p className="text-xs text-slate-500">Xem danh sách buổi học, chọn buổi để xem báo cáo công việc.
+
+</p>
       </div>
 
       <div className="shrink-0 flex justify-end items-center gap-3">
@@ -245,7 +247,7 @@ export default function TaskReportsManagement() {
             onChange={(v) => { setShowPendingOnly(v); setPageNumber(1); }}
             style={{ backgroundColor: showPendingOnly ? '#2197C0' : undefined }}
           />
-          <span className="text-sm text-slate-700 whitespace-nowrap">Chỉ task cần duyệt</span>
+          <span className="text-sm text-slate-700 whitespace-nowrap">Chỉ báo cáo cần duyệt</span>
         </div>
         <Button variant="outline" size="icon" className="h-9 w-9" onClick={resetFilters}>
           <RotateCcw size={16} />
