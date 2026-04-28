@@ -44,10 +44,12 @@ export default function TeacherTeachingHistoryPage() {
     totalItems,
     search,
     hasContract,
+    hasReport,
     reportsBySession,
     setPageNumber,
     setSearch,
     setHasContract,
+    setHasReport,
     refetch,
   } = useTeacherTeachingHistory({ pageSize: 10 });
 
@@ -630,9 +632,25 @@ export default function TeacherTeachingHistoryPage() {
             <SelectValue placeholder="Lọc hợp đồng" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả trạng thái</SelectItem>
+            <SelectItem value="all">Tất cả hợp đồng</SelectItem>
             <SelectItem value="yes">Có hợp đồng</SelectItem>
             <SelectItem value="no">Chưa có hợp đồng</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={hasReport}
+          onValueChange={(v) => {
+            setPageNumber(1);
+            setHasReport(v as typeof hasReport);
+          }}
+        >
+          <SelectTrigger className="h-9 w-[160px] border-slate-200 bg-white text-sm">
+            <SelectValue placeholder="Lọc báo cáo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả báo cáo</SelectItem>
+            <SelectItem value="yes">Đã có báo cáo</SelectItem>
+            <SelectItem value="no">Chưa có báo cáo</SelectItem>
           </SelectContent>
         </Select>
         <Button
@@ -643,6 +661,7 @@ export default function TeacherTeachingHistoryPage() {
           onClick={() => {
             setSearch('');
             setHasContract('all');
+            setHasReport('all');
             setPageNumber(1);
           }}
           title="Đặt lại bộ lọc"

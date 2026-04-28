@@ -297,7 +297,7 @@ export default function EquipmentDashboard() {
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               Thống kê tổng quan
             </p>
-            <p className="text-sm text-slate-600">Biểu đồ theo dữ liệu hiện tại (API dashboard)</p>
+            <p className="text-sm text-slate-600">Biểu đồ theo dữ liệu hiện tại</p>
           </div>
         </div>
 

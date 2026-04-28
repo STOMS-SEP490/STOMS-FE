@@ -68,6 +68,7 @@ export type PagedReservationResponse = PagedResponse<ReservationResponse>;
 export type ReservationFilterRequest = {
   ReservationId?: number;
   IsTemporarilyCancelled?: boolean;
+  IsTemporarilyCancelledStatuses?: string; // "true", "false", "null" hoặc kết hợp "true,false,null"
   Status?: number;
   CreatedByMemberId?: number;
   StartAt?: string;

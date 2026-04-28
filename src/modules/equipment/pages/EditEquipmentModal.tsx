@@ -312,7 +312,7 @@ export default function EditEquipmentModal({
                 {getEquipmentStatusDisplay(statusValue)}
               </div>
               <p className="text-xs text-gray-500">
-                Thiết bị đang được mượn. Thay đổi trạng thái "Đang mượn"/kết thúc mượn vui
+                Thiết bị đang được mượn. Thay đổi trạng thái "Đang mượn" vui
                 lòng thao tác qua phiếu mượn.
               </p>
             </>

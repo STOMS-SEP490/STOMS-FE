@@ -83,7 +83,8 @@ export const taskReportApi = {
 
   addExpense: async (payload: ExpenseCreatePayload): Promise<TaskReportExpense> => {
     const fd = new FormData();
-    fd.append('TaskReportId', String(payload.taskReportId));
+    if (payload.taskReportId) fd.append('TaskReportId', String(payload.taskReportId));
+    if (payload.walletId) fd.append('WalletId', String(payload.walletId));
     fd.append('Amount', String(payload.amount));
     fd.append('Description', payload.description);
     if (payload.paymentImg) fd.append('PaymentImg', payload.paymentImg);

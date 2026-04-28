@@ -86,7 +86,8 @@ export type TaskReportUpdatePayload = {
 /* ─── Expense create payload (multipart/form-data → ExpenseCreateRequest) ─── */
 
 export type ExpenseCreatePayload = {
-  taskReportId: number;
+  taskReportId?: number;
+  walletId?: number;
   amount: number;
   description: string;
   paymentImg?: File | null;
