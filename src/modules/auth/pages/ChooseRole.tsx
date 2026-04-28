@@ -86,11 +86,13 @@ export default function ChooseRole() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {options.slice(0, 2).map((opt) => (
-          <button
+          <div
             key={`${opt.source}-${opt.roleId}`}
-            type="button"
+            className="text-left rounded-2xl border border-sky-100/60 bg-white/95 px-4 py-4 shadow-[0_10px_30px_rgba(2,132,199,0.18)] hover:bg-white transition cursor-pointer"
             onClick={() => pick(opt.roleId)}
-            className="text-left rounded-2xl border border-sky-100/60 bg-white/95 px-4 py-4 shadow-[0_10px_30px_rgba(2,132,199,0.18)] hover:bg-white transition"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && pick(opt.roleId)}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -108,7 +110,7 @@ export default function ChooseRole() {
                 Tiếp tục
               </Button>
             </div>
-          </button>
+          </div>
         ))}
       </div>
     </div>

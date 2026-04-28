@@ -739,6 +739,7 @@ export default function RequestDetailPC() {
                       requestStatus={request.status}
                       assignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                       requestCode={request.requestCode ?? ''}
+                      requestId={request.requestId}
                     />
                   </>
                 )}

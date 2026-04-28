@@ -1,7 +1,6 @@
 import { useAuth } from '@/app/providers/AuthProvider';
 import { getHomePathByRole, getRoleIdFromStorage } from '@/modules/auth/roleAccess';
 import { getStoredAuthUser } from '@/modules/auth/authStorage';
-import { notification } from 'antd';
 import type { ReactElement } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
@@ -35,20 +34,6 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
   }
 
   if (!allowedRoles.includes(roleId)) {
-    try {
-      const key = `no-permission:${roleId}:${location.pathname}`;
-      if (sessionStorage.getItem(key) !== '1') {
-        sessionStorage.setItem(key, '1');
-        notification.warning({
-          message: 'Bạn không có quyền truy cập',
-          description: 'Tài khoản của bạn không được phép truy cập trang này.',
-          placement: 'bottomRight',
-          duration: 3,
-        });
-      }
-    } catch {
-      // ignore storage errors (private mode, disabled storage, etc.)
-    }
     return <Navigate to={getHomePathByRole(roleId)} replace />;
   }
 

@@ -275,7 +275,7 @@ export default function ExpenditureFund() {
                   <SelectContent>
                     {wallets.map((wallet) => (
                       <SelectItem key={wallet.walletId} value={wallet.walletId.toString()}>
-                        {wallet.walletName} - {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(wallet.balance)}
+                        {wallet.walletName}: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(wallet.balance)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -451,7 +451,7 @@ export default function ExpenditureFund() {
                 <SelectContent>
                   {wallets.map((wallet) => (
                     <SelectItem key={wallet.walletId} value={wallet.walletId.toString()}>
-                      {wallet.walletName} - {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(wallet.balance)}
+                      {wallet.walletName}: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(wallet.balance)}
                     </SelectItem>
                   ))}
                 </SelectContent>

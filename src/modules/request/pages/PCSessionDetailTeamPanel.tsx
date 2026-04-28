@@ -6,6 +6,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import sessionService from '../api/sessionApi';
 import { getAssignmentStatusInfo, ASSIGNMENT_STATUS, REQUEST_STATUS, getRequestStatusCode } from '@/constants/status';
 import { isTeacherRole, isAssistantRole } from '@/constants/role';
+import RequestSessionDetailPanel from './RequestSessionDetailPanel';
 
 const DEFAULT_AVATAR_SRC = '/img/ava.png';
 
@@ -18,6 +19,7 @@ type Props = {
   requestStatus?: string | number | null;
   assignedTeamIds?: number[];
   requestCode?: string;
+  requestId?: number;
 };
 
 export default function PCSessionDetailTeamPanel({
@@ -25,6 +27,7 @@ export default function PCSessionDetailTeamPanel({
   requestStatus,
   assignedTeamIds = [],
   requestCode = '',
+  requestId = 0,
 }: Props) {
   const [sessionDetail, setSessionDetail] = useState<any>(null);
   const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
@@ -611,6 +614,27 @@ export default function PCSessionDetailTeamPanel({
         </section>
       )}
       </div>
+
+      {/* Equipment Section - Moved to bottom */}
+      {requestId > 0 && sessionDetail && (
+        <div className="border-t border-slate-200 pt-4">
+          <RequestSessionDetailPanel
+            session={{
+              sessionId,
+              sessionNo: sessionDetail.SessionNo ?? sessionDetail.sessionNo ?? 0,
+              startAt: sessionDetail.StartAt ?? sessionDetail.startAt ?? '',
+              endAt: sessionDetail.EndAt ?? sessionDetail.endAt ?? '',
+              status: sessionDetail.Status ?? sessionDetail.status ?? '',
+              reservationId: sessionDetail.ReservationId ?? sessionDetail.reservationId ?? null,
+            }}
+            requestId={requestId}
+            requestCode={requestCode}
+            sectionMode="equipment"
+            canEditReservation={false}
+            showReservedEquipment={true}
+          />
+        </div>
+      )}
     </div>
   );
 }

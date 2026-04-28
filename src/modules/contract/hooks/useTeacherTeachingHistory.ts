@@ -21,6 +21,7 @@ export function useTeacherTeachingHistory(params?: { pageSize?: number }) {
   const [totalItems, setTotalItems] = useState(0);
   const [search, setSearch] = useState('');
   const [hasContract, setHasContract] = useState<'all' | 'yes' | 'no'>('all');
+  const [hasReport, setHasReport] = useState<'all' | 'yes' | 'no'>('all');
   const [reportsBySession, setReportsBySession] = useState<Record<number, TaskReport[]>>({});
 
   const fetchData = useCallback(async () => {
@@ -37,36 +38,43 @@ export function useTeacherTeachingHistory(params?: { pageSize?: number }) {
       if (q) {
         rows = rows.filter((x) => sessionDisplayName(x).toLowerCase().includes(q));
       }
-      setItems(rows);
-      setTotalItems(res.totalItems ?? rows.length);
 
+      // fetch reports trước để có thể filter theo hasReport
       const sessionIds = rows.map((x) => x.sessionId).filter((id): id is number => !!id);
-      if (!sessionIds.length) {
-        setReportsBySession({});
-        return;
+      const bySession: Record<number, TaskReport[]> = {};
+      if (sessionIds.length) {
+        const sessionIdSet = new Set(sessionIds);
+        const reportRes = await taskReportApi.getAll({
+          pageNumber: 1,
+          pageSize: 500,
+          sessionId: undefined,
+          MemberId: memberId,
+        });
+        (reportRes.items ?? []).forEach((r) => {
+          if (!r.sessionId) return;
+          if (!sessionIdSet.has(r.sessionId)) return;
+          if (!bySession[r.sessionId]) bySession[r.sessionId] = [];
+          bySession[r.sessionId].push(r);
+        });
       }
 
-      const sessionIdSet = new Set(sessionIds);
-      const reportRes = await taskReportApi.getAll({
-        pageNumber: 1,
-        pageSize: 500,
-        sessionId: undefined,
-        MemberId: memberId,
-      });
-      const bySession: Record<number, TaskReport[]> = {};
-      (reportRes.items ?? []).forEach((r) => {
-        if (!r.sessionId) return;
-        if (!sessionIdSet.has(r.sessionId)) return;
-        if (!bySession[r.sessionId]) bySession[r.sessionId] = [];
-        bySession[r.sessionId].push(r);
-      });
+      if (hasReport !== 'all') {
+        rows = rows.filter((x) => {
+          const reported = !!(bySession[x.sessionId]?.length);
+          return hasReport === 'yes' ? reported : !reported;
+        });
+      }
+
+      setItems(rows);
+      setTotalItems(rows.length);
+
       setReportsBySession(bySession);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [hasContract, memberId, pageNumber, pageSize, search]);
+  }, [hasContract, hasReport, memberId, pageNumber, pageSize, search]);
 
   useEffect(() => {
     void fetchData();
@@ -81,10 +89,12 @@ export function useTeacherTeachingHistory(params?: { pageSize?: number }) {
     totalItems,
     search,
     hasContract,
+    hasReport,
     reportsBySession,
     setPageNumber,
     setSearch,
     setHasContract,
+    setHasReport,
     refetch: fetchData,
   };
 }
