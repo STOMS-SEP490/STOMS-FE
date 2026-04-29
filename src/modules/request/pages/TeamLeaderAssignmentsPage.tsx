@@ -193,7 +193,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col app-page-bg overflow-hidden py-0 px-0"
+      className="flex h-full flex-col app-page-bg py-0 px-0"
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
@@ -412,8 +412,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 </div>
               ) : (
                 <>
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                <div className="mb-3 flex justify-between items-center">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-[480px]">
+                <div className="mb-3 flex justify-between items-center shrink-0">
                   <div>
                     <h3 className="text-sm font-medium text-slate-900">Danh sách buổi</h3>
                   </div>
@@ -429,7 +429,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     Yêu cầu này chưa có buổi nào gán cho nhóm.
                   </p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
                     {[...selectedRequest.sessions]
                       .sort((a, b) => {
                         // Sort theo startAt để giữ thứ tự nhất quán
@@ -555,7 +555,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
       {activeSession && (
         <div className="fixed inset-0 z-40 flex justify-end">
           <div className="flex-1 bg-black/30" onClick={() => setActiveSession(null)} />
-          <div className="w-full max-w-2xl h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden border-l">
+          <div className="w-full max-w-2xl flex-1 bg-white text-black shadow-2xl flex flex-col border-l">
             {/* Panel header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>

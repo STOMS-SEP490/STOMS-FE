@@ -347,7 +347,7 @@ export default function RequestLayout() {
 
   return (
     <div
-      className="p-6 pl-8 app-page-bg flex min-h-[var(--content-height)] flex-col gap-1"
+      className="p-6 pl-8 app-page-bg flex h-[var(--content-height)] flex-col gap-1"
     >
       {/* HEADER */}
 
@@ -498,7 +498,7 @@ export default function RequestLayout() {
         </>
       )}
 
-      <div className="pb-4">
+      <div className="flex-1">
         {!isDetailMode ? (
           <div className="flex min-h-[calc(var(--content-height)-190px)] flex-col rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
             <div className="flex-1">
@@ -554,7 +554,7 @@ export default function RequestLayout() {
             </div>
           </div>
         ) : (
-          <div className="h-full min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col">
             <Outlet
               context={{
                 refreshRequestSidebar: () => setSidebarRefreshKey((k) => k + 1),

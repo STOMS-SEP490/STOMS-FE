@@ -99,7 +99,7 @@ export default function TeamLeaderAssignmentsTablePage({ tab }: { tab: TeamLeade
   const filterSlot = document.getElementById('tl-assignments-filters');
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+    <div className="flex h-full flex-col gap-3">
       {filterSlot ? createPortal(
         <div className="flex flex-wrap items-center gap-2.5">
           <HoverSearch
