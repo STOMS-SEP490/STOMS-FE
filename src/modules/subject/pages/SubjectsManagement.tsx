@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useSearchParams } from 'react-router-dom'
-import { Eye, Loader2, Pencil, Power, PowerOff, Plus, Layers, CalendarDays, Sigma, TrendingUp, RotateCcw } from 'lucide-react'
+import { Eye, Loader2, Pencil, Power, PowerOff, Plus, Layers, CalendarDays, TrendingUp, RotateCcw } from 'lucide-react'
 import { DataTable } from '@/shared/components/common/DataTable'
 import { Badge } from '@/shared/components/ui/badge'
 import HoverSearch from '@/shared/components/ui/search'
@@ -137,7 +137,6 @@ export default function SubjectsManagement() {
 
   const totalSubjectsStat = subjectSessionStats?.totalSubjects ?? 0
   const totalSubjectSessionsStat = subjectSessionStats?.totalSubjectSessions ?? 0
-  const avgSessionsPerSubject = subjectSessionStats?.averageSessionsPerSubject ?? 0
   const maxSessionsPerSubject = subjectSessionStats?.maxSessionsPerSubject ?? 0
   const statValue = (loading: boolean, value: number | string) => (loading ? '—' : value)
 
@@ -606,7 +605,7 @@ export default function SubjectsManagement() {
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 shrink-0">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 shrink-0">
         <StatCard
           icon={<Layers className="h-6 w-6" strokeWidth={2} />}
           label="Tổng môn học"
@@ -618,21 +617,15 @@ export default function SubjectsManagement() {
           icon={<CalendarDays className="h-6 w-6" strokeWidth={2} />}
           label="Tổng số buổi"
           value={statValue(statsLoading, totalSubjectSessionsStat)}
-          sub="Tổng số buổi theo môn"
+          sub="Tổng số buổi của các môn"
           variant="orange"
         />
-        <StatCard
-          icon={<Sigma className="h-6 w-6" strokeWidth={2} />}
-          label="Trung bình buổi/môn"
-          value={statsLoading ? '—' : avgSessionsPerSubject.toLocaleString('vi-VN')}
-          sub="Average sessions per subject"
-          variant="blue"
-        />
+       
         <StatCard
           icon={<TrendingUp className="h-6 w-6" strokeWidth={2} />}
           label="Số buổi tối đa/môn"
           value={statValue(statsLoading, maxSessionsPerSubject)}
-          sub="Giá trị lớn nhất"
+          sub="Buổi trong 1 môn"
           variant="amber"
         />
       </div>

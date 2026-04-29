@@ -64,8 +64,8 @@ export function useExpenseForm(refetch: () => void) {
         message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) { 
-        message.warning('Ảnh tối đa 5MB.'); 
+      if (file.size > 10 * 1024 * 1024) { 
+        message.warning('Ảnh tối đa 10MB.'); 
         return; 
       }
       updateCreateExpense(key, { file, preview: '' });
@@ -100,6 +100,10 @@ export function useExpenseForm(refetch: () => void) {
     if (!amount || amount <= 0) { 
       message.warning('Vui lòng nhập số tiền hợp lệ.'); 
       return; 
+    }
+    if (editExpenseFile && editExpenseFile.size > 10 * 1024 * 1024) {
+      message.warning('Ảnh chứng từ tối đa 10MB.');
+      return;
     }
     setSavingExpense(true);
     try {

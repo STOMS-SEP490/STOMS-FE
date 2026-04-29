@@ -189,8 +189,8 @@ export function useTeacherTaskSession(sessionId: number) {
         message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) { 
-        message.warning('Ảnh tối đa 5MB.'); 
+      if (file.size > 10 * 1024 * 1024) { 
+        message.warning('Ảnh tối đa 10MB.'); 
         return; 
       }
       updateCreateExpense(key, { file, preview: '' });
@@ -435,6 +435,7 @@ export function useTeacherTaskSession(sessionId: number) {
     const amountNum = Number((editingExpense.amount || '').replace(/\D/g, ''));
     if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return; }
     if (!editingExpense.description.trim()) { message.warning('Vui lòng nhập mô tả khoản chi.'); return; }
+    if (editingExpense.file && editingExpense.file.size > 10 * 1024 * 1024) { message.warning('Ảnh chứng từ tối đa 10MB.'); return; }
     setSavingExpense(true);
     try {
       const updated = await taskReportApi.updateExpense(editingExpense.expenseId, {
@@ -464,6 +465,7 @@ export function useTeacherTaskSession(sessionId: number) {
     const amountNum = Number((amount || '').replace(/\D/g, ''));
     if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return false; }
     if (!description.trim()) { message.warning('Vui lòng nhập mô tả.'); return false; }
+    if (file && file.size > 10 * 1024 * 1024) { message.warning('Ảnh chứng từ tối đa 10MB.'); return false; }
     setSavingExpense(true);
     try {
       const updated = await taskReportApi.updateExpense(expenseId, {
@@ -496,6 +498,7 @@ export function useTeacherTaskSession(sessionId: number) {
     if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return false; }
     if (!description.trim()) { message.warning('Vui lòng nhập mô tả.'); return false; }
     if (!file) { message.warning('Vui lòng chọn ảnh chứng từ.'); return false; }
+    if (file.size > 10 * 1024 * 1024) { message.warning('Ảnh chứng từ tối đa 10MB.'); return false; }
     
     setSavingExpense(true);
     try {

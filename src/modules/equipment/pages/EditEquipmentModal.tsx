@@ -279,7 +279,16 @@ export default function EditEquipmentModal({
               ref={handoverMinuteInputRef}
               type="file"
               accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-              onChange={(e) => setHandoverMinuteImgFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (!file) { setHandoverMinuteImgFile(null); return; }
+                if (file.size > 10 * 1024 * 1024) {
+                  message.warning('Ảnh biên bản bàn giao tối đa 10MB.');
+                  e.target.value = '';
+                  return;
+                }
+                setHandoverMinuteImgFile(file);
+              }}
               className="hidden"
             />
             <label
@@ -363,7 +372,16 @@ export default function EditEquipmentModal({
               ref={imgInputRef}
               type="file"
               accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-              onChange={(e) => setImgFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (!file) { setImgFile(null); return; }
+                if (file.size > 10 * 1024 * 1024) {
+                  message.warning('Ảnh thiết bị tối đa 10MB.');
+                  e.target.value = '';
+                  return;
+                }
+                setImgFile(file);
+              }}
               className="hidden"
             />
             <label

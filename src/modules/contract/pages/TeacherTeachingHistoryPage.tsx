@@ -148,7 +148,7 @@ export default function TeacherTeachingHistoryPage() {
         message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
+      if (file.size > 10 * 1024 * 1024) { message.warning('Ảnh tối đa 10MB.'); return; }
       updateCreateExpense(key, { file, preview: '' });
       const reader = new FileReader();
       reader.onload = () => {
