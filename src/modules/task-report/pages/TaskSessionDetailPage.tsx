@@ -899,6 +899,16 @@ export default function TaskSessionDetailPage() {
                       onChange={(e) => {
                         const file = e.target.files?.[0] ?? null;
                         if (!file) return;
+                        if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
+                          message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
+                          e.target.value = '';
+                          return;
+                        }
+                        if (file.size > 10 * 1024 * 1024) {
+                          message.warning('Ảnh tối đa 10MB.');
+                          e.target.value = '';
+                          return;
+                        }
                         setEditExpenseFile(file);
                         const reader = new FileReader();
                         reader.onload = () => { if (typeof reader.result === 'string') setEditExpensePreview(reader.result); };

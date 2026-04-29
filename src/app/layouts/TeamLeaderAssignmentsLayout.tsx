@@ -11,7 +11,7 @@ export default function TeamLeaderAssignmentsLayout() {
 
   return (
     <div
-      className={`app-page-bg flex flex-col gap-1 min-h-0 overflow-hidden ${isDetailRoute ? 'p-4' : 'p-6'}`}
+      className={`app-page-bg flex flex-col gap-1 ${isDetailRoute ? 'p-4' : 'p-6'}`}
       style={{ height: 'var(--content-height, 100vh)' }}
     >
       {!isDetailRoute ? (
@@ -38,8 +38,8 @@ export default function TeamLeaderAssignmentsLayout() {
         </>
       ) : null}
 
-      <div className="flex-1 min-h-0 pb-4">
-        <div className="h-full min-h-0 overflow-hidden pr-1">
+      <div className="flex-1 pb-4">
+        <div className="h-full pr-1">
           <Outlet />
         </div>
       </div>

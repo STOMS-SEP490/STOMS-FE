@@ -698,7 +698,7 @@ export default function TeacherTaskSessionPage() {
                                     const file = e.target.files?.[0] ?? null;
                                     if (!file) return;
                                     if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { message.warning('Vui lòng chọn ảnh PNG hoặc JPG.'); return; }
-                                    if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
+                                    if (file.size > 10 * 1024 * 1024) { message.warning('Ảnh tối đa 10MB.'); return; }
                                     const reader = new FileReader();
                                     reader.onload = () => { if (typeof reader.result === 'string') setInlineExpenseForm((p) => ({ ...p, file, preview: reader.result as string, existingImgUrl: null })); };
                                     reader.readAsDataURL(file);
@@ -766,7 +766,7 @@ export default function TeacherTaskSessionPage() {
                               const file = e.target.files?.[0] ?? null;
                               if (!file) return;
                               if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { message.warning('Vui lòng chọn ảnh PNG hoặc JPG.'); return; }
-                              if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
+                              if (file.size > 10 * 1024 * 1024) { message.warning('Ảnh tối đa 10MB.'); return; }
                               const reader = new FileReader();
                               reader.onload = () => { if (typeof reader.result === 'string') setNewExpenseForm((p) => ({ ...p, file, preview: reader.result as string })); };
                               reader.readAsDataURL(file);
@@ -1000,7 +1000,7 @@ export default function TeacherTaskSessionPage() {
               ) : (
                 <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500 hover:border-[#1a7a99] hover:text-[#1a7a99] transition-colors">
                   <ImageIcon className="h-4 w-4" />
-                  Chọn ảnh PNG/JPG (tối đa 5MB)
+                  Chọn ảnh PNG/JPG (tối đa 10MB)
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/jpg"
@@ -1009,7 +1009,7 @@ export default function TeacherTaskSessionPage() {
                       const file = e.target.files?.[0] ?? null;
                       if (!file) return;
                       if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { message.warning('Vui lòng chọn ảnh PNG hoặc JPG.'); return; }
-                      if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
+                      if (file.size > 10 * 1024 * 1024) { message.warning('Ảnh tối đa 10MB.'); return; }
                       const reader = new FileReader();
                       reader.onload = () => {
                         if (typeof reader.result === 'string')

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { DatePicker, Select as AntdSelect, InputNumber, message, Modal } from 'antd'
+import { DatePicker, Select as AntdSelect, InputNumber, message, Modal, Tooltip } from 'antd'
 import { ExclamationCircleFilled } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
@@ -15,6 +15,7 @@ import {
   BookOpen,
   GraduationCap,
   Loader2,
+  TriangleAlert,
 } from 'lucide-react'
 
 import { Button } from '@/shared/components/ui/button'
@@ -978,6 +979,14 @@ export default function CreateRequestPage() {
                       if (value && sessions.length > 0) {
                         setSessions(applyAutoSchedule(value, sessions))
                       }
+                      // Toast warning nếu trong vòng 7 ngày
+                      if (value) {
+                        const daysLeft = value.startOf('day').diff(dayjs().startOf('day'), 'day')
+                        if (daysLeft < 7) {
+                          const label = daysLeft === 0 ? 'hôm nay' : `${daysLeft} ngày nữa`
+                          message.warning(`Buổi đầu tiên diễn ra ${label} — tạo yêu cầu dưới 7 ngày có thể không đảm bảo thiết bị, giảng viên và thời gian xét duyệt.`)
+                        }
+                      }
                     }}
                   />
                 </div>
@@ -1191,6 +1200,28 @@ export default function CreateRequestPage() {
                           Trực tuyến
                         </Badge>
                       )}
+                      {(() => {
+                        if (!s.startAt) return null
+                        const daysLeft = s.startAt.startOf('day').diff(dayjs().startOf('day'), 'day')
+                        if (daysLeft >= 7) return null
+                        return (
+                          <Tooltip
+                            title={
+                              <div className="space-y-0.5">
+                                <p className="font-semibold" style={{ color: '#d97706' }}>
+                                  {daysLeft === 0 ? 'Buổi này diễn ra hôm nay' : `Chỉ còn ${daysLeft} ngày đến buổi này`}
+                                </p>
+                                <p style={{ color: '#00000099' }}>Tạo yêu cầu dưới 7 ngày có thể không đảm bảo thiết bị, giảng viên và thời gian xét duyệt.</p>
+                              </div>
+                            }
+                            placement="top"
+                            color="#fffbe6"
+                            overlayInnerStyle={{ fontSize: 10, padding: '5px 9px', lineHeight: '1.5', border: '1px solid #ffe58f' }}
+                          >
+                            <TriangleAlert className="w-4 h-4 text-amber-500 cursor-default" />
+                          </Tooltip>
+                        )
+                      })()}
                     </div>
 
                     {/* Date/time */}
@@ -1214,6 +1245,14 @@ export default function CreateRequestPage() {
                             }
                             const end = calculateEndTime(value, s.duration)
                             updateSession(index, { startAt: value, endAt: end })
+                            // Toast warning nếu trong vòng 7 ngày
+                            if (index === 0) {
+                              const daysLeft = value.startOf('day').diff(dayjs().startOf('day'), 'day')
+                              if (daysLeft < 7) {
+                                const label = daysLeft === 0 ? 'hôm nay' : `${daysLeft} ngày nữa`
+                                message.warning(`Buổi đầu tiên diễn ra ${label} — tạo yêu cầu dưới 7 ngày có thể không đảm bảo thiết bị, giảng viên và thời gian xét duyệt.`)
+                              }
+                            }
                           }}
                         />
                       </div>

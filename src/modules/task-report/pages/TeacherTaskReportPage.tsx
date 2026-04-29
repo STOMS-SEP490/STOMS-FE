@@ -407,8 +407,8 @@ export default function TeacherTaskReportPage() {
       message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      message.warning('Ảnh tối đa 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      message.warning('Ảnh tối đa 10MB.');
       return;
     }
     setExpenseEditFile(file);
@@ -448,8 +448,8 @@ export default function TeacherTaskReportPage() {
         message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        message.warning('Ảnh tối đa 5MB.');
+      if (file.size > 10 * 1024 * 1024) {
+        message.warning('Ảnh tối đa 10MB.');
         return;
       }
       updateCreateExpense(key, { file, preview: '' });
@@ -653,7 +653,7 @@ export default function TeacherTaskReportPage() {
   const handleNewExpenseImgChange = useCallback((file: File | null) => {
     if (!file) { setNewExpenseFile(null); setNewExpensePreview(''); return; }
     if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { message.warning('Vui lòng chọn ảnh PNG hoặc JPG.'); return; }
-    if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh tối đa 5MB.'); return; }
+    if (file.size > 10 * 1024 * 1024) { message.warning('Ảnh tối đa 10MB.'); return; }
     setNewExpenseFile(file);
     const reader = new FileReader();
     reader.onload = () => { if (typeof reader.result === 'string') setNewExpensePreview(reader.result); };
@@ -665,6 +665,7 @@ export default function TeacherTaskReportPage() {
     if (!amountNum || amountNum <= 0) { message.warning('Vui lòng nhập số tiền hợp lệ.'); return false; }
     if (!newExpense.description.trim()) { message.warning('Vui lòng nhập mô tả cho khoản chi.'); return false; }
     if (!newExpenseFile) { message.warning('Vui lòng chọn ảnh chứng từ chuyển khoản.'); return false; }
+    if (newExpenseFile.size > 10 * 1024 * 1024) { message.warning('Ảnh chứng từ tối đa 10MB.'); return false; }
     setSavingExpense(true);
     try {
       await taskReportApi.addExpense({
@@ -716,6 +717,10 @@ export default function TeacherTaskReportPage() {
 
     if (!expenseEditDescription.trim()) {
       message.warning('Vui lòng nhập mô tả cho khoản chi.');
+      return false;
+    }
+    if (expenseEditFile && expenseEditFile.size > 10 * 1024 * 1024) {
+      message.warning('Ảnh chứng từ tối đa 10MB.');
       return false;
     }
 
@@ -1347,7 +1352,7 @@ export default function TeacherTaskReportPage() {
                                     <div className="text-center space-y-0.5">
                                       <CloudUpload className="mx-auto h-6 w-6 text-slate-400" />
                                       <div className="text-xs font-medium text-slate-600">Nhấn để tải ảnh chứng từ</div>
-                                      <div className="text-[10px] text-slate-400">PNG, JPG (tối đa 5MB)</div>
+                                      <div className="text-[10px] text-slate-400">PNG, JPG (tối đa 10MB)</div>
                                     </div>
                                   )}
                                 </label>
@@ -1405,7 +1410,7 @@ export default function TeacherTaskReportPage() {
                           <div className="text-center space-y-0.5">
                             <CloudUpload className="mx-auto h-6 w-6 text-slate-400" />
                             <div className="text-xs font-medium text-slate-600">Nhấn để tải ảnh chứng từ</div>
-                            <div className="text-[10px] text-slate-400">PNG, JPG (tối đa 5MB)</div>
+                            <div className="text-[10px] text-slate-400">PNG, JPG (tối đa 10MB)</div>
                           </div>
                         )}
                       </label>
@@ -1499,7 +1504,7 @@ export default function TeacherTaskReportPage() {
                                 <div className="text-center space-y-1">
                                   <CloudUpload className="mx-auto h-8 w-8 text-slate-400" />
                                   <div className="text-sm font-medium text-slate-700">Nhấn để tải lên ảnh chứng từ</div>
-                                  <div className="text-xs text-slate-500">PNG, JPG (tối đa 5MB)</div>
+                                  <div className="text-xs text-slate-500">PNG, JPG (tối đa 10MB)</div>
                                 </div>
                               )}
                             </label>

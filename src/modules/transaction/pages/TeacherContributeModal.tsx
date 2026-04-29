@@ -69,8 +69,8 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
       message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      message.warning('Ảnh tối đa 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      message.warning('Ảnh tối đa 10MB.');
       return;
     }
     setImageFile(file);
@@ -97,6 +97,10 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
     }
     if (!imageFile) {
       setError('Vui lòng tải lên ảnh chứng từ chuyển khoản.');
+      return;
+    }
+    if (imageFile.size > 10 * 1024 * 1024) {
+      setError('Ảnh chứng từ tối đa 10MB.');
       return;
     }
 
@@ -217,7 +221,7 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
                 <div className="text-sm font-medium text-slate-700">
                   Nhấn để tải lên ảnh chứng từ
                 </div>
-                <div className="text-xs text-slate-500">PNG, JPG (tối đa 5MB)</div>
+                <div className="text-xs text-slate-500">PNG, JPG (tối đa 10MB)</div>
               </div>
             )}
           </label>

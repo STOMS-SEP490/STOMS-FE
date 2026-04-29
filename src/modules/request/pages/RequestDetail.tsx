@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, MapPin, AlertCircle, AlertTriangle, Paperclip, ArrowLeft } from 'lucide-react';
-import { message, Modal } from 'antd';
+import { Plus, X, CheckCircle2, MapPin, AlertCircle, AlertTriangle, Paperclip, ArrowLeft, TriangleAlert } from 'lucide-react';
+import { message, Modal, Tooltip } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
@@ -680,7 +680,7 @@ export default function RequestDetail() {
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col  overflow-hidden text-black">
+      <div className="flex h-full flex-col text-black">
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
           <div className="w-full min-w-0 space-y-4">
         <div className="bg-white rounded-xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
@@ -1019,8 +1019,8 @@ export default function RequestDetail() {
           ) : null}
 
           {/* DANH SÁCH BUỔI HỌC — kích thước gọn, cân với header request */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-            <div className="flex justify-between items-center mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-[480px]">
+            <div className="flex justify-between items-center mb-3 shrink-0">
               <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
               <div className="flex items-center gap-3">
                 <div className="text-xs text-slate-600">
@@ -1044,7 +1044,7 @@ export default function RequestDetail() {
             {sessions.length === 0 ? (
               <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách buổi chi tiết.</p>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-1 overflow-y-auto flex-1 min-h-0">
                 {sessions.map((session) => {
                   const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
                   const teamCount = teamIds.length;
@@ -1137,6 +1137,30 @@ export default function RequestDetail() {
                           </span>
                         ) : null}
                       </div>
+                      {(() => {
+                        if (!session.startAt || !request.createdAt) return null;
+                        const daysFromCreate = dayjs(session.startAt).startOf('day').diff(dayjs(request.createdAt).startOf('day'), 'day');
+                        if (daysFromCreate >= 7) return null;
+                        return (
+                          <div className="flex justify-end mt-1">
+                            <Tooltip
+                              title={
+                                <div className="space-y-0.5">
+                                  <p className="font-semibold" style={{ color: '#d97706' }}>
+                                    {daysFromCreate <= 0 ? 'Buổi này diễn ra ngay khi tạo yêu cầu' : `Chỉ còn ${daysFromCreate} ngày từ lúc tạo đến buổi này`}
+                                  </p>
+                                  <p style={{ color: '#00000099' }}>Yêu cầu tạo dưới 7 ngày trước buổi có thể không đảm bảo thiết bị, giảng viên và thời gian xét duyệt.</p>
+                                </div>
+                              }
+                              placement="top"
+                              color="#fffbe6"
+                              overlayInnerStyle={{ fontSize: 10, padding: '5px 9px', lineHeight: '1.5', border: '1px solid #ffe58f' }}
+                            >
+                              <TriangleAlert className="w-3.5 h-3.5 text-amber-500 cursor-default" />
+                            </Tooltip>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -1255,7 +1279,7 @@ export default function RequestDetail() {
           />
 
           {/* Panel: max-w-2xl — đồng bộ TeamLeaderAssignmentsPage */}
-          <div className="w-full max-w-2xl h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden border-l">
+          <div className="w-full max-w-2xl flex-1 bg-white text-black shadow-2xl flex flex-col border-l">
             {/* Header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>

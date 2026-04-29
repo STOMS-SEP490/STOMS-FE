@@ -323,7 +323,7 @@ export default function UserManagement() {
           icon={<LogIn className="h-5 w-5" />}
           label="Đăng nhập hôm nay"
           value={loggedInTodayUsers.toLocaleString('vi-VN')}
-          sub="đã có buổi đăng nhập trong ngày"
+          sub="số người dùng đăng nhập hôm nay"
           variant="orange"
         />
       </div>

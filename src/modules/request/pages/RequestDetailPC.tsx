@@ -272,8 +272,8 @@ export default function RequestDetailPC() {
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col app-page-bg overflow-hidden p-6 text-black">
-        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain">
+      <div className="flex h-full flex-col app-page-bg text-black">
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain p-6">
           <div className="w-full min-w-0 space-y-4 pb-1">
         <div className="bg-white border-t border-b border-slate-200 px-6 py-5 shadow-sm mb-2">
           <div className="flex flex-wrap items-center gap-3">
@@ -459,8 +459,8 @@ export default function RequestDetailPC() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mb-0">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-              <div className="flex justify-between items-center mb-3">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-[480px]">
+              <div className="flex justify-between items-center mb-3 shrink-0">
                 <h3 className="text-sm font-medium text-slate-900">Danh sách các buổi</h3>
                 <div className="text-xs text-slate-600">
                   <span className="font-medium">Hình thức tham gia:</span>{' '}
@@ -477,7 +477,7 @@ export default function RequestDetailPC() {
               ) : sessions.length === 0 ? (
                 <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách buổi chi tiết.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
                   {sessions.map((session) => {
                     const topic = session.subjectSession ?? session.eventSession;
                     const sessionTitle = getSessionDisplayTitle(session);
@@ -685,7 +685,7 @@ export default function RequestDetailPC() {
           <div className="fixed inset-0 z-40 flex justify-end">
             <div className="flex-1 bg-black/30" onClick={() => setRightPanel(null)} />
 
-            <div className="w-full h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden max-w-2xl border-l">
+            <div className="w-full flex-1 bg-white text-black shadow-2xl flex flex-col max-w-2xl border-l">
               <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
                 <div>
                   <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết buổi</p>
