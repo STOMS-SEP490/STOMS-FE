@@ -144,5 +144,9 @@ export type RequestFilterParams = {
   assignmentStatuses?: string[];
   requireAllAssignmentsHaveStaffMember?: boolean;
   isAssignmentApprovalNeeded?: boolean;
+  isNeedingStaffAssignment?: boolean;
   teamId?: number;
+  requestTypes?: number[]; // 1 = Subject, 2 = Course, 3 = Event
+  requestName?: string;
+  requestCode?: string;
 };

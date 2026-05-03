@@ -22,7 +22,11 @@ const requestApi = {
           AssignmentStatuses: params?.assignmentStatuses,
           RequireAllAssignmentsHaveStaffMember: params?.requireAllAssignmentsHaveStaffMember,
           IsAssignmentApprovalNeeded: params?.isAssignmentApprovalNeeded,
+          IsNeedingStaffAssignment: params?.isNeedingStaffAssignment,
           TeamId: params?.teamId,
+          RequestTypes: params?.requestTypes,
+          RequestName: params?.requestName,
+          RequestCode: params?.requestCode,
           PageNumber: params?.pageNumber,
           PageSize: params?.pageSize,
         },
@@ -38,8 +42,10 @@ const requestApi = {
     return axiosClient.post<RequestListItem, RequestListItem>('/requests', data);
   },
 
-  approve: (id: number): Promise<RequestListItem> => {
-    return axiosClient.put<RequestListItem, RequestListItem>(`/requests/${id}/approve`);
+  approve: (id: number, payload?: { isConfirmed?: boolean }): Promise<RequestListItem & { canFulfillRequirement?: boolean; warningMessage?: string }> => {
+    return axiosClient.put<RequestListItem & { canFulfillRequirement?: boolean; warningMessage?: string }, RequestListItem & { canFulfillRequirement?: boolean; warningMessage?: string }>(`/requests/${id}/approve`, {
+      IsConfirmed: payload?.isConfirmed ?? false,
+    });
   },
 
   reject: (

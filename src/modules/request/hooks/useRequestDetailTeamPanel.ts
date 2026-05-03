@@ -159,13 +159,16 @@ export function useRequestDetailTeamPanel({
 
   // Fetch team suggestions
   useEffect(() => {
+    let cancelled = false;
     const fetchTeams = async () => {
       setLoading(true);
       setError(null);
       try {
         const teams = await sessionService.suggestTeams(session.sessionId);
+        if (cancelled) return;
         setSuggestedTeams(teams);
       } catch (err: unknown) {
+        if (cancelled) return;
         const msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: unknown }).message)
@@ -173,10 +176,13 @@ export function useRequestDetailTeamPanel({
         setError(msg);
         setSuggestedTeams([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     void fetchTeams();
+    return () => {
+      cancelled = true;
+    };
   }, [session.sessionId]);
 
   // Fetch session detail once — used for both teacher assignments and student assignment display
@@ -514,6 +520,19 @@ export function useRequestDetailTeamPanel({
     });
   }, []);
 
+  const handleToggleSelectAllStudents = useCallback((allPendingIds: number[]) => {
+    setSelectedStudentAssignmentIds((prev) => {
+      const allSelected = allPendingIds.every(id => prev.has(id));
+      if (allSelected) {
+        // Bỏ chọn tất cả
+        return new Set();
+      } else {
+        // Chọn tất cả
+        return new Set(allPendingIds);
+      }
+    });
+  }, []);
+
   const handleBulkApproveStudents = useCallback(async () => {
     if (selectedStudentAssignmentIds.size === 0) {
       message.warning('Vui lòng chọn ít nhất một sinh viên để duyệt.');
@@ -711,6 +730,7 @@ export function useRequestDetailTeamPanel({
       handleLoadTeacherSuggestions,
       handleToggleStudentApprovalMode,
       handleToggleStudentSelection,
+      handleToggleSelectAllStudents,
       handleBulkApproveStudents,
       handleOpenRejectModal,
       handleConfirmRejectStudent,

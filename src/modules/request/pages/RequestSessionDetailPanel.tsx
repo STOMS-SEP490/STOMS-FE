@@ -18,6 +18,7 @@ export type SessionDetailProps = {
     reservationId?: number | null;
     teamAssigned?: boolean;
   };
+  sessionDetail?: SessionResponse | null; // Optional pre-loaded session detail
   reloadKey?: number;
   requestId: number;
   requestCode: string;
@@ -35,6 +36,7 @@ export type SessionDetailProps = {
 
 export default function RequestSessionDetailPanel({
   session,
+  sessionDetail: providedSessionDetail,
   reloadKey = 0,
   requestCode,
   showReservedEquipment = true,
@@ -44,7 +46,7 @@ export default function RequestSessionDetailPanel({
 }: SessionDetailProps) {
   const renderInfoCard = sectionMode === 'all' || sectionMode === 'info';
   const renderEquipmentCard = (sectionMode === 'all' || sectionMode === 'equipment') && showReservedEquipment;
-  const shouldFetchSessionDetail = renderInfoCard;
+  const shouldFetchSessionDetail = renderInfoCard && !providedSessionDetail;
 
   // Nút "Sửa đặt trước" chỉ hiện khi session status là 2, 4, 5, 6
   const sessionStatusCode = getSessionStatusCode(session.status);
@@ -55,7 +57,7 @@ export default function RequestSessionDetailPanel({
     sessionStatusCode === SESSION_STATUS.ASSIGNED;          // 6
   const effectiveCanEditReservation = canEditReservation && canEditReservationByStatus;
 
-  const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(null);
+  const [sessionDetail, setSessionDetail] = useState<SessionResponse | null>(providedSessionDetail || null);
   const [sessionLoading, setSessionLoading] = useState(() => shouldFetchSessionDetail);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [reservedEquipments, setReservedEquipments] = useState<EquipmentReservationItemResponse[]>([]);
@@ -69,7 +71,7 @@ export default function RequestSessionDetailPanel({
 
   useEffect(() => {
     if (!shouldFetchSessionDetail) {
-      setSessionDetail(null);
+      setSessionDetail(providedSessionDetail || null);
       setSessionError(null);
       setSessionLoading(false);
       return;
@@ -98,7 +100,7 @@ export default function RequestSessionDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [session.sessionId, shouldFetchSessionDetail, reloadKey]);
+  }, [session.sessionId, shouldFetchSessionDetail, reloadKey, providedSessionDetail]);
 
   const startAt = sessionDetail?.StartAt ?? (sessionDetail as any)?.startAt ?? null;
   const endAt = sessionDetail?.EndAt ?? (sessionDetail as any)?.endAt ?? null;

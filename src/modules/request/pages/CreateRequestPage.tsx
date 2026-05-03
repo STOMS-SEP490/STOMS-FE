@@ -571,8 +571,6 @@ export default function CreateRequestPage() {
               <div className="divide-y divide-gray-200/60">
                 {sessions.map((s) => {
                   const normalizedTitle = String(s.title ?? '').trim()
-                  const duplicatedSessionTitle =
-                    normalizedTitle.toLowerCase() === `buổi ${s.sessionNo}`.toLowerCase()
                   return (
                   <div
                     key={`${s.subjectSessionId ?? s.eventSessionId}-${s.sessionNo}`}
@@ -583,7 +581,7 @@ export default function CreateRequestPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-xs font-semibold text-[#1a7a99] truncate">
-                          {duplicatedSessionTitle ? `Buổi ${s.sessionNo}` : `Buổi ${s.sessionNo}: ${s.title}`}
+                          {normalizedTitle ? `Buổi ${s.sessionNo}: ${normalizedTitle}` : `Buổi ${s.sessionNo}`}
                         </div>
                        
                       </div>
@@ -606,7 +604,7 @@ export default function CreateRequestPage() {
                     </div>
 
                     <div className="mt-2 space-y-1 text-[13px] text-gray-700">
-                      <div className="text-[13px] text-[#2197C0] font-medium">
+                      <div className="text-[13px] text-gray-900 font-medium">
                           {formatDateTime(s.startAt)} - {formatDateTime(s.endAt)}
                       </div>
                       <div className="inline-flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0">
@@ -638,8 +636,10 @@ export default function CreateRequestPage() {
       ),
       onOk: async () => {
         setSubmitLoading(true)
+        let requestId: number | null = null
+        
         try {
-          let requestId: number
+          // Bước 1: Tạo hoặc cập nhật request
           if (isEditMode) {
             requestId = id ? Number(id) : NaN
             if (!Number.isFinite(requestId)) throw new Error('Missing request id')
@@ -649,14 +649,36 @@ export default function CreateRequestPage() {
             requestId = created.requestId
           }
 
-          // 1) Upload file từ máy
-          if (attachmentFiles.length > 0) {
-            await attachmentApi.uploadAttachmentsForRequest(requestId, attachmentFiles)
+          // Bước 2: Upload file từ máy (nếu có)
+          if (attachmentFiles.length > 0 && requestId) {
+            try {
+              await attachmentApi.uploadAttachmentsForRequest(requestId, attachmentFiles)
+            } catch (attachmentErr: unknown) {
+              // Request đã tạo thành công nhưng upload attachment lỗi
+              // Phải quay về danh sách để tránh tạo request trùng
+              const e = attachmentErr as Record<string, unknown>
+              const attachmentErrMsg =
+                (typeof attachmentErr === 'string' && attachmentErr) ||
+                (e?.message as string) ||
+                (e?.detail as string) ||
+                (e?.title as string) ||
+                'Không thể tải lên tài liệu đính kèm'
+              
+              message.error(
+                `${isEditMode ? 'Cập nhật yêu cầu thành công' : 'Tạo yêu cầu thành công'} nhưng ${attachmentErrMsg}. Bạn có thể thêm tài liệu sau.`
+              )
+              setSubmitLoading(false)
+              navigate('/pc/requests')
+              return
+            }
           }
 
+          // Thành công hoàn toàn
           message.success(isEditMode ? 'Cập nhật yêu cầu thành công.' : 'Tạo yêu cầu thành công.')
+          setSubmitLoading(false)
           navigate('/pc/requests')
         } catch (err: unknown) {
+          // Lỗi khi tạo/cập nhật request - GIỮ NGUYÊN ở trang tạo request
           const e = err as Record<string, unknown>
           const apiMessage =
             (typeof err === 'string' && err) ||
@@ -667,7 +689,6 @@ export default function CreateRequestPage() {
             (Array.isArray(e?.errors) && (e.errors[0] as string)) ||
             ((e?.response as Record<string, unknown>)?.data as string)
           message.error((apiMessage as string) ?? (isEditMode ? 'Cập nhật yêu cầu thất bại.' : 'Tạo yêu cầu thất bại.'))
-        } finally {
           setSubmitLoading(false)
         }
       },
@@ -1035,6 +1056,18 @@ export default function CreateRequestPage() {
                         const files = e.target.files
                         const picked = files ? Array.from(files) : []
                         if (picked.length === 0) return
+                        
+                        // Kiểm tra kích thước file (giới hạn 10MB)
+                        const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB in bytes
+                        const invalidFiles = picked.filter(file => file.size > MAX_FILE_SIZE)
+                        
+                        if (invalidFiles.length > 0) {
+                          const fileNames = invalidFiles.map(f => f.name).join(', ')
+                          message.error(`File vượt quá 10MB: ${fileNames}. Vui lòng chọn file nhỏ hơn 10MB.`)
+                          e.currentTarget.value = ''
+                          return
+                        }
+                        
                         setAttachmentFiles((prev) => [...prev, ...picked])
                         // Reset để chọn cùng file vẫn trigger onChange
                         e.currentTarget.value = ''
@@ -1056,27 +1089,30 @@ export default function CreateRequestPage() {
                   </div>
                 </div>
                 {attachmentFiles.length === 0 && (
-                  <p className="text-xs text-gray-400 italic">Chưa có tài liệu đính kèm</p>
+                  <p className="text-xs text-gray-400 italic">Chưa có tài liệu đính kèm (tối đa 10MB/file)</p>
                 )}
 
                 {attachmentFiles.length > 0 && (
                   <div className="space-y-2">
-                    {attachmentFiles.map((file, index) => (
-                      <div key={`${file.name}-${index}`} className="flex gap-2 items-center">
-                        <span className="text-xs flex-1 text-gray-900 truncate" title={file.name}>
-                          {file.name}
-                        </span>
-                        <button
-                          type="button"
-                          className="text-red-400 hover:text-red-600 shrink-0 p-1"
-                          onClick={() => {
-                            setAttachmentFiles((prev) => prev.filter((_, i) => i !== index))
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                    {attachmentFiles.map((file, index) => {
+                      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
+                      return (
+                        <div key={`${file.name}-${index}`} className="flex gap-2 items-center">
+                          <span className="text-xs flex-1 text-gray-900 truncate" title={file.name}>
+                            {file.name} <span className="text-gray-500">({fileSizeMB} MB)</span>
+                          </span>
+                          <button
+                            type="button"
+                            className="text-red-400 hover:text-red-600 shrink-0 p-1"
+                            onClick={() => {
+                              setAttachmentFiles((prev) => prev.filter((_, i) => i !== index))
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -1186,7 +1222,10 @@ export default function CreateRequestPage() {
                         <span className={cn('text-xs font-bold', accentTextClass)}>{s.sessionNo}</span>
                       </div>
                       <span className="text-sm font-medium text-black truncate flex-1">
-                        {`Buổi ${s.sessionNo}`}
+                        {(() => {
+                          const normalizedTitle = String(s.title ?? '').trim();
+                          return normalizedTitle ? `Buổi ${s.sessionNo}: ${normalizedTitle}` : `Buổi ${s.sessionNo}`;
+                        })()}
                       </span>
                       {s.isOnline && (
                         <Badge
@@ -1355,10 +1394,10 @@ export default function CreateRequestPage() {
                         <button
                           type="button"
                           className={cn(
-                            'px-2.5 py-0.5 rounded text-[11px] font-medium transition-all',
+                            'px-2.5 py-0.5 rounded text-[11px] font-medium transition-all border',
                             !s.isOnline
-                              ? 'bg-gray-800 text-white'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              ? 'bg-gray-200 text-gray-800 border-gray-400'
+                              : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
                           )}
                           onClick={() => updateSession(index, { isOnline: false })}
                         >
