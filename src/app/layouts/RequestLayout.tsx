@@ -432,7 +432,7 @@ export default function RequestLayout() {
 
       <div className="flex-1">
         {!isDetailMode ? (
-          <div className="flex min-h-[calc(var(--content-height)-190px)] flex-col rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+          <div className="flex min-h-[calc(var(--content-height)-190px)] flex-col rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm mb-6">
             <div className="flex-1">
               {requestLoading ? (
                 <div className="p-4 text-sm text-gray-500">Đang tải danh sách...</div>
@@ -449,7 +449,6 @@ export default function RequestLayout() {
                   }}
                   comfortable
                   tableGap="tight"
-                  showPagination={false}
                 />
               )}
             </div>
