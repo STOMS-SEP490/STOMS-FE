@@ -105,6 +105,19 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
     setSelectedRequestId(detailRequestId);
   }, [detailRequestId, hasDetailRequestId, setSelectedRequestId]);
 
+  // Redirect về danh sách nếu request không còn trong filtered list
+  useEffect(() => {
+    if (!hasDetailRequestId) return;
+    if (loading) return; // Đợi load xong
+    
+    // Kiểm tra xem request có còn trong filtered list không
+    const requestExists = filteredRequests.some(r => r.requestId === detailRequestId);
+    if (!requestExists && filteredRequests.length > 0) {
+      // Request không còn trong list → redirect về trang danh sách
+      navigate(`/tl/assignments/${tab}`);
+    }
+  }, [hasDetailRequestId, detailRequestId, filteredRequests, loading, navigate, tab]);
+
   const [reportSessionOpen, setReportSessionOpen] = useState(false);
   const [reportSessionReason, setReportSessionReason] = useState('');
   const [reportSessionLoading, setReportSessionLoading] = useState(false);
@@ -193,7 +206,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col app-page-bg overflow-hidden py-0 px-0"
+      className="flex h-full flex-col app-page-bg py-0 px-0"
     >
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
@@ -332,25 +345,52 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     </div>
 
                     {(sourceName || sourceDescription) ? (
-                      <div className="flex flex-col gap-1 px-5 pt-3">
-                        {sourceName ? (
-                          <p className="mt-1 text-sm font-semibold">
-                            <span className="text-[#2197C0]">
-                              <span className={dotClass} aria-hidden />
-                              {sourceNameLabel}:{' '}
-                            </span>
-                            <span className="text-slate-900">{sourceName || '—'}</span>
-                          </p>
-                        ) : null}
-                        {sourceDescription ? (
-                          <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
-                            {sourceDescription}
-                          </p>
-                        ) : null}
+                      <div className="flex items-start justify-between gap-4 px-5 pt-3">
+                        <div className="flex flex-col gap-1 min-w-0 flex-1">
+                          {sourceName ? (
+                            <p className="mt-1 text-sm font-semibold">
+                              <span className="text-[#2197C0]">
+                                <span className={dotClass} aria-hidden />
+                                {sourceNameLabel}:{' '}
+                              </span>
+                              <span className="text-slate-900">{sourceName || '—'}</span>
+                            </p>
+                          ) : null}
+                          {sourceDescription ? (
+                            <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                              {sourceDescription}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center gap-6 shrink-0">
+                          <div className="text-right">
+                            <p className="text-[11px] uppercase tracking-wide text-[#2197C0] font-semibold">
+                              Ngày bắt đầu
+                            </p>
+                            <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                              {firstStart ? dayjs(firstStart).format('DD/MM/YYYY HH:mm') : '—'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[11px] uppercase tracking-wide text-[#2197C0] font-semibold">
+                              Ngày kết thúc
+                            </p>
+                            <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                              {lastEnd ? dayjs(lastEnd).format('DD/MM/YYYY HH:mm') : '—'}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     ) : null}
 
-                    <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 border-t border-slate-100 px-5 py-4 sm:grid-cols-2 lg:grid-cols-6">
+                    <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 border-t border-slate-100 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5">
+                      <div className="min-w-0">
+                        <p className={metaLabelClass}>
+                          <span className={dotClass} aria-hidden />
+                          Khách hàng
+                        </p>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-900">{selectedRequest.customerName || '—'}</p>
+                      </div>
                       <div className="min-w-0">
                         <p className={metaLabelClass}>
                           <span className={dotClass} aria-hidden />
@@ -383,24 +423,6 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                         </p>
                         <p className="mt-0.5 text-sm font-semibold text-slate-900">{durationText}</p>
                       </div>
-                      <div className="min-w-0">
-                        <p className={metaLabelClass}>
-                          <span className={dotClass} aria-hidden />
-                          Ngày bắt đầu
-                        </p>
-                        <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                          {firstStart ? dayjs(firstStart).format('DD/MM/YYYY HH:mm') : '—'}
-                        </p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className={metaLabelClass}>
-                          <span className={dotClass} aria-hidden />
-                          Ngày kết thúc
-                        </p>
-                        <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                          {lastEnd ? dayjs(lastEnd).format('DD/MM/YYYY HH:mm') : '—'}
-                        </p>
-                      </div>
                     </div>
                   </div>
                 );
@@ -412,8 +434,8 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 </div>
               ) : (
                 <>
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                <div className="mb-3 flex justify-between items-center">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-[480px]">
+                <div className="mb-3 flex justify-between items-center shrink-0">
                   <div>
                     <h3 className="text-sm font-medium text-slate-900">Danh sách buổi</h3>
                   </div>
@@ -429,7 +451,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     Yêu cầu này chưa có buổi nào gán cho nhóm.
                   </p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
                     {[...selectedRequest.sessions]
                       .sort((a, b) => {
                         // Sort theo startAt để giữ thứ tự nhất quán
@@ -555,7 +577,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
       {activeSession && (
         <div className="fixed inset-0 z-40 flex justify-end">
           <div className="flex-1 bg-black/30" onClick={() => setActiveSession(null)} />
-          <div className="w-full max-w-2xl h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden border-l">
+          <div className="w-full max-w-2xl flex-1 bg-white text-black shadow-2xl flex flex-col border-l">
             {/* Panel header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
@@ -711,8 +733,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                           canEdit
                           onAssignmentUpdated={async () => {
                             // Refresh session detail và request để lấy status mới
-                            await refreshSessionDetailById(activeSession.sessionId);
-                            await refetchRequestById(activeSession.requestId);
+                            // Chỉ refresh nếu vẫn đang xem cùng session và request
+                            const currentSessionId = activeSession.sessionId;
+                            const currentRequestId = activeSession.requestId;
+                            await refreshSessionDetailById(currentSessionId);
+                            // Chỉ refetch request nếu vẫn đang xem request này
+                            if (selectedRequestId === currentRequestId) {
+                              await refetchRequestById(currentRequestId);
+                            }
                           }}
                         />
                       </div>

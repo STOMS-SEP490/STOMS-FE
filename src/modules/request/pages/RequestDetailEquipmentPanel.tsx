@@ -426,8 +426,7 @@ export default function RequestDetailEquipmentPanel({ sessions, createdByMemberI
                           </div>
                           <button type="button" onClick={() => toggleEquipment(eq)} className="flex-1 flex items-center justify-between gap-2 text-left">
                             <div className="min-w-0">
-                              <div className="font-medium text-gray-900 truncate">{eq.EquipmentName}</div>
-                              <div className="text-xs text-gray-500">Mã: {eq.EquipmentCode ?? eq.EquipmentId}</div>
+                              <div className="font-medium text-gray-900 truncate">{eq.EquipmentName} - {eq.EquipmentCode ?? eq.EquipmentId}</div>
                               <div className="text-[11px] text-gray-500 truncate">Danh mục: {eq.CategoryName ?? '---'}</div>
                               <div className="mt-1">
                                 <span className="text-[11px] text-gray-500 mr-1">Trạng thái:</span>

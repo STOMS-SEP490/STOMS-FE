@@ -253,7 +253,7 @@ function buildAssigningListParams(
   const params: RequestFilterParams = {
     teamId,
     pageNumber: 1,
-    pageSize: 200,
+    pageSize: 50, // Giảm từ 200 xuống 50
   };
   if (onlyPendingAssignments) {
     // Khi bật switch "Chỉ hiện yêu cầu cần xử lý": gọi với Statuses=3 (ASSIGNING)
@@ -1023,6 +1023,9 @@ export function useTeamLeaderAssignmentsPage(
   const refetchRequestById = useCallback(async (requestId: number) => {
     if (!requestId || requestId <= 0 || !currentTeamId) return;
     try {
+      // Fetch request detail to get updated status
+      const requestDetail = await requestApi.getById(requestId);
+      
       // Always use /sessions/filter to sync sessions data (consistent with initial load)
       const params = activeTab === 'assigning'
         ? {
@@ -1063,6 +1066,7 @@ export function useTeamLeaderAssignmentsPage(
             ? item
             : {
                 ...item,
+                ...requestDetail,  // ← Update toàn bộ request data bao gồm status
                 sessions: mapped,
               },
         ),

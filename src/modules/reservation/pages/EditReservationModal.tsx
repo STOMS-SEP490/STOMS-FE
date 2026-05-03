@@ -35,6 +35,7 @@ function equipmentFromDetailToListItem(
     m.set(er.EquipmentId, {
       EquipmentId: er.EquipmentId,
       CategoryId: eq.CategoryId,
+      CategoryName: eq.CategoryName ?? null,
       SponsoredBy: '',
       EquipmentName: eq.EquipmentName ?? `Thiết bị #${er.EquipmentId}`,
       EquipmentCode: eq.EquipmentCode ?? String(er.EquipmentId),
@@ -428,10 +429,13 @@ export default function EditReservationModal({ open, reservation, onClose, onSav
                         className="flex-1 flex items-center justify-between gap-2 text-left min-w-0"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-gray-900 truncate">{eq.EquipmentName}</div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-gray-500">Mã: {eq.EquipmentCode}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${getEquipmentStatusColor(eq.Status)}`}>
+                          <div className="font-medium text-gray-900 truncate">
+                            {eq.EquipmentName} - {eq.EquipmentCode}
+                          </div>
+                          <div className="text-[11px] text-gray-500 truncate">Danh mục: {eq.CategoryName ?? '---'}</div>
+                          <div className="mt-1">
+                            <span className="text-[11px] text-gray-500 mr-1">Trạng thái:</span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getEquipmentStatusColor(eq.Status)} border`}>
                               {getEquipmentStatusDisplay(eq.Status)}
                             </span>
                           </div>

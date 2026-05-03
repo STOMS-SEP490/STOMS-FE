@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { Plus, X, CheckCircle2, MapPin, AlertCircle, AlertTriangle, Paperclip, ArrowLeft } from 'lucide-react';
-import { message, Modal } from 'antd';
+import { Plus, X, CheckCircle2, MapPin, AlertCircle, AlertTriangle, Paperclip, ArrowLeft, TriangleAlert } from 'lucide-react';
+import { message, Modal, Tooltip } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
@@ -29,6 +29,7 @@ import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext } from '../requestDetail.types';
 import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
 import sessionService from '../api/sessionApi';
+import requestService from '../api/requestApi';
 import reservationService from '@/modules/reservation/api/reservationApi';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import { teamApi } from '@/modules/team/api/teamApi';
@@ -65,6 +66,8 @@ export default function RequestDetail() {
       categoryName?: string | null;
       imgLink?: string | null;
     }[];
+    warningMessage?: string;
+    canFulfillRequirement?: boolean;
   };
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -99,7 +102,6 @@ export default function RequestDetail() {
     handleAssignSession,
     handleOpenRejectAssignment, // Used in JSX onClick handler
     handleConfirmRejectAssignment,
-    handleConfirmApprove,
     handleSaveTeamAssignments,
     handleRejectClick,
     handleCancelRequestClick,
@@ -431,15 +433,40 @@ export default function RequestDetail() {
   ).trim();
   const hasSourceName = Boolean(sourceName);
   const hasSourceDescription = Boolean(sourceDescription);
-  const hasSourceDuration = Boolean(sourceDuration);
   const hasStartAt = Boolean(requestDateRange.startAt);
   const hasEndAt = Boolean(requestDateRange.endAt);
 
   const openApproveModal = async () => {
     setOpeningApproveModal(true);
     let previews: ApproveSessionPreview[] = [];
+    let canFulfillRequirement = true;
+    let warningMessage = '';
+    
     try {
       previews = await loadApprovePreview();
+      // Gọi API với isConfirmed: false để lấy thông tin cảnh báo
+      console.log('Calling approve API with isConfirmed: false, id:', id);
+      const previewResponse = await requestService.approve(Number(id), { isConfirmed: false });
+      console.log('Preview response:', previewResponse);
+      canFulfillRequirement = previewResponse.canFulfillRequirement ?? true;
+      warningMessage = previewResponse.warningMessage ?? '';
+      
+      // Map warning message từ sessionWarnings vào từng session
+      const sessionWarnings = (previewResponse as any).sessionWarnings || [];
+      if (sessionWarnings.length > 0) {
+        previews = previews.map(preview => {
+          const sessionWarning = sessionWarnings.find((sw: any) => sw.sessionId === preview.sessionId);
+          return {
+            ...preview,
+            warningMessage: sessionWarning?.warningMessage || '',
+            canFulfillRequirement: sessionWarning?.canFulfillRequirement ?? true,
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Error checking request:', err);
+      message.error('Không thể kiểm tra yêu cầu: ' + ((err as any)?.message || ''));
+      return;
     } finally {
       setOpeningApproveModal(false);
     }
@@ -476,6 +503,27 @@ export default function RequestDetail() {
         <div className="w-full">
           <div className="bg-white">
             <div className="p-4 pt-2">
+              {/* Badge cảnh báo */}
+              {warningMessage && (
+                <div className={`mb-4 rounded-lg border px-4 py-3 ${canFulfillRequirement ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                  <div className="flex items-start gap-2">
+                    {canFulfillRequirement ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                    )}
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${canFulfillRequirement ? 'text-emerald-900' : 'text-amber-900'}`}>
+                        {canFulfillRequirement ? 'Đủ điều kiện' : 'Cảnh báo'}
+                      </p>
+                      <p className={`text-xs mt-0.5 ${canFulfillRequirement ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        {warningMessage}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 md:grid-cols-[1fr,1.2fr] gap-4">
 
                 {/* Cột trái: Thông tin yêu cầu */}
@@ -524,9 +572,6 @@ export default function RequestDetail() {
                     ) : null}
                   </div>
 
-                  <div className="rounded-lg bg-[#2197C0]/5 p-3 text-[11px] text-gray-600">
-                    Yêu cầu sẽ chuyển sang trạng thái đã duyệt sau khi xác nhận.
-                  </div>
                 </div>
 
                 {/* Cột phải: Lịch các buổi */}
@@ -579,7 +624,7 @@ export default function RequestDetail() {
                           </div>
 
                           <div className="mt-2 space-y-1 text-[13px] text-gray-700">
-                            <div className="text-[13px] text-gray-700">
+                            <div className="text-[13px] text-gray-900 font-medium">
                               {dayjs(preview.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(preview.endAt).format('HH:mm')}
                             </div>
                             <div>
@@ -590,6 +635,11 @@ export default function RequestDetail() {
                               <span><span className="text-gray-500">Giảng viên:</span> {preview.teachersRequired ?? 0}</span>
                               <span><span className="text-gray-500">Sinh viên:</span> {preview.tasRequired ?? 0}</span>
                             </div>
+                            {preview.warningMessage && (
+                              <div className={`mt-2 rounded border px-2 py-1.5 text-[11px] ${preview.canFulfillRequirement ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                                {preview.warningMessage}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -602,7 +652,18 @@ export default function RequestDetail() {
           </div>
         </div>
       ),
-      onOk: () => handleConfirmApprove(),
+      onOk: async () => {
+        // Gọi API với isConfirmed: true để thực sự duyệt
+        try {
+          await requestService.approve(Number(id), { isConfirmed: true });
+          message.success('Đã duyệt yêu cầu');
+          await refreshDetail();
+          refreshRequestSidebar?.();
+        } catch (err) {
+          const msg = (err as any)?.message || 'Duyệt yêu cầu thất bại';
+          message.error(msg);
+        }
+      },
     });
   };
   const resolvedDetailSession =
@@ -680,7 +741,7 @@ export default function RequestDetail() {
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col  overflow-hidden text-black">
+      <div className="flex h-full flex-col text-black">
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
           <div className="w-full min-w-0 space-y-4">
         <div className="bg-white rounded-xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
@@ -725,29 +786,81 @@ export default function RequestDetail() {
               </div>
             </div>
           </div>
-          <div className="flex flex-col gap-1 px-5 pt-3">
-            {hasSourceName ? (
-              <p className="mt-1 text-sm font-semibold">
-                <span className="text-[#2197C0]">
-                  <span className={dotClass} aria-hidden />
-                  {sourceNameLabel}:{' '}
-                </span>
-                <span className="text-slate-900">{sourceName || '—'}</span>
-              </p>
-            ) : null}
-            {hasSourceDescription ? (
-              <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
-                {sourceDescription}
-              </p>
+          <div className="flex items-start justify-between gap-4 px-5 pt-3">
+            <div className="flex flex-col gap-1 min-w-0 flex-1">
+              {hasSourceName ? (
+                <p className="mt-1 text-sm font-semibold">
+                  <span className="text-[#2197C0]">
+                    <span className={dotClass} aria-hidden />
+                    {sourceNameLabel}:{' '}
+                  </span>
+                  <span className="text-slate-900">{sourceName || '—'}</span>
+                </p>
+              ) : null}
+              {hasSourceDescription ? (
+                <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                  {sourceDescription}
+                </p>
+              ) : null}
+            </div>
+            {(hasStartAt || hasEndAt) ? (
+              <div className="flex items-center gap-6 shrink-0">
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-wide text-[#2197C0] font-semibold">
+                    Ngày bắt đầu
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {requestDateRange.startAt ? dayjs(requestDateRange.startAt).format('DD/MM/YYYY HH:mm') : '—'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-wide text-[#2197C0] font-semibold">
+                    Ngày kết thúc
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {requestDateRange.endAt ? dayjs(requestDateRange.endAt).format('DD/MM/YYYY HH:mm') : '—'}
+                  </p>
+                </div>
+              </div>
             ) : null}
           </div>
-          <div
-            className={`mt-4 grid gap-x-6 gap-y-3 border-t border-slate-100 px-5 py-4 ${
-              hasSourceDuration || hasStartAt || hasEndAt
-                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-6'
-                : 'grid-cols-1 sm:grid-cols-3'
-            }`}
-          >
+          <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 border-t border-slate-100 px-5 py-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Người tạo
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                {request.programCoordinator?.avatarUrl ? (
+                  <img
+                    src={request.programCoordinator.avatarUrl}
+                    alt={request.programCoordinator.fullName || ''}
+                    className="h-6 w-6 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center">
+                    <span className="text-[10px] font-medium text-slate-600">
+                      {request.programCoordinator?.fullName?.charAt(0) || '?'}
+                    </span>
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900 truncate">
+                    {request.programCoordinator?.fullName || '—'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    {request.programCoordinator?.email || ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Khách hàng
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{request.customerName || '—'}</p>
+            </div>
             <div className="min-w-0">
               <p className={metaLabelClass}>
                 <span className={dotClass} aria-hidden />
@@ -773,35 +886,13 @@ export default function RequestDetail() {
               </p>
               <p className="mt-0.5 text-sm font-semibold text-slate-900">{sessionCount} buổi</p>
             </div>
-            {hasSourceDuration || hasStartAt || hasEndAt ? (
-              <>
-                <div className="min-w-0">
-                  <p className={metaLabelClass}>
-                    <span className={dotClass} aria-hidden />
-                    Thời lượng
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">{sourceDuration || '—'}</p>
-                </div>
-                <div className="min-w-0">
-                  <p className={metaLabelClass}>
-                    <span className={dotClass} aria-hidden />
-                    Ngày bắt đầu
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                    {requestDateRange.startAt ? dayjs(requestDateRange.startAt).format('DD/MM/YYYY HH:mm') : '—'}
-                  </p>
-                </div>
-                <div className="min-w-0">
-                  <p className={metaLabelClass}>
-                    <span className={dotClass} aria-hidden />
-                    Ngày kết thúc
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                    {requestDateRange.endAt ? dayjs(requestDateRange.endAt).format('DD/MM/YYYY HH:mm') : '—'}
-                  </p>
-                </div>
-              </>
-            ) : null}
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Thời lượng
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{sourceDuration || '—'}</p>
+            </div>
           </div>
         </div>
 
@@ -810,7 +901,7 @@ export default function RequestDetail() {
         <div className="space-y-4 text-black">
           <div className="mb-2 sticky top-4 z-10 flex flex-wrap justify-between items-center gap-4 bg-white/95 backdrop-blur p-4 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-slate-800 min-w-0">
-              <Badge className="shrink-0 bg-sky-100 text-sky-800 border-0 text-[11px]">
+              <Badge className="shrink-0 bg-violet-100 text-violet-800 border-0 text-[11px]">
                 Duyệt phân công
               </Badge>
               <span className="text-gray-800">
@@ -1019,8 +1110,8 @@ export default function RequestDetail() {
           ) : null}
 
           {/* DANH SÁCH BUỔI HỌC — kích thước gọn, cân với header request */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-            <div className="flex justify-between items-center mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-[480px]">
+            <div className="flex justify-between items-center mb-3 shrink-0">
               <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
               <div className="flex items-center gap-3">
                 <div className="text-xs text-slate-600">
@@ -1044,7 +1135,7 @@ export default function RequestDetail() {
             {sessions.length === 0 ? (
               <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách buổi chi tiết.</p>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-1 overflow-y-auto flex-1 min-h-0">
                 {sessions.map((session) => {
                   const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
                   const teamCount = teamIds.length;
@@ -1137,6 +1228,30 @@ export default function RequestDetail() {
                           </span>
                         ) : null}
                       </div>
+                      {(() => {
+                        if (!session.startAt || !request.createdAt) return null;
+                        const daysFromCreate = dayjs(session.startAt).startOf('day').diff(dayjs(request.createdAt).startOf('day'), 'day');
+                        if (daysFromCreate >= 7) return null;
+                        return (
+                          <div className="flex justify-end mt-1">
+                            <Tooltip
+                              title={
+                                <div className="space-y-0.5">
+                                  <p className="font-semibold" style={{ color: '#d97706' }}>
+                                    {daysFromCreate <= 0 ? 'Buổi này diễn ra ngay khi tạo yêu cầu' : `Chỉ còn ${daysFromCreate} ngày từ lúc tạo đến buổi này`}
+                                  </p>
+                                  <p style={{ color: '#00000099' }}>Yêu cầu tạo dưới 7 ngày trước buổi có thể không đảm bảo thiết bị, giảng viên và thời gian xét duyệt.</p>
+                                </div>
+                              }
+                              placement="top"
+                              color="#fffbe6"
+                              overlayInnerStyle={{ fontSize: 10, padding: '5px 9px', lineHeight: '1.5', border: '1px solid #ffe58f' }}
+                            >
+                              <TriangleAlert className="w-3.5 h-3.5 text-amber-500 cursor-default" />
+                            </Tooltip>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -1255,7 +1370,7 @@ export default function RequestDetail() {
           />
 
           {/* Panel: max-w-2xl — đồng bộ TeamLeaderAssignmentsPage */}
-          <div className="w-full max-w-2xl h-full bg-white text-black shadow-2xl flex flex-col overflow-hidden border-l">
+          <div className="w-full max-w-2xl flex-1 bg-white text-black shadow-2xl flex flex-col border-l">
             {/* Header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>

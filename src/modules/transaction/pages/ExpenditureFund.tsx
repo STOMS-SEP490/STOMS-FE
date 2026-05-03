@@ -207,6 +207,10 @@ export default function ExpenditureFund() {
       message.warning('Vui lòng chọn ví thanh toán.');
       return;
     }
+    if (createExpenseFile && createExpenseFile.size > 10 * 1024 * 1024) {
+      message.warning('Ảnh chứng từ tối đa 10MB.');
+      return;
+    }
 
     setCreatingExpense(true);
     try {
@@ -331,7 +335,7 @@ export default function ExpenditureFund() {
               ) : (
                 <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-3 py-6 text-xs text-slate-500 hover:border-[#2197C0] hover:text-[#2197C0] transition-colors">
                   <ImageIcon className="h-5 w-5" />
-                  Chọn ảnh PNG/JPG (tối đa 5MB)
+                  Chọn ảnh PNG/JPG (tối đa 10MB)
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/jpg"
@@ -343,8 +347,8 @@ export default function ExpenditureFund() {
                         message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
                         return;
                       }
-                      if (file.size > 5 * 1024 * 1024) {
-                        message.warning('Ảnh tối đa 5MB.');
+                      if (file.size > 10 * 1024 * 1024) {
+                        message.warning('Ảnh tối đa 10MB.');
                         return;
                       }
                       setCreateExpenseFile(file);
@@ -507,7 +511,7 @@ export default function ExpenditureFund() {
             ) : (
               <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-3 py-6 text-xs text-slate-500 hover:border-[#2197C0] hover:text-[#2197C0] transition-colors">
                 <ImageIcon className="h-5 w-5" />
-                Chọn ảnh PNG/JPG (tối đa 5MB)
+                Chọn ảnh PNG/JPG (tối đa 10MB)
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/jpg"
@@ -519,8 +523,8 @@ export default function ExpenditureFund() {
                       message.warning('Vui lòng chọn ảnh PNG hoặc JPG.');
                       return;
                     }
-                    if (file.size > 5 * 1024 * 1024) {
-                      message.warning('Ảnh tối đa 5MB.');
+                    if (file.size > 10 * 1024 * 1024) {
+                      message.warning('Ảnh tối đa 10MB.');
                       return;
                     }
                     setCreateExpenseFile(file);
