@@ -11,7 +11,7 @@ import EditReservationModal from '@/modules/reservation/pages/EditReservationMod
 import type { RequestSessionSummary } from '../request';
 import sessionService from '../api/sessionApi';
 import type { AssignmentResponse, SessionResponse } from '../session.types';
-import { SESSION_STATUS, getSessionStatusCode, getEquipmentStatusDisplay, getEquipmentStatusColor } from '@/constants/status';
+import { SESSION_STATUS, getSessionStatusCode, getEquipmentStatusDisplay, getEquipmentStatusColor, getEquipmentReservationApprovalStatus } from '@/constants/status';
 
 export type SessionDetailProps = {
   session: RequestSessionSummary & {
@@ -452,13 +452,14 @@ export default function RequestSessionDetailPanel({
                           </div>
                           <div>
                             <span className="text-[11px] text-gray-500 mr-1">Trạng thái duyệt:</span>
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${
-                              er.IsTemporarilyCancelled 
-                                ? 'bg-red-50 text-red-700 border-red-200' 
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            }`}>
-                              {er.IsTemporarilyCancelled ? 'Tạm hủy' : 'Đã duyệt'}
-                            </span>
+                            {(() => {
+                              const approvalStatus = getEquipmentReservationApprovalStatus(er.IsTemporarilyCancelled);
+                              return (
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${approvalStatus.className}`}>
+                                  {approvalStatus.label}
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>

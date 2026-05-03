@@ -54,15 +54,6 @@ const userService = {
     return axiosClient.put('/users/change-password', payload);
   },
 
-  createUser: async (payload: {
-    email: string;
-    passwordHash: string;
-    isActive: boolean;
-    roleId: number;
-  }): Promise<{ userId: number }> => {
-    return axiosClient.post('/users', payload);
-  },
-
   createUsersBulk: async (payload: { quantity: number; roleId: number; emails: string[] }) => {
     const { roleId, emails } = payload;
     return axiosClient.post('/users/bulk', {

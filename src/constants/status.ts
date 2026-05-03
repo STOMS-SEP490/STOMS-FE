@@ -286,6 +286,38 @@ export function getReservationStatusInfo(status: string | number | null | undefi
   };
 }
 
+/**
+ * Map IsTemporarilyCancelled boolean to reservation status info
+ * - true = Rejected (Từ chối)
+ * - false = Confirmed (Đã xác nhận)
+ * - null/undefined = Pending (Chưa xác nhận)
+ */
+export function getEquipmentReservationApprovalStatus(isTemporarilyCancelled: boolean | null | undefined): {
+  code: number;
+  label: string;
+  className: string;
+} {
+  if (isTemporarilyCancelled === true) {
+    return {
+      code: RESERVATION_STATUS.REJECTED,
+      label: RESERVATION_STATUS_LABEL[RESERVATION_STATUS.REJECTED],
+      className: 'bg-red-50 text-red-700 border-red-200',
+    };
+  }
+  if (isTemporarilyCancelled === false) {
+    return {
+      code: RESERVATION_STATUS.CONFIRMED,
+      label: RESERVATION_STATUS_LABEL[RESERVATION_STATUS.CONFIRMED],
+      className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    };
+  }
+  return {
+    code: RESERVATION_STATUS.PENDING,
+    label: RESERVATION_STATUS_LABEL[RESERVATION_STATUS.PENDING],
+    className: 'bg-amber-50 text-amber-700 border-amber-200',
+  };
+}
+
 function normalizeAssignmentStatusCode(
   status: string | number | null | undefined
 ): number | null {
