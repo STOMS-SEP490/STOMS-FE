@@ -1,6 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { Plus, RotateCcw } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useRequests } from '../hooks/useRequests';
@@ -55,31 +55,21 @@ export default function PCRequestsIndex() {
   const [typeFilter, setTypeFilter] = useState<RequestTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<RequestStatusFilter>('all');
   const [pageNumber, setPageNumber] = useState(1);
+  const [refreshKey] = useState(0); // Reserved for future refresh functionality
   const pageSize = 10;
 
   const queryStatuses = statusFilter === 'all' ? undefined : [STATUS_FILTER_TO_API[statusFilter]];
-  const { data, totalItems, loading } = useRequests(1, 500, 0, {
+  const queryRequestTypes = typeFilter === 'all' ? undefined : 
+    typeFilter === 'subject' ? [1] : 
+    typeFilter === 'course' ? [2] : 
+    typeFilter === 'event' ? [3] : undefined;
+
+  const { data, totalItems, loading } = useRequests(pageNumber, pageSize, refreshKey, {
     programCoordinatorId: programCoordinatorId > 0 ? programCoordinatorId : undefined,
     statuses: queryStatuses,
+    requestTypes: queryRequestTypes,
+    requestCode: search.trim() || undefined,
   });
-
-  const filteredData = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return data.filter((row) => {
-      const matchesSearch =
-        !keyword ||
-        row.requestCode?.toLowerCase().includes(keyword) ||
-        row.requestName?.toLowerCase().includes(keyword);
-      const type = getRequestTypeInfo(row).key;
-      const matchesType = typeFilter === 'all' || type === typeFilter;
-      return matchesSearch && matchesType;
-    });
-  }, [data, search, typeFilter]);
-
-  const paginatedData = useMemo(() => {
-    const start = (pageNumber - 1) * pageSize;
-    return filteredData.slice(start, start + pageSize);
-  }, [filteredData, pageNumber]);
 
   const columns: ColumnDef<RequestListItem>[] = [
     {
@@ -157,7 +147,7 @@ export default function PCRequestsIndex() {
               setSearch(v);
               setPageNumber(1);
             }}
-            placeholder="Tìm theo mã hoặc tên yêu cầu..."
+            placeholder="Tìm theo mã yêu cầu..."
           />
           <Select
             value={typeFilter}
@@ -215,25 +205,18 @@ export default function PCRequestsIndex() {
             Đang tải danh sách yêu cầu...
           </div>
         ) : (
-          <>
-            <DataTable
-              columns={columns}
-              data={paginatedData}
-              pageNumber={pageNumber}
-              pageSize={pageSize}
-              totalItems={filteredData.length}
-              onPageChange={setPageNumber}
-              onRowClick={(row) => navigate(`/pc/requests/${row.requestId}`)}
-              fillHeight
-              comfortable
-              tableGap="tight"
-            />
-            {totalItems > 500 ? (
-              <p className="pt-2 text-xs text-slate-500">
-                Đang hiển thị dữ liệu trong 500 yêu cầu gần nhất, vui lòng lọc theo trạng thái để xem chính xác hơn.
-              </p>
-            ) : null}
-          </>
+          <DataTable
+            columns={columns}
+            data={data}
+            pageNumber={pageNumber}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setPageNumber}
+            onRowClick={(row) => navigate(`/pc/requests/${row.requestId}`)}
+            fillHeight
+            comfortable
+            tableGap="tight"
+          />
         )}
       </div>
     </div>

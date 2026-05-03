@@ -159,7 +159,6 @@ export default function RequestDetailPC() {
   ).trim();
   const hasSourceDescription = Boolean(sourceDescription);
   const hasSourceName = Boolean(sourceName);
-  const hasSourceDuration = Boolean(sourceDuration);
   const hasStartAt = Boolean(firstSession?.startAt);
   const hasEndAt = Boolean(lastSession?.endAt);
   const resolvedDetailSession =
@@ -350,28 +349,81 @@ export default function RequestDetailPC() {
               </div>
             </div>
           </div>
-          <div className='flex flex-col gap-1 px-5 pt-3'>
-            {hasSourceName ? (
+          <div className="flex items-start justify-between gap-4 px-5 pt-3">
+            <div className="flex flex-col gap-1 min-w-0 flex-1">
+              {hasSourceName ? (
                 <p className="mt-1 text-sm font-semibold">
                   <span className="text-[#2197C0]">
                     <span className={dotClass} aria-hidden />
                     {sourceNameLabel}:{' '}
                   </span>
                   <span className="text-slate-900">{sourceName || '—'}</span>
-                  </p>
-                ) : null}
-                {hasSourceDescription ? (
-                  <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
-                    {sourceDescription}
                 </p>
+              ) : null}
+              {hasSourceDescription ? (
+                <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                  {sourceDescription}
+                </p>
+              ) : null}
+            </div>
+            {(hasStartAt || hasEndAt) ? (
+              <div className="flex items-center gap-6 shrink-0">
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-wide text-[#2197C0] font-semibold">
+                    Ngày bắt đầu
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {firstSession?.startAt ? dayjs(firstSession.startAt).format('DD/MM/YYYY HH:mm') : '—'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-wide text-[#2197C0] font-semibold">
+                    Ngày kết thúc
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {lastSession?.endAt ? dayjs(lastSession.endAt).format('DD/MM/YYYY HH:mm') : '—'}
+                  </p>
+                </div>
+              </div>
             ) : null}
           </div>
-            <div className={`mt-4 grid gap-x-6 gap-y-3 border-t border-slate-100 px-5 py-4 ${
-              hasSourceDuration || hasStartAt || hasEndAt
-                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-6'
-                : 'grid-cols-1 sm:grid-cols-3'
-            }`}
-          >
+          <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 border-t border-slate-100 px-5 py-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Người tạo
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                {request.programCoordinator?.avatarUrl ? (
+                  <img
+                    src={request.programCoordinator.avatarUrl}
+                    alt={request.programCoordinator.fullName || ''}
+                    className="h-6 w-6 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center">
+                    <span className="text-[10px] font-medium text-slate-600">
+                      {request.programCoordinator?.fullName?.charAt(0) || '?'}
+                    </span>
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900 truncate">
+                    {request.programCoordinator?.fullName || '—'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    {request.programCoordinator?.email || ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Khách hàng
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{request.customerName || '—'}</p>
+            </div>
             <div className="min-w-0">
               <p className={metaLabelClass}>
                 <span className={dotClass} aria-hidden />
@@ -400,37 +452,13 @@ export default function RequestDetailPC() {
               </p>
             </div>
 
-            {hasSourceDuration || hasStartAt || hasEndAt ? (
-              <>
-                <div className="min-w-0">
-                  <p className={metaLabelClass}>
-                    <span className={dotClass} aria-hidden />
-                    Thời lượng
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">{sourceDuration || '—'}</p>
-                </div>
-
-                <div className="min-w-0">
-                  <p className={metaLabelClass}>
-                    <span className={dotClass} aria-hidden />
-                    Ngày bắt đầu
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                    {firstSession?.startAt ? dayjs(firstSession.startAt).format('DD/MM/YYYY HH:mm') : '—'}
-                  </p>
-                </div>
-
-                <div className="min-w-0">
-                  <p className={metaLabelClass}>
-                    <span className={dotClass} aria-hidden />
-                    Ngày kết thúc
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                    {lastSession?.endAt ? dayjs(lastSession.endAt).format('DD/MM/YYYY HH:mm') : '—'}
-                  </p>
-                </div>
-              </>
-            ) : null}
+            <div className="min-w-0">
+              <p className={metaLabelClass}>
+                <span className={dotClass} aria-hidden />
+                Thời lượng
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{sourceDuration || '—'}</p>
+            </div>
           </div>
 
           {isRejected && (
@@ -459,7 +487,7 @@ export default function RequestDetailPC() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mb-0">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-[480px]">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col">
               <div className="flex justify-between items-center mb-3 shrink-0">
                 <h3 className="text-sm font-medium text-slate-900">Danh sách các buổi</h3>
                 <div className="text-xs text-slate-600">

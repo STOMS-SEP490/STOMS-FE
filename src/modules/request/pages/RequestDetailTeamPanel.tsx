@@ -29,6 +29,8 @@ type Props = {
   currentAssignedTeamIds?: number[];
   separateTeacherSelection?: boolean;
   canEdit?: boolean;
+  /** Điều kiện riêng cho phần chọn giảng viên (nếu không truyền thì dùng canEdit) */
+  canEditTeacher?: boolean;
   /** Request status để kiểm tra có hiển thị danh sách sinh viên đã phân công không */
   requestStatus?: string | number | null;
   onAssignSession: (
@@ -46,6 +48,7 @@ export default function RequestDetailTeamPanel({
   currentAssignedTeamIds,
   separateTeacherSelection = false,
   canEdit = true,
+  canEditTeacher,
   requestStatus,
   onAssignSession,
   onTeacherAssignmentUpdated,
@@ -72,6 +75,9 @@ export default function RequestDetailTeamPanel({
   };
 
   // 🎨 JSX below - will update variable references next
+  // Sử dụng canEditTeacher nếu được truyền, nếu không thì dùng canEdit
+  const canEditTeacherFinal = canEditTeacher !== undefined ? canEditTeacher : canEdit;
+
   return (
     <div className="space-y-5">
       {separateTeacherSelection ? (
@@ -101,7 +107,7 @@ export default function RequestDetailTeamPanel({
                 </Button>
               </div>
             ) : (
-              canEdit ? (
+              canEditTeacherFinal ? (
                 <Button
                   type="button"
                   size="sm"
@@ -446,7 +452,13 @@ export default function RequestDetailTeamPanel({
             {state.addedTeamIds.length > 0 && (
         <div className="space-y-3">
           {state.addedTeamIds.map((tid) => {
+            // Try to get team info from sessionDetail.TeamSessions first
+            const teamFromSession = state.sessionDetail?.TeamSessions?.find((ts: any) => Number(ts.TeamId ?? ts.teamId) === tid);
+            const teamNameFromSession = teamFromSession?.Team?.TeamName ?? teamFromSession?.TeamName;
+            
+            // Fallback to suggested teams
             const team = state.suggestedTeams.find((t) => t.teamId === tid);
+            const teamName = teamNameFromSession || team?.teamName || `nhóm #${tid}`;
             const memberCount = (team as Team & { memberCount?: number })?.memberCount;
             const isExpanded = state.expandedAddedTeamIds.includes(tid);
             return (
@@ -460,7 +472,7 @@ export default function RequestDetailTeamPanel({
                       <Users className="w-4 h-4 text-slate-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 truncate">{team?.teamName ?? `nhóm #${tid}`}</p>
+                      <p className="font-semibold text-slate-900 truncate">{teamName}</p>
                       <p className="text-xs text-slate-500">
                         {memberCount != null ? `${memberCount} thành viên` : 'nhóm đã gắn'}
                       </p>
@@ -844,6 +856,16 @@ export default function RequestDetailTeamPanel({
                 <div className="flex items-center gap-2">
                   {state.studentApprovalMode ? (
                     <>
+                      <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer hover:text-slate-900">
+                        <Checkbox
+                          checked={allPendingStudents.length > 0 && allPendingStudents.every((s: any) => state.selectedStudentAssignmentIds.has(Number(s.AssignmentId ?? 0)))}
+                          onChange={() => {
+                            const allPendingIds = allPendingStudents.map((s: any) => Number(s.AssignmentId ?? 0)).filter((id: number) => id > 0);
+                            actions.handleToggleSelectAllStudents(allPendingIds);
+                          }}
+                        />
+                        <span>Chọn tất cả</span>
+                      </label>
                       <Button
                         type="button"
                         size="sm"
@@ -879,7 +901,14 @@ export default function RequestDetailTeamPanel({
             </div>
             {Object.keys(studentsByTeam).map((tidStr) => {
               const tid = Number(tidStr);
+              // Try to get team info from sessionDetail.TeamSessions first (has full team name)
+              const teamFromSession = state.sessionDetail?.TeamSessions?.find((ts: any) => Number(ts.TeamId ?? ts.teamId) === tid);
+              const teamNameFromSession = teamFromSession?.Team?.TeamName ?? teamFromSession?.TeamName;
+              
+              // Fallback to suggested teams
               const team = state.suggestedTeams.find((t) => t.teamId === tid);
+              const teamName = teamNameFromSession || team?.teamName || `Nhóm #${tid}`;
+              
               const students = studentsByTeam[tid] ?? [];
               
               if (students.length === 0) return null;
@@ -891,7 +920,7 @@ export default function RequestDetailTeamPanel({
                       <Users className="w-4 h-4 text-slate-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-slate-900">{team?.teamName ?? `Nhóm #${tid}`}</p>
+                      <p className="font-semibold text-slate-900">{teamName}</p>
                       <p className="text-xs text-slate-500">{students.length} sinh viên</p>
                     </div>
                   </div>

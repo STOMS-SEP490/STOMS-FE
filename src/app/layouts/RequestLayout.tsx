@@ -1,4 +1,3 @@
-import { type ManagerRequestStatusFilter } from '@/shared/components/request/RequestSideBar';
 import HoverSearch from '@/shared/components/ui/search';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -9,10 +8,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { REQUEST_STATUS, REQUEST_STATUS_LABEL } from '@/constants/status';
 import { useRequests } from '@/modules/request/hooks/useRequests';
 import type { RequestListItem } from '@/modules/request/request';
-import { getRequestStatusCode, getRequestStatusInfo } from '@/constants/status';
+import { getRequestStatusInfo } from '@/constants/status';
 import { Badge } from '@/shared/components/ui/badge';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/shared/components/common/DataTable';
+import {
+  type ManagerRequestStatusFilter,
+  STATUS_FILTER_TO_API,
+} from '@/modules/request/types/filters';
 
 /** Tab Duyệt yêu cầu (/approval): chỉ lọc theo các trạng thái phê duyệt. */
 const APPROVAL_TAB_STATUS_FILTERS: ManagerRequestStatusFilter[] = [
@@ -48,38 +51,7 @@ const getRequestTypeInfo = (row: RequestListItem): { key: RequestTypeKey; label:
   return { key: 'other', label: 'Khác' };
 };
 
-/** Tab Phân công cần duyệt: chỉ yêu cầu trạng thái 3–5 (APPROVED / ASSIGNING / PUBLISHED). */
-const ASSIGNMENT_TAB_REQUEST_STATUSES_API = ['APPROVED', 'ASSIGNING', 'PUBLISHED'] as const;
-const ASSIGNMENT_TAB_REQUEST_STATUS_CODES = new Set<number>([
-  REQUEST_STATUS.APPROVED,
-  REQUEST_STATUS.ASSIGNING,
-  REQUEST_STATUS.PUBLISHED,
-]);
-
-function isPendingStatus(status: string | undefined): boolean {
-  const s = (status ?? '').toLowerCase();
-  return s === 'pending' || s.includes('chờ') || s.includes('pending');
-}
-
-const STATUS_FILTER_TO_REQUEST_CODE: Record<Exclude<ManagerRequestStatusFilter, 'all'>, number> = {
-  pending: REQUEST_STATUS.PENDING,
-  approved: REQUEST_STATUS.APPROVED,
-  rejected: REQUEST_STATUS.REJECTED,
-  assigning: REQUEST_STATUS.ASSIGNING,
-  published: REQUEST_STATUS.PUBLISHED,
-  completed: REQUEST_STATUS.COMPLETED,
-  cancelled: REQUEST_STATUS.CANCELLED,
-};
-
-const STATUS_FILTER_TO_API: Record<Exclude<ManagerRequestStatusFilter, 'all'>, string> = {
-  pending: 'PENDING',
-  approved: 'APPROVED',
-  rejected: 'REJECTED',
-  assigning: 'ASSIGNING',
-  published: 'PUBLISHED',
-  completed: 'COMPLETED',
-  cancelled: 'CANCELLED',
-};
+const ASSIGNMENT_TAB_REQUEST_STATUSES_API = ['ASSIGNING', 'PUBLISHED'] as const;
 
 function formatDateTime(value: string | undefined | null): string {
   if (!value) return '—';
@@ -150,36 +122,46 @@ export default function RequestLayout() {
     setPageNumber(1);
   };
 
-  // Fetch list for table (filtering is client-side because API filter doesn't support keyword/type)
   const requestQueryOptions = useMemo(() => {
+    const queryRequestTypes = typeFilter === 'all' ? undefined : 
+      typeFilter === 'subject' ? [1] : 
+      typeFilter === 'course' ? [2] : 
+      typeFilter === 'event' ? [3] : undefined;
+
+    const baseOptions = {
+      requestTypes: queryRequestTypes,
+      requestCode: search.trim() || undefined,
+    };
+
     if (tabValue === 'assignment') {
       if (statusFilter !== 'all') {
         return {
+          ...baseOptions,
           isAssignmentApprovalNeeded: true,
           statuses: [STATUS_FILTER_TO_API[statusFilter]],
         };
       }
       return {
+        ...baseOptions,
         isAssignmentApprovalNeeded: true,
         statuses: [...ASSIGNMENT_TAB_REQUEST_STATUSES_API],
       };
     }
     if (tabValue === 'approval') {
-      return { statuses: ['PENDING'] as string[] };
+      return { ...baseOptions, statuses: ['PENDING'] as string[] };
     }
     if (tabValue === 'team_assign') {
-      return { statuses: ['APPROVED'] as string[] };
+      return { ...baseOptions, statuses: ['APPROVED'] as string[] };
     }
     if (statusFilter !== 'all') {
-      return { statuses: [STATUS_FILTER_TO_API[statusFilter]] };
+      return { ...baseOptions, statuses: [STATUS_FILTER_TO_API[statusFilter]] };
     }
-    // Tab all: fetch all statuses (server-side). Filtering by status is handled above.
-    return {};
-  }, [statusFilter, tabValue]);
+    return baseOptions;
+  }, [statusFilter, tabValue, typeFilter, search]);
 
-  const { data: requestList, loading: requestLoading } = useRequests(
-    1,
-    500,
+  const { data: requestList, totalItems, loading: requestLoading } = useRequests(
+    pageNumber,
+    pageSize,
     sidebarRefreshKey,
     requestQueryOptions,
   );
@@ -191,58 +173,9 @@ export default function RequestLayout() {
     }
   }, [isDetailMode]);
 
-  const filteredRequests = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (requestList ?? []).filter((item) => {
-      const matchSearch =
-        (item.requestCode ?? '').toLowerCase().includes(q) ||
-        (item.requestName ?? '').toLowerCase().includes(q);
-      if (!matchSearch) return false;
-
-      const matchType = (() => {
-        if (typeFilter === 'all') return true;
-        if (typeFilter === 'event') return !!item.eventId;
-        if (typeFilter === 'subject') return !!item.subjectId;
-        if (typeFilter === 'course') return !!item.courseId;
-        return true;
-      })();
-      if (!matchType) return false;
-
-      // Keep assignment tab status filtering consistent with old sidebar UI
-      if (tabValue === 'assignment') {
-        const code = getRequestStatusCode(item.status);
-        if (code == null || !ASSIGNMENT_TAB_REQUEST_STATUS_CODES.has(code)) return false;
-        if (statusFilter === 'all') return true;
-        const want = STATUS_FILTER_TO_REQUEST_CODE[statusFilter];
-        return code === want;
-      }
-
-      if (tabValue === 'approval') return isPendingStatus(item.status);
-      if (tabValue === 'team_assign') return getRequestStatusCode(item.status) === REQUEST_STATUS.APPROVED;
-      if (statusFilter === 'all') return true;
-      const want = STATUS_FILTER_TO_REQUEST_CODE[statusFilter];
-      return getRequestStatusCode(item.status) === want;
-    });
-  }, [requestList, search, statusFilter, tabValue, typeFilter]);
-
   useEffect(() => {
     setPageNumber(1);
   }, [search, typeFilter, statusFilter, tabValue]);
-
-  const pagedRequests = useMemo(() => {
-    const start = (pageNumber - 1) * pageSize;
-    return filteredRequests.slice(start, start + pageSize);
-  }, [filteredRequests, pageNumber, pageSize]);
-
-  const totalPages = useMemo(() => Math.ceil(filteredRequests.length / pageSize), [filteredRequests.length, pageSize]);
-  const fromItem = useMemo(
-    () => (filteredRequests.length === 0 ? 0 : (pageNumber - 1) * pageSize + 1),
-    [filteredRequests.length, pageNumber, pageSize]
-  );
-  const toItem = useMemo(
-    () => (filteredRequests.length === 0 ? 0 : Math.min(pageNumber * pageSize, filteredRequests.length)),
-    [filteredRequests.length, pageNumber, pageSize]
-  );
 
   const requestColumns = useMemo<ColumnDef<RequestListItem>[]>(() => {
     return [
@@ -417,7 +350,7 @@ export default function RequestLayout() {
                       navigate('/manager/requests/team-assign');
                     }}
                   >
-                    Yêu cầu cần gán nhóm
+                    Yêu cầu chờ phân công
                   </TabsTrigger>
                   <TabsTrigger
                     value="assignment"
@@ -431,7 +364,7 @@ export default function RequestLayout() {
                 </TabsList>
 
                 <div className="flex flex-wrap items-center justify-end gap-3">
-                <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã hoặc tên yêu cầu..." />
+                <HoverSearch value={search} onChange={setSearch} placeholder="Tìm theo mã yêu cầu..." />
 
                 <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
                   <SelectTrigger className="w-[168px] text-gray-500 text-sm gap-2 bg-white border-slate-200">
@@ -456,7 +389,6 @@ export default function RequestLayout() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                      <SelectItem value="approved">{REQUEST_STATUS_LABEL[REQUEST_STATUS.APPROVED]}</SelectItem>
                       <SelectItem value="assigning">{REQUEST_STATUS_LABEL[REQUEST_STATUS.ASSIGNING]}</SelectItem>
                       <SelectItem value="published">{REQUEST_STATUS_LABEL[REQUEST_STATUS.PUBLISHED]}</SelectItem>
                     </SelectContent>
@@ -507,10 +439,10 @@ export default function RequestLayout() {
               ) : (
                 <DataTable
                   columns={requestColumns}
-                  data={pagedRequests}
+                  data={requestList}
                   pageNumber={pageNumber}
                   pageSize={pageSize}
-                  totalItems={filteredRequests.length}
+                  totalItems={totalItems}
                   onPageChange={(page) => setPageNumber(page)}
                   onRowClick={(row) => {
                     navigate(`/manager/requests/${row.requestId}`);
@@ -520,37 +452,6 @@ export default function RequestLayout() {
                   showPagination={false}
                 />
               )}
-            </div>
-
-            <div className="mt-auto border-t border-slate-200 bg-white px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm text-muted-foreground">
-                  Hiển thị {fromItem}
-                  {' - '}
-                  {toItem} trên {filteredRequests.length} bản ghi
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-                    disabled={pageNumber <= 1}
-                  >
-                    Trước
-                  </Button>
-                  <div className="px-3 py-1 text-sm">
-                    {pageNumber} / {totalPages || 1}
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPageNumber((p) => Math.min(totalPages || 1, p + 1))}
-                    disabled={pageNumber >= totalPages}
-                  >
-                    Sau
-                  </Button>
-                </div>
-              </div>
             </div>
           </div>
         ) : (

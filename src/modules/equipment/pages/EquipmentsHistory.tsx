@@ -413,7 +413,7 @@ export default function EquipmentsHistory({
                   <SelectValue placeholder="Chọn trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
                   {BORROWING_STATUS_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
                       {o.label}

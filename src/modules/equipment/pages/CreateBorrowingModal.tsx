@@ -11,8 +11,6 @@ import type { SessionResponse } from '@/modules/request/session.types'
 import type { BorrowingCreatePayload } from '../borrowing'
 import { getEquipmentStatusDisplay } from '@/constants/status'
 import type {
-  EquipmentItemResponse,
-  EquipmentReservationItemResponse,
   EquipmentResponse,
   ReservationDetail,
 } from '@/modules/reservation/reservation.types'
@@ -35,44 +33,8 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select'
 import { cn } from '@/shared/lib/utils'
-import { ImageOff } from 'lucide-react'
+import { Check, ImageOff } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-
-function equipmentItemToEquipmentResponse(item: EquipmentItemResponse): EquipmentResponse {
-  return {
-    EquipmentId: item.EquipmentId,
-    CategoryId: item.CategoryId,
-    CategoryName: item.CategoryName ?? null,
-    SponsoredBy: null,
-    EquipmentName: item.EquipmentName ?? null,
-    EquipmentCode: item.EquipmentCode ?? null,
-    HandoverMinute: null,
-    Status: item.Status ?? null,
-    Description: null,
-    ImgLink: item.ImgLink ?? null,
-    CreatedAt: null,
-  }
-}
-
-/** Dòng thiết bị trong đơn yêu cầu — dùng khi API availability không trả (vd. Damaged) nhưng vẫn phải hiển thị/chọn theo phiếu đặt. */
-function equipmentReservationToRow(er: EquipmentReservationItemResponse): EquipmentResponse {
-  if (er.Equipment) {
-    return equipmentItemToEquipmentResponse(er.Equipment)
-  }
-  return {
-    EquipmentId: er.EquipmentId,
-    CategoryId: 0,
-    CategoryName: null,
-    SponsoredBy: null,
-    EquipmentName: `Thiết bị #${er.EquipmentId}`,
-    EquipmentCode: null,
-    HandoverMinute: null,
-    Status: null,
-    Description: null,
-    ImgLink: null,
-    CreatedAt: null,
-  }
-}
 
 function sessionOptionLabel(s: {
   SessionNo?: number | null
@@ -107,7 +69,6 @@ export default function CreateBorrowingModal({
   const [description, setDescription] = useState('')
   const [note, setNote] = useState('')
   const [allEquipments, setAllEquipments] = useState<EquipmentResponse[]>([])
-  const [unavailableEquipmentIds, setUnavailableEquipmentIds] = useState<Set<number>>(new Set())
   const [equipmentSearch, setEquipmentSearch] = useState('')
   const [equipmentLoading, setEquipmentLoading] = useState(false)
   const [categories, setCategories] = useState<CategoryListItem[]>([])
@@ -459,7 +420,6 @@ export default function CreateBorrowingModal({
     if (!returnedDueDate) {
       setAllEquipments([])
       setSelectedEquipmentIds([])
-      setUnavailableEquipmentIds(new Set())
       return
     }
 
@@ -494,31 +454,33 @@ export default function CreateBorrowingModal({
         const items = res.Items ?? []
         const availableIds = new Set(items.map((x) => x.EquipmentId))
 
-        const reservationEquipments = (loadedReservation?.EquipmentReservations ?? []).filter(
-          (er) => !er.IsTemporarilyCancelled,
-        )
-        const reservationIdSet = new Set(reservationEquipments.map((er) => er.EquipmentId))
+        // Lấy TẤT CẢ thiết bị từ reservation (để track trạng thái duyệt)
+        const reservationEquipments = loadedReservation?.EquipmentReservations ?? []
+        
+        // Map để track trạng thái duyệt của từng thiết bị
+        const reservationStatusMap = new Map<number, boolean | null>()
+        reservationEquipments.forEach((er) => {
+          reservationStatusMap.set(er.EquipmentId, er.IsTemporarilyCancelled ?? null)
+        })
 
-        // Track thiết bị từ reservation nhưng không available (đang bị mượn)
-        const unavailableIds = new Set<number>()
-        const merged: EquipmentResponse[] = [...items]
-        for (const er of reservationEquipments) {
-          if (!availableIds.has(er.EquipmentId)) {
-            merged.push(equipmentReservationToRow(er))
-            unavailableIds.add(er.EquipmentId)
-          }
-        }
+        // CHỈ hiển thị thiết bị khả dụng, nhưng thêm thông tin trạng thái duyệt nếu có
+        const merged: EquipmentResponse[] = items.map((item) => ({
+          ...item,
+          IsTemporarilyCancelled: reservationStatusMap.get(item.EquipmentId) ?? null,
+        } as EquipmentResponse & { IsTemporarilyCancelled?: boolean | null }))
 
         setAllEquipments(merged)
-        setUnavailableEquipmentIds(unavailableIds)
-        // Bỏ chọn các thiết bị không còn available
-        setSelectedEquipmentIds((prev) =>
-          prev.filter((id) => availableIds.has(id) || reservationIdSet.has(id)),
-        )
+        // Tự động chọn TẤT CẢ thiết bị từ reservation (kể cả bị từ chối)
+        // nếu chúng có trong danh sách khả dụng
+        setSelectedEquipmentIds((prev) => {
+          const allReservationIds = reservationEquipments
+            .map((er) => er.EquipmentId)
+            .filter((id) => availableIds.has(id))
+          return [...new Set([...prev, ...allReservationIds])]
+        })
       } catch {
         setAllEquipments([])
         setSelectedEquipmentIds([])
-        setUnavailableEquipmentIds(new Set())
       } finally {
         setEquipmentLoading(false)
       }
@@ -602,7 +564,6 @@ export default function CreateBorrowingModal({
     setNote('')
     setEquipmentSearch('')
     setSelectedEquipmentIds([])
-    setUnavailableEquipmentIds(new Set())
     setSessionIds([])
     setError('')
     setLoadedReservation(null)
@@ -919,7 +880,7 @@ export default function CreateBorrowingModal({
             <div className="space-y-2">
               <div ref={sessionBorrowerPickerRef} className="relative">
                 <Input
-                  placeholder="Tìm người mượn trong session..."
+                  placeholder="Tìm người tham gia buổi..."
                   disabled={loadingSessionBorrowers}
                   value={sessionBorrowerDropdownOpen ? sessionBorrowerSearch : borrowerSearch}
                   autoComplete="off"
@@ -1101,180 +1062,191 @@ export default function CreateBorrowingModal({
 
         <div className="space-y-1.5">
           <Label className="text-black font-medium">
-            Thiết bị 
-            <span className="text-red-500">*</span>
+            Thiết bị khả dụng (chọn ít nhất 1) <span className="text-red-500">*</span>
           </Label>
-          <div className="flex gap-2">
-            <Select
-              value={selectedCategoryId ? String(selectedCategoryId) : 'all'}
-              onValueChange={(value) =>
-                setSelectedCategoryId(value === 'all' ? null : Number(value))
-              }
-              disabled={categoryLoading}
-            >
-              <SelectTrigger className="h-8 w-40 text-xs">
-                <SelectValue placeholder="Loại thiết bị" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả loại</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.categoryId} value={String(c.categoryId)}>
-                    {c.categoryName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="Tìm theo tên / mã"
-              value={equipmentSearch}
-              onChange={(e) => setEquipmentSearch(e.target.value)}
-              className="h-8 text-xs text-black border-gray-200"
-            />
-          </div>
-          {returnedDueDate != null && (
-            <div className="mt-2 space-y-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3">
-              <div className="max-h-64 space-y-2 overflow-y-auto rounded-md bg-white px-1 py-2 no-scrollbar">
-                {allEquipments
-                  .filter((eq) => {
-                    if (selectedCategoryId && eq.CategoryId !== selectedCategoryId) {
-                      return false
-                    }
-                    if (!equipmentSearch.trim()) return true
-                    const q = equipmentSearch.trim().toLowerCase()
-                    return (
-                      (eq.EquipmentName ?? '').toLowerCase().includes(q) ||
-                      (eq.EquipmentCode ?? '').toLowerCase().includes(q)
-                    )
-                  })
-                  .slice(0, 30)
-                  .map((eq) => {
-                    const isSelected = selectedEquipmentIds.includes(
-                      eq.EquipmentId
-                    )
-                    const isUnavailable = unavailableEquipmentIds.has(eq.EquipmentId)
-                    const cat = (eq.CategoryName ?? '').trim()
-                    const code = (eq.EquipmentCode ?? '').trim()
-                    const subLine = `${cat || '—'} - ${code || '—'}`
-                    const alt = eq.EquipmentName ?? `Equipment ${eq.EquipmentId}`
-
-                    const toggle = () => {
-                      if (isUnavailable) return
-                      const id = eq.EquipmentId
-                      setSelectedEquipmentIds((prev) =>
-                        prev.includes(id)
-                          ? prev.filter((x) => x !== id)
-                          : [...prev, id]
-                      )
-                    }
-
-                    return (
-                      <div
-                        key={eq.EquipmentId}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs transition',
-                          isUnavailable
-                            ? 'border-slate-200 bg-gray-50 opacity-60 cursor-not-allowed'
-                            : isSelected
-                              ? 'border-[#2197C0] bg-[#2197C0]/10 shadow-[0_1px_2px_rgba(33,151,192,0.18)]'
-                              : 'border-slate-200 bg-white hover:border-[#2197C0]/45 hover:bg-[#2197C0]/5'
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            'h-10 w-10 shrink-0 overflow-hidden rounded-sm flex items-center justify-center',
-                            eq.ImgLink ? 'border bg-gray-50' : 'bg-gray-50'
-                          )}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {eq.ImgLink ? (
-                            <Image
-                              src={eq.ImgLink}
-                              alt={alt}
-                              width={40}
-                              height={40}
-                              className="object-cover"
-                              preview={{ mask: 'Xem ảnh' }}
-                            />
-                          ) : (
-                            <ImageOff
-                              className="h-5 w-5 text-gray-300"
-                              aria-hidden
-                            />
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={toggle}
-                          disabled={isUnavailable}
-                          className="flex min-w-0 flex-1 flex-col gap-0.5 text-left disabled:cursor-not-allowed"
-                        >
-                          <span className="flex items-center gap-1.5 truncate font-medium text-gray-900">
-                            {eq.EquipmentName}
-                            {isUnavailable && (
-                              <span className="shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600">
-                                {getEquipmentStatusDisplay(eq.Status)}
-                              </span>
-                            )}
-                          </span>
-                          <span className="truncate text-[11px] text-gray-500">
-                            {subLine}
-                          </span>
-                        </button>
-                      </div>
-                    )
-                  })}
-
-                {equipmentLoading && (
-                  <p className="px-2 py-1 text-xs text-gray-500">
-                    Đang tải danh sách thiết bị...
-                  </p>
-                )}
-                {!equipmentLoading &&
-                  !equipmentSearch.trim() &&
-                  allEquipments.length === 0 && (
-                    <p className="px-2 py-1 text-xs text-gray-500">
-                      Không có thiết bị khả dụng trong khung thời gian này.
-                    </p>
-                  )}
-                {!equipmentLoading &&
-                  equipmentSearch.trim() &&
-                  allEquipments.filter((eq) => {
-                    if (selectedCategoryId && eq.CategoryId !== selectedCategoryId) {
-                      return false
-                    }
-                    const q = equipmentSearch.trim().toLowerCase()
-                    const byId =
-                      !isNaN(Number(q)) && eq.EquipmentId === Number(q)
-                    return (
-                      byId ||
-                      (eq.EquipmentName ?? '').toLowerCase().includes(q) ||
-                      (eq.EquipmentCode ?? '').toLowerCase().includes(q) ||
-                      (eq.CategoryName ?? '').toLowerCase().includes(q)
-                    )
-                  }).length === 0 && (
-                    <p className="px-2 py-1 text-xs text-gray-500">
-                      Không tìm thấy thiết bị phù hợp
-                    </p>
-                  )}
-              </div>
+          {returnedDueDate != null ? (
+            <div className="space-y-4">
+              {/* Thiết bị đã chọn */}
               {selectedEquipments.length > 0 && (
-                <div className="mt-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700">
-                  <div className="mb-1 font-medium text-black">
-                    Đang chọn: {selectedEquipments.length} thiết bị
+                <div className="rounded-xl bg-sky-50/90 px-3 py-2.5">
+                  <div className="text-[11px] font-semibold text-sky-900 mb-1.5">
+                    Đã chọn ({selectedEquipments.length})
                   </div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-2">
                     {selectedEquipments.map((eq) => (
-                      <span
+                      <button
                         key={eq.EquipmentId}
-                        className="inline-flex items-center rounded-full bg-[#2197C0]/5 px-2 py-0.5 text-[11px] text-[#2197C0]"
+                        type="button"
+                        onClick={() => {
+                          const id = eq.EquipmentId
+                          setSelectedEquipmentIds((prev) => prev.filter((x) => x !== id))
+                        }}
+                        className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] text-sky-900 shadow-sm ring-1 ring-sky-200/50 hover:bg-white"
                       >
-                        {eq.EquipmentName}
-                      </span>
+                        <span className="max-w-[220px] truncate">{eq.EquipmentName ?? `Thiết bị #${eq.EquipmentId}`}</span>
+                        <span className="text-blue-500">×</span>
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
+
+              {/* Filters */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    placeholder="Tìm theo tên / mã"
+                    value={equipmentSearch}
+                    onChange={(e) => setEquipmentSearch(e.target.value)}
+                    className="h-9 text-xs text-black border-gray-200 bg-white rounded-xl"
+                  />
+                </div>
+                <Select
+                  value={selectedCategoryId ? String(selectedCategoryId) : 'all'}
+                  onValueChange={(value) =>
+                    setSelectedCategoryId(value === 'all' ? null : Number(value))
+                  }
+                  disabled={categoryLoading}
+                >
+                  <SelectTrigger className="h-9 w-[160px] text-xs font-medium bg-white text-slate-700 rounded-xl border border-slate-200/90">
+                    <SelectValue placeholder="Danh mục" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả danh mục</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.categoryId} value={String(c.categoryId)}>
+                        {c.categoryName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Equipment list */}
+              {equipmentLoading ? (
+                <div className="py-10 text-center text-xs text-slate-500 rounded-xl bg-white/60">
+                  Đang tải thiết bị...
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1 max-h-64 overflow-y-auto rounded-md bg-white px-1 py-2 border border-gray-200">
+                  {allEquipments
+                    .filter((eq) => {
+                      if (selectedCategoryId && eq.CategoryId !== selectedCategoryId) {
+                        return false
+                      }
+                      if (!equipmentSearch.trim()) return true
+                      const q = equipmentSearch.trim().toLowerCase()
+                      return (
+                        (eq.EquipmentName ?? '').toLowerCase().includes(q) ||
+                        (eq.EquipmentCode ?? '').toLowerCase().includes(q)
+                      )
+                    })
+                    .slice(0, 30)
+                    .map((eq) => {
+                      const isSelected = selectedEquipmentIds.includes(eq.EquipmentId)
+                      const cat = (eq.CategoryName ?? '').trim()
+                      const code = (eq.EquipmentCode ?? '').trim()
+                      const name = (eq.EquipmentName ?? '').trim()
+                      const displayName = name && code ? `${name} - ${code}` : name || code || `Thiết bị #${eq.EquipmentId}`
+                      const alt = eq.EquipmentName ?? `Equipment ${eq.EquipmentId}`
+                      const statusLabel = getEquipmentStatusDisplay(eq.Status ?? '')
+                      const isRejected = (eq as any).IsTemporarilyCancelled === true
+
+                      const toggle = () => {
+                        const id = eq.EquipmentId
+                        setSelectedEquipmentIds((prev) =>
+                          prev.includes(id)
+                            ? prev.filter((x) => x !== id)
+                            : [...prev, id]
+                        )
+                      }
+
+                      return (
+                        <div
+                          key={eq.EquipmentId}
+                          className={`flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm transition-colors ${isSelected ? 'bg-sky-50/95' : 'hover:bg-slate-100/60'}`}
+                        >
+                          <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-100">
+                            {eq.ImgLink ? (
+                              <Image
+                                src={eq.ImgLink}
+                                alt={alt}
+                                width={40}
+                                height={40}
+                                className="h-10 w-10 object-cover"
+                                preview={{ mask: false }}
+                              />
+                            ) : (
+                              <ImageOff className="w-5 h-5 text-gray-300" />
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={toggle}
+                            className="flex-1 flex items-center justify-between gap-2 text-left"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-medium text-gray-900 truncate">{displayName}</div>
+                              <div className="text-[11px] text-gray-500 truncate">Danh mục: {cat || '---'}</div>
+                              <div className="mt-1 space-y-0.5">
+                                <div>
+                                  <span className="text-[11px] text-gray-500 mr-1">Trạng thái:</span>
+                                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    {statusLabel}
+                                  </span>
+                                </div>
+                                {isRejected && (
+                                  <div>
+                                    <span className="text-[11px] text-gray-500 mr-1">Trạng thái duyệt:</span>
+                                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">
+                                      Từ chối
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <span
+                              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${isSelected ? 'bg-sky-600 text-white' : 'bg-slate-200/80'}`}
+                              aria-hidden
+                            >
+                              {isSelected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                            </span>
+                          </button>
+                        </div>
+                      )
+                    })}
+
+                  {!equipmentLoading &&
+                    allEquipments.filter((eq) => {
+                      if (selectedCategoryId && eq.CategoryId !== selectedCategoryId) {
+                        return false
+                      }
+                      if (!equipmentSearch.trim()) return true
+                      const q = equipmentSearch.trim().toLowerCase()
+                      return (
+                        (eq.EquipmentName ?? '').toLowerCase().includes(q) ||
+                        (eq.EquipmentCode ?? '').toLowerCase().includes(q)
+                      )
+                    }).length === 0 && (
+                      <p className="text-xs text-gray-500 py-4 text-center">
+                        {allEquipments.length === 0
+                          ? 'Không có thiết bị khả dụng trong khung thời gian này.'
+                          : 'Không có thiết bị nào trùng với từ khóa tìm kiếm.'}
+                      </p>
+                    )}
+                </div>
+              )}
+
+              {selectedEquipments.length > 0 && (
+                <p className="text-[11px] text-sky-700/90 font-medium">
+                  Đã chọn {selectedEquipments.length} thiết bị
+                </p>
+              )}
             </div>
+          ) : (
+            <p className="text-xs text-gray-500 py-4 text-center rounded-xl bg-gray-50">
+              Vui lòng chọn hạn trả trước
+            </p>
           )}
         </div>
 
