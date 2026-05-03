@@ -6,7 +6,7 @@ import type { ReservationDetail } from '@/modules/reservation/reservation.types'
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox, message } from 'antd';
-import { getSessionStatusInfo, getReservationStatusInfo, RESERVATION_STATUS, getEquipmentStatusDisplay, getEquipmentStatusColor } from '@/constants/status';
+import { getSessionStatusInfo, getReservationStatusInfo, RESERVATION_STATUS, getEquipmentStatusDisplay, getEquipmentStatusColor, getEquipmentReservationApprovalStatus } from '@/constants/status';
 import { cn } from '@/shared/lib/utils';
 import { Image } from 'antd';
 import { ROLE_ID } from '@/constants/role';
@@ -284,15 +284,14 @@ export default function ReservationDetailSidebar({
                                   </div>
                                   <div>
                                     <span className="text-[11px] text-gray-500 mr-1">Trạng thái duyệt:</span>
-                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${
-                                      er.IsTemporarilyCancelled 
-                                        ? 'bg-red-50 text-red-700 border-red-200' 
-                                        : er.IsTemporarilyCancelled === false
-                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                                    }`}>
-                                      {er.IsTemporarilyCancelled ? 'Từ chối' : er.IsTemporarilyCancelled === false ? 'Đã duyệt' : 'Chưa xác nhận'}
-                                    </span>
+                                    {(() => {
+                                      const approvalStatus = getEquipmentReservationApprovalStatus(er.IsTemporarilyCancelled);
+                                      return (
+                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${approvalStatus.className}`}>
+                                          {approvalStatus.label}
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </div>
