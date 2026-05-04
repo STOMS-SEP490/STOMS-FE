@@ -125,6 +125,7 @@ export default function SubjectsManagement() {
   /** Kỹ năng chọn thêm (chưa gọi API); chỉ gọi assignBulk khi bấm Lưu */
   const [pendingSkillIdsToAdd, setPendingSkillIdsToAdd] = useState<number[]>([])
   const [sessions, setSessions] = useState<EditableSession[]>([])
+  const [initialSessions, setInitialSessions] = useState<EditableSession[]>([])
   const [sessionsToDelete, setSessionsToDelete] = useState<number[]>([])
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([])
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null)
@@ -198,6 +199,7 @@ export default function SubjectsManagement() {
           description: (s as any).description ?? '',
         })) ?? []
       setSessions(mappedSessions)
+      setInitialSessions(mappedSessions)
       setSessionsToDelete([])
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'Không tải được chi tiết môn học'
@@ -214,6 +216,7 @@ export default function SubjectsManagement() {
       setInitialSubjectSkills([])
       setPendingSkillIdsToAdd([])
       setSessions([])
+      setInitialSessions([])
       setSessionsToDelete([])
     } finally {
       setOpenEdit(true)
@@ -245,6 +248,7 @@ export default function SubjectsManagement() {
     setSubjectSkills([])
     setPendingSkillIdsToAdd([])
     setSessions([])
+    setInitialSessions([])
     setSessionsToDelete([])
     setOpenEdit(true)
   }, [isManager])
@@ -346,6 +350,13 @@ export default function SubjectsManagement() {
       }
 
       if (!editingSubject) return
+
+      // Validate: môn học phải có ít nhất 1 buổi (không cho gỡ hết subject session)
+      // Lưu ý: `sessions` đã phản ánh UI hiện tại (các buổi bị xoá đã bị remove khỏi state).
+      if (sessions.length === 0) {
+        message.error('Môn học phải có ít nhất 1 buổi học')
+        return
+      }
       await subjectApi.update(editingSubject.subjectId, payloadBase)
 
       // Gán hàng loạt kỹ năng mới (chỉ khi bấm Lưu)
@@ -411,18 +422,46 @@ export default function SubjectsManagement() {
         await subjectSessionApi.delete(id)
       }
 
-      // cập nhật các session đã có id (title/description/duration thay đổi)
+      const normalizeSessionText = (v: string | null | undefined) => (v ?? '').trim()
+      const normalizeDurationForCompare = (v: string | null | undefined) => {
+        const raw = (v ?? '').trim()
+        // Chỉ so sánh khi đúng format BE hay trả; format khác thì coi như khác để update.
+        return /^\d{1,3}:\d{2}:\d{2}$/.test(raw) ? raw : raw
+      }
+
+      const initialSessionById = new Map<number, EditableSession>(
+        initialSessions
+          .filter((s) => typeof s.subjectSessionId === 'number')
+          .map((s) => [s.subjectSessionId as number, s]),
+      )
+
+      // cập nhật các session đã có id (chỉ PUT khi title/description/duration thay đổi)
       const existingSessions = sessions.filter((s) => s.subjectSessionId)
       for (const s of existingSessions) {
+        const initial = initialSessionById.get(s.subjectSessionId as number)
+
         const durationForApi =
           typeof s.duration === 'string' && /^\d{1,3}:\d{2}:\d{2}$/.test(s.duration)
             ? s.duration
             : '01:00:00'
-        await subjectSessionApi.update(s.subjectSessionId!, {
-          title: s.title || `Buổi ${s.sessionNo}`,
-          description: s.description ?? '',
-          duration: durationForApi,
-        })
+
+        const nextTitle = normalizeSessionText(s.title || `Buổi ${s.sessionNo}`)
+        const nextDesc = normalizeSessionText(s.description ?? '')
+        const nextDur = normalizeDurationForCompare(durationForApi)
+
+        const prevTitle = normalizeSessionText(initial?.title)
+        const prevDesc = normalizeSessionText(initial?.description)
+        const prevDur = normalizeDurationForCompare(initial?.duration)
+
+        const changed = !initial || nextTitle !== prevTitle || nextDesc !== prevDesc || nextDur !== prevDur
+
+        if (changed) {
+          await subjectSessionApi.update(s.subjectSessionId!, {
+            title: nextTitle,
+            description: nextDesc,
+            duration: durationForApi,
+          })
+        }
       }
 
       // thêm các subjectSession mới (chưa có id) với title/description/duration người dùng nhập
