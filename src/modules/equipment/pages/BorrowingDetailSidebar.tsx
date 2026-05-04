@@ -318,6 +318,18 @@ export default function BorrowingDetailSidebar({
                                     <span>Ngày trả: {formatDateTime(localReturnedAtById[item.equipmentBorrowingId] ?? item.checkinAt)}</span>
                                   )}
                                 </div>
+                                {item.receivedByMember && (
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    <span className="text-xs text-slate-500">Người nhận trả:</span>
+                                    <img
+                                      src={item.receivedByMember.avatarUrl?.trim() || '/img/ava.png'}
+                                      alt=""
+                                      className="h-4 w-4 rounded-full object-cover shrink-0"
+                                    />
+                                    <span className="text-xs font-medium text-slate-700">{item.receivedByMember.fullName}</span>
+                                    <span className="text-xs text-slate-400">({item.receivedByMember.email})</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
