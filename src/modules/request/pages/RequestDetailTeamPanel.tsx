@@ -137,6 +137,7 @@ export default function RequestDetailTeamPanel({
     }
     return (
       <div className="mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+        <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Kỹ năng</p>
         <div className="flex flex-wrap gap-1">
           {memberSkills.map((s) => (
             <Badge key={s.skillId} className="bg-orange-100 text-orange-700 border-0 text-[10px] font-medium">
