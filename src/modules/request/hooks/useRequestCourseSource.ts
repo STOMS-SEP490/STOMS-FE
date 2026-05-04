@@ -18,7 +18,10 @@ export function useRequestCourseSource(sourceType: SourceType) {
           pageSize: 100,
               IsActive: true,
         })
-        if (!cancelled) setCourses(res.items ?? [])
+        const items = res.items ?? []
+        // /pc/requests/create: chỉ cho chọn chương trình học có số buổi > 0
+        const filtered = items.filter((c) => Number(c.numberOfSession ?? 0) > 0)
+        if (!cancelled) setCourses(filtered)
       } finally {
         if (!cancelled) setLoading(false)
       }
