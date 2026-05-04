@@ -36,8 +36,11 @@ export function CourseDetailDrawer({ open, onClose, detailCourse, detailLoading,
 
   if (!open) return null;
 
+  const activeCourseSubjects =
+    detailCourse?.courseSubjects?.filter((cs) => (cs.isActive ?? true) === true) ?? [];
+
   const subjectCount = detailCourse
-    ? String(detailCourse.numberOfSubject ?? detailCourse.courseSubjects?.length ?? 0)
+    ? String(activeCourseSubjects.length)
     : '—';
   const sessionCount = detailCourse ? String(detailCourse.numberOfSession ?? '—') : '—';
   const durationLabel = detailCourse != null ? formatCourseDuration(detailCourse.duration ?? undefined) ?? '—' : '—';
@@ -149,9 +152,9 @@ export function CourseDetailDrawer({ open, onClose, detailCourse, detailLoading,
 
                 {/* Môn học */}
                 <Section icon={BookOpen} title="Môn học trong khóa">
-                  {detailCourse.courseSubjects && detailCourse.courseSubjects.length > 0 ? (
+                  {activeCourseSubjects.length > 0 ? (
                     <div className="pl-4 divide-y divide-slate-200">
-                      {detailCourse.courseSubjects.map((cs: CourseSubjectSummary) => (
+                      {activeCourseSubjects.map((cs: CourseSubjectSummary) => (
                         <SubjectBlock
                           key={`${cs.courseId ?? 'c'}-${cs.subjectId}`}
                           cs={cs}
@@ -161,7 +164,7 @@ export function CourseDetailDrawer({ open, onClose, detailCourse, detailLoading,
                     </div>
                   ) : (
                     <div className="pl-4 py-2">
-                      <p className="text-sm text-slate-500">Chưa có môn học nào trong khóa.</p>
+                      <p className="text-sm text-slate-500">Không có môn học đang hoạt động trong khóa.</p>
                     </div>
                   )}
                 </Section>

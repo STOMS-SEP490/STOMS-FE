@@ -77,10 +77,14 @@ export function useLoadRequestSessions() {
       const course = await courseApi.getById(courseId)
       const rawList = (course.courseSubjects ?? []) as {
         subjectId: number
+        isActive?: boolean
         subject?: SubjectListItem
         subjectName?: string
       }[]
-      return rawList.map((cs) => cs.subject).filter(Boolean) as SubjectListItem[]
+      return rawList
+        .filter((cs) => (cs.isActive ?? true) === true)
+        .map((cs) => cs.subject)
+        .filter(Boolean) as SubjectListItem[]
     } finally {
       setLoading(false)
     }

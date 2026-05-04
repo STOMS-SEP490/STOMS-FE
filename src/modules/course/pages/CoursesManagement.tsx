@@ -251,6 +251,24 @@ export default function CoursesManagement({ readOnly = false }: Props) {
 
       if (!editingCourse) return;
 
+      // Lưu ý: Không commitPendingSubjects() ở đây vì setState là async và commit sẽ reset pendingSubjectIdsToAdd,
+      // khiến bước assignBulk phía dưới bị mất danh sách môn cần thêm.
+      const pendingToAddIds = Array.from(
+        new Set(
+          pendingSubjectIdsToAdd.filter((id) => Number(id) > 0 && !courseSubjects.some((cs) => cs.subjectId === id)),
+        ),
+      );
+
+      // Validate: chương trình học phải có ít nhất 1 môn học đang active
+      // (tính cả các môn pending sắp được thêm — mặc định active).
+      const activeSubjectsCount =
+        courseSubjects.filter((cs) => (cs.isActive ?? true) === true).length + pendingToAddIds.length;
+
+      if (activeSubjectsCount === 0) {
+        message.error('Chương trình học phải có ít nhất 1 môn học');
+        return;
+      }
+
       await courseApi.update(editingCourse.courseId, payloadBase);
 
       const initialMap = new Map<number, boolean>(
@@ -274,11 +292,25 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         await courseSubjectApi.activateMany(editingCourse.courseId, toActivate);
       }
 
-      const toAddIds = Array.from(
-        new Set(pendingSubjectIdsToAdd.filter((id) => !courseSubjects.some((cs) => cs.subjectId === id))),
-      );
-      if (toAddIds.length > 0) {
-        await courseSubjectApi.assignBulk(editingCourse.courseId, toAddIds);
+      if (pendingToAddIds.length > 0) {
+        await courseSubjectApi.assignBulk(editingCourse.courseId, pendingToAddIds);
+        // cập nhật UI local ngay (để user thấy môn vừa thêm) + reset pending
+        setCourseSubjects((prev) => {
+          const existing = new Set(prev.map((x) => x.subjectId));
+          const next = [...prev];
+          for (const id of pendingToAddIds) {
+            if (existing.has(id)) continue;
+            const found = allSubjects.find((s) => s.subjectId === id);
+            next.push({
+              subjectId: id,
+              subjectName: found?.subjectName ?? `Môn #${id}`,
+              isActive: true,
+            });
+          }
+          return next;
+        });
+        setPendingSubjectIdsToAdd([]);
+        setShowAddSubject(false);
       }
 
       message.success('Cập nhật chương trình học thành công');
