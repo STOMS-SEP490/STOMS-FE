@@ -58,6 +58,8 @@ export default function RequestDetail() {
     location?: string | null;
     teachersRequired?: number | null;
     tasRequired?: number | null;
+    availableTeacherCount?: number | null;
+    availableTaCount?: number | null;
     teams: { teamId: number; teamName: string }[];
     equipments: {
       equipmentId: number;
@@ -460,6 +462,10 @@ export default function RequestDetail() {
             ...preview,
             warningMessage: sessionWarning?.warningMessage || '',
             canFulfillRequirement: sessionWarning?.canFulfillRequirement ?? true,
+            availableTeacherCount: sessionWarning?.availableTeacherCount ?? null,
+            availableTaCount: sessionWarning?.availableTaCount ?? null,
+            teachersRequired: sessionWarning?.teachersRequired ?? preview.teachersRequired,
+            tasRequired: sessionWarning?.tasRequired ?? preview.tasRequired,
           };
         });
       }
@@ -632,8 +638,34 @@ export default function RequestDetail() {
                               <span>{preview.location || '—'}</span>
                             </div>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                              <span><span className="text-gray-500">Giảng viên:</span> {preview.teachersRequired ?? 0}</span>
-                              <span><span className="text-gray-500">Sinh viên:</span> {preview.tasRequired ?? 0}</span>
+                              <span>
+                                <span className="text-gray-500">Giảng viên: </span>
+                                {preview.availableTeacherCount != null ? (
+                                  <>
+                                    <span className={`font-semibold ${(preview.availableTeacherCount ?? 0) >= (preview.teachersRequired ?? 0) ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                      {preview.availableTeacherCount} phù hợp
+                                    </span>
+                                    <span className="text-gray-400"> / </span>
+                                    <span className="font-medium text-gray-700">{preview.teachersRequired ?? 0} yêu cầu</span>
+                                  </>
+                                ) : (
+                                  <span className="font-medium">{preview.teachersRequired ?? 0} yêu cầu</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-gray-500">Sinh viên: </span>
+                                {preview.availableTaCount != null ? (
+                                  <>
+                                    <span className={`font-semibold ${(preview.availableTaCount ?? 0) >= (preview.tasRequired ?? 0) ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                      {preview.availableTaCount} phù hợp
+                                    </span>
+                                    <span className="text-gray-400"> / </span>
+                                    <span className="font-medium text-gray-700">{preview.tasRequired ?? 0} yêu cầu</span>
+                                  </>
+                                ) : (
+                                  <span className="font-medium">{preview.tasRequired ?? 0} yêu cầu</span>
+                                )}
+                              </span>
                             </div>
                             {preview.warningMessage && (
                               <div className={`mt-2 rounded border px-2 py-1.5 text-[11px] ${preview.canFulfillRequirement ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>

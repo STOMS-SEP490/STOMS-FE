@@ -74,7 +74,7 @@ export default function TeamLeaderAttendanceSlideOver({
   overlayZClass = 'z-[80]',
   hideDelegate = false,
 }: TeamLeaderAttendanceSlideOverProps) {
-  const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+  const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
   const [checkinProofImage, setCheckinProofImage] = useState<File | null>(null);
   const [checkoutProofImage, setCheckoutProofImage] = useState<File | null>(null);
   const [checkedCheckinByMemberId, setCheckedCheckinByMemberId] = useState<Record<number, boolean>>({});
@@ -637,8 +637,8 @@ export default function TeamLeaderAttendanceSlideOver({
                         onChange={(e) => {
                           const f = e.currentTarget.files?.[0] ?? null;
                           if (!f) return;
-                          if (f.size >= MAX_UPLOAD_SIZE_BYTES) {
-                            message.warning('Vui lòng chọn ảnh có dung lượng nhỏ hơn 10MB.');
+                          if (f.size > MAX_UPLOAD_SIZE_BYTES) {
+                            message.warning('Vui lòng chọn ảnh có dung lượng không quá 5MB.');
                             e.currentTarget.value = '';
                             return;
                           }
@@ -688,7 +688,7 @@ export default function TeamLeaderAttendanceSlideOver({
                           const f = e.currentTarget.files?.[0] ?? null;
                           if (f) {
                             if (f.size > MAX_UPLOAD_SIZE_BYTES) {
-                              message.warning('Vui lòng chọn ảnh có dung lượng không quá 10MB.');
+                              message.warning('Vui lòng chọn ảnh có dung lượng không quá 5MB.');
                               e.currentTarget.value = '';
                               return;
                             }
