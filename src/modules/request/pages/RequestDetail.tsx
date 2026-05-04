@@ -1492,6 +1492,16 @@ export default function RequestDetail() {
                           requestStatusCode === REQUEST_STATUS.APPROVED &&
                           getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
                         }
+                        canEditTeacher={(() => {
+                          if (!requestStatusCode || requestStatusCode < REQUEST_STATUS.APPROVED) return false;
+                          const sc = getSessionStatusCode(rightPanel.session.status);
+                          return (
+                            sc === SESSION_STATUS.APPROVED ||
+                            sc === SESSION_STATUS.ASSIGNING ||
+                            sc === SESSION_STATUS.ASSIGNMENT_REJECTED ||
+                            sc === SESSION_STATUS.ASSIGNED
+                          );
+                        })()}
                         currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                         separateTeacherSelection={requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.APPROVED}
@@ -1547,6 +1557,16 @@ export default function RequestDetail() {
                     requestStatusCode === REQUEST_STATUS.APPROVED &&
                     getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
                   }
+                  canEditTeacher={(() => {
+                    if (!requestStatusCode || requestStatusCode < REQUEST_STATUS.APPROVED) return false;
+                    const sc = getSessionStatusCode(rightPanel.session.status);
+                    return (
+                      sc === SESSION_STATUS.APPROVED ||
+                      sc === SESSION_STATUS.ASSIGNING ||
+                      sc === SESSION_STATUS.ASSIGNMENT_REJECTED ||
+                      sc === SESSION_STATUS.ASSIGNED
+                    );
+                  })()}
                   currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                   separateTeacherSelection={requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.APPROVED}
@@ -1862,6 +1882,20 @@ export default function RequestDetail() {
                                         {checked ? 'Đã chọn' : 'Chọn duyệt'}
                                       </button>
                                     </>
+                                  )}
+                                  {filled && Number(row.staffMemberId) > 0 && (
+                                    <button
+                                      type="button"
+                                      aria-label={expandedMemberIds.has(Number(row.staffMemberId)) ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                                      title={expandedMemberIds.has(Number(row.staffMemberId)) ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                                      className="flex h-6 w-6 items-center justify-center text-slate-400 hover:text-[#2197C0] hover:bg-slate-200/60 rounded transition-colors"
+                                      onClick={() => void toggleMemberExpanded(Number(row.staffMemberId))}
+                                    >
+                                      <ChevronDown
+                                        className="w-3.5 h-3.5 transition-transform duration-200"
+                                        style={{ transform: expandedMemberIds.has(Number(row.staffMemberId)) ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                                      />
+                                    </button>
                                   )}
                                 </div>
                               </div>

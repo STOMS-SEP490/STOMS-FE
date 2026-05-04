@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Users } from 'lucide-react';
 import { DownOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Badge } from '@/shared/components/ui/badge';
 import sessionService from '../api/sessionApi';
+import memberApi from '@/modules/member/api/memberApi';
+import type { MemberDetail } from '@/modules/member/member';
 import { getAssignmentStatusInfo, ASSIGNMENT_STATUS, REQUEST_STATUS, getRequestStatusCode } from '@/constants/status';
 import { isTeacherRole, isAssistantRole } from '@/constants/role';
 import RequestSessionDetailPanel from './RequestSessionDetailPanel';
@@ -32,6 +34,43 @@ export default function PCSessionDetailTeamPanel({
   const [sessionDetail, setSessionDetail] = useState<any>(null);
   const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
   const [expandedTeamIds, setExpandedTeamIds] = useState<number[]>([]);
+  // Map staffMemberId -> expanded state for member detail dropdown
+  const [expandedMemberIds, setExpandedMemberIds] = useState<Set<number>>(new Set());
+  // Map staffMemberId -> MemberDetail (cache)
+  const [memberDetails, setMemberDetails] = useState<Record<number, MemberDetail | null>>({});
+  // Map staffMemberId -> loading state
+  const [memberLoadingIds, setMemberLoadingIds] = useState<Set<number>>(new Set());
+  const memberFetchedRef = useRef<Set<number>>(new Set());
+
+  const toggleMemberExpanded = async (staffMemberId: number) => {
+    if (!staffMemberId || staffMemberId <= 0) return;
+    setExpandedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(staffMemberId)) {
+        next.delete(staffMemberId);
+      } else {
+        next.add(staffMemberId);
+      }
+      return next;
+    });
+    // Fetch if not already fetched
+    if (!memberFetchedRef.current.has(staffMemberId)) {
+      memberFetchedRef.current.add(staffMemberId);
+      setMemberLoadingIds((prev) => new Set(prev).add(staffMemberId));
+      try {
+        const detail = await memberApi.getMemberById(staffMemberId);
+        setMemberDetails((prev) => ({ ...prev, [staffMemberId]: detail }));
+      } catch {
+        setMemberDetails((prev) => ({ ...prev, [staffMemberId]: null }));
+      } finally {
+        setMemberLoadingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(staffMemberId);
+          return next;
+        });
+      }
+    }
+  };
 
   // Load session detail
   useEffect(() => {
@@ -83,16 +122,61 @@ export default function PCSessionDetailTeamPanel({
       ...((Array.isArray(sessionDetail?.SubjectSession?.Topics) ? sessionDetail.SubjectSession.Topics : []) as any[]),
       ...((Array.isArray(sessionDetail?.subjectSession?.topics) ? sessionDetail.subjectSession.topics : []) as any[]),
     ];
+    const subjectTopicName = String(
+      (sessionDetail as any)?.SubjectSession?.topicName ??
+      (sessionDetail as any)?.subjectSession?.topicName ??
+      ''
+    ).trim();
     const names = [...fromEvent, ...fromSubject]
       .filter((t: any) => (t?.IsActive ?? t?.isActive ?? true) !== false)
       .map((t: any) => String(t?.TopicName ?? t?.topicName ?? '').trim())
       .filter(Boolean);
+    if (subjectTopicName) names.push(subjectTopicName);
     return Array.from(new Set(names));
   }, [sessionDetail]);
 
   const toggleTeamExpanded = (teamId: number) => {
     setExpandedTeamIds((prev) =>
       prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId]
+    );
+  };
+
+  // Render member skills panel
+  const renderMemberDetailPanel = (staffMemberId: number) => {
+    const isExpanded = expandedMemberIds.has(staffMemberId);
+    if (!isExpanded) return null;
+    const isLoading = memberLoadingIds.has(staffMemberId);
+    const detail = memberDetails[staffMemberId];
+
+    if (isLoading) {
+      return (
+        <div className="mt-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2 text-xs text-slate-500">
+          <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-[#2197C0] rounded-full animate-spin shrink-0" />
+          Đang tải thông tin...
+        </div>
+      );
+    }
+
+    const memberSkills = detail?.skills?.filter((s) => s.isActive) ?? [];
+
+    if (!detail || memberSkills.length === 0) {
+      return (
+        <div className="mt-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 italic">
+          Chưa có kỹ năng.
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+        <div className="flex flex-wrap gap-1">
+          {memberSkills.map((s) => (
+            <Badge key={s.skillId} className="bg-orange-100 text-orange-700 border-0 text-[10px] font-medium">
+              {s.skillName}
+            </Badge>
+          ))}
+        </div>
+      </div>
     );
   };
 
@@ -255,7 +339,7 @@ export default function PCSessionDetailTeamPanel({
                   <span className="text-slate-700">—</span>
                 ) : (
                   topics.map((name) => (
-                    <Badge key={name} className="bg-slate-100 text-slate-700 border-0 text-[11px] font-medium">
+                    <Badge key={name} className="bg-violet-100 text-violet-700 border-0 text-[11px] font-medium">
                       {name}
                     </Badge>
                   ))
@@ -271,7 +355,7 @@ export default function PCSessionDetailTeamPanel({
                 <span className="text-slate-700">—</span>
               ) : (
                 skills.map((name) => (
-                  <Badge key={name} className="bg-[#2197C0]/10 text-[#2197C0] border-0 text-[11px] font-medium">
+                  <Badge key={name} className="bg-orange-100 text-orange-700 border-0 text-[11px] font-medium">
                     {name}
                   </Badge>
                 ))
@@ -304,7 +388,10 @@ export default function PCSessionDetailTeamPanel({
         <section className="space-y-3 border-t border-slate-200 pt-4">
           <p className="text-base font-semibold text-slate-900">Giảng viên tham dự</p>
           <div className="space-y-2">
-            {teacherAssignments.map((slot: any, index: number) => (
+            {teacherAssignments.map((slot: any, index: number) => {
+              const staffMemberId = Number(slot.StaffMemberId ?? 0);
+              const isMemberExpanded = expandedMemberIds.has(staffMemberId);
+              return (
               <div
                 key={Number(slot.AssignmentId ?? 0) || index}
                 className="border-b border-slate-200 bg-white py-2.5 last:border-b-0"
@@ -312,9 +399,9 @@ export default function PCSessionDetailTeamPanel({
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Giảng viên {index + 1}
                 </p>
-                <div className="w-full flex items-center gap-3 bg-white px-3 py-2">
-                  {Number(slot.StaffMemberId ?? 0) > 0 ? (
-                    <div className="flex items-center gap-3 min-w-0">
+                <div className="w-full flex items-center justify-between gap-3 bg-white px-3 py-2">
+                  {staffMemberId > 0 ? (
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
                         <img
                           src={getAvatarSrc(slot.StaffMember?.AvatarUrl ?? null)}
@@ -325,7 +412,7 @@ export default function PCSessionDetailTeamPanel({
                           }}
                         />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-900 truncate">
                           {slot.StaffMember?.FullName || 'Giảng viên'}
                         </p>
@@ -335,11 +422,31 @@ export default function PCSessionDetailTeamPanel({
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-500">Chưa có giảng viên</p>
+                    <p className="text-sm text-slate-500 flex-1">Chưa có giảng viên</p>
+                  )}
+                  {staffMemberId > 0 && (
+                    <button
+                      type="button"
+                      aria-label={isMemberExpanded ? 'Ẩn thông tin' : 'Xem thông tin'}
+                      title={isMemberExpanded ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                      className="flex h-7 w-7 items-center justify-center text-slate-400 hover:text-[#2197C0] hover:bg-slate-100 rounded-sm transition-colors shrink-0"
+                      onClick={() => void toggleMemberExpanded(staffMemberId)}
+                    >
+                      <DownOutlined
+                        style={{
+                          fontSize: 12,
+                          transform: isMemberExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s',
+                          display: 'block',
+                        }}
+                      />
+                    </button>
                   )}
                 </div>
+                {staffMemberId > 0 && renderMemberDetailPanel(staffMemberId)}
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -395,6 +502,8 @@ export default function PCSessionDetailTeamPanel({
                         const statusInfo = getAssignmentStatusInfo(student.Status);
                         const isRejected = statusInfo.code === ASSIGNMENT_STATUS.REJECTED;
                         const rejectReason = student.Reason?.trim() || '';
+                        const studentMemberId = Number(student.StaffMemberId ?? 0);
+                        const isStudentExpanded = expandedMemberIds.has(studentMemberId);
 
                         return (
                           <div key={Number(student.AssignmentId ?? 0) || index} className="space-y-2">
@@ -407,7 +516,7 @@ export default function PCSessionDetailTeamPanel({
                                 isRejected ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200'
                               }`}
                             >
-                              <div className="flex items-center gap-3 min-w-0">
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
                                 <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
                                   <img
                                     src={getAvatarSrc(student.StaffMember?.AvatarUrl ?? null)}
@@ -418,7 +527,7 @@ export default function PCSessionDetailTeamPanel({
                                     }}
                                   />
                                 </div>
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <p className="text-sm font-semibold text-slate-900 truncate">
                                     {student.StaffMember?.FullName || 'Sinh viên'}
                                   </p>
@@ -427,12 +536,35 @@ export default function PCSessionDetailTeamPanel({
                                   </p>
                                 </div>
                               </div>
-                              <span
-                                className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
-                              >
-                                {statusInfo.label}
-                              </span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span
+                                  className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
+                                >
+                                  {statusInfo.label}
+                                </span>
+                                {studentMemberId > 0 && (
+                                  <button
+                                    type="button"
+                                    aria-label={isStudentExpanded ? 'Ẩn thông tin' : 'Xem thông tin'}
+                                    title={isStudentExpanded ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                                    className="flex h-6 w-6 items-center justify-center text-slate-400 hover:text-[#2197C0] hover:bg-slate-100 rounded-sm transition-colors"
+                                    onClick={() => void toggleMemberExpanded(studentMemberId)}
+                                  >
+                                    <DownOutlined
+                                      style={{
+                                        fontSize: 11,
+                                        transform: isStudentExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.2s',
+                                        display: 'block',
+                                      }}
+                                    />
+                                  </button>
+                                )}
+                              </div>
                             </div>
+
+                            {/* Member detail panel */}
+                            {studentMemberId > 0 && renderMemberDetailPanel(studentMemberId)}
 
                             {/* Hiển thị lịch sử từ chối (nếu có) */}
                             {rejectReason && (
@@ -483,6 +615,8 @@ export default function PCSessionDetailTeamPanel({
                     const statusInfo = getAssignmentStatusInfo(student.Status);
                     const isRejected = statusInfo.code === ASSIGNMENT_STATUS.REJECTED;
                     const rejectReason = student.Reason?.trim() || '';
+                    const studentMemberId = Number(student.StaffMemberId ?? 0);
+                    const isStudentExpanded = expandedMemberIds.has(studentMemberId);
 
                     return (
                       <div key={Number(student.AssignmentId ?? 0) || index} className="space-y-2">
@@ -495,7 +629,7 @@ export default function PCSessionDetailTeamPanel({
                             isRejected ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200'
                           }`}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
                             <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
                               <img
                                 src={getAvatarSrc(student.StaffMember?.AvatarUrl ?? null)}
@@ -506,7 +640,7 @@ export default function PCSessionDetailTeamPanel({
                                 }}
                               />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="text-sm font-semibold text-slate-900 truncate">
                                 {student.StaffMember?.FullName || 'Sinh viên'}
                               </p>
@@ -515,12 +649,35 @@ export default function PCSessionDetailTeamPanel({
                               </p>
                             </div>
                           </div>
-                          <span
-                            className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
-                          >
-                            {statusInfo.label}
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
+                            >
+                              {statusInfo.label}
+                            </span>
+                            {studentMemberId > 0 && (
+                              <button
+                                type="button"
+                                aria-label={isStudentExpanded ? 'Ẩn thông tin' : 'Xem thông tin'}
+                                title={isStudentExpanded ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                                className="flex h-6 w-6 items-center justify-center text-slate-400 hover:text-[#2197C0] hover:bg-slate-100 rounded-sm transition-colors"
+                                onClick={() => void toggleMemberExpanded(studentMemberId)}
+                              >
+                                <DownOutlined
+                                  style={{
+                                    fontSize: 11,
+                                    transform: isStudentExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                    transition: 'transform 0.2s',
+                                    display: 'block',
+                                  }}
+                                />
+                              </button>
+                            )}
+                          </div>
                         </div>
+
+                        {/* Member detail panel */}
+                        {studentMemberId > 0 && renderMemberDetailPanel(studentMemberId)}
 
                         {/* Hiển thị lịch sử từ chối (nếu có) */}
                         {rejectReason && (
@@ -557,6 +714,8 @@ export default function PCSessionDetailTeamPanel({
                   const statusInfo = getAssignmentStatusInfo(student.Status);
                   const isRejected = statusInfo.code === ASSIGNMENT_STATUS.REJECTED;
                   const rejectReason = student.Reason?.trim() || '';
+                  const studentMemberId = Number(student.StaffMemberId ?? 0);
+                  const isStudentExpanded = expandedMemberIds.has(studentMemberId);
 
                   return (
                     <div key={Number(student.AssignmentId ?? 0) || index} className="space-y-2">
@@ -569,7 +728,7 @@ export default function PCSessionDetailTeamPanel({
                           isRejected ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200'
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
                             <img
                               src={getAvatarSrc(student.StaffMember?.AvatarUrl ?? null)}
@@ -580,7 +739,7 @@ export default function PCSessionDetailTeamPanel({
                               }}
                             />
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold text-slate-900 truncate">
                               {student.StaffMember?.FullName || 'Sinh viên'}
                             </p>
@@ -589,12 +748,35 @@ export default function PCSessionDetailTeamPanel({
                             </p>
                           </div>
                         </div>
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
-                        >
-                          {statusInfo.label}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
+                          >
+                            {statusInfo.label}
+                          </span>
+                          {studentMemberId > 0 && (
+                            <button
+                              type="button"
+                              aria-label={isStudentExpanded ? 'Ẩn thông tin' : 'Xem thông tin'}
+                              title={isStudentExpanded ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                              className="flex h-6 w-6 items-center justify-center text-slate-400 hover:text-[#2197C0] hover:bg-slate-100 rounded-sm transition-colors"
+                              onClick={() => void toggleMemberExpanded(studentMemberId)}
+                            >
+                              <DownOutlined
+                                style={{
+                                  fontSize: 11,
+                                  transform: isStudentExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.2s',
+                                  display: 'block',
+                                }}
+                              />
+                            </button>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Member detail panel */}
+                      {studentMemberId > 0 && renderMemberDetailPanel(studentMemberId)}
 
                       {/* Hiển thị lý do từ chối */}
                       {isRejected && rejectReason && (
