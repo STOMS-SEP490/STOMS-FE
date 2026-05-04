@@ -8,6 +8,10 @@ import { Label } from '@/shared/components/ui/label';
 import type { Team } from '@/modules/team/team';
 import { getAssignmentStatusInfo, ASSIGNMENT_STATUS, REQUEST_STATUS, getRequestStatusCode } from '@/constants/status';
 import { useRequestDetailTeamPanel } from '../hooks/useRequestDetailTeamPanel';
+import memberApi from '@/modules/member/api/memberApi';
+import type { MemberDetail } from '@/modules/member/member';
+import { useCallback, useRef, useState } from 'react';
+import { Badge } from '@/shared/components/ui/badge';
 
 export type SessionForTeam = {
   sessionNo: number;
@@ -77,6 +81,72 @@ export default function RequestDetailTeamPanel({
   // 🎨 JSX below - will update variable references next
   // Sử dụng canEditTeacher nếu được truyền, nếu không thì dùng canEdit
   const canEditTeacherFinal = canEditTeacher !== undefined ? canEditTeacher : canEdit;
+
+  // ── Member detail dropdown ──────────────────────────────────────────────
+  const [expandedMemberIds, setExpandedMemberIds] = useState<Set<number>>(new Set());
+  const [memberDetails, setMemberDetails] = useState<Record<number, MemberDetail | null>>({});
+  const [memberLoadingIds, setMemberLoadingIds] = useState<Set<number>>(new Set());
+  const memberFetchedRef = useRef<Set<number>>(new Set());
+
+  const toggleMemberExpanded = useCallback(async (memberId: number) => {
+    if (!memberId || memberId <= 0) return;
+    setExpandedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) { next.delete(memberId); } else { next.add(memberId); }
+      return next;
+    });
+    if (!memberFetchedRef.current.has(memberId)) {
+      memberFetchedRef.current.add(memberId);
+      setMemberLoadingIds((prev) => new Set(prev).add(memberId));
+      try {
+        const detail = await memberApi.getMemberById(memberId);
+        setMemberDetails((prev) => ({ ...prev, [memberId]: detail }));
+      } catch {
+        setMemberDetails((prev) => ({ ...prev, [memberId]: null }));
+      } finally {
+        setMemberLoadingIds((prev) => { const next = new Set(prev); next.delete(memberId); return next; });
+      }
+    }
+  }, []);
+
+  const renderMemberDetailPanel = useCallback((memberId: number) => {
+    if (!expandedMemberIds.has(memberId)) return null;
+    if (memberLoadingIds.has(memberId)) {
+      return (
+        <div className="mt-1.5 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2 text-xs text-slate-500">
+          <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-[#2197C0] rounded-full animate-spin shrink-0" />
+          Đang tải thông tin...
+        </div>
+      );
+    }
+    const detail = memberDetails[memberId];
+    if (!detail) {
+      return (
+        <div className="mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500">
+          Không thể tải thông tin thành viên.
+        </div>
+      );
+    }
+    const memberSkills = detail.skills?.filter((s) => s.isActive) ?? [];
+    if (memberSkills.length === 0) {
+      return (
+        <div className="mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 italic">
+          Chưa có kỹ năng.
+        </div>
+      );
+    }
+    return (
+      <div className="mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+        <div className="flex flex-wrap gap-1">
+          {memberSkills.map((s) => (
+            <Badge key={s.skillId} className="bg-orange-100 text-orange-700 border-0 text-[10px] font-medium">
+              {s.skillName}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    );
+  }, [expandedMemberIds, memberLoadingIds, memberDetails]);
 
   return (
     <div className="space-y-5">
@@ -321,14 +391,17 @@ export default function RequestDetailTeamPanel({
               </div>
             ) : (
             <div className="space-y-2">
-              {state.teacherAssignments.map((slot, index) => (
+              {state.teacherAssignments.map((slot, index) => {
+                const teacherMemberId = Number(slot.StaffMemberId ?? 0);
+                const isTeacherExpanded = expandedMemberIds.has(teacherMemberId);
+                return (
                 <div key={Number(slot.AssignmentId ?? 0) || index} className="border-b border-slate-200 bg-white py-2.5 last:border-b-0">
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     Giảng viên {index + 1}
                   </p>
                   <div className="w-full flex items-center justify-between gap-3 bg-white px-3 py-2 text-left">
-                    {Number(slot.StaffMemberId ?? 0) > 0 ? (
-                      <div className="flex items-center gap-3 min-w-0">
+                    {teacherMemberId > 0 ? (
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
                           <img
                             src={getAvatarSrc(slot.StaffMember?.AvatarUrl ?? null)}
@@ -339,7 +412,7 @@ export default function RequestDetailTeamPanel({
                             }}
                           />
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-slate-900 truncate">
                             {slot.StaffMember?.FullName || 'Giảng viên đã chọn'}
                           </p>
@@ -349,7 +422,7 @@ export default function RequestDetailTeamPanel({
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
                           <Plus className="h-5 w-5 stroke-[2.5]" />
                         </span>
@@ -359,9 +432,29 @@ export default function RequestDetailTeamPanel({
                         </div>
                       </div>
                     )}
+                    {teacherMemberId > 0 && (
+                      <button
+                        type="button"
+                        aria-label={isTeacherExpanded ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                        title={isTeacherExpanded ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                        className="flex h-7 w-7 items-center justify-center text-slate-400 hover:text-[#2197C0] hover:bg-slate-100 rounded-sm transition-colors shrink-0"
+                        onClick={() => void toggleMemberExpanded(teacherMemberId)}
+                      >
+                        <DownOutlined
+                          style={{
+                            fontSize: 12,
+                            transform: isTeacherExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s',
+                            display: 'block',
+                          }}
+                        />
+                      </button>
+                    )}
                   </div>
+                  {teacherMemberId > 0 && renderMemberDetailPanel(teacherMemberId)}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
           {canEdit && state.requestedTeachers > state.selectedTeacherCount && (
@@ -995,8 +1088,27 @@ export default function RequestDetailTeamPanel({
                                   {statusInfo.label}
                                 </span>
                               )}
+                              {Number(student.StaffMemberId ?? 0) > 0 && (
+                                <button
+                                  type="button"
+                                  aria-label={expandedMemberIds.has(Number(student.StaffMemberId)) ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                                  title={expandedMemberIds.has(Number(student.StaffMemberId)) ? 'Ẩn thông tin' : 'Xem thông tin thành viên'}
+                                  className="flex h-6 w-6 items-center justify-center text-slate-400 hover:text-[#2197C0] hover:bg-slate-100 rounded-sm transition-colors"
+                                  onClick={() => void toggleMemberExpanded(Number(student.StaffMemberId))}
+                                >
+                                  <DownOutlined
+                                    style={{
+                                      fontSize: 11,
+                                      transform: expandedMemberIds.has(Number(student.StaffMemberId)) ? 'rotate(180deg)' : 'rotate(0deg)',
+                                      transition: 'transform 0.2s',
+                                      display: 'block',
+                                    }}
+                                  />
+                                </button>
+                              )}
                             </div>
                           </div>
+                          {Number(student.StaffMemberId ?? 0) > 0 && renderMemberDetailPanel(Number(student.StaffMemberId))}
                           
                           {/* Hiển thị lịch sử từ chối (nếu có) */}
                           {rejectReason && (
