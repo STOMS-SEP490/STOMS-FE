@@ -155,9 +155,10 @@ export default function Sidebar() {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
-      if (!sidebarRef.current?.contains(target)) {
-        setCollapsed(true);
-      }
+      // Removed auto-collapse when clicking outside sidebar
+      // if (!sidebarRef.current?.contains(target)) {
+      //   setCollapsed(true);
+      // }
       if (accountOpen && !accountMenuRef.current?.contains(target)) {
         setAccountOpen(false);
       }

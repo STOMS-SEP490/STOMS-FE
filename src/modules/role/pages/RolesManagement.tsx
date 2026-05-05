@@ -45,7 +45,6 @@ export default function RolesManagement() {
   };
 
   const getErrorMessage = (err: unknown): string => {
-    // Axios interceptor reject với error.response?.data, nên err có thể là string hoặc object từ API
     if (typeof err === 'string') return err;
     if (err && typeof err === 'object') {
       const o = err as Record<string, unknown>;

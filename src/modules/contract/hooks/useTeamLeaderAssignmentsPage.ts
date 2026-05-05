@@ -122,8 +122,10 @@ export function partitionTeamLeaderAssignmentSlots(
     Number(currentTeamSession?.tasRequired ?? detail?.TasRequired ?? taSlotsAll.length) || 0,
   );
 
+  // Slice by required count (don't filter by assignedByMemberId here - let UI handle disable logic)
   const editableTeacherSlots = teacherActive.slice(0, teachersRequired);
   const editableTaSlots = taActive.slice(0, tasRequired);
+  
   const lockedTeacherCount = Math.max(0, teacherActive.length - teachersRequired);
   const lockedTaCount = Math.max(0, taActive.length - tasRequired);
 
@@ -151,7 +153,18 @@ export function computeTeamLeaderAssignableSlotStats(
     detail,
     currentTeamId,
   );
-  const editable = [...editableTeacherSlots, ...editableTaSlots];
+  let editable = [...editableTeacherSlots, ...editableTaSlots];
+
+  try {
+    const rawUser = JSON.parse(localStorage.getItem('user') || '{}') as { memberId?: number };
+    const currentMemberId = Number(rawUser?.memberId || 0);
+    if (currentMemberId > 0) {
+      editable = editable.filter((a) => {
+        const assignedBy = Number(a.AssignedByMemberId ?? 0);
+        return assignedBy === 0 || assignedBy === currentMemberId;
+      });
+    }
+  } catch {}
 
   const total = editable.length;
   const filled = editable.filter(

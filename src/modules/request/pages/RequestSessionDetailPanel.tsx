@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { ImageOff } from 'lucide-react';
+import { ImageOff, Pencil } from 'lucide-react';
 import { message, Image } from 'antd';
 import reservationService from '../../reservation/api/reservationApi';
 import type { EquipmentReservationItemResponse, ReservationDetail } from '@/modules/reservation/reservation.types';
@@ -38,6 +38,7 @@ export default function RequestSessionDetailPanel({
   session,
   sessionDetail: providedSessionDetail,
   reloadKey = 0,
+  requestId,
   requestCode,
   showReservedEquipment = true,
   sectionMode = 'all',
@@ -389,10 +390,11 @@ export default function RequestSessionDetailPanel({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-1.5 text-xs border-sky-200 text-sky-700 hover:bg-sky-50"
+                  className="gap-1.5 h-7 text-xs text-[#2197C0] border-[#2197C0]/40 hover:bg-[#2197C0]/5"
                   disabled={editReservationLoading}
                   onClick={() => void handleOpenEditReservation()}
                 >
+                  <Pencil className="h-3 w-3" />
                   Sửa đơn yêu cầu thiết bị
                 </Button>
               ) : null}
@@ -477,6 +479,7 @@ export default function RequestSessionDetailPanel({
         <EditReservationModal
           open={editReservationOpen}
           reservation={editReservationDetail}
+          requestId={requestId}
           onClose={() => {
             setEditReservationOpen(false);
             setEditReservationDetail(null);

@@ -28,6 +28,7 @@ import subjectSkillApi, { type SubjectSkillItem } from '../api/subjectSkillApi'
 import subjectSessionApi from '../api/subjectSessionApi'
 import { SubjectDetailDrawer } from '../components/SubjectDetailDrawer'
 import { SubjectEditPanel } from '../components/SubjectEditPanel'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi'
 import { dashboardApi } from '@/modules/dashboard/api/dashboardApi'
 import { useQuery } from '@tanstack/react-query'
@@ -485,9 +486,8 @@ export default function SubjectsManagement() {
       setOpenEdit(false)
       await refetch()
       void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey })
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra'
-      message.error(msg)
+    } catch (e: unknown) {
+      message.error(getErrorMessage(e) || 'Có lỗi xảy ra')
       // Yêu cầu: nếu cập nhật lỗi thì đóng popup
       if (!isCreating) {
         setOpenEdit(false)
@@ -513,9 +513,8 @@ export default function SubjectsManagement() {
           message.success('Cập nhật trạng thái thành công')
           await refetch()
           void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey })
-        } catch (e: any) {
-          const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra'
-          message.error(msg)
+        } catch (e: unknown) {
+          message.error(getErrorMessage(e) || 'Có lỗi xảy ra')
         }
       },
     })

@@ -1,10 +1,3 @@
-/**
- * MyTasksPage – Trang báo cáo công việc cho Teacher / Team Leader.
- *
- * Thiết kế giống TaskReportsManagement (manager) nhưng:
- * - Chỉ hiển thị buổi của chính mình (filter MemberId)
- * - Không có nút duyệt / từ chối (isManager = false trong TaskSessionDetailPage)
- */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -28,19 +21,16 @@ export default function MyTasksPage() {
   const location = useLocation();
   const rolePrefix = location.pathname.startsWith('/teacher/') ? '/teacher' : '/tl';
 
-  // Lấy memberId từ localStorage
   const memberId = useMemo(
     () => Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0,
     [],
   );
 
-  // ── filters ──
   const [search, setSearch] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
 
-  // ── fetch sessions của chính mình ──
   const { data: sessionsPaged, isLoading: sessionsLoading } = useQuery({
     queryKey: ['my-sessions-tasks', memberId, pageNumber, filterStartDate, filterEndDate],
     queryFn: () =>

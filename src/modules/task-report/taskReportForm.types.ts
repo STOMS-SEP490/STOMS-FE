@@ -1,7 +1,3 @@
-/**
- * Types for task report form and expense management
- */
-
 export type ReportFormState = {
   title: string;
   description: string;
