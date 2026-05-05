@@ -10,7 +10,6 @@ function normalizeAttendanceItem(raw: Record<string, unknown>): AttendanceItem {
     AttendanceByMemberId:
       (raw['AttendanceByMemberId'] ?? raw['attendanceByMemberId'] ?? null) as number | null,
     Note: (raw['Note'] ?? raw['note'] ?? null) as string | null,
-    // Ảnh minh chứng (giữ theo key BE hiện tại: imgcheckin/imgcheckout)
     imgcheckin:
       (raw['imgcheckin'] ??
         raw['imgCheckin'] ??
