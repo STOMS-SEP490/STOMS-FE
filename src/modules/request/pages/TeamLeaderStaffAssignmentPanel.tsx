@@ -22,7 +22,6 @@ function getAvatarSrc(src?: string | null) {
 type Props = {
   canEdit?: boolean;
   onAssignmentUpdated?: () => void;
-  /** Pre-fetched session detail from parent - REQUIRED */
   sessionDetail: any;
 };
 
@@ -188,7 +187,6 @@ export default function TeamLeaderStaffAssignmentPanel({
       message.success('Đã lưu phân công sinh viên.');
       setTaEditMode(false);
       
-      // Parent will refresh session detail, which will update this component via preFetchedDetail prop
       await onAssignmentUpdated?.();
     } catch (err: unknown) {
       const msg =

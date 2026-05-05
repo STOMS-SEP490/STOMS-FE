@@ -20,14 +20,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = localStorage.getItem('accessToken');
 
       if (raw && token) {
-        const parsed = JSON.parse(raw) as { userId?: number; email?: string; roleId?: number | string };
+        const parsed = JSON.parse(raw) as { userId?: number; email?: string; activeRoleId?: number | string };
 
-        if (parsed.userId && parsed.email) {
+        if (parsed.userId && parsed.email && parsed.activeRoleId != null) {
           const current: CurrentUser = {
             id: parsed.userId,
             email: parsed.email,
             fullName: parsed.email,
-            role: String(parsed.roleId ?? ''),
+            role: String(parsed.activeRoleId),
             token,
           };
 

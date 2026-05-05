@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 type Template = {
   sessionNo: number;
   title: string;
-  duration: string; // "02:00:00"
+  duration: string; 
   subjectSessionId: number;
 };
 
