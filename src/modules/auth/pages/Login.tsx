@@ -4,9 +4,11 @@ import { message } from 'antd';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import authService from '@/modules/auth/api/authApi';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { saveAuthToStorage } from '@/modules/auth/authStorage';
+import {
+  isRoleSelectionRequired,
+  saveAuthToStorage,
+} from '@/modules/auth/authStorage';
 import { getHomePathByRole, getRoleIdFromStorage } from '@/modules/auth/roleAccess';
-import { ROLE_ID } from '@/constants/role';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -48,17 +50,15 @@ export default function Login() {
     }
 
     if (!EMAIL_RE.test(email.trim())) {
-      message.warning(
-        'Email không hợp lệ',
-      );
+      message.warning('Email không hợp lệ');
       return;
     }
 
     if (loading) return;
-
     setLoading(true);
 
     try {
+      // Lấy deviceUid đã lưu (nếu có) để BE nhận diện thiết bị
       let savedDeviceUid: string | undefined;
       try {
         const raw = localStorage.getItem('user');
@@ -76,54 +76,33 @@ export default function Login() {
 
       localStorage.clear();
 
-      const userRoleId = res.userRoleId ?? null;
-      const memberRoleId = res.memberRoleId ?? null;
-      const roles = [userRoleId, memberRoleId].filter((x): x is number => x != null);
-
-      const resolveActiveRoleId = (): number | null => {
-        if (roles.length === 0) return null;
-        if (roles.length === 1) return roles[0];
-
-        // TH1: trùng role -> vào thẳng
-        if (userRoleId != null && memberRoleId != null && userRoleId === memberRoleId) {
-          return userRoleId;
-        }
-
-        // TH2: có đồng thời role 4 và 5 -> chọn theo memberRoleId
-        const has45 = roles.includes(ROLE_ID.TEACHER) && roles.includes(ROLE_ID.ASSISTANT);
-        if (has45 && memberRoleId != null) return memberRoleId;
-
-        // TH còn lại: cần user chọn
-        return null;
-      };
-
-      const activeRoleId = resolveActiveRoleId();
-
-      saveAuthToStorage({
-        ...res,
-        roleId: activeRoleId,
-      });
-
-      message.success('Đăng nhập thành công');
-
-      if (activeRoleId != null) {
-        setCurrentUser({
-          id: res.userId,
-          email: res.email,
-          fullName: res.email,
-          role: String(activeRoleId),
-          token: res.accessToken,
-        });
-        navigate(getHomePathByRole(activeRoleId));
-      } else {
+      // BE yêu cầu chọn tư cách → lưu tạm thông tin rồi chuyển sang màn chọn
+      if (isRoleSelectionRequired(res)) {
+        sessionStorage.setItem('roleSelection', JSON.stringify(res));
         navigate('/choose-role');
+        return;
       }
+
+      // Đăng nhập thẳng — BE đã quyết định activeRoleId
+      saveAuthToStorage(res);
+      setCurrentUser({
+        id: res.userId,
+        email: res.email,
+        fullName: res.email,
+        role: String(res.activeRoleId),
+        token: res.accessToken,
+      });
+      message.success('Đăng nhập thành công');
+      navigate(getHomePathByRole(res.activeRoleId));
     } catch (error: unknown) {
-      const axiosErr = error as { response?: { data?: unknown; status?: number } };
+      const axiosErr = error as { response?: { data?: unknown } };
       const data = axiosErr?.response?.data;
       const msg =
         (typeof data === 'string' && data) ||
-        (typeof data === 'object' && data !== null && 'message' in data && String((data as Record<string, unknown>).message)) ||
+        (typeof data === 'object' &&
+          data !== null &&
+          'message' in data &&
+          String((data as Record<string, unknown>).message)) ||
         'Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.';
       message.error(msg);
     } finally {
@@ -178,9 +157,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-4 w-full py-3 rounded-lg 
-                    bg-[#193350]
-                    hover:opacity-90 transition"
+          className="mt-4 w-full py-3 rounded-lg bg-[#193350] hover:opacity-90 transition"
         >
           {loading ? 'Đang đăng nhập...' : 'Đăng Nhập'}
         </button>

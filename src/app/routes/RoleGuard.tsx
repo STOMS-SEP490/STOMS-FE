@@ -15,7 +15,7 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
 
   const accessToken = localStorage.getItem('accessToken');
   const roleId = Number(user?.role ?? getRoleIdFromStorage());
-  const isRoleValid = !Number.isNaN(roleId);
+  const isRoleValid = !Number.isNaN(roleId) && roleId > 0;
 
   if (!accessToken) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
