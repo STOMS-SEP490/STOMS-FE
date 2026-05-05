@@ -131,7 +131,10 @@ export default function EditBorrowingEquipmentsModal({ open, onClose, borrowing,
       setSaving(true)
       await borrowingApi.addEquipments(borrowing.borrowingId, selectedNewIds)
       message.success(`Đã thêm ${selectedNewIds.length} thiết bị vào phiếu mượn`)
-      onUpdated?.()
+      
+      // Fetch lại data chi tiết phiếu mượn
+      await onUpdated?.()
+      
       onClose()
     } catch (err: unknown) {
       const axiosData = (err as { response?: { data?: unknown } })?.response?.data
