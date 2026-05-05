@@ -72,6 +72,10 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
     detailSubject?.topicName?.trim() ||
     (detailSubject?.topicId != null ? `Chủ đề #${detailSubject.topicId}` : '—');
 
+  const totalDuration = detailSubject?.duration 
+    ? formatTimeSpan(detailSubject.duration) 
+    : null;
+
   const activeSkills = detailSubject != null
     ? (detailSubject.subjectSkills ?? []).filter((ss) => ss?.isActive === undefined ? true : ss.isActive === true)
     : [];
@@ -140,6 +144,10 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
                   <div className="min-w-0 flex-1 px-5 py-2">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-[#2197C0]">Số buổi</p>
                     <p className="mt-0.5 text-sm font-medium text-black">{sessionCount}</p>
+                  </div>
+                  <div className="min-w-0 flex-1 px-5 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#2197C0]">Thời lượng</p>
+                    <p className="mt-0.5 text-sm font-medium text-black">{totalDuration ?? '—'}</p>
                   </div>
                   <div className="min-w-0 flex-1 px-5 py-2">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-[#2197C0]">Số khóa dùng</p>

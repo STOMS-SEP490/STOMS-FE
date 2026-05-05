@@ -21,6 +21,7 @@ import topicApi from '@/modules/topic/api/topicApi';
 import type { TopicListItem } from '@/modules/topic/topic';
 import subjectApi from '@/modules/subject/api/subjectApi';
 import { SubjectDetailDrawer } from '@/modules/subject/components/SubjectDetailDrawer';
+import { formatSubjectDuration } from '../formatSubjectDuration';
 
 export default function SubjectsReadonlyPage() {
   const { user } = useAuth();
@@ -87,6 +88,20 @@ export default function SubjectsReadonlyPage() {
             <div className="text-xs text-gray-500 truncate">{row.original.description?.trim() || '—'}</div>
           </div>
         ),
+      },
+      {
+        accessorKey: 'topicName',
+        header: 'Chủ đề',
+        cell: ({ row }) => (
+          <span className="text-sm text-slate-700">
+            {row.original.topicName?.trim() || '—'}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'duration',
+        header: 'Thời lượng',
+        cell: ({ row }) => formatSubjectDuration(row.original.duration ?? undefined) ?? '—',
       },
       {
         accessorKey: 'createdAt',
