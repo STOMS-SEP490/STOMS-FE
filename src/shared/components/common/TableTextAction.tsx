@@ -10,7 +10,6 @@ type TableTextActionProps = {
   chevronClassName?: string;
 };
 
-/** Hành động dạng chữ trong bảng: `span` + role button + hỗ trợ phím, không dùng thẻ `button`. */
 export function TableTextAction({ onClick, className, chevronClassName }: TableTextActionProps) {
   return (
     <span
