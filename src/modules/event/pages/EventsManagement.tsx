@@ -87,20 +87,26 @@ export default function EventsManagement() {
   const [eventSummary, setEventSummary] = useState<DashboardEventSummary | null>(null);
 
   useEffect(() => {
+  // Chỉ load skills/topics khi cần (khi mở modal tạo/sửa)
+  const loadSkillsAndTopics = useCallback(async () => {
     if (readOnly) return;
-    skillApi
-      .getSkills({ pageSize: 500 })
-      .then((res) => setAllSkills(res.items ?? []))
-      .catch(() => setAllSkills([]));
-  }, [readOnly]);
-
-  useEffect(() => {
-    if (readOnly) return;
-    topicApi
-      .getTopics({ pageNumber: 1, pageSize: 500 })
-      .then((res) => setAllTopics(res.items ?? []))
-      .catch(() => setAllTopics([]));
-  }, [readOnly]);
+    if (allSkills.length === 0) {
+      try {
+        const res = await skillApi.getSkills({ pageSize: 500 });
+        setAllSkills(res.items ?? []);
+      } catch {
+        setAllSkills([]);
+      }
+    }
+    if (allTopics.length === 0) {
+      try {
+        const res = await topicApi.getTopics({ pageNumber: 1, pageSize: 500 });
+        setAllTopics(res.items ?? []);
+      } catch {
+        setAllTopics([]);
+      }
+    }
+  }, [readOnly, allSkills.length, allTopics.length]);
 
   const fetchEvents = async () => {
     try {
@@ -211,6 +217,10 @@ export default function EventsManagement() {
 
   const openCreate = () => {
     if (readOnly) return;
+    
+    // Load skills và topics trước khi mở modal
+    void loadSkillsAndTopics();
+    
     setMode('create');
     setEditingEvent(null);
     setEventCode('');
@@ -239,6 +249,10 @@ export default function EventsManagement() {
 
   const openEdit = async (e: EventListItem) => {
     if (readOnly) return;
+    
+    // Load skills và topics trước khi mở modal
+    await loadSkillsAndTopics();
+    
     setMode('edit');
     try {
       const detail = await eventApi.getById(e.eventId);
@@ -881,7 +895,6 @@ export default function EventsManagement() {
         />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
             <Select
               value={statusFilter}
               onValueChange={(v: 'all' | 'active' | 'inactive') => {

@@ -25,12 +25,13 @@ import { Switch } from '@/shared/components/ui/switch';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import { useCourses, type CourseListStatusFilter } from '@/modules/course/hooks/useCourses';
 import { useCourseDetailDrawer } from '@/modules/course/hooks/useCourseDetailDrawer';
-import { useActiveSubjects } from '@/modules/course/hooks/useActiveSubjects';
+import { useActiveSubjects, useAllSubjects } from '@/modules/course/hooks/useActiveSubjects';
 import { CourseDetailDrawer } from '@/modules/course/components/CourseDetailDrawer';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { dashboardApi, dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { useQuery } from '@tanstack/react-query';
+import { formatCourseDuration } from '../formatCourseDuration';
 
 type Props = {
   readOnly?: boolean;
@@ -82,6 +83,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   } = useCourses({ activeOnly: false });
 
   const allSubjects = useActiveSubjects();
+  const allSubjectsIncludingInactive = useAllSubjects();
 
   const {
     detailOpen,
@@ -374,6 +376,11 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         ),
       },
       {
+        id: 'duration',
+        header: 'Thời lượng',
+        cell: ({ row }) => formatCourseDuration(row.original.duration ?? undefined) ?? '—',
+      },
+      {
         accessorKey: 'isActive',
         header: 'Trạng thái',
         cell: ({ row }) =>
@@ -530,7 +537,6 @@ export default function CoursesManagement({ readOnly = false }: Props) {
             <HoverSearch placeholder="Tìm chương trình học..." value={search} onChange={(value) => setSearch(value)} />
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
                 <Select
                   value={statusFilter}
                   onValueChange={(v) =>
@@ -701,13 +707,26 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                             cs.subjectName ??
                             allSubjects.find((x) => x.subjectId === cs.subjectId)?.subjectName ??
                             `Môn #${cs.subjectId}`;
+                          
+                          const masterSubject = allSubjectsIncludingInactive.find((x) => x.subjectId === cs.subjectId);
+                          const isSubjectDeactivated = masterSubject ? !masterSubject.isActive : false;
+                          
                           return (
                             <div
                               key={cs.subjectId}
                               className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/40"
                             >
                               <div className="flex flex-col min-w-0">
-                                <span className="truncate text-sm font-medium text-[#1a7a99]">{name}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className={`truncate text-sm font-medium ${isSubjectDeactivated ? 'text-slate-400' : 'text-[#1a7a99]'}`}>
+                                    {name}
+                                  </span>
+                                  {isSubjectDeactivated && (
+                                    <Badge className="border bg-orange-100 text-orange-600 text-xs">
+                                      Môn đã ngừng
+                                    </Badge>
+                                  )}
+                                </div>
                                 <span className="text-xs text-slate-500">Mã môn: {cs.subjectId}</span>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -716,6 +735,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                                 </span>
                                 <Switch
                                   checked={isActive}
+                                  disabled={isSubjectDeactivated}
                                   onCheckedChange={(checked) => {
                                     setCourseSubjects((prev) =>
                                       prev.map((it) =>

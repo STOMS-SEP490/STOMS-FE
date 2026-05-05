@@ -286,7 +286,6 @@ export default function TopicsManagement() {
         />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
             <Select
               value={statusFilter}
               onValueChange={(value) => handleStatusChange(value as 'all' | 'active' | 'inactive')}
