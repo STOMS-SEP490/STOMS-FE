@@ -4,8 +4,6 @@ import { walletApi, type WalletListItem } from '../api/walletApi';
 import transactionApi from '../api/transactionApi';
 import { MANAGER_ROLE_ID } from '@/constants/role';
 
-const WALLET_VISIBLE_ROLE_IDS = new Set([2, 3, 4, 5]);
-
 type LocalUser = {
   memberId: number;
   roleId: number;
@@ -39,14 +37,15 @@ export function useTeacherContributionHistory() {
   const [contributeOpen, setContributeOpen] = useState(false);
 
   const user = useMemo(() => getLocalUser(), []);
-  const canViewWalletList = WALLET_VISIBLE_ROLE_IDS.has(user.roleId);
+  // Cho phép tất cả user xem danh sách ví quỹ
+  const canViewWalletList = true;
   const isManager = user.roleId === MANAGER_ROLE_ID;
 
   const fetchContributions = useCallback(async () => {
     if (!user.memberId) return;
     try {
       setLoading(true);
-      if (selectedWalletId && canViewWalletList) {
+      if (selectedWalletId) {
         const res = await transactionApi.getTransactions({
           walletId: selectedWalletId,
           pageNumber,
@@ -77,26 +76,23 @@ export function useTeacherContributionHistory() {
         setTotalItems(res.totalItems ?? 0);
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('fetch teacher contributions error:', err);
     } finally {
       setLoading(false);
     }
-  }, [canViewWalletList, pageNumber, pageSize, selectedWalletId, user.memberId]);
+  }, [pageNumber, pageSize, selectedWalletId, user.memberId]);
 
   const fetchWallets = useCallback(async () => {
-    if (!canViewWalletList) return;
     try {
       setWalletLoading(true);
       const res = await walletApi.getWallets({ pageNumber: 1, pageSize: 50 });
       setWallets(res.items ?? []);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('fetch wallets error:', err);
     } finally {
       setWalletLoading(false);
     }
-  }, [canViewWalletList]);
+  }, []);
 
   useEffect(() => {
     void fetchContributions();
@@ -116,17 +112,13 @@ export function useTeacherContributionHistory() {
     );
   }, [items, search]);
 
-  const totalAmount = useMemo(
-    () => {
-      // Chỉ tính tổng khi xem "Tất cả khoản của tôi" (selectedWalletId == null)
-      if (selectedWalletId != null) return 0;
-      return items.reduce(
-        (sum, item) => sum + (typeof item.amount === 'number' ? item.amount : 0),
-        0,
-      );
-    },
-    [items, selectedWalletId],
-  );
+  const totalAmount = useMemo(() => {
+    if (selectedWalletId != null) return 0;
+    return items.reduce(
+      (sum, item) => sum + (typeof item.amount === 'number' ? item.amount : 0),
+      0,
+    );
+  }, [items, selectedWalletId]);
 
   const onSearchChange = useCallback((value: string) => {
     setPageNumber(1);
@@ -141,7 +133,7 @@ export function useTeacherContributionHistory() {
   const onContributionSubmitted = useCallback(() => {
     setPageNumber(1);
     void fetchContributions();
-    void fetchWallets(); // Fetch lại wallets để cập nhật số dư
+    void fetchWallets();
   }, [fetchContributions, fetchWallets]);
 
   return {
