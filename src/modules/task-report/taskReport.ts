@@ -1,5 +1,3 @@
-/* ─── Response types (khớp BE TaskReportResponse / ExpenseResponse) ─── */
-
 export type TaskReportExpense = {
   expenseId: number;
   taskReportId: number | null;
@@ -28,18 +26,12 @@ export type TaskReport = {
   expenses: TaskReportExpense[] | null;
 };
 
-/* ─── Filter params (khớp BE TaskReportFilterRequest) ─── */
 
 export type TaskReportFilterParams = {
   pageNumber?: number;
   pageSize?: number;
   taskReportId?: number;
-  /**
-   * MemberId (backend: ?MemberId=...)
-   * - Tránh mismatch case giữa FE/BE.
-   */
   MemberId?: number;
-  // Alias cũ (nếu còn chỗ gọi cũ)
   memberId?: number;
   userId?: number;
   requestId?: number;
@@ -53,7 +45,6 @@ export type TaskReportFilterParams = {
   createdAt?: string;
 };
 
-/* ─── Create payload (multipart/form-data → TaskReportSubmitRequest) ─── */
 
 export type TaskReportExpenseInput = {
   amount: number;
@@ -72,7 +63,6 @@ export type TaskReportCreatePayload = {
   paymentImages?: File[];
 };
 
-/* ─── Update payload (JSON → TaskReportUpdateRequest) ─── */
 
 export type TaskReportUpdatePayload = {
   requestId?: number | null;
@@ -83,7 +73,6 @@ export type TaskReportUpdatePayload = {
   endAt?: string | null;
 };
 
-/* ─── Expense create payload (multipart/form-data → ExpenseCreateRequest) ─── */
 
 export type ExpenseCreatePayload = {
   taskReportId?: number;
@@ -93,7 +82,6 @@ export type ExpenseCreatePayload = {
   paymentImg?: File | null;
 };
 
-/* ─── Expense update payload (multipart/form-data → ExpenseUpdateRequest) ─── */
 
 export type ExpenseUpdatePayload = {
   amount: number;

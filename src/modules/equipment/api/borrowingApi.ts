@@ -66,6 +66,14 @@ const borrowingApi = {
 
     return res
   },
+
+  // POST: /api/equipment-borrowings — thêm thiết bị vào phiếu đang mượn
+  async addEquipments(borrowingId: number, equipmentIds: number[]): Promise<void> {
+    await axiosClient.post('/equipment-borrowings', {
+      borrowingId,
+      equipmentIds,
+    })
+  },
 }
 
 export default borrowingApi

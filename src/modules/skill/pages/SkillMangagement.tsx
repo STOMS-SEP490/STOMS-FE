@@ -19,6 +19,7 @@ import { useSkills } from '../hooks/useSkills';
 import { useSearchParams } from 'react-router-dom';
 import { getRoleBadgeClass, getRoleLabel, ROLE_ID } from '@/constants/role';
 import { dashboardApi, type DashboardSkillStatistics } from '@/modules/dashboard/api/dashboardApi';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 function roleNameToId(roleName: string): number | null {
   const n = roleName.toLowerCase().trim();
@@ -82,7 +83,6 @@ export default function SkillsManagement() {
   const openDetailFromUrl = searchParams.get('openDetail');
   const skillIdFromUrl = searchParams.get('skillId');
 
-  // Prevent: user closes detail, but URL params update async -> effect runs once more and re-opens.
   const skipNextAutoOpenRef = useRef(false);
 
   const [openDetail, setOpenDetail] = useState(false);
@@ -147,9 +147,8 @@ export default function SkillsManagement() {
       }
       setOpenUpsert(false);
       await refetch();
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra';
-      message.error(msg);
+    } catch (e: unknown) {
+      message.error(getErrorMessage(e) || 'Có lỗi xảy ra');
     } finally {
       setSubmitting(false);
     }
@@ -170,9 +169,8 @@ export default function SkillsManagement() {
           else await skillApi.activate(s.skillId);
           message.success('Cập nhật trạng thái thành công');
           await refetch();
-        } catch (e: any) {
-          const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra';
-          message.error(msg);
+        } catch (e: unknown) {
+          message.error(getErrorMessage(e) || 'Có lỗi xảy ra');
         }
       },
     });
@@ -213,7 +211,6 @@ export default function SkillsManagement() {
         setDetailLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openDetailFromUrl, skillIdFromUrl, openDetail, detailSkill?.skillId]);
 
 

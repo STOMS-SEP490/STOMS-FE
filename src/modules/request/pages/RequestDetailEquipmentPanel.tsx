@@ -10,6 +10,7 @@ import reservationApi from '../../reservation/api/reservationApi';
 import { normalizeEquipmentPagedResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
 import categoryApi from '@/modules/category/api/categoryApi';
 import type { CategoryListItem } from '@/modules/category/category';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 import { EQUIPMENT_STATUS_OPTIONS, getEquipmentStatusDisplay, getEquipmentStatusColor } from '@/constants/status';
 
 export type SessionOption = {
@@ -115,10 +116,12 @@ export default function RequestDetailEquipmentPanel({ sessions, createdByMemberI
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        const msg = err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Không tải được thiết bị khả dụng.';
-        setEquipmentError(msg);
+        const msg = getErrorMessage(
+          err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: unknown } }).response?.data
+            : err
+        );
+        setEquipmentError(msg || 'Không tải được thiết bị khả dụng.');
         setEquipmentItems([]);
       })
       .finally(() => { if (!cancelled) setEquipmentLoading(false); });
@@ -209,8 +212,12 @@ export default function RequestDetailEquipmentPanel({ sessions, createdByMemberI
       onClose();
       await onSuccess();
     } catch (err: unknown) {
-      const raw = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : '';
-      setSubmitError(raw || 'Đơn yêu cầu thiết bị thất bại.');
+      const msg = getErrorMessage(
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: unknown } }).response?.data
+          : err
+      );
+      setSubmitError(msg || 'Đơn yêu cầu thiết bị thất bại.');
     } finally {
       setSubmitLoading(false);
     }
