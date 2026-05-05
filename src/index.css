@@ -121,28 +121,13 @@ button {
   transition: border-color 0.25s;
 }
 
-/* button:hover {
-  border-color: #646cff;
-} */
-
-/* button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-} */
-
-/* Always default to dark theme (no light auto-override). */
 
 .main-content {
-  zoom: 0.9;
-  --content-height: calc(100vh / 0.9);
+  /* zoom: 0.9;
+  --content-height: calc(100vh / 0.9); */
   min-height: var(--content-height);
 }
 
-/*
- * FullCalendar đo width/scrollgrid sai khi nằm trong ancestor có zoom ≠ 1 (cột trống bên phải).
- * - :has(.event-calendar-page) — dự phòng nếu lịch mount ở route khác.
- * - .main-content--calendar-safe — gắn từ MainContent.tsx theo URL …/timetable (ổn định hơn :has).
- */
 .main-content:has(.event-calendar-page),
 .main-content.main-content--calendar-safe {
   zoom: 1;
@@ -186,8 +171,6 @@ button:focus-visible {
   background-color: rgba(100, 116, 139, 0.95);
 }
 
-/* --- Fix AntD notification extra grey space --- */
-/* Notification wrapper đôi khi tạo thêm padding/height khiến nhìn như còn "khung xám" dư. */
 .ant-notification-notice-wrapper {
   margin-bottom: 0 !important;
 }
@@ -235,7 +218,6 @@ button:focus-visible {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Chặn Windows High Contrast/Forced Colors tự đảo màu gây viền đen */
 @media (forced-colors: active) {
   * {
     forced-color-adjust: none;

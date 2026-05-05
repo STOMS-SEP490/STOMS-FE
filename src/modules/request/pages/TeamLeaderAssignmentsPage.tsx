@@ -29,6 +29,7 @@ import type { RequestSessionSummary } from '@/modules/request/request';
 import {
   getSessionDisplayTitleWithDetail,
 } from '@/modules/request/utils/getSessionDisplayTitle';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 import RequestSessionDetailPanel from '@/modules/request/pages/RequestSessionDetailPanel';
 import TeamLeaderStaffAssignmentPanel from './TeamLeaderStaffAssignmentPanel';
 import { postSessionCannotBeAssigned } from '@/modules/notification/api/notificationApi';
@@ -194,30 +195,24 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
       await refetchRequestById(activeSession.requestId);
       await refreshSessionDetailById(activeSession.sessionId);
     } catch (err) {
-      const msg =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Gửi thông báo thất bại.';
-      message.error(msg);
+      message.error(getErrorMessage(err) || 'Gửi thông báo thất bại.');
     } finally {
       setReportSessionLoading(false);
     }
   }, [activeSession, reportSessionReason, refetchRequestById, refreshSessionDetailById]);
 
   return (
-    <div
-      className="flex h-full flex-col app-page-bg py-0 px-0"
-    >
+    <div className="pt-1 pl-4 ">
       {loading && (
         <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
           <Spin tip="Đang tải dữ liệu phân công cho nhóm..." />
         </div>
       )}
 
-      <div className="flex gap-4 flex-1 min-h-0">
+      <div className="flex gap-4">
         {/* Sidebar */}
         {showRequestListSidebar ? (
-          <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
+          <div className="w-[360px] bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-4 border-b border-slate-200">
               <div className="min-w-0">
                 <h2 className="font-medium text-base text-black truncate">Danh sách yêu cầu</h2>
@@ -229,7 +224,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 {filteredRequests.length}
               </span>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 space-y-2 app-page-bg">
+            <div className="overflow-y-auto p-3 space-y-2 app-page-bg">
               {filteredRequests.length === 0 && (
                 <div className="p-4 text-sm text-gray-500">
                   Chưa có yêu cầu nào có buổi của nhóm này.
@@ -260,15 +255,14 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
           </div>
         ) : null}
 
-        {/* Content — scroll một vùng giống tab Tổng quan manager (RequestDetail) */}
-        <div className="flex-1 min-w-0 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar pr-1">
+        <div className="flex-1 min-w-0">
+          <div className="pr-1">
           {!selectedRequest ? (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-sm text-gray-500">
               Chọn một yêu cầu để xem chi tiết và phân công.
             </div>
           ) : (
-            <div className="space-y-4 flex flex-col min-h-0 flex-1">
+            <div className="space-y-4">
               {(() => {
                 const sessions = [...selectedRequest.sessions]
                   .filter((s) => s.sessionId > 0 && s.startAt && s.endAt)
@@ -434,7 +428,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                 </div>
               ) : (
                 <>
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-[480px]">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                 <div className="mb-3 flex justify-between items-center shrink-0">
                   <div>
                     <h3 className="text-sm font-medium text-slate-900">Danh sách buổi</h3>
@@ -451,7 +445,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                     Yêu cầu này chưa có buổi nào gán cho nhóm.
                   </p>
                 ) : (
-                  <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+                  <div className="space-y-2">
                     {[...selectedRequest.sessions]
                       .sort((a, b) => {
                         // Sort theo startAt để giữ thứ tự nhất quán
@@ -493,7 +487,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
                               setActiveSession(session);
                             }
                           }}
-                          className="w-full border-t border-b border-slate-200 bg-white px-4 py-3 hover:bg-slate-50 transition cursor-pointer focus:outline-none"
+                          className="w-full border-t  border-slate-200 bg-white px-4 py-3 hover:bg-slate-50 transition cursor-pointer focus:outline-none"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -577,9 +571,9 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
       {activeSession && (
         <div className="fixed inset-0 z-40 flex justify-end">
           <div className="flex-1 bg-black/30" onClick={() => setActiveSession(null)} />
-          <div className="w-full max-w-2xl flex-1 bg-white text-black shadow-2xl flex flex-col border-l">
+          <div className="w-full max-w-2xl flex-1 bg-white text-black shadow-2xl flex flex-col border-l overflow-hidden">
             {/* Panel header */}
-            <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
+            <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 shrink-0">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 leading-snug">
                   {getSessionDisplayTitleWithDetail(
@@ -627,8 +621,7 @@ export default function TeamLeaderAssignmentsPage({ tab }: TeamLeaderAssignments
               </button>
             </div>
 
-            {/* Panel body: thông tin buổi trước, sau đó phân công */}
-            <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-4 space-y-5">
+            <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-5">
               {(() => {
                 const detail = sessionDetailsById[activeSession.sessionId];
                 if (!detail) {

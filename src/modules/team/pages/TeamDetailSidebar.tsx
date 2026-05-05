@@ -96,7 +96,7 @@ export default function TeamDetailSidebar({ open, onClose, team }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 z-40 h-full bg-black/35" onClick={onClose} aria-hidden />
+      <div className="fixed inset-0 z-40 h-full bg-black/35" aria-hidden />
 
       <div
         className={cn(

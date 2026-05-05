@@ -6,10 +6,11 @@ import categoryApi from '@/modules/category/api/categoryApi'
 import reservationApi from '@/modules/reservation/api/reservationApi'
 import requestApi from '@/modules/request/api/requestApi'
 import sessionApi from '@/modules/request/api/sessionApi'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import type { Member } from '@/modules/member/member'
 import type { SessionResponse } from '@/modules/request/session.types'
 import type { BorrowingCreatePayload } from '../borrowing'
-import { getEquipmentStatusDisplay } from '@/constants/status'
+import { getEquipmentStatusDisplay, getEquipmentStatusColor, getEquipmentReservationApprovalStatus } from '@/constants/status'
 import type {
   EquipmentResponse,
   ReservationDetail,
@@ -111,6 +112,7 @@ export default function CreateBorrowingModal({
     Array<
       Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'StartAt' | 'EndAt' | 'ReservationId' | 'Notes'> & {
         SessionTitle?: string | null
+        Location?: string | null
       }
     >
   >([])
@@ -163,7 +165,10 @@ export default function CreateBorrowingModal({
     setReturnedDueDate(end)
 
     const eqIds = (detail.EquipmentReservations ?? [])
-      .filter((er) => !er.IsTemporarilyCancelled)
+      .filter((er) => {
+        if (er.IsTemporarilyCancelled === true) return false
+        return getEquipmentStatusDisplay(er.Equipment?.Status) === 'Khả dụng'
+      })
       .map((er) => er.EquipmentId)
     setSelectedEquipmentIds(eqIds)
 
@@ -378,6 +383,7 @@ export default function CreateBorrowingModal({
 
         const list = (res.Items ?? [])
           .filter((s) => Number(s.SessionId) > 0)
+          .filter((s) => s.BorrowingId == null || Number(s.BorrowingId) <= 0)
           .filter((s) => {
             if (!s.EndAt) return true
             const en = dayjs(s.EndAt)
@@ -392,6 +398,7 @@ export default function CreateBorrowingModal({
             ReservationId: s.ReservationId != null ? Number(s.ReservationId) : null,
             Notes: String(s.Notes ?? ''),
             SessionTitle: s.SubjectSession?.Title ?? s.EventSession?.Title ?? null,
+            Location: s.Location ?? null,
           }))
           .sort((a, b) => (a.SessionNo ?? 0) - (b.SessionNo ?? 0))
 
@@ -410,11 +417,6 @@ export default function CreateBorrowingModal({
   }, [open, isEquipmentManager, selectedRequestId])
 
   // Load thiết bị KHẢ DỤNG theo khung thời gian StartAt/EndAt.
-  // - Nếu có đơn yêu cầu: StartAt = thời gian StartAt của đơn yêu cầu (nếu có), ngược lại dùng hiện tại
-  // - EndAt: returnedDueDate (hạn trả)
-  //
-  // Khi tạo phiếu theo đơn yêu cầu: API availability có thể không trả thiết bị đã đặt (vd. trạng thái Damaged)
-  // nhưng vẫn phải tự chọn đúng thiết bị trong đơn yêu cầu — gộp thêm từ loadedReservation và không lọc mất ID đó.
   useEffect(() => {
     if (!open) return
     if (!returnedDueDate) {
@@ -427,60 +429,28 @@ export default function CreateBorrowingModal({
       try {
         setEquipmentLoading(true)
 
-        const startAtDt = dayjs()
+        const startAtDt = loadedReservation?.StartAt
+          ? dayjs(loadedReservation.StartAt)
+          : dayjs()
         const endAtDt = returnedDueDate
 
-        // BE yêu cầu EndAt > StartAt.
-        // Nếu hạn trả không sau thời điểm bắt đầu, không gọi API.
         if (!endAtDt.isAfter(startAtDt)) {
           setAllEquipments([])
-          setSelectedEquipmentIds([])
           return
         }
 
-        const startAt = startAtDt.format('YYYY-MM-DDTHH:mm:ss')
-        const endAt = endAtDt.format('YYYY-MM-DDTHH:mm:ss')
-
         const res = normalizeEquipmentPagedResponse(
           await reservationApi.getAvailability({
-            StartAt: startAt,
-            EndAt: endAt,
-            Statuses: [1], // 1 = AVAILABLE
+            StartAt: startAtDt.format('YYYY-MM-DDTHH:mm:ss'),
+            EndAt: endAtDt.format('YYYY-MM-DDTHH:mm:ss'),
+            Statuses: [1],
             PageNumber: 1,
             PageSize: 500,
           }),
         )
-
-        const items = res.Items ?? []
-        const availableIds = new Set(items.map((x) => x.EquipmentId))
-
-        // Lấy TẤT CẢ thiết bị từ reservation (để track trạng thái duyệt)
-        const reservationEquipments = loadedReservation?.EquipmentReservations ?? []
-        
-        // Map để track trạng thái duyệt của từng thiết bị
-        const reservationStatusMap = new Map<number, boolean | null>()
-        reservationEquipments.forEach((er) => {
-          reservationStatusMap.set(er.EquipmentId, er.IsTemporarilyCancelled ?? null)
-        })
-
-        // CHỈ hiển thị thiết bị khả dụng, nhưng thêm thông tin trạng thái duyệt nếu có
-        const merged: EquipmentResponse[] = items.map((item) => ({
-          ...item,
-          IsTemporarilyCancelled: reservationStatusMap.get(item.EquipmentId) ?? null,
-        } as EquipmentResponse & { IsTemporarilyCancelled?: boolean | null }))
-
-        setAllEquipments(merged)
-        // Tự động chọn TẤT CẢ thiết bị từ reservation (kể cả bị từ chối)
-        // nếu chúng có trong danh sách khả dụng
-        setSelectedEquipmentIds((prev) => {
-          const allReservationIds = reservationEquipments
-            .map((er) => er.EquipmentId)
-            .filter((id) => availableIds.has(id))
-          return [...new Set([...prev, ...allReservationIds])]
-        })
+        setAllEquipments(res.Items ?? [])
       } catch {
         setAllEquipments([])
-        setSelectedEquipmentIds([])
       } finally {
         setEquipmentLoading(false)
       }
@@ -539,15 +509,8 @@ export default function CreateBorrowingModal({
       handleClose()
       onCreated?.()
     } catch (err: unknown) {
-      const res = err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { message?: string; title?: string; detail?: string; errors?: Record<string, string[]> } } }).response?.data
-        : null
-      const msg =
-        res?.message ||
-        res?.detail ||
-        res?.title ||
-        (res?.errors ? Object.values(res.errors).flat().join('; ') : null) ||
-        'Tạo phiếu mượn thất bại'
+      const axiosData = (err as { response?: { data?: unknown } })?.response?.data
+      const msg = getErrorMessage(axiosData ?? err)
       message.error(msg)
     } finally {
       setLoading(false)
@@ -799,16 +762,17 @@ export default function CreateBorrowingModal({
                       ? 'Chọn yêu cầu trước'
                       : loadingSessions
                         ? 'Đang tải buổi ...'
-                        : 'Chọn buổi (tuỳ chọn)'
+                        : sessions.length === 0
+                          ? 'Không có buổi phù hợp'
+                          : 'Chọn buổi (tuỳ chọn)'
                   }
-                  disabled={selectedRequestId == null || loadingSessions || sessions.length === 0}
+                  disabled={selectedRequestId == null || loadingSessions}
                   value={sessionDropdownOpen ? sessionSearch : selectedSessionLabel}
                   autoComplete="off"
                   onChange={(e) => setSessionSearch(e.target.value)}
                   onFocus={() => {
                     if (selectedRequestId == null) return
                     if (loadingSessions) return
-                    if (sessions.length === 0) return
                     setSessionDropdownOpen(true)
                     setSessionSearch('')
                   }}
@@ -817,6 +781,11 @@ export default function CreateBorrowingModal({
 
                 {sessionDropdownOpen && (
                   <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow">
+                    {sessions.length === 0 && (
+                      <div className="px-3 py-3 text-xs text-gray-500 text-center">
+                        Tất cả đã có phiếu mượn.
+                      </div>
+                    )}
                     {filteredSessions.map((s) => (
                       <button
                         key={s.SessionId}
@@ -866,9 +835,19 @@ export default function CreateBorrowingModal({
                   {loadedReservation.EndAt ? dayjs(loadedReservation.EndAt).format('DD/MM/YYYY HH:mm') : '—'}
                 </span>
               </span>
-              {sessionIds.length > 0 && (
-                <span className="sm:col-span-2">Buổi gắn kèm: {sessionIds.join(', ')}</span>
+              {selectedSession?.SessionTitle && (
+                <span className="sm:col-span-2">
+                  <span className="text-gray-600">Buổi: </span>
+                  <span className="font-medium">{selectedSession.SessionTitle}</span>
+                </span>
               )}
+              {selectedSession?.Location && (
+                <span className="sm:col-span-2">
+                  <span className="text-gray-600">Địa điểm: </span>
+                  <span className="font-medium">{selectedSession.Location}</span>
+                </span>
+              )}
+              
             </div>
           </div>
         )}
@@ -1060,37 +1039,87 @@ export default function CreateBorrowingModal({
           />
         </div>
 
+        {loadedReservation && (loadedReservation.EquipmentReservations ?? []).length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-black font-medium">Thiết bị trong đơn yêu cầu</Label>
+            <div className="flex flex-col gap-1 max-h-56 overflow-y-auto rounded-md bg-white px-1 py-2 border border-gray-200">
+              {(loadedReservation.EquipmentReservations ?? []).map((er) => {
+                const eq = er.Equipment
+                const isAutoTicked = selectedEquipmentIds.includes(er.EquipmentId)
+                const approvalStatus = getEquipmentReservationApprovalStatus(er.IsTemporarilyCancelled)
+                const name = (eq?.EquipmentName ?? '').trim()
+                const code = (eq?.EquipmentCode ?? '').trim()
+                const displayName = name && code ? `${name} - ${code}` : name || code || `Thiết bị #${er.EquipmentId}`
+                const cat = (eq?.CategoryName ?? '').trim()
+                const alt = name || `Equipment ${er.EquipmentId}`
+                const statusLabel = getEquipmentStatusDisplay(eq?.Status ?? '')
+
+                return (
+                  <div
+                    key={er.EquipmentId}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm transition-colors',
+                      isAutoTicked ? 'bg-sky-50/95' : 'opacity-50',
+                    )}
+                  >
+                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-100">
+                      {eq?.ImgLink ? (
+                        <Image
+                          src={eq.ImgLink}
+                          alt={alt}
+                          width={40}
+                          height={40}
+                          className="h-10 w-10 object-cover"
+                          preview={{ mask: false }}
+                        />
+                      ) : (
+                        <ImageOff className="w-5 h-5 text-gray-300" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-gray-900 truncate">{displayName}</div>
+                      <div className="text-[11px] text-gray-500 truncate">Danh mục: {cat || '---'}</div>
+                      <div className="mt-1 space-y-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] text-gray-500">Trạng thái:</span>
+                          <span className={cn(
+                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border',
+                            getEquipmentStatusColor(eq?.Status ?? ''),
+                          )}>
+                            {statusLabel}
+                          </span>
+                          <span className="text-[11px] text-gray-500 ml-1">Trạng thái duyệt:</span>
+                          <span className={cn(
+                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border',
+                            approvalStatus.className,
+                          )}>
+                            {approvalStatus.label}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        'flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px]',
+                        isAutoTicked ? 'bg-sky-600 text-white' : 'bg-slate-200/80',
+                      )}
+                      aria-hidden
+                    >
+                      {isAutoTicked ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <Label className="text-black font-medium">
-            Thiết bị khả dụng (chọn ít nhất 1) <span className="text-red-500">*</span>
+            Thiết bị khả dụng <span className="text-red-500">*</span>
           </Label>
           {returnedDueDate != null ? (
             <div className="space-y-4">
-              {/* Thiết bị đã chọn */}
-              {selectedEquipments.length > 0 && (
-                <div className="rounded-xl bg-sky-50/90 px-3 py-2.5">
-                  <div className="text-[11px] font-semibold text-sky-900 mb-1.5">
-                    Đã chọn ({selectedEquipments.length})
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedEquipments.map((eq) => (
-                      <button
-                        key={eq.EquipmentId}
-                        type="button"
-                        onClick={() => {
-                          const id = eq.EquipmentId
-                          setSelectedEquipmentIds((prev) => prev.filter((x) => x !== id))
-                        }}
-                        className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] text-sky-900 shadow-sm ring-1 ring-sky-200/50 hover:bg-white"
-                      >
-                        <span className="max-w-[220px] truncate">{eq.EquipmentName ?? `Thiết bị #${eq.EquipmentId}`}</span>
-                        <span className="text-blue-500">×</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Filters */}
               <div className="flex gap-2">
                 <div className="relative flex-1">
