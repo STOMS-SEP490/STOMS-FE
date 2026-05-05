@@ -38,6 +38,7 @@ import eventSessionTopicApi from '@/modules/event/api/eventSessionTopicApi';
 import { Switch } from '@/shared/components/ui/switch';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { dashboardApi, type DashboardEventSummary } from '@/modules/dashboard/api/dashboardApi';
+import { formatEventDuration } from '../formatEventDuration';
 
 type EditableEventSession = {
   eventSessionId?: number;
@@ -86,8 +87,6 @@ export default function EventsManagement() {
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
   const [eventSummary, setEventSummary] = useState<DashboardEventSummary | null>(null);
 
-  useEffect(() => {
-  // Chỉ load skills/topics khi cần (khi mở modal tạo/sửa)
   const loadSkillsAndTopics = useCallback(async () => {
     if (readOnly) return;
     if (allSkills.length === 0) {
@@ -217,10 +216,7 @@ export default function EventsManagement() {
 
   const openCreate = () => {
     if (readOnly) return;
-    
-    // Load skills và topics trước khi mở modal
     void loadSkillsAndTopics();
-    
     setMode('create');
     setEditingEvent(null);
     setEventCode('');
@@ -249,10 +245,7 @@ export default function EventsManagement() {
 
   const openEdit = async (e: EventListItem) => {
     if (readOnly) return;
-    
-    // Load skills và topics trước khi mở modal
     await loadSkillsAndTopics();
-    
     setMode('edit');
     try {
       const detail = await eventApi.getById(e.eventId);
@@ -699,15 +692,8 @@ export default function EventsManagement() {
     },
     {
       accessorKey: 'duration',
-      header: () => <span className="block w-full text-center">Thời lượng</span>,
-      cell: ({ row }) => {
-        const d = String(row.original.duration ?? '').trim();
-        return (
-          <div className="text-center">
-            <span className="tabular-nums text-gray-800">{d || '—'}</span>
-          </div>
-        );
-      },
+      header: 'Thời lượng',
+      cell: ({ row }) => formatEventDuration(row.original.duration ?? undefined) ?? '—',
     },
     {
       accessorKey: 'numberOfSession',

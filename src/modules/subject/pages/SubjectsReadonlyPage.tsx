@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ColumnDef } from '@tantml/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { RotateCcw } from 'lucide-react';
 import { message } from 'antd';

@@ -143,7 +143,6 @@ export default function SubjectsManagement() {
   const maxSessionsPerSubject = subjectSessionStats?.maxSessionsPerSubject ?? 0
   const statValue = (loading: boolean, value: number | string) => (loading ? '—' : value)
 
-  // Chỉ load skills/topics khi cần (khi mở modal tạo/sửa)
   const loadSkillsAndTopics = useCallback(async () => {
     if (allSkills.length === 0) {
       try {
@@ -170,10 +169,7 @@ export default function SubjectsManagement() {
     }
     setIsCreating(false)
     setShowAddSkill(false)
-    
-    // Load skills và topics trước khi mở modal
     await loadSkillsAndTopics();
-    
     try {
       // luôn lấy bản chi tiết mới nhất để có đủ subjectSkills
       const detail = await subjectApi.getById(s.subjectId)
@@ -250,10 +246,7 @@ export default function SubjectsManagement() {
       message.warning('Bạn không có quyền thêm môn học.')
       return
     }
-    
-    // Load skills và topics trước khi mở modal
     void loadSkillsAndTopics();
-    
     setIsCreating(true)
     setEditingSubject(null)
     setShowAddSkill(false)

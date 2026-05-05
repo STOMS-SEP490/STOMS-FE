@@ -65,7 +65,7 @@ export default function ContractDetailSidebar({ open, onClose, contract, loading
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/35" onClick={onClose} aria-hidden />
+      <div className="fixed inset-0 z-40 bg-black/35 mb-0" onClick={onClose} aria-hidden />
 
       <div className={cn(
         'fixed right-0 top-0 z-50 h-full w-[680px] max-w-[96vw]',
