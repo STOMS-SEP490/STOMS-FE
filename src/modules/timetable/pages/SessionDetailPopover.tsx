@@ -7,7 +7,7 @@ import type { SessionDetail } from '@/modules/request/type';
 import { Badge } from '@/shared/components/ui/badge';
 import { useSessionDetailPopover } from '@/modules/event/hooks/useSessionDetailPopover';
 import { useCurrentUser } from '@/shared/hooks/useCurrentUser';
-import { getSessionStatusLabel } from '@/constants/status';
+import { getSessionStatusLabel, getSessionStatusInfo } from '@/constants/status';
 import sessionApi from '@/modules/request/api/sessionApi';
 import type { SessionResponse } from '@/modules/request/session.types';
 import TeamLeaderSessionDetailPanel from '@/modules/request/pages/TeamLeaderSessionDetailPanel';
@@ -40,13 +40,6 @@ function formatTimeRange(start?: string, end?: string) {
 function formatDate(date?: string) {
   if (!date) return '';
   return new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function statusBadgeClass(status?: string) {
-  const n = String(status ?? '').trim().toLowerCase();
-  if (n === 'completed') return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-  if (n === 'ongoing') return 'bg-amber-50 text-amber-800 border border-amber-200';
-  return 'bg-slate-100 text-slate-600 border border-slate-200';
 }
 
 export default function SessionDetailPopover({
@@ -241,7 +234,7 @@ export default function SessionDetailPopover({
                   </p>
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     <span className="text-[11px] font-medium text-slate-500">Trạng thái:</span>
-                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${statusBadgeClass(session.Status)}`}>
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${getSessionStatusInfo(session.Status).className}`}>
                       {getSessionStatusLabel(session.Status)}
                     </span>
                   </div>
@@ -266,6 +259,7 @@ export default function SessionDetailPopover({
                   session={detailSession}
                   requestCode={detailSession.Request?.RequestCode ?? undefined}
                   requestName={detailSession.Request?.RequestName ?? undefined}
+                  memberDelegateColumnVisible={false}
                 />
               )}
             </div>
@@ -410,7 +404,7 @@ export default function SessionDetailPopover({
           <div className="shrink-0 flex items-center justify-between bg-slate-50/50 px-4 py-2.5">
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-slate-500">Trạng thái:</span>
-              <Badge className={`text-[10px] px-2 py-0.5 ${statusBadgeClass(session.Status)}`}>
+              <Badge className={`text-[10px] px-2 py-0.5 ${getSessionStatusInfo(session.Status).className}`}>
                 {getSessionStatusLabel(session.Status)}
               </Badge>
             </div>
