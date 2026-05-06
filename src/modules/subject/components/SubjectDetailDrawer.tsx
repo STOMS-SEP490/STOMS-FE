@@ -182,7 +182,7 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
                 {/* Thông tin chung */}
                 <Section icon={Hash} title="Thông tin chung">
                   <div className="pl-4 grid grid-cols-2">
-                    <MetaRow label="Subject ID" value={String(detailSubject.subjectId)} className="pr-4 py-1.5" />
+                    {/* <MetaRow label="Subject ID" value={String(detailSubject.subjectId)} className="pr-4 py-1.5" /> */}
                     <MetaRow label="Ngày tạo" value={formatDateTime(detailSubject.createdAt)} className="pl-4 py-1.5" />
                     <MetaRow label="Cập nhật lần cuối" value={formatDateTime(detailSubject.updatedAt)} className="pr-4 py-1.5" />
                     <MetaRow label="Số buổi (theo cấu hình)" value={String(detailSubject.numberOfSession ?? '—')} className="pl-4 py-1.5" />
@@ -208,7 +208,7 @@ export function SubjectDetailDrawer({ open, onClose, detailSubject, detailLoadin
                             {cs.courseName?.trim() || cs.course?.courseName?.trim() || `Chương trình #${cs.courseId}`}
                           </p>
                           {cs.createdAt ? (
-                            <p className="text-xs text-slate-500">Gắn {dayjs(cs.createdAt).format('DD/MM/YYYY')}</p>
+                            <p className="text-xs text-slate-500">Thêm vào {dayjs(cs.createdAt).format('DD/MM/YYYY')}</p>
                           ) : null}
                         </div>
                       ))}
