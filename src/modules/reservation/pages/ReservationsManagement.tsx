@@ -15,6 +15,7 @@ import {
   normalizeReservationResponse,
 } from '@/modules/reservation/utils/normalizeReservationResponse';
 import { RESERVATION_STATUS, RESERVATION_STATUS_OPTIONS, getReservationStatusInfo } from '@/constants/status';
+import { cn } from '@/shared/lib/utils';
 import ReservationDetailSidebar from './ReservationDetailSidebar';
 import EditReservationModal from './EditReservationModal';
 
@@ -56,7 +57,8 @@ export default function ReservationsManagement() {
     try {
       const raw = localStorage.getItem('user');
       if (!raw) return false;
-      const roleId = Number(JSON.parse(raw).roleId);
+      const parsed = JSON.parse(raw);
+      const roleId = Number(parsed.userRoleId ?? parsed.roleId);
       return roleId === 6; // ROLE_ID.EQUIPMENT_MANAGER = 6
     } catch {
       return false;
@@ -267,14 +269,15 @@ export default function ReservationsManagement() {
         id: 'bookingAt',
         header: 'Ngày đặt',
         cell: ({ row }) => {
-          const createdAt = row.original.StartAt ?? null;
-          if (!createdAt) return '—';
-          const d = new Date(createdAt);
+          const startAt = row.original.StartAt ?? null;
+          if (!startAt) return '—';
+          const d = new Date(startAt);
           if (Number.isNaN(d.getTime())) return '—';
+          const hasStarted = d < new Date();
           return (
-            <div>
+            <div className={cn(hasStarted && "text-yellow-600 font-semibold")}>
               <div>{d.toLocaleDateString('vi-VN')}</div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs">
                 {d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>

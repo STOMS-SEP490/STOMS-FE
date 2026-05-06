@@ -14,8 +14,6 @@ import skillApi from '@/modules/skill/api/skillApi';
 import type { SkillListItem } from '@/modules/skill/skill';
 import type { PaginationResponse } from '@/shared/types/api';
 import { ROLE_MAP } from '@/constants/role';
-import { getStoredAuthUser } from '@/modules/auth/authStorage';
-import { getRoleLabelById } from '@/modules/auth/roleAccess';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -170,8 +168,6 @@ export default function UserProfile() {
 
   const roleId = Number(userDetail?.roleId ?? user.role);
   const roleLabel = ROLE_MAP[roleId] ?? `Vai trò ${roleId || ''}`;
-  const storedAuth = getStoredAuthUser();
-  const memberRoleId = storedAuth?.memberRoleId ?? null;
 
   const formatPercent = (x?: number) => {
     const v = Number(x ?? 0);
@@ -670,14 +666,6 @@ export default function UserProfile() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field
-                  label="Vai trò thành viên"
-                  value={
-                    memberRoleId == null
-                      ? '—'
-                      : `${getRoleLabelById(memberRoleId) ?? `Vai trò ${memberRoleId}`}`
-                  }
-                />
                 <div>
                   <Label className="text-xs text-slate-500 mb-1">Họ và tên</Label>
                   {editingMember ? (
