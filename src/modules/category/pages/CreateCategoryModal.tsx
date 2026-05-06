@@ -76,7 +76,7 @@ export default function CreateCategoryModal({ open, onClose, onCreated }: Props)
             id="categoryName"
             value={categoryName}
             onChange={(e) => setCategoryName(e.target.value)}
-            placeholder="Ví dụ: Laptop, Màn hình..."
+          
             className="h-10 text-black placeholder:text-gray-500 border-gray-200"
           />
         </div>

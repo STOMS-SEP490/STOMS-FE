@@ -5,8 +5,8 @@ export function getRoleIdFromStorage(): number | null {
     const raw = localStorage.getItem('user');
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw) as { roleId?: number | string };
-    const roleId = Number(parsed.roleId);
+    const parsed = JSON.parse(raw) as { activeRoleId?: number | string };
+    const roleId = Number(parsed.activeRoleId);
 
     return Number.isNaN(roleId) ? null : roleId;
   } catch {
@@ -16,7 +16,6 @@ export function getRoleIdFromStorage(): number | null {
 
 export function getRoleLabelById(roleId: number | null | undefined): string {
   if (roleId == null) return 'Chưa có vai trò';
-  // tránh circular import constants/role -> auth
   switch (roleId) {
     case ROLE_ID.MANAGER:
       return 'Quản lý';
@@ -35,7 +34,6 @@ export function getRoleLabelById(roleId: number | null | undefined): string {
   }
 }
 
-/** Đồng bộ với `index → dashboard` trong Manager/TL/PC/Teacher/EM Routes */
 export function getHomePathByRole(roleId: number | null | undefined): string {
   if (roleId === ROLE_ID.MANAGER) return '/manager/dashboard';
   if (roleId === ROLE_ID.TEAM_LEADER) return '/tl/dashboard';

@@ -22,6 +22,7 @@ import dayjs from 'dayjs';
 import topicApi from '../api/topicApi';
 import { useTopics } from '../hooks/useTopics';
 import type { TopicListItem, TopicUpsertPayload } from '../topic';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 
 export default function TopicsManagement() {
@@ -133,9 +134,8 @@ export default function TopicsManagement() {
       }
       setOpenUpsert(false);
       await refetch();
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra';
-      message.error(msg);
+    } catch (e: unknown) {
+      message.error(getErrorMessage(e) || 'Có lỗi xảy ra');
     } finally {
       setSubmitting(false);
     }
@@ -156,9 +156,8 @@ export default function TopicsManagement() {
           else await topicApi.activate(t.topicId);
           message.success('Cập nhật trạng thái thành công');
           await refetch();
-        } catch (e: any) {
-          const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra';
-          message.error(msg);
+        } catch (e: unknown) {
+          message.error(getErrorMessage(e) || 'Có lỗi xảy ra');
         }
       },
     });
@@ -287,7 +286,6 @@ export default function TopicsManagement() {
         />
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
             <Select
               value={statusFilter}
               onValueChange={(value) => handleStatusChange(value as 'all' | 'active' | 'inactive')}

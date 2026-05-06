@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { message, Popover } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
+import { Badge } from '@/shared/components/ui/badge';
 import assignmentApi from '@/modules/assignment/api/assignmentApi';
+import memberApi from '@/modules/member/api/memberApi';
+import type { MemberDetail } from '@/modules/member/member';
 import type { AssignmentResponse } from '@/modules/request/session.types';
 import type { SuggestedStaff } from '@/modules/request/type';
 import { getAssignmentStatusInfo, ASSIGNMENT_STATUS } from '@/constants/status';
 import { isAssistantRole } from '@/constants/role';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 const DEFAULT_AVATAR_SRC = '/img/ava.png';
 
@@ -19,7 +23,6 @@ function getAvatarSrc(src?: string | null) {
 type Props = {
   canEdit?: boolean;
   onAssignmentUpdated?: () => void;
-  /** Pre-fetched session detail from parent - REQUIRED */
   sessionDetail: any;
 };
 
@@ -39,6 +42,78 @@ export default function TeamLeaderStaffAssignmentPanel({
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expandedTaIds, setExpandedTaIds] = useState<Set<number>>(new Set());
+
+  // Get current member ID from localStorage
+  const currentMemberId = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { memberId?: number };
+      return parsed.memberId ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Member skill dropdown
+  const [expandedMemberIds, setExpandedMemberIds] = useState<Set<number>>(new Set());
+  const [memberDetails, setMemberDetails] = useState<Record<number, MemberDetail | null>>({});
+  const [memberLoadingIds, setMemberLoadingIds] = useState<Set<number>>(new Set());
+  const memberFetchedRef = useRef<Set<number>>(new Set());
+
+  const toggleMemberExpanded = useCallback(async (memberId: number) => {
+    if (!memberId || memberId <= 0) return;
+    setExpandedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) { next.delete(memberId); } else { next.add(memberId); }
+      return next;
+    });
+    if (!memberFetchedRef.current.has(memberId)) {
+      memberFetchedRef.current.add(memberId);
+      setMemberLoadingIds((prev) => new Set(prev).add(memberId));
+      try {
+        const detail = await memberApi.getMemberById(memberId);
+        setMemberDetails((prev) => ({ ...prev, [memberId]: detail }));
+      } catch {
+        setMemberDetails((prev) => ({ ...prev, [memberId]: null }));
+      } finally {
+        setMemberLoadingIds((prev) => { const next = new Set(prev); next.delete(memberId); return next; });
+      }
+    }
+  }, []);
+
+  const renderMemberSkillPanel = useCallback((memberId: number) => {
+    if (!expandedMemberIds.has(memberId)) return null;
+    if (memberLoadingIds.has(memberId)) {
+      return (
+        <div className="mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2 text-xs text-slate-500">
+          <div className="w-3 h-3 border-2 border-slate-300 border-t-[#2197C0] rounded-full animate-spin shrink-0" />
+          Đang tải...
+        </div>
+      );
+    }
+    const detail = memberDetails[memberId];
+    const skills = detail?.skills?.filter((s) => s.isActive) ?? [];
+    if (!detail || skills.length === 0) {
+      return (
+        <div className="mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 italic">
+          Chưa có kỹ năng.
+        </div>
+      );
+    }
+    return (
+      <div className="mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+        <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Kỹ năng</p>
+        <div className="flex flex-wrap gap-1">
+          {skills.map((s) => (
+            <Badge key={s.skillId} className="bg-orange-100 text-orange-700 border-0 text-[10px] font-medium">
+              {s.skillName}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    );
+  }, [expandedMemberIds, memberLoadingIds, memberDetails]);
 
   useEffect(() => {
     if (!preFetchedDetail) {
@@ -125,14 +200,9 @@ export default function TeamLeaderStaffAssignmentPanel({
       message.success('Đã lưu phân công sinh viên.');
       setTaEditMode(false);
       
-      // Parent will refresh session detail, which will update this component via preFetchedDetail prop
       await onAssignmentUpdated?.();
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Lưu phân công sinh viên thất bại.';
-      message.error(msg);
+      message.error(getErrorMessage(err) || 'Lưu phân công sinh viên thất bại.');
     } finally {
       setSaving(false);
     }
@@ -199,10 +269,16 @@ export default function TeamLeaderStaffAssignmentPanel({
             const assignmentId = Number(slot.AssignmentId ?? 0);
             const statusInfo = getAssignmentStatusInfo(slot.Status);
             const statusCode = statusInfo.code;
+            
+            // Check if current user can edit this assignment
+            const assignedByMemberId = Number(slot.AssignedByMemberId ?? 0);
+            const isAssignedByCurrentUser = assignedByMemberId === 0 || assignedByMemberId === currentMemberId;
+            
             const canEditThisSlot = 
-              statusCode === ASSIGNMENT_STATUS.PENDING || 
-              statusCode === ASSIGNMENT_STATUS.REJECTED || 
-              statusCode === ASSIGNMENT_STATUS.CANCELLED;
+              isAssignedByCurrentUser &&
+              (statusCode === ASSIGNMENT_STATUS.PENDING || 
+               statusCode === ASSIGNMENT_STATUS.REJECTED || 
+               statusCode === ASSIGNMENT_STATUS.CANCELLED);
             const suggestions = taSuggestionsByAssignmentId[assignmentId] ?? [];
             const selectedIdsOnOtherSlots = taAssignments
               .map((s) => (s.AssignmentId === assignmentId ? 0 : Math.max(0, Number(s.StaffMemberId ?? 0))))
@@ -395,7 +471,7 @@ export default function TeamLeaderStaffAssignmentPanel({
                     </button>
                   </Popover>
                 ) : (
-                  <div className="w-full flex items-center justify-between gap-3 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                  <div className="w-full flex items-center justify-between gap-3 bg-slate-50 px-3 py-2 ">
                     {Number(slot.StaffMemberId ?? 0) > 0 ? (
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
@@ -424,7 +500,9 @@ export default function TeamLeaderStaffAssignmentPanel({
                         </span>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-slate-700 truncate">Chưa chọn sinh viên</p>
-                          <p className="text-xs text-slate-500 truncate">Không thể chỉnh sửa</p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {!isAssignedByCurrentUser ? 'Phân công thuộc nhóm khác' : 'Không thể chỉnh sửa'}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -440,6 +518,10 @@ export default function TeamLeaderStaffAssignmentPanel({
             const statusInfo = getAssignmentStatusInfo(slot.Status);
             const isRejected = statusInfo.code === ASSIGNMENT_STATUS.REJECTED;
             const rejectReason = slot.Reason?.trim() || '';
+            
+            // Check if this slot belongs to another team leader
+            const assignedByMemberId = Number(slot.AssignedByMemberId ?? 0);
+            const isAssignedByCurrentUser = assignedByMemberId === 0 || assignedByMemberId === currentMemberId;
             
             return (
               <div
@@ -457,9 +539,9 @@ export default function TeamLeaderStaffAssignmentPanel({
                       {statusInfo.label}
                     </span>
                   </div>
-                  <div className="w-full flex items-center justify-between gap-3 bg-white px-3 py-2">
+                  <div className={`w-full flex items-center justify-between gap-3 px-3 py-2`}>
                     {Number(slot.StaffMemberId ?? 0) > 0 ? (
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 shrink-0">
                           <img
                             src={getAvatarSrc(slot.StaffMember?.AvatarUrl ?? null)}
@@ -470,7 +552,7 @@ export default function TeamLeaderStaffAssignmentPanel({
                             }}
                           />
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-slate-900 truncate">
                             {slot.StaffMember?.FullName || 'Sinh viên đã chọn'}
                           </p>
@@ -480,17 +562,38 @@ export default function TeamLeaderStaffAssignmentPanel({
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${!isAssignedByCurrentUser ? 'bg-slate-200 text-slate-500' : 'bg-violet-100 text-violet-700'}`}>
                           <Plus className="h-5 w-5 stroke-[2.5]" />
                         </span>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-900 truncate">Chưa có sinh viên</p>
-                          <p className="text-xs text-slate-500 truncate">Bấm chỉnh sửa để chọn sinh viên</p>
+                          <p className={`text-sm font-semibold truncate ${!isAssignedByCurrentUser ? 'text-slate-700' : 'text-slate-900'}`}>Chưa chọn sinh viên</p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {!isAssignedByCurrentUser ? 'Phân công thuộc nhóm khác' : 'Bấm chỉnh sửa để chọn sinh viên'}
+                          </p>
                         </div>
                       </div>
                     )}
+                    {Number(slot.StaffMemberId ?? 0) > 0 && (
+                      <button
+                        type="button"
+                        aria-label={expandedMemberIds.has(Number(slot.StaffMemberId)) ? 'Ẩn kỹ năng' : 'Xem kỹ năng'}
+                        title={expandedMemberIds.has(Number(slot.StaffMemberId)) ? 'Ẩn kỹ năng' : 'Xem kỹ năng'}
+                        className="flex h-7 w-7 items-center justify-center text-slate-400 hover:text-[#2197C0] hover:bg-slate-100 rounded-sm transition-colors shrink-0"
+                        onClick={() => void toggleMemberExpanded(Number(slot.StaffMemberId))}
+                      >
+                        <DownOutlined
+                          style={{
+                            fontSize: 12,
+                            transform: expandedMemberIds.has(Number(slot.StaffMemberId)) ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s',
+                            display: 'block',
+                          }}
+                        />
+                      </button>
+                    )}
                   </div>
+                  {Number(slot.StaffMemberId ?? 0) > 0 && renderMemberSkillPanel(Number(slot.StaffMemberId))}
                 </div>
                 
                 {/* Hiển thị lịch sử từ chối (nếu có) */}

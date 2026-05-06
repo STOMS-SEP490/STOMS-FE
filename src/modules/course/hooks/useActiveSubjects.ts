@@ -17,3 +17,17 @@ export function useActiveSubjects(pageSize: number = DEFAULT_PAGE_SIZE) {
 
   return allSubjects;
 }
+
+/** Danh sách TẤT CẢ môn học (bao gồm cả đã deactivate) để kiểm tra trạng thái. */
+export function useAllSubjects(pageSize: number = DEFAULT_PAGE_SIZE) {
+  const [allSubjects, setAllSubjects] = useState<SubjectListItem[]>([]);
+
+  useEffect(() => {
+    subjectApi
+      .getSubjects({ pageNumber: 1, pageSize })
+      .then((res) => setAllSubjects(res.items ?? []))
+      .catch(() => setAllSubjects([]));
+  }, [pageSize]);
+
+  return allSubjects;
+}

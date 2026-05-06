@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { ImageOff, Info, Layers, X } from 'lucide-react'
+import { ImageOff, Info, Layers, Pencil, X } from 'lucide-react'
 import type { BorrowingListItem } from '../borrowing'
 import { getBorrowingStatusColor, getBorrowingStatusDisplay } from '@/constants/borrowing'
 import { getEquipmentBorrowingStatusInfo } from '@/constants/status'
@@ -10,12 +10,14 @@ import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import borrowingApi from '../api/borrowingApi'
 import equipmentApi from '../api/equipmentApi'
+import EditBorrowingEquipmentsModal from './EditBorrowingEquipmentsModal'
 
 type Props = {
   open: boolean
   onClose: () => void
   borrowing: BorrowingListItem | null
   onReturned?: () => Promise<void> | void
+  onUpdated?: () => Promise<void> | void
   canManageReturn?: boolean
 }
 
@@ -24,12 +26,13 @@ function formatDateTime(date?: string | null) {
   return new Date(date).toLocaleString('vi-VN')
 }
 
-function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
+function Section({ icon: Icon, title, action, children }: { icon: LucideIcon; title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="space-y-2">
       <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
         <Icon className="h-4 w-4 shrink-0 text-[#2197C0]" strokeWidth={2} aria-hidden />
-        <h3 className="text-sm font-semibold text-black">{title}</h3>
+        <h3 className="text-sm font-semibold text-black flex-1">{title}</h3>
+        {action}
       </div>
       <div>{children}</div>
     </section>
@@ -50,6 +53,7 @@ export default function BorrowingDetailSidebar({
   onClose,
   borrowing,
   onReturned,
+  onUpdated,
   canManageReturn = true,
 }: Props) {
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -58,7 +62,7 @@ export default function BorrowingDetailSidebar({
   const [localReturnedAtById, setLocalReturnedAtById] = useState<Record<number, string>>({})
   const [localStatusById, setLocalStatusById] = useState<Record<number, string>>({})
   const [imgLinkByEquipmentId, setImgLinkByEquipmentId] = useState<Record<number, string>>({})
-
+  const [editEquipmentsOpen, setEditEquipmentsOpen] = useState(false)
   const details = borrowing?.borrowingEquipmentDetail ?? []
 
   useEffect(() => {
@@ -92,7 +96,6 @@ export default function BorrowingDetailSidebar({
     })()
 
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, borrowing?.borrowingId])
 
   const actionableItems = useMemo(
@@ -167,6 +170,7 @@ export default function BorrowingDetailSidebar({
   const lender = borrowing?.lentByMember
   const isOverdue = borrowing?.status === 'Overdue' || borrowing?.status === '4'
   const isBorrowingReturned = borrowing?.status === 'Returned' || borrowing?.status === '3'
+  const isBorrowed = borrowing?.status === 'Borrowed' || borrowing?.status === '1'
   const showReturnPanel = canManageReturn && borrowing && (
     borrowing.status === 'Borrowed' || borrowing.status === 'Overdue' ||
     borrowing.status === 'PartialReturned' || borrowing.status === '1' ||
@@ -209,7 +213,6 @@ export default function BorrowingDetailSidebar({
                   </div>
                 </div>
 
-                {/* Meta bar */}
                 <div className="grid w-full grid-cols-3 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
                   <div className="px-5 py-3">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Ngày mượn</p>
@@ -230,7 +233,6 @@ export default function BorrowingDetailSidebar({
             )}
           </header>
 
-          {/* BODY */}
           <div className="relative min-h-0 flex-1 overflow-y-auto bg-white px-5 py-4 space-y-4">
             {!borrowing ? (
               <div className="space-y-4">
@@ -239,7 +241,6 @@ export default function BorrowingDetailSidebar({
               </div>
             ) : (
               <>
-                {/* Thông tin chung */}
                 <Section icon={Info} title="Thông tin chung">
                   <div className="pl-4 grid grid-cols-2 gap-x-6">
                     <MetaRow label="Người mượn" value={
@@ -275,8 +276,63 @@ export default function BorrowingDetailSidebar({
                   </div>
                 </Section>
 
-                {/* Thiết bị trong phiếu */}
-                <Section icon={Layers} title={`Thiết bị trong phiếu (${details.length})`}>
+                {borrowing.session && borrowing.session.length > 0 && (
+                  <Section icon={Layers} title={`Các buổi liên quan (${borrowing.session.length})`}>
+                    <div className="pl-4 divide-y divide-slate-200">
+                      {borrowing.session.map((sess) => {
+                        const sessionTitle = sess.subjectSession?.title ?? sess.eventSession?.title ?? null
+                        const sessionLabel = sessionTitle 
+                          ? `Buổi ${sess.sessionNo ?? ''} - ${sessionTitle}`.trim()
+                          : `Buổi ${sess.sessionNo ?? sess.sessionId}`
+                        
+                        return (
+                          <div key={sess.sessionId} className="py-3">
+                            <p className="text-sm font-medium text-[#2197C0]">{sessionLabel}</p>
+                            {sess.location && (
+                              <p className="text-xs text-slate-600 mt-1">
+                                <span className="text-slate-500">Địa điểm:</span> {sess.location}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-x-4 text-xs mt-1">
+                              {sess.startAt && (
+                                <span className="text-slate-500">
+                                  Bắt đầu: <span className="font-semibold text-black">{formatDateTime(sess.startAt)}</span>
+                                </span>
+                              )}
+                              {sess.endAt && (
+                                <span className="text-slate-500">
+                                  Kết thúc: <span className="font-semibold text-black">{formatDateTime(sess.endAt)}</span>
+                                </span>
+                              )}
+                            </div>
+                            {sess.notes && (
+                              <p className="text-xs text-slate-600 mt-1">
+                                <span className="text-slate-500">Ghi chú:</span> {sess.notes}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Section>
+                )}
+
+                <Section
+                  icon={Layers}
+                  title={`Thiết bị trong phiếu (${details.length})`}
+                  action={canManageReturn && isBorrowed && borrowing ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 h-7 text-xs text-[#2197C0] border-[#2197C0]/40 hover:bg-[#2197C0]/5"
+                      onClick={() => setEditEquipmentsOpen(true)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Thêm thiết bị
+                    </Button>
+                  ) : undefined}
+                >
                   {details.length === 0 ? (
                     <p className="pl-4 py-2 text-sm text-slate-500">Không có thiết bị trong phiếu.</p>
                   ) : (
@@ -333,7 +389,6 @@ export default function BorrowingDetailSidebar({
                               </div>
                             </div>
 
-                            {/* Return status picker */}
                             {canManageReturn && !isBorrowingReturned && isSelected && (
                               <div className="mt-2 ml-7 flex items-center gap-2 rounded-md bg-sky-50 px-3 py-2">
                                 <span className="text-xs text-sky-700 font-medium shrink-0">Trạng thái trả:</span>
@@ -364,7 +419,6 @@ export default function BorrowingDetailSidebar({
                   )}
                 </Section>
 
-                {/* Xác nhận trả */}
                 {showReturnPanel && (
                   <section className="space-y-2">
                     <div className="flex items-center gap-2 border-b border-slate-200 pb-1.5">
@@ -394,6 +448,18 @@ export default function BorrowingDetailSidebar({
           </div>
         </div>
       </div>
+
+      {borrowing && (
+        <EditBorrowingEquipmentsModal
+          open={editEquipmentsOpen}
+          onClose={() => setEditEquipmentsOpen(false)}
+          borrowing={borrowing}
+          onUpdated={() => {
+            setEditEquipmentsOpen(false)
+            void onUpdated?.()
+          }}
+        />
+      )}
     </>
   )
 }

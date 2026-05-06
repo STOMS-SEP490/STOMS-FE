@@ -58,6 +58,7 @@ export type SubjectListItem = {
   topicId: number | null;
   topicName?: string | null;
   numberOfSession: number;
+  duration?: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 

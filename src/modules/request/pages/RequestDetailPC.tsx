@@ -24,6 +24,7 @@ import { Button } from '@/shared/components/ui/button';
 import PCSessionDetailTeamPanel from './PCSessionDetailTeamPanel';
 import sessionService from '../api/sessionApi';
 import requestService from '../api/requestApi';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 
 export default function RequestDetailPC() {
   const { id } = useParams<{ id: string }>();
@@ -206,16 +207,7 @@ export default function RequestDetailPC() {
           refreshRequestSidebar?.();
           navigate('/pc/requests', { replace: true });
         } catch (err: unknown) {
-          const e = err as Record<string, unknown>;
-          const apiMessage =
-            (typeof err === 'string' && err) ||
-            (e?.message as string) ||
-            (e?.detail as string) ||
-            (e?.title as string) ||
-            (e?.error as string) ||
-            (Array.isArray(e?.errors) && (e.errors[0] as string)) ||
-            ((e?.response as Record<string, unknown>)?.data as string);
-          message.error((apiMessage as string) ?? 'Xóa yêu cầu thất bại.');
+          message.error(getErrorMessage(err) || 'Xóa yêu cầu thất bại.');
         }
       },
     });
@@ -237,9 +229,7 @@ export default function RequestDetailPC() {
       await refreshDetail();
       refreshRequestSidebar?.();
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Hủy yêu cầu thất bại.';
-      message.error(msg);
+      message.error(getErrorMessage(err) || 'Hủy yêu cầu thất bại.');
     } finally {
       setHuyYeuCauLoading(false);
     }
@@ -261,9 +251,7 @@ export default function RequestDetailPC() {
       await refreshDetail();
       refreshRequestSidebar?.();
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Hủy buổi thất bại.';
-      message.error(msg);
+      message.error(getErrorMessage(err) || 'Hủy buổi thất bại.');
     } finally {
       setCancelSessionLoading(false);
     }
@@ -271,10 +259,10 @@ export default function RequestDetailPC() {
 
   return (
     <>
-      <div className="flex h-full flex-col app-page-bg text-black">
-        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain p-6">
+      <div className="app-page-bg text-black">
+        <div className="p-6">
           <div className="w-full min-w-0 space-y-4 pb-1">
-        <div className="bg-white border-t border-b border-slate-200 px-6 py-5 shadow-sm mb-2">
+        <div className="bg-white rounded-xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
@@ -487,7 +475,7 @@ export default function RequestDetailPC() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mb-0">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
               <div className="flex justify-between items-center mb-3 shrink-0">
                 <h3 className="text-sm font-medium text-slate-900">Danh sách các buổi</h3>
                 <div className="text-xs text-slate-600">
@@ -505,7 +493,7 @@ export default function RequestDetailPC() {
               ) : sessions.length === 0 ? (
                 <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách buổi chi tiết.</p>
               ) : (
-                <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+                <div className="space-y-2">
                   {sessions.map((session) => {
                     const topic = session.subjectSession ?? session.eventSession;
                     const sessionTitle = getSessionDisplayTitle(session);
@@ -527,7 +515,7 @@ export default function RequestDetailPC() {
                             setRightPanel({ mode: 'detail', session: session as SessionWithFlags });
                           }
                         }}
-                        className="w-full border-t border-b border-slate-200 bg-white px-4 py-3 hover:bg-slate-50/60 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
+                        className="w-full border-t border-slate-200 bg-white px-4 py-3 hover:bg-slate-50/60 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-200/70 focus:ring-offset-2"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -713,8 +701,8 @@ export default function RequestDetailPC() {
           <div className="fixed inset-0 z-40 flex justify-end">
             <div className="flex-1 bg-black/30" onClick={() => setRightPanel(null)} />
 
-            <div className="w-full flex-1 bg-white text-black shadow-2xl flex flex-col max-w-2xl border-l">
-              <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
+            <div className="w-full flex-1 bg-white text-black shadow-2xl flex flex-col max-w-2xl border-l overflow-hidden">
+              <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 shrink-0">
                 <div>
                   <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Chi tiết buổi</p>
                   {resolvedDetailSession ? (
@@ -759,7 +747,7 @@ export default function RequestDetailPC() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
+              <div className="flex-1 overflow-y-auto p-6 pt-0">
                 {request && (
                   <>
                     <PCSessionDetailTeamPanel
@@ -833,7 +821,6 @@ export default function RequestDetailPC() {
           </div>
         </Dialog>
 
-        {/* Hủy buổi (PUT /sessions/cancel) — cần lý do */}
         <Dialog
           open={cancelSessionOpen}
           onClose={() => !cancelSessionLoading && setCancelSessionOpen(false)}

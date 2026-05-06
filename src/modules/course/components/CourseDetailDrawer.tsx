@@ -136,7 +136,7 @@ export function CourseDetailDrawer({ open, onClose, detailCourse, detailLoading,
                 {/* Thông tin chung */}
                 <Section icon={Hash} title="Thông tin chung">
                   <div className="pl-4 divide-y divide-slate-200">
-                    <MetaRow label="Mã số khóa" value={String(detailCourse.courseId)} />
+                    <MetaRow label="Mã khóa học" value={String(detailCourse.courseId)} />
                     <MetaRow label="Cập nhật lần cuối" value={formatDateTime(detailCourse.updatedAt)} />
                   </div>
                 </Section>

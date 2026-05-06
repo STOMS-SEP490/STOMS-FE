@@ -170,8 +170,8 @@ export function useCalendarEvents(
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        // 1) Thời khóa biểu TEACHER / PC: GET /api/members/teaching-schedule
-        if (isTeacherTimetable || isPCTimetable) {
+        
+        if (isTeacherTimetable) {
           const memberId =
             Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) ||
             undefined;
@@ -182,7 +182,10 @@ export function useCalendarEvents(
             setEvents(mapped);
           }
         }
-        // 2) Thời khóa biểu TEAM LEADER: session/filter theo TeamId của user
+        else if (isPCTimetable) {
+          const mapped = await loadCalendarEventsViaSessionFilter(undefined, true);
+          setEvents(mapped);
+        }
         else if (isTeamLeaderTimetable) {
           if (teamLeaderScope === 'personal') {
             const memberId =
@@ -213,12 +216,10 @@ export function useCalendarEvents(
             setEvents(mapped);
           }
         }
-        // 3) Thời khóa biểu MANAGER: cùng session/filter nhưng không truyền TeamId
         else if (isManagerTimetable) {
           const mapped = await loadCalendarEventsViaSessionFilter(undefined, true);
           setEvents(mapped);
         }
-        // 4) Fallback (không dùng trên route timetable hiện tại)
         else {
           const res = await eventApi.getEvents({
             pageNumber: 1,

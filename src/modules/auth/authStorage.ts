@@ -1,3 +1,5 @@
+// ─── Request types ────────────────────────────────────────────────────────────
+
 export type LoginRequest = {
   email: string;
   password: string;
@@ -7,23 +9,16 @@ export type LoginRequest = {
   fcmToken: string;
 };
 
-export type LoginResponse = {
-  deviceUid: string;
-  userId: number;
-  memberId: number;
-  email: string;
-  /** role hệ thống (user) */
-  userRoleId: number | null;
-  /** role theo member (có thể null nếu không có member) */
-  memberRoleId: number | null;
-  /** role đang chọn để vào hệ thống (FE quyết định) */
-  roleId?: number | null;
-  teamId: number | null;
-  accessToken: string;
-  accessTokenExpiresAt: string;
-  refreshToken: string;
-  refreshTokenExpiresAt: string;
+export type SelectRoleRequest = {
+  loginSessionToken: string;
+  selectedRoleId: number;
+  deviceUid?: string;
+  platform: string;
+  deviceName: string;
+  fcmToken: string;
 };
+
+//  Response types 
 
 export type AuthTokensResponse = {
   accessToken: string;
@@ -32,17 +27,61 @@ export type AuthTokensResponse = {
   refreshTokenExpiresAt: string;
 };
 
+export type LoginResponse = {
+  deviceUid: string;
+  userId: number;
+  memberId: number | null;
+  email: string;
+  userRoleId: number;
+  memberRoleId: number | null;
+  activeRoleId: number;
+  teamId: number | null;
+  accessToken: string;
+  accessTokenExpiresAt: string;
+  refreshToken: string;
+  refreshTokenExpiresAt: string;
+};
+
+export type AvailableRole = {
+  roleId: number;
+  roleName: string;
+};
+
+export type RoleSelectionRequiredResponse = {
+  needsRoleSelection: true;
+  loginSessionToken: string;
+  loginSessionTokenExpiresAt: string;
+  userId: number;
+  email: string;
+  availableRoles: AvailableRole[];
+};
+
+export type LoginApiResponse = LoginResponse | RoleSelectionRequiredResponse;
+
+export function isRoleSelectionRequired(
+  res: LoginApiResponse,
+): res is RoleSelectionRequiredResponse {
+  return (res as RoleSelectionRequiredResponse).needsRoleSelection === true;
+}
+
+// Storage helpers
+
+export type StoredAuthUser = {
+  userId?: number;
+  memberId?: number | null;
+  email?: string;
+  activeRoleId?: number | null;
+  userRoleId?: number | null;
+  memberRoleId?: number | null;
+  teamId?: number | null;
+  deviceUid?: string;
+};
+
 export const updateTokensInStorage = (tokens: AuthTokensResponse) => {
   localStorage.setItem('accessToken', tokens.accessToken);
   localStorage.setItem('refreshToken', tokens.refreshToken);
-  localStorage.setItem(
-    'accessTokenExpiresAt',
-    tokens.accessTokenExpiresAt
-  );
-  localStorage.setItem(
-    'refreshTokenExpiresAt',
-    tokens.refreshTokenExpiresAt
-  );
+  localStorage.setItem('accessTokenExpiresAt', tokens.accessTokenExpiresAt);
+  localStorage.setItem('refreshTokenExpiresAt', tokens.refreshTokenExpiresAt);
 };
 
 export const saveAuthToStorage = (data: LoginResponse) => {
@@ -59,24 +98,13 @@ export const saveAuthToStorage = (data: LoginResponse) => {
       userId: data.userId,
       memberId: data.memberId,
       email: data.email,
-      roleId: data.roleId,
+      activeRoleId: data.activeRoleId,
       userRoleId: data.userRoleId,
       memberRoleId: data.memberRoleId,
       teamId: data.teamId,
       deviceUid: data.deviceUid,
-    })
+    } satisfies StoredAuthUser),
   );
-};
-
-export type StoredAuthUser = {
-  userId?: number;
-  memberId?: number;
-  email?: string;
-  roleId?: number | null;
-  userRoleId?: number | null;
-  memberRoleId?: number | null;
-  teamId?: number | null;
-  deviceUid?: string;
 };
 
 export function getStoredAuthUser(): StoredAuthUser | null {
@@ -89,13 +117,24 @@ export function getStoredAuthUser(): StoredAuthUser | null {
   }
 }
 
+export type SwitchRoleRequest = {
+  targetRoleId: number;
+  deviceUid: string;
+};
+
+export type SwitchRoleResponse = {
+  accessToken: string;
+  accessTokenExpiresAt: string;
+  activeRoleId: number;
+};
+
 export function setActiveRoleIdInStorage(roleId: number) {
   const prev = getStoredAuthUser() ?? {};
   localStorage.setItem(
     'user',
     JSON.stringify({
       ...prev,
-      roleId,
-    })
+      activeRoleId: roleId,
+    } satisfies StoredAuthUser),
   );
 }

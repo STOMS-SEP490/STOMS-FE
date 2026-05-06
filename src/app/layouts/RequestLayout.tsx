@@ -243,17 +243,6 @@ export default function RequestLayout() {
   }, []);
 
   useEffect(() => {
-    const root = document.documentElement;
-    const body = document.body;
-    root.classList.add('scrollbar-hide', 'no-scrollbar');
-    body.classList.add('scrollbar-hide', 'no-scrollbar');
-    return () => {
-      root.classList.remove('scrollbar-hide', 'no-scrollbar');
-      body.classList.remove('scrollbar-hide', 'no-scrollbar');
-    };
-  }, []);
-
-  useEffect(() => {
     if (tabValue === 'assignment') {
       setStatusFilter((prev) =>
         ASSIGNMENT_TAB_STATUS_FILTERS.includes(prev) ? prev : 'all',
@@ -279,9 +268,7 @@ export default function RequestLayout() {
   }, [tabValue]);
 
   return (
-    <div
-      className="p-6 pl-8 app-page-bg flex h-[var(--content-height)] flex-col gap-1"
-    >
+    <div className="p-6 pl-8 app-page-bg">
       {/* HEADER */}
 
       {!isDetailMode && (
@@ -430,7 +417,7 @@ export default function RequestLayout() {
         </>
       )}
 
-      <div className="flex-1">
+      <div>
         {!isDetailMode ? (
           <div className="flex min-h-[calc(var(--content-height)-190px)] flex-col rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm mb-6">
             <div className="flex-1">
@@ -454,7 +441,7 @@ export default function RequestLayout() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col">
+          <div>
             <Outlet
               context={{
                 refreshRequestSidebar: () => setSidebarRefreshKey((k) => k + 1),

@@ -25,12 +25,13 @@ import { Switch } from '@/shared/components/ui/switch';
 import { getErrorMessage } from '@/shared/lib/errorMessage';
 import { useCourses, type CourseListStatusFilter } from '@/modules/course/hooks/useCourses';
 import { useCourseDetailDrawer } from '@/modules/course/hooks/useCourseDetailDrawer';
-import { useActiveSubjects } from '@/modules/course/hooks/useActiveSubjects';
+import { useActiveSubjects, useAllSubjects } from '@/modules/course/hooks/useActiveSubjects';
 import { CourseDetailDrawer } from '@/modules/course/components/CourseDetailDrawer';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { dashboardApi, dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi';
 import { StatCard } from '@/shared/components/common/StatCard';
 import { useQuery } from '@tanstack/react-query';
+import { formatCourseDuration } from '../formatCourseDuration';
 
 type Props = {
   readOnly?: boolean;
@@ -82,6 +83,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
   } = useCourses({ activeOnly: false });
 
   const allSubjects = useActiveSubjects();
+  const allSubjectsIncludingInactive = useAllSubjects();
 
   const {
     detailOpen,
@@ -374,6 +376,11 @@ export default function CoursesManagement({ readOnly = false }: Props) {
         ),
       },
       {
+        id: 'duration',
+        header: 'Thời lượng',
+        cell: ({ row }) => formatCourseDuration(row.original.duration ?? undefined) ?? '—',
+      },
+      {
         accessorKey: 'isActive',
         header: 'Trạng thái',
         cell: ({ row }) =>
@@ -530,7 +537,6 @@ export default function CoursesManagement({ readOnly = false }: Props) {
             <HoverSearch placeholder="Tìm chương trình học..." value={search} onChange={(value) => setSearch(value)} />
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
                 <Select
                   value={statusFilter}
                   onValueChange={(v) =>
@@ -627,9 +633,9 @@ export default function CoursesManagement({ readOnly = false }: Props) {
             </div>
           </div>
 
-          <div className="stoms-scrollbar min-h-0 flex-1 overflow-y-auto bg-slate-50/70 px-5 py-5">
+          <div className="stoms-scrollbar min-h-0 flex-1 overflow-y-auto  px-5 py-5">
             <div className="space-y-5">
-              <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/50">
+              <div className=" bg-white p-4  ">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>
@@ -654,7 +660,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/50">
+              <div className=" bg-white p-4 ">
                 <div className="space-y-2">
                   <Label>
                     Mô tả <span className="text-rose-600">*</span>
@@ -668,7 +674,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/50">
+              <div className=" bg-white p-4 ">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
                     <Label>Môn học</Label>
@@ -688,7 +694,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                     Gạt để bật/tắt môn đã gán
                   </p>
 
-                  <div className="stoms-scrollbar max-h-[40vh] overflow-y-auto rounded-xl bg-slate-50/60 p-3 pr-2 ring-1 ring-slate-200/50">
+                  <div className="stoms-scrollbar max-h-[40vh] overflow-y-auto  p-3 pr-2 ">
                     {courseSubjects.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         Chưa gán môn nào. Nhấn &quot;Thêm môn&quot; để chọn.
@@ -701,13 +707,26 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                             cs.subjectName ??
                             allSubjects.find((x) => x.subjectId === cs.subjectId)?.subjectName ??
                             `Môn #${cs.subjectId}`;
+                          
+                          const masterSubject = allSubjectsIncludingInactive.find((x) => x.subjectId === cs.subjectId);
+                          const isSubjectDeactivated = masterSubject ? !masterSubject.isActive : false;
+                          
                           return (
                             <div
                               key={cs.subjectId}
-                              className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/40"
+                              className="flex items-center justify-between  bg-white px-3 py-2 "
                             >
                               <div className="flex flex-col min-w-0">
-                                <span className="truncate text-sm font-medium text-[#1a7a99]">{name}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className={`truncate text-sm font-medium ${isSubjectDeactivated ? 'text-slate-400' : 'text-[#1a7a99]'}`}>
+                                    {name}
+                                  </span>
+                                  {isSubjectDeactivated && (
+                                    <Badge className="border bg-orange-100 text-orange-600 text-xs">
+                                      Ngừng hoạt động
+                                    </Badge>
+                                  )}
+                                </div>
                                 <span className="text-xs text-slate-500">Mã môn: {cs.subjectId}</span>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -716,6 +735,7 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                                 </span>
                                 <Switch
                                   checked={isActive}
+                                  disabled={isSubjectDeactivated}
                                   onCheckedChange={(checked) => {
                                     setCourseSubjects((prev) =>
                                       prev.map((it) =>
@@ -735,34 +755,23 @@ export default function CoursesManagement({ readOnly = false }: Props) {
               </div>
 
             {showAddSubject && (
-              <div className="space-y-2 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/50">
+              <div className="space-y-2  bg-white p-4 ">
                 <div className="flex items-center justify-between">
                   <Label>Thêm môn học</Label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowAddSubject(false);
-                        setPendingSubjectIdsToAdd([]);
-                      }}
-                    >
-                      Hủy
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="bg-[#2197C0] hover:bg-[#208AAE] text-white"
-                      onClick={commitPendingSubjects}
-                      disabled={pendingSubjectIdsToAdd.length === 0}
-                    >
-                      Lưu
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowAddSubject(false);
+                      setPendingSubjectIdsToAdd([]);
+                    }}
+                  >
+                    Đóng
+                  </Button>
                 </div>
                 <div className="mb-1 text-xs text-slate-500">
-                  Chọn một hoặc nhiều môn chưa gán; bấm <strong>Lưu</strong> để gán hàng loạt.
+                  Chọn một hoặc nhiều môn chưa gán. Các môn được chọn sẽ tự động thêm vào danh sách.
                 </div>
                 <div className="stoms-scrollbar max-h-64 overflow-y-auto rounded-xl bg-slate-50/60 p-3 pr-2 ring-1 ring-slate-200/50">
                   {allSubjects.filter((s) => !courseSubjects.some((cs) => cs.subjectId === s.subjectId)).length ===
@@ -777,18 +786,37 @@ export default function CoursesManagement({ readOnly = false }: Props) {
                           return (
                             <label
                               key={s.subjectId}
-                              className="flex w-full cursor-pointer items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/40 hover:bg-slate-50"
+                              className="flex w-full cursor-pointer items-center  px-3 py-2 text-sm gap-2"
                             >
                               <input
                                 type="checkbox"
                                 className="h-4 w-4 rounded border-gray-300"
                                 checked={checked}
                                 onChange={(e) => {
-                                  setPendingSubjectIdsToAdd((prev) =>
-                                    e.target.checked
-                                      ? [...prev, s.subjectId]
-                                      : prev.filter((id) => id !== s.subjectId),
-                                  );
+                                  const isChecked = e.target.checked;
+                                  const subjectId = s.subjectId;
+                                  
+                                  if (isChecked) {
+                                    // Thêm vào pending list
+                                    setPendingSubjectIdsToAdd((prev) => [...prev, subjectId]);
+                                    // Thêm ngay vào courseSubjects
+                                    setCourseSubjects((prev) => {
+                                      if (prev.some((cs) => cs.subjectId === subjectId)) return prev;
+                                      return [
+                                        ...prev,
+                                        {
+                                          subjectId,
+                                          subjectName: s.subjectName,
+                                          isActive: true,
+                                        },
+                                      ];
+                                    });
+                                  } else {
+                                    // Xóa khỏi pending list
+                                    setPendingSubjectIdsToAdd((prev) => prev.filter((id) => id !== subjectId));
+                                    // Xóa khỏi courseSubjects
+                                    setCourseSubjects((prev) => prev.filter((cs) => cs.subjectId !== subjectId));
+                                  }
                                 }}
                               />
                               <span className="flex-1">

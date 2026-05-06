@@ -294,6 +294,18 @@ export default function EquipmentsHistory({
     }
   };
 
+  const handleUpdated = async () => {
+    await refetch();
+    if (!detailBorrowing?.borrowingId) return;
+    try {
+      const refreshed = await borrowingApi.getById(detailBorrowing.borrowingId);
+      setDetailBorrowing(refreshed);
+    } catch {
+      // eslint-disable-next-line no-console
+      console.error('refresh borrowing detail after update error');
+    }
+  };
+
   useEffect(() => {
     if (openDetailFromUrl !== '1') return;
     if (!borrowingIdFromUrl) return;
@@ -337,6 +349,7 @@ export default function EquipmentsHistory({
         onClose={closeDetailFromUrl}
         borrowing={detailBorrowing}
         onReturned={handleReturned}
+        onUpdated={handleUpdated}
         canManageReturn={isEquipmentManager}
       />
       <CreateBorrowingModal

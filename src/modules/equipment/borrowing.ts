@@ -55,6 +55,26 @@ export type BorrowingListItem = {
   borrowedByMember?: MemberBorrowing | null
   lentByMember?: MemberBorrowing | null
   borrowingEquipmentDetail?: BorrowingEquipmentDetail[] | null
+  session?: Array<{
+    sessionId: number
+    sessionNo?: number | null
+    startAt?: string | null
+    endAt?: string | null
+    notes?: string | null
+    location?: string | null
+    status?: string | null
+    requestId?: number | null
+    subjectSessionId?: number | null
+    eventSessionId?: number | null
+    subjectSession?: {
+      title?: string | null
+    } | null
+    eventSession?: {
+      eventSessionId?: number
+      title?: string | null
+      description?: string | null
+    } | null
+  }> | null
 }
 
 export type BorrowingCreatePayload = {

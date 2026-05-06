@@ -1,81 +1,81 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
 
 import { Button } from '@/shared/components/ui/button';
-import { getRoleLabel } from '@/constants/role';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { getHomePathByRole } from '@/modules/auth/roleAccess';
-import { getStoredAuthUser, setActiveRoleIdInStorage } from '@/modules/auth/authStorage';
+import { saveAuthToStorage, type RoleSelectionRequiredResponse } from '@/modules/auth/authStorage';
+import authService from '@/modules/auth/api/authApi';
 
 export default function ChooseRole() {
   const navigate = useNavigate();
   const { login: setCurrentUser } = useAuth();
 
-  const stored = getStoredAuthUser();
-  const accessToken = localStorage.getItem('accessToken');
-
-  const options = useMemo(() => {
-    const items: { roleId: number; source: 'user' | 'member' }[] = [];
-    if (stored?.userRoleId != null) items.push({ roleId: stored.userRoleId, source: 'user' });
-    if (stored?.memberRoleId != null) items.push({ roleId: stored.memberRoleId, source: 'member' });
-
-    // Nếu trùng roleId thì chỉ hiển thị 1 option, ưu tiên label "Vai trò hệ thống"
-    const seen = new Set<number>();
-    return items.filter((x) => {
-      if (seen.has(x.roleId)) return false;
-      seen.add(x.roleId);
-      return true;
-    });
-  }, [stored?.memberRoleId, stored?.userRoleId]);
+  const [roleSelection, setRoleSelection] = useState<RoleSelectionRequiredResponse | null>(null);
+  const [loadingRoleId, setLoadingRoleId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!accessToken || !stored?.userId || !stored?.email) {
+    const raw = sessionStorage.getItem('roleSelection');
+    if (!raw) {
       navigate('/login', { replace: true });
       return;
     }
 
-    // đã chọn role rồi thì vào thẳng
-    if (stored.roleId != null) {
-      navigate(getHomePathByRole(stored.roleId), { replace: true });
-      return;
-    }
-
-    if (options.length <= 1) {
-      const only = options[0];
-      if (only != null) {
-        setActiveRoleIdInStorage(only.roleId);
-        setCurrentUser({
-          id: stored.userId,
-          email: stored.email,
-          fullName: stored.email,
-          role: String(only.roleId),
-          token: accessToken,
-        });
-        navigate(getHomePathByRole(only.roleId), { replace: true });
-      } else {
+    try {
+      const parsed = JSON.parse(raw) as RoleSelectionRequiredResponse;
+      if (!parsed.loginSessionToken || !parsed.availableRoles?.length) {
         navigate('/login', { replace: true });
+        return;
       }
-    }
-  }, [accessToken, stored?.email, stored?.roleId, stored?.userId, navigate, options, setCurrentUser]);
-
-  const pick = (roleId: number) => {
-    if (!accessToken || !stored?.userId || !stored?.email) {
+      setRoleSelection(parsed);
+    } catch {
       navigate('/login', { replace: true });
-      return;
     }
+  }, [navigate]);
 
-    setActiveRoleIdInStorage(roleId);
-    setCurrentUser({
-      id: stored.userId,
-      email: stored.email,
-      fullName: stored.email,
-      role: String(roleId),
-      token: accessToken,
-    });
-    message.success(`Đăng nhập với tư cách: ${getRoleLabel(roleId)}`);
-    navigate(getHomePathByRole(roleId), { replace: true });
+  const pick = async (roleId: number) => {
+    if (!roleSelection || loadingRoleId != null) return;
+
+    setLoadingRoleId(roleId);
+    try {
+      const res = await authService.selectRole({
+        loginSessionToken: roleSelection.loginSessionToken,
+        selectedRoleId: roleId,
+        platform: 'web',
+        deviceName: navigator.userAgent,
+        fcmToken: '',
+      });
+
+      sessionStorage.removeItem('roleSelection');
+      saveAuthToStorage(res);
+      setCurrentUser({
+        id: res.userId,
+        email: res.email,
+        fullName: res.email,
+        role: String(res.activeRoleId),
+        token: res.accessToken,
+      });
+
+      message.success(`Đăng nhập thành công`);
+      navigate(getHomePathByRole(res.activeRoleId), { replace: true });
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: unknown } };
+      const data = axiosErr?.response?.data;
+      const msg =
+        (typeof data === 'string' && data) ||
+        (typeof data === 'object' &&
+          data !== null &&
+          'message' in data &&
+          String((data as Record<string, unknown>).message)) ||
+        'Chọn tư cách thất bại. Vui lòng thử lại.';
+      message.error(msg);
+    } finally {
+      setLoadingRoleId(null);
+    }
   };
+
+  if (!roleSelection) return null;
 
   return (
     <div className="w-full max-w-xl">
@@ -85,29 +85,29 @@ export default function ChooseRole() {
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {options.slice(0, 2).map((opt) => (
+        {roleSelection.availableRoles.map((role) => (
           <div
-            key={`${opt.source}-${opt.roleId}`}
+            key={role.roleId}
             className="text-left rounded-2xl border border-sky-100/60 bg-white/95 px-4 py-4 shadow-[0_10px_30px_rgba(2,132,199,0.18)] hover:bg-white transition cursor-pointer"
-            onClick={() => pick(opt.roleId)}
+            onClick={() => pick(role.roleId)}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && pick(opt.roleId)}
+            onKeyDown={(e) => e.key === 'Enter' && pick(role.roleId)}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  {opt.source === 'user' ? 'Vai trò hệ thống' : 'Vai trò thành viên'}
-                </div>
                 <div className="text-sm font-semibold text-slate-900 truncate">
-                  {getRoleLabel(opt.roleId)}
+                  {role.roleName}
                 </div>
-                
               </div>
             </div>
             <div className="mt-3">
-              <Button className="bg-[#208aae] hover:bg-[#1f819f] text-white w-full" type="button">
-                Tiếp tục
+              <Button
+                className="bg-[#208aae] hover:bg-[#1f819f] text-white w-full"
+                type="button"
+                disabled={loadingRoleId != null}
+              >
+                {loadingRoleId === role.roleId ? 'Đang xử lý...' : 'Tiếp tục'}
               </Button>
             </div>
           </div>
@@ -116,4 +116,3 @@ export default function ChooseRole() {
     </div>
   );
 }
-

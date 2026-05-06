@@ -11,14 +11,12 @@ const axiosClient = axios.create({
 
 let refreshPromise: Promise<string> | null = null;
 
-// Proactive refresh: nếu token còn < 2 phút thì refresh trước khi gửi request
 async function getValidAccessToken(): Promise<string | null> {
   const token = localStorage.getItem('accessToken');
   const expiresAt = localStorage.getItem('accessTokenExpiresAt');
 
   if (!token) return null;
 
-  // Nếu còn hơn 2 phút thì dùng luôn
   if (expiresAt) {
     const expiresMs = new Date(expiresAt).getTime();
     const nowMs = Date.now();
@@ -26,7 +24,6 @@ async function getValidAccessToken(): Promise<string | null> {
     if (remainingMs > 2 * 60 * 1000) return token;
   }
 
-  // Token sắp hết hạn → refresh trước
   try {
     if (!refreshPromise) {
       refreshPromise = (async () => {
@@ -41,7 +38,7 @@ async function getValidAccessToken(): Promise<string | null> {
     }
     return await refreshPromise;
   } catch {
-    return token; // fallback dùng token cũ, để response interceptor xử lý 401
+    return token; 
   }
 }
 
@@ -53,14 +50,12 @@ axiosClient.interceptors.request.use(
       config.url?.includes('/auth/logout');
 
     if (isAuthEndpoint) {
-      // Auth endpoints: attach token hiện tại, không proactive refresh
       const token = localStorage.getItem('accessToken');
       if (token) {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
       }
     } else {
-      // Các endpoint khác: proactive refresh nếu token sắp hết hạn
       const token = await getValidAccessToken();
       if (token) {
         config.headers = config.headers ?? {};

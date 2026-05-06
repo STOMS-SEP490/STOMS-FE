@@ -187,10 +187,18 @@ export default function TeamLeaderSessionDetailPanel({
     const d = sessionDetail as any;
     const fromEvent = [...(Array.isArray(d?.EventSession?.Topics) ? d.EventSession.Topics : [])];
     const fromSubject = [...(Array.isArray(d?.SubjectSession?.Topics) ? d.SubjectSession.Topics : [])];
+    
+    // course/subject: topicName là string đơn trực tiếp trên subjectSession
+    const subjectTopicName = String(
+      d?.SubjectSession?.topicName ?? d?.subjectSession?.topicName ?? ''
+    ).trim();
+
     const names = [...fromEvent, ...fromSubject]
       .filter((t: any) => (t?.IsActive ?? t?.isActive ?? true) !== false)
       .map((t: any) => String(t?.TopicName ?? t?.topicName ?? '').trim())
       .filter(Boolean);
+    
+    if (subjectTopicName) names.push(subjectTopicName);
     return Array.from(new Set(names));
   }, [sessionDetail]);
 
@@ -264,35 +272,37 @@ export default function TeamLeaderSessionDetailPanel({
             </div>
           )}
 
-          {(topics.length > 0 || skills.length > 0) && (
-            <div className="pt-3 border-t border-slate-100 space-y-3">
-              {topics.length > 0 && (
-                <div>
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Chủ đề</p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {topics.map((name) => (
-                      <Badge key={name} className="bg-slate-50 text-slate-700 border border-slate-200 rounded-full text-[11px] font-medium">
-                        {name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
+          <div className="grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Chủ đề</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {topics.length === 0 ? (
+                  <span className="text-slate-700">—</span>
+                ) : (
+                  topics.map((name) => (
+                    <Badge key={name} className="bg-violet-100 text-violet-700 border-0 text-[11px] font-medium">
+                      {name}
+                    </Badge>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
 
-              {skills.length > 0 && (
-                <div>
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Kỹ năng</p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {skills.map((name) => (
-                      <Badge key={name} className="bg-sky-50 text-sky-700 border border-sky-200 rounded-full text-[11px] font-medium">
-                        {name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Kỹ năng</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {skills.length === 0 ? (
+                <span className="text-slate-700">—</span>
+              ) : (
+                skills.map((name) => (
+                  <Badge key={name} className="bg-orange-100 text-orange-700 border-0 text-[11px] font-medium">
+                    {name}
+                  </Badge>
+                ))
               )}
             </div>
-          )}
+          </div>
 
           <div className="pt-3 border-t border-slate-100">
             <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-slate-500 md:grid-cols-2 pb-2">

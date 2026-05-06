@@ -28,9 +28,11 @@ import subjectSkillApi, { type SubjectSkillItem } from '../api/subjectSkillApi'
 import subjectSessionApi from '../api/subjectSessionApi'
 import { SubjectDetailDrawer } from '../components/SubjectDetailDrawer'
 import { SubjectEditPanel } from '../components/SubjectEditPanel'
+import { getErrorMessage } from '@/shared/lib/errorMessage'
 import { dashboardCoursesSummaryQueryKey } from '@/modules/dashboard/api/dashboardApi'
 import { dashboardApi } from '@/modules/dashboard/api/dashboardApi'
 import { useQuery } from '@tanstack/react-query'
+import { formatSubjectDuration } from '../formatSubjectDuration'
 
 type EditableSession = {
   subjectSessionId?: number
@@ -141,19 +143,24 @@ export default function SubjectsManagement() {
   const maxSessionsPerSubject = subjectSessionStats?.maxSessionsPerSubject ?? 0
   const statValue = (loading: boolean, value: number | string) => (loading ? '—' : value)
 
-  useEffect(() => {
-    skillApi
-      .getSkills({ pageSize: 500 })
-      .then((res) => setAllSkills(res.items ?? []))
-      .catch(() => setAllSkills([]))
-  }, [])
-
-  useEffect(() => {
-    topicApi
-      .getTopics({ pageNumber: 1, pageSize: 500 })
-      .then((res) => setAllTopics(res.items ?? []))
-      .catch(() => setAllTopics([]))
-  }, [])
+  const loadSkillsAndTopics = useCallback(async () => {
+    if (allSkills.length === 0) {
+      try {
+        const res = await skillApi.getSkills({ pageSize: 500 });
+        setAllSkills(res.items ?? []);
+      } catch {
+        setAllSkills([]);
+      }
+    }
+    if (allTopics.length === 0) {
+      try {
+        const res = await topicApi.getTopics({ pageNumber: 1, pageSize: 500 });
+        setAllTopics(res.items ?? []);
+      } catch {
+        setAllTopics([]);
+      }
+    }
+  }, [allSkills.length, allTopics.length]);
 
   const openEditModal = async (s: SubjectListItem) => {
     if (!isManager) {
@@ -162,6 +169,7 @@ export default function SubjectsManagement() {
     }
     setIsCreating(false)
     setShowAddSkill(false)
+    await loadSkillsAndTopics();
     try {
       // luôn lấy bản chi tiết mới nhất để có đủ subjectSkills
       const detail = await subjectApi.getById(s.subjectId)
@@ -238,6 +246,7 @@ export default function SubjectsManagement() {
       message.warning('Bạn không có quyền thêm môn học.')
       return
     }
+    void loadSkillsAndTopics();
     setIsCreating(true)
     setEditingSubject(null)
     setShowAddSkill(false)
@@ -251,7 +260,7 @@ export default function SubjectsManagement() {
     setInitialSessions([])
     setSessionsToDelete([])
     setOpenEdit(true)
-  }, [isManager])
+  }, [isManager, loadSkillsAndTopics])
 
   useEffect(() => {
     if (openCreateFromUrl !== '1') return
@@ -485,9 +494,8 @@ export default function SubjectsManagement() {
       setOpenEdit(false)
       await refetch()
       void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey })
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra'
-      message.error(msg)
+    } catch (e: unknown) {
+      message.error(getErrorMessage(e) || 'Có lỗi xảy ra')
       // Yêu cầu: nếu cập nhật lỗi thì đóng popup
       if (!isCreating) {
         setOpenEdit(false)
@@ -513,9 +521,8 @@ export default function SubjectsManagement() {
           message.success('Cập nhật trạng thái thành công')
           await refetch()
           void queryClient.invalidateQueries({ queryKey: dashboardCoursesSummaryQueryKey })
-        } catch (e: any) {
-          const msg = e?.response?.data?.message || e?.message || 'Có lỗi xảy ra'
-          message.error(msg)
+        } catch (e: unknown) {
+          message.error(getErrorMessage(e) || 'Có lỗi xảy ra')
         }
       },
     })
@@ -558,6 +565,20 @@ export default function SubjectsManagement() {
           {row.original.subjectName}
         </div>
       ),
+    },
+    {
+      accessorKey: 'topicName',
+      header: 'Chủ đề',
+      cell: ({ row }) => (
+        <span className="text-sm text-slate-700">
+          {row.original.topicName?.trim() || '—'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'duration',
+      header: 'Thời lượng',
+      cell: ({ row }) => formatSubjectDuration(row.original.duration ?? undefined) ?? '—',
     },
     {
       accessorKey: 'isActive',

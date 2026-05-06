@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { Plus, X, CheckCircle2, MapPin, AlertCircle, AlertTriangle, Paperclip, ArrowLeft, TriangleAlert } from 'lucide-react';
-import { message, Modal, Tooltip } from 'antd';
+import { message, Modal, Spin, Tooltip } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import { Dialog } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
@@ -14,7 +14,6 @@ import {
   REQUEST_STATUS,
   SESSION_STATUS,
 } from '@/constants/status';
-import { isTeacherRole } from '@/constants/role';
 import {
   canManagerReviewAssignmentRow,
 } from '../utils/assignmentSlotUtils';
@@ -29,6 +28,7 @@ import { useRequestDetailManager } from '../hooks/useRequestDetailManager';
 import type { RequestLayoutOutletContext } from '../requestDetail.types';
 import { getSessionDisplayTitle } from '../utils/getSessionDisplayTitle';
 import sessionService from '../api/sessionApi';
+import { getErrorMessage } from '@/shared/lib/errorMessage';
 import requestService from '../api/requestApi';
 import reservationService from '@/modules/reservation/api/reservationApi';
 import { normalizeReservationResponse } from '@/modules/reservation/utils/normalizeReservationResponse';
@@ -58,6 +58,8 @@ export default function RequestDetail() {
     location?: string | null;
     teachersRequired?: number | null;
     tasRequired?: number | null;
+    availableTeacherCount?: number | null;
+    availableTaCount?: number | null;
     teams: { teamId: number; teamName: string }[];
     equipments: {
       equipmentId: number;
@@ -100,7 +102,6 @@ export default function RequestDetail() {
     refreshDetail,
     reloadAssignmentsForSession,
     handleAssignSession,
-    handleOpenRejectAssignment, // Used in JSX onClick handler
     handleConfirmRejectAssignment,
     handleSaveTeamAssignments,
     handleRejectClick,
@@ -112,9 +113,6 @@ export default function RequestDetail() {
     viewMode,
     refreshRequestSidebar,
   });
-
-  // Suppress TS6133: handleOpenRejectAssignment is used in JSX onClick handler below
-  void handleOpenRejectAssignment;
 
   const canReserveEquipment = useMemo(() => {
     if (!request?.status) return false;
@@ -184,44 +182,8 @@ export default function RequestDetail() {
     }
 
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Focus to help the user see it and enable keyboard navigation
     target.focus({ preventScroll: true });
   }, []);
-
-  type SessionArg = RequestSessionSummary & { sessionId: number; teachersRequired?: number | null; tasRequired?: number | null };
-
-  const isSessionTaFullyAssigned = useCallback(
-    (session: SessionArg) => {
-      const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
-      if (teamIds.length === 0) return false;
-      const reqTas = Math.max(0, Number(session.tasRequired ?? 1) || 1);
-      const teamQuantityMap = uiTeamQuantitiesBySessionId[session.sessionId] ?? {};
-      const assignedTas = teamIds.reduce(
-        (sum, teamId) => sum + Math.max(0, Number(teamQuantityMap[teamId]?.tasRequired ?? 0) || 0),
-        0
-      );
-      return assignedTas >= reqTas;
-    },
-    [uiAssignedTeamIdsBySessionId, uiTeamQuantitiesBySessionId]
-  );
-
-  const isSessionTeacherFullyAssigned = useCallback(
-    (session: SessionArg) => {
-      const reqTeachers = Math.max(0, Number(session.teachersRequired ?? 0) || 0);
-      if (reqTeachers === 0) return true;
-      const rows = assignmentsBySessionId[session.sessionId] ?? [];
-      const filledTeachers = rows.filter((r) => {
-        return isTeacherRole(r.staffRole) && Number(r.staffMemberId ?? 0) > 0;
-      }).length;
-      return filledTeachers >= reqTeachers;
-    },
-    [assignmentsBySessionId]
-  );
-
-  const isSessionFullyAssigned = useCallback(
-    (session: SessionArg) => isSessionTaFullyAssigned(session) && isSessionTeacherFullyAssigned(session),
-    [isSessionTaFullyAssigned, isSessionTeacherFullyAssigned]
-  );
 
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ fileName: string; fileUrl: string } | null>(
@@ -309,8 +271,9 @@ export default function RequestDetail() {
       );
       const sorted = detailRows.sort((a, b) => a.sessionNo - b.sessionNo);
       return sorted;
-    } finally {
-      // Cleanup if needed
+    } catch (error) {
+      console.error('Error loading approve preview:', error);
+      return [];
     }
   }, [sessions, uiAssignedTeamIdsBySessionId]);
 
@@ -365,7 +328,11 @@ export default function RequestDetail() {
   }
 
   if (loading && !request) {
-    return <div className="text-sm text-black p-4">Đang tải dữ liệu yêu cầu...</div>;
+    return (
+      <div className="fixed inset-0 bg-white/60 z-20 flex items-center justify-center">
+        <Spin tip="Đang tải dữ liệu yêu cầu..." />
+      </div>
+    );
   }
 
   if (!request) {
@@ -444,14 +411,10 @@ export default function RequestDetail() {
     
     try {
       previews = await loadApprovePreview();
-      // Gọi API với isConfirmed: false để lấy thông tin cảnh báo
-      console.log('Calling approve API with isConfirmed: false, id:', id);
       const previewResponse = await requestService.approve(Number(id), { isConfirmed: false });
-      console.log('Preview response:', previewResponse);
       canFulfillRequirement = previewResponse.canFulfillRequirement ?? true;
       warningMessage = previewResponse.warningMessage ?? '';
       
-      // Map warning message từ sessionWarnings vào từng session
       const sessionWarnings = (previewResponse as any).sessionWarnings || [];
       if (sessionWarnings.length > 0) {
         previews = previews.map(preview => {
@@ -460,12 +423,16 @@ export default function RequestDetail() {
             ...preview,
             warningMessage: sessionWarning?.warningMessage || '',
             canFulfillRequirement: sessionWarning?.canFulfillRequirement ?? true,
+            availableTeacherCount: sessionWarning?.availableTeacherCount ?? null,
+            availableTaCount: sessionWarning?.availableTaCount ?? null,
+            teachersRequired: sessionWarning?.teachersRequired ?? preview.teachersRequired,
+            tasRequired: sessionWarning?.tasRequired ?? preview.tasRequired,
           };
         });
       }
     } catch (err) {
       console.error('Error checking request:', err);
-      message.error('Không thể kiểm tra yêu cầu: ' + ((err as any)?.message || ''));
+      message.error('Không thể kiểm tra yêu cầu: ' + getErrorMessage(err));
       return;
     } finally {
       setOpeningApproveModal(false);
@@ -503,7 +470,6 @@ export default function RequestDetail() {
         <div className="w-full">
           <div className="bg-white">
             <div className="p-4 pt-2">
-              {/* Badge cảnh báo */}
               {warningMessage && (
                 <div className={`mb-4 rounded-lg border px-4 py-3 ${canFulfillRequirement ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
                   <div className="flex items-start gap-2">
@@ -525,8 +491,6 @@ export default function RequestDetail() {
               )}
               
               <div className="grid grid-cols-1 md:grid-cols-[1fr,1.2fr] gap-4">
-
-                {/* Cột trái: Thông tin yêu cầu */}
                 <div className="space-y-3">
                   <div className="bg-white p-2">
                     <div className="flex items-center justify-between gap-3 mb-2">
@@ -570,11 +534,24 @@ export default function RequestDetail() {
                         <span className="text-gray-900">{approveNote}</span>
                       </div>
                     ) : null}
+                    
+                    {previews.some(p => 
+                      ((p.teachersRequired ?? 0) + 3 > (p.availableTeacherCount ?? 0) && (p.teachersRequired ?? 0) > 0) ||
+                      ((p.tasRequired ?? 0) + 3 > (p.availableTaCount ?? 0) && (p.tasRequired ?? 0) > 0)
+                    ) && (
+                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                          <p className="text-xs text-amber-800 font-medium">
+                            Nhân sự phù hợp có thể không đáp ứng đủ cho yêu cầu này
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                 </div>
 
-                {/* Cột phải: Lịch các buổi */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium text-gray-900">Lịch các buổi</div>
@@ -632,8 +609,46 @@ export default function RequestDetail() {
                               <span>{preview.location || '—'}</span>
                             </div>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                              <span><span className="text-gray-500">Giảng viên:</span> {preview.teachersRequired ?? 0}</span>
-                              <span><span className="text-gray-500">Sinh viên:</span> {preview.tasRequired ?? 0}</span>
+                              <span>
+                                <span className="text-gray-500">Giảng viên: </span>
+                                {preview.availableTeacherCount != null ? (
+                                  <>
+                                    <span className={`font-semibold ${
+                                      (preview.teachersRequired ?? 0) + 3 > (preview.availableTeacherCount ?? 0)
+                                        ? 'text-amber-600'
+                                        : (preview.availableTeacherCount ?? 0) >= (preview.teachersRequired ?? 0)
+                                        ? 'text-emerald-600'
+                                        : 'text-amber-600'
+                                    }`}>
+                                      {preview.availableTeacherCount} phù hợp
+                                    </span>
+                                    <span className="text-gray-400"> / </span>
+                                    <span className="font-medium text-gray-700">{preview.teachersRequired ?? 0} yêu cầu</span>
+                                  </>
+                                ) : (
+                                  <span className="font-medium">{preview.teachersRequired ?? 0} yêu cầu</span>
+                                )}
+                              </span>
+                              <span>
+                                <span className="text-gray-500">Sinh viên: </span>
+                                {preview.availableTaCount != null ? (
+                                  <>
+                                    <span className={`font-semibold ${
+                                      (preview.tasRequired ?? 0) + 3 > (preview.availableTaCount ?? 0)
+                                        ? 'text-amber-600'
+                                        : (preview.availableTaCount ?? 0) >= (preview.tasRequired ?? 0)
+                                        ? 'text-emerald-600'
+                                        : 'text-amber-600'
+                                    }`}>
+                                      {preview.availableTaCount} phù hợp
+                                    </span>
+                                    <span className="text-gray-400"> / </span>
+                                    <span className="font-medium text-gray-700">{preview.tasRequired ?? 0} yêu cầu</span>
+                                  </>
+                                ) : (
+                                  <span className="font-medium">{preview.tasRequired ?? 0} yêu cầu</span>
+                                )}
+                              </span>
                             </div>
                             {preview.warningMessage && (
                               <div className={`mt-2 rounded border px-2 py-1.5 text-[11px] ${preview.canFulfillRequirement ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
@@ -653,15 +668,13 @@ export default function RequestDetail() {
         </div>
       ),
       onOk: async () => {
-        // Gọi API với isConfirmed: true để thực sự duyệt
         try {
           await requestService.approve(Number(id), { isConfirmed: true });
           message.success('Đã duyệt yêu cầu');
           await refreshDetail();
           refreshRequestSidebar?.();
         } catch (err) {
-          const msg = (err as any)?.message || 'Duyệt yêu cầu thất bại';
-          message.error(msg);
+          message.error(getErrorMessage(err) || 'Duyệt yêu cầu thất bại');
         }
       },
     });
@@ -731,9 +744,7 @@ export default function RequestDetail() {
       await refreshDetail();
       refreshRequestSidebar?.();
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (err as any)?.message || 'Hủy buổi thất bại.';
-      message.error(msg);
+      message.error(getErrorMessage(err) || 'Hủy buổi thất bại.');
     } finally {
       setCancelSessionLoading(false);
     }
@@ -741,9 +752,8 @@ export default function RequestDetail() {
 
   return (
     <>
-      <div className="flex h-full flex-col text-black">
-        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain pr-1">
-          <div className="w-full min-w-0 space-y-4">
+      <div className="text-black">
+        <div className="w-full min-w-0 space-y-4">
         <div className="bg-white rounded-xl px-6 py-5 shadow-sm border border-slate-200 mb-2">
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -896,10 +906,9 @@ export default function RequestDetail() {
           </div>
         </div>
 
-      {/* MAIN CONTENT */}
       {viewMode === 'assignment' ? (
         <div className="space-y-4 text-black">
-          <div className="mb-2 sticky top-4 z-10 flex flex-wrap justify-between items-center gap-4 bg-white/95 backdrop-blur p-4 rounded-2xl shadow-sm border border-slate-200">
+          <div className="mb-2 flex flex-wrap justify-between items-center gap-4 bg-white/95 backdrop-blur p-4 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-slate-800 min-w-0">
               <Badge className="shrink-0 bg-violet-100 text-violet-800 border-0 text-[11px]">
                 Duyệt phân công
@@ -933,8 +942,6 @@ export default function RequestDetail() {
                 {sessions.map((session) => {
                   const rows = assignmentsBySessionId[session.sessionId] ?? [];
                   const pendingCount = rows.filter((r) => canManagerReviewAssignmentRow(r)).length;
-                  const fullyAssigned = isSessionFullyAssigned(session);
-                  const sessionPending = getSessionStatusCode(session.status) === SESSION_STATUS.PENDING;
                   const sessionTitle = getSessionDisplayTitle(session);
                   const location = (session as RequestSessionSummary & { location?: string }).location || '—';
                   const sessionStatusInfo = getSessionStatusInfo(session.status);
@@ -1002,12 +1009,6 @@ export default function RequestDetail() {
                           <span className="text-slate-300">•</span>
                           <span className="text-slate-600">{session.teachersRequired ?? 1} GV · {session.tasRequired ?? 1} Sinh viên</span>
                         </div>
-                        {sessionPending && !isApprovalView && requestStatusCode !== REQUEST_STATUS.PENDING && !fullyAssigned ? (
-                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border bg-amber-50 text-amber-800 border-amber-200 shrink-0">
-                            <AlertCircle className="w-3 h-3 shrink-0" />
-                            Chưa chọn đủ giảng viên hoặc sinh viên
-                          </span>
-                        ) : null}
                       </div>
                     </div>
                   );
@@ -1063,9 +1064,6 @@ export default function RequestDetail() {
           </div>
 
           <TabsContent value="overview" className="space-y-4 mb-0">
-          {/* WARNING BOX + PROGRESS + ACTIONS
-              - Ẩn hoàn toàn ở /manager/requests/:id (chỉ xem thông tin)
-              - Approval: render action ở cuối (bên dưới) */}
           {!isDefaultRequestView || isPendingRequest ? (
             <div className="space-y-3">
               {!isApprovalView && !isPendingRequest && remainingUnassignedSessions > 0 && (
@@ -1109,8 +1107,7 @@ export default function RequestDetail() {
             </div>
           ) : null}
 
-          {/* DANH SÁCH BUỔI HỌC — kích thước gọn, cân với header request */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-[480px]">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div className="flex justify-between items-center mb-3 shrink-0">
               <h3 className="text-sm font-semibold text-slate-900">Danh sách các buổi</h3>
               <div className="flex items-center gap-3">
@@ -1135,12 +1132,10 @@ export default function RequestDetail() {
             {sessions.length === 0 ? (
               <p className="text-xs text-slate-500 py-6 text-center">Yêu cầu này chưa có danh sách buổi chi tiết.</p>
             ) : (
-              <div className="space-y-1 overflow-y-auto flex-1 min-h-0">
+              <div className="space-y-1">
                 {sessions.map((session) => {
                   const teamIds = uiAssignedTeamIdsBySessionId[session.sessionId] ?? [];
                   const teamCount = teamIds.length;
-                  const fullyAssigned = isSessionFullyAssigned(session);
-                  const sessionPending = getSessionStatusCode(session.status) === SESSION_STATUS.PENDING;
                   const topic = session.subjectSession ?? session.eventSession;
                   const sessionTitle = getSessionDisplayTitle(session);
                   const sessionSkills = session.sessionSkills ?? [];
@@ -1154,7 +1149,6 @@ export default function RequestDetail() {
                       role="button"
                       tabIndex={0}
                       data-request-session-id={session.sessionId}
-                      data-request-session-unassigned={String(sessionPending && !fullyAssigned)}
                       onClick={() => setRightPanel({ mode: isTeamAssignView && !isPendingRequest ? 'team' : 'detail', session })}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -1162,7 +1156,7 @@ export default function RequestDetail() {
                           setRightPanel({ mode: isTeamAssignView && !isPendingRequest ? 'team' : 'detail', session });
                         }
                       }}
-                      className={`w-full border-t border-b border-slate-200 bg-white px-4 py-3 hover:bg-slate-50 transition cursor-pointer focus:outline-none ${
+                      className={`w-full border-b border-slate-200 bg-white px-4 py-3 hover:bg-slate-50 transition cursor-pointer focus:outline-none ${
                         highlightSessionId === session.sessionId ? 'border-amber-200 bg-amber-50/30' : ''
                       }`}
                     >
@@ -1214,44 +1208,38 @@ export default function RequestDetail() {
                           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${sessionStatusInfo.className}`}>
                             {sessionStatusInfo.label}
                           </span>
-                          {fullyAssigned && teamCount > 0 && (
+                          {teamCount > 0 && (
                             <>
                               <span className="text-slate-300">•</span>
                               <span className="text-slate-700 font-medium">{teamCount} nhóm</span>
                             </>
                           )}
                         </div>
-                        {sessionPending && !isApprovalView && requestStatusCode !== REQUEST_STATUS.PENDING && !fullyAssigned ? (
-                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border bg-amber-50 text-amber-800 border-amber-200 shrink-0">
-                            <AlertCircle className="w-3 h-3 shrink-0" />
-                            Chưa chọn đủ giảng viên hoặc sinh viên
-                          </span>
-                        ) : null}
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            if (!session.startAt || !request.createdAt) return null;
+                            const daysFromCreate = dayjs(session.startAt).startOf('day').diff(dayjs(request.createdAt).startOf('day'), 'day');
+                            if (daysFromCreate >= 7) return null;
+                            return (
+                              <Tooltip
+                                title={
+                                  <div className="space-y-0.5">
+                                    <p className="font-semibold" style={{ color: '#d97706' }}>
+                                      {daysFromCreate <= 0 ? 'Buổi này diễn ra ngay khi tạo yêu cầu' : `Chỉ còn ${daysFromCreate} ngày từ lúc tạo đến buổi này`}
+                                    </p>
+                                    <p style={{ color: '#00000099' }}>Yêu cầu tạo dưới 7 ngày trước buổi có thể không đảm bảo thiết bị, giảng viên và thời gian xét duyệt.</p>
+                                  </div>
+                                }
+                                placement="top"
+                                color="#fffbe6"
+                                overlayInnerStyle={{ fontSize: 10, padding: '5px 9px', lineHeight: '1.5', border: '1px solid #ffe58f' }}
+                              >
+                                <TriangleAlert className="w-3.5 h-3.5 text-amber-500 cursor-default" />
+                              </Tooltip>
+                            );
+                          })()}
+                        </div>
                       </div>
-                      {(() => {
-                        if (!session.startAt || !request.createdAt) return null;
-                        const daysFromCreate = dayjs(session.startAt).startOf('day').diff(dayjs(request.createdAt).startOf('day'), 'day');
-                        if (daysFromCreate >= 7) return null;
-                        return (
-                          <div className="flex justify-end mt-1">
-                            <Tooltip
-                              title={
-                                <div className="space-y-0.5">
-                                  <p className="font-semibold" style={{ color: '#d97706' }}>
-                                    {daysFromCreate <= 0 ? 'Buổi này diễn ra ngay khi tạo yêu cầu' : `Chỉ còn ${daysFromCreate} ngày từ lúc tạo đến buổi này`}
-                                  </p>
-                                  <p style={{ color: '#00000099' }}>Yêu cầu tạo dưới 7 ngày trước buổi có thể không đảm bảo thiết bị, giảng viên và thời gian xét duyệt.</p>
-                                </div>
-                              }
-                              placement="top"
-                              color="#fffbe6"
-                              overlayInnerStyle={{ fontSize: 10, padding: '5px 9px', lineHeight: '1.5', border: '1px solid #ffe58f' }}
-                            >
-                              <TriangleAlert className="w-3.5 h-3.5 text-amber-500 cursor-default" />
-                            </Tooltip>
-                          </div>
-                        );
-                      })()}
                     </div>
                   );
                 })}
@@ -1355,23 +1343,17 @@ export default function RequestDetail() {
           </TabsContent>
         </Tabs>
       )}
-
-          </div>
         </div>
       </div>
 
-      {/* RIGHT SIDEBAR SLIDE-OVER FOR TEAM / EQUIPMENT */}
       {rightPanel && (
         <div className="fixed inset-0 z-40 flex justify-end">
-          {/* Backdrop */}
           <div
             className="flex-1 bg-black/30"
             onClick={() => setRightPanel(null)}
           />
 
-          {/* Panel: max-w-2xl — đồng bộ TeamLeaderAssignmentsPage */}
           <div className="w-full max-w-2xl flex-1 bg-white text-black shadow-2xl flex flex-col border-l">
-            {/* Header */}
             <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
               <div>
                 {rightPanel.mode !== 'detail' && (
@@ -1470,7 +1452,6 @@ export default function RequestDetail() {
             <div className="flex-1 overflow-y-auto no-scrollbar p-6 pt-0">
               {rightPanel.mode === 'detail' && request && (
                 <>
-                  {/* Session info */}
                   <RequestSessionDetailPanel
                     session={
                       sessions.find((s) => s.sessionId === rightPanel.session.sessionId) ?? rightPanel.session
@@ -1483,7 +1464,6 @@ export default function RequestDetail() {
                     onReservationUpdated={isPendingRequest ? undefined : handleEquipmentSuccess}
                   />
                   
-                  {/* Team panel */}
                   <div className="mt-6">
                     {!isApprovalView && !isPendingRequest ? (
                       <RequestDetailTeamPanel
@@ -1492,6 +1472,16 @@ export default function RequestDetail() {
                           requestStatusCode === REQUEST_STATUS.APPROVED &&
                           getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
                         }
+                        canEditTeacher={(() => {
+                          if (!requestStatusCode || requestStatusCode < REQUEST_STATUS.APPROVED) return false;
+                          const sc = getSessionStatusCode(rightPanel.session.status);
+                          return (
+                            sc === SESSION_STATUS.APPROVED ||
+                            sc === SESSION_STATUS.ASSIGNING ||
+                            sc === SESSION_STATUS.ASSIGNMENT_REJECTED ||
+                            sc === SESSION_STATUS.ASSIGNED
+                          );
+                        })()}
                         currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                         currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                         separateTeacherSelection={requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.APPROVED}
@@ -1507,7 +1497,6 @@ export default function RequestDetail() {
                     ) : null}
                   </div>
 
-                  {/* Equipment section - moved to bottom */}
                   {!isApprovalView && !isPendingRequest && (
                     <div className="mt-6">
                       <RequestSessionDetailPanel
@@ -1547,6 +1536,16 @@ export default function RequestDetail() {
                     requestStatusCode === REQUEST_STATUS.APPROVED &&
                     getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
                   }
+                  canEditTeacher={(() => {
+                    if (!requestStatusCode || requestStatusCode < REQUEST_STATUS.APPROVED) return false;
+                    const sc = getSessionStatusCode(rightPanel.session.status);
+                    return (
+                      sc === SESSION_STATUS.APPROVED ||
+                      sc === SESSION_STATUS.ASSIGNING ||
+                      sc === SESSION_STATUS.ASSIGNMENT_REJECTED ||
+                      sc === SESSION_STATUS.ASSIGNED
+                    );
+                  })()}
                   currentTeamQuantities={uiTeamQuantitiesBySessionId[rightPanel.session.sessionId]}
                   currentAssignedTeamIds={uiAssignedTeamIdsBySessionId[rightPanel.session.sessionId] ?? []}
                   separateTeacherSelection={requestStatusCode != null && requestStatusCode >= REQUEST_STATUS.APPROVED}
@@ -1573,355 +1572,7 @@ export default function RequestDetail() {
                     />
                   ) : null}
 
-                  {/* Legacy assignment list (hidden to avoid duplicate UI)
-                    const rows = assignmentsBySessionId[rightPanel.session.sessionId] ?? [];
-                    const hasUnfilledSlot = rows.some((r) => !isAssignmentSlotFilled(r));
-                    const hasReviewableFilled = rows.some((r) => canManagerReviewAssignmentRow(r));
-                    const selectedForSession =
-                      selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
-                    const hasSelectedReviewable = selectedForSession.some((id) => {
-                      const row = rows.find((r) => r.assignmentId === id);
-                      return row != null && canManagerReviewAssignmentRow(row);
-                    });
-                    const approveAllDisabled =
-                      approvingSessionId === rightPanel.session.sessionId ||
-                      !rows.length ||
-                      !hasReviewableFilled ||
-                      !hasSelectedReviewable;
-
-                    return (
-                  <div className="rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden">
-                    <div className="px-4 py-2.5 bg-slate-50/70 flex items-center justify-between gap-2 flex-wrap">
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-[#1a7a99] text-sm">Danh sách phân công</h3>
-                        {hasUnfilledSlot && rows.length > 0 ? (
-                          <p className="text-[11px] text-red-600 mt-0.5">
-                            Chưa được phân công đủ
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
-                        {hasReviewableFilled ? (
-                          <>
-                            <label className="inline-flex items-center gap-2 cursor-pointer select-none text-[11px] text-slate-600">
-                              <input
-                                type="checkbox"
-                                ref={(el) => {
-                                  if (!el) return;
-                                  const reviewableIds = rows
-                                    .filter((r) => canManagerReviewAssignmentRow(r))
-                                    .map((r) => r.assignmentId)
-                                    .filter((id) => id > 0);
-                                  const selected =
-                                    selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
-                                  const allOn =
-                                    reviewableIds.length > 0 &&
-                                    reviewableIds.every((id) => selected.includes(id));
-                                  const someOn = reviewableIds.some((id) => selected.includes(id));
-                                  el.indeterminate = someOn && !allOn;
-                                }}
-                                checked={(() => {
-                                  const reviewableIds = rows
-                                    .filter((r) => canManagerReviewAssignmentRow(r))
-                                    .map((r) => r.assignmentId)
-                                    .filter((id) => id > 0);
-                                  const selected =
-                                    selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
-                                  return (
-                                    reviewableIds.length > 0 &&
-                                    reviewableIds.every((id) => selected.includes(id))
-                                  );
-                                })()}
-                                disabled={approvingSessionId === rightPanel.session.sessionId}
-                                onChange={() =>
-                                  handleToggleSelectAllReviewableAssignments(rightPanel.session.sessionId)
-                                }
-                                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50"
-                              />
-                              <span>Chọn tất cả chờ duyệt</span>
-                            </label>
-                            <Button
-                              type="button"
-                              size="sm"
-                              title={
-                                !hasSelectedReviewable
-                                  ? 'Vui lòng chọn ít nhất một phân công đang chờ duyệt'
-                                  : hasUnfilledSlot
-                                    ? 'Chỉ gửi duyệt các phân công đã chọn (đã có nhân sự, chờ duyệt)'
-                                    : undefined
-                              }
-                              className="rounded-full gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                              disabled={approveAllDisabled}
-                              onClick={() => void handleApproveSelectedAssignments(rightPanel.session.sessionId)}
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              {approvingSessionId === rightPanel.session.sessionId
-                                ? 'Đang duyệt...'
-                                : 'Duyệt phân công'}
-                            </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="px-4 py-3 space-y-4 text-sm">
-                      {!rows.length ? (
-                            <p className="text-xs text-gray-500">
-                              Chưa có phân công cho buổi
-                            </p>
-                      ) : (() => {
-                        const selectedIds =
-                          selectedAssignmentIdsBySessionId[rightPanel.session.sessionId] ?? [];
-                        const teacherRows = rows.filter(
-                          (row) => row.staffRole === 'TE' || row.staffRole === 'TEACHER'
-                        );
-                        const taRows = rows.filter((row) => row.staffRole === 'TA');
-
-                        const renderAssignmentRow = (row: (typeof rows)[number]) => {
-                          const checked = selectedIds.includes(row.assignmentId);
-                          const filled = isAssignmentSlotFilled(row);
-                          const isApproved = isAssignmentApproved(row);
-                          const isRejected = isAssignmentRejected(row);
-                          const isCancelled = isAssignmentCancelled(row);
-                          const cancelReason = (row.reason ?? '').trim();
-                          const canReview = canManagerReviewAssignmentRow(row);
-                          const isTeacherRole =
-                            row.staffRole === 'TE' || row.staffRole === 'TEACHER';
-                          const assignmentStatusUi = getAssignmentStatusInfo(row.status);
-                          const rejectedReasonRaw = (row.reason ?? '').trim();
-                          const rejectedReasonLines =
-                            rejectedReasonRaw.length > 0
-                              ? rejectedReasonRaw.split('\n').filter((line) => line.trim().length > 0)
-                              : [];
-                          if (isCancelled) {
-                            return (
-                              <div
-                                key={row.assignmentId}
-                                className="flex flex-col gap-2.5 border-l-[3px] border-l-red-500 bg-red-50/90 px-3 py-3"
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="flex min-w-0 items-center gap-3 opacity-90 pointer-events-none">
-                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-xs font-semibold text-red-800">
-                                      {row.avatarUrl ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
-                                          src={row.avatarUrl}
-                                          alt={row.fullName}
-                                          className="h-full w-full object-cover"
-                                          onError={(e) => {
-                                            (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                          }}
-                                        />
-                                      ) : (
-                                        (filled ? row.fullName : '?')[0]
-                                      )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-sm font-semibold text-slate-900">
-                                        {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
-                                      </p>
-                                      <p className="truncate text-xs text-slate-500">
-                                        {filled ? row.email || '—' : 'Phân công trống — chờ Trưởng nhóm xử lý'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <span
-                                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold shrink-0 ${assignmentStatusUi.className}`}
-                                  >
-                                    {assignmentStatusUi.label}
-                                  </span>
-                                </div>
-                                <div className="rounded-lg border border-red-200/90 bg-white/70 px-3 py-2">
-                                  <p className="text-xs font-medium text-red-900 mb-1">Lý do:</p>
-                                  {cancelReason ? (
-                                    <p className="text-xs text-red-950 leading-relaxed whitespace-pre-wrap">
-                                      {cancelReason}
-                                    </p>
-                                  ) : (
-                                    <p className="text-xs text-red-700/80 italic">Chưa có lý do ghi nhận.</p>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          }
-                          const accent = getAssignmentStaffRoleAccent(isTeacherRole);
-                          const rowStripeClass = (() => {
-                            if (!filled) {
-                              return isTeacherRole
-                                ? 'border-l-[3px] border-l-violet-400 bg-violet-50/65'
-                                : 'border-l-[3px] border-l-yellow-400 bg-yellow-50/65';
-                            }
-                            if (isRejected) return 'border-l-[3px] border-l-rose-500 bg-rose-50/30';
-                            if (canReview) {
-                              if (isTeacherRole) {
-                                return checked
-                                  ? 'border-l-[3px] border-l-violet-600 bg-violet-100/95'
-                                  : 'border-l-[3px] border-l-violet-400 bg-violet-50/70';
-                              }
-                              return checked
-                                ? 'border-l-[3px] border-l-amber-500 bg-amber-50/90'
-                                : 'border-l-[3px] border-l-yellow-400 bg-yellow-50/60';
-                            }
-                            return accent.stripe;
-                          })();
-                          const filledAvatarClass = (() => {
-                            if (!filled) return '';
-                            if (canReview) {
-                              if (isTeacherRole) {
-                                return checked
-                                  ? 'bg-violet-200/90 text-violet-950'
-                                  : 'bg-violet-100 text-violet-800';
-                              }
-                              return checked
-                                ? 'bg-amber-100 text-amber-950'
-                                : 'bg-yellow-100 text-yellow-900';
-                            }
-                            return accent.avatar;
-                          })();
-                          return (
-                            <div key={row.assignmentId}>
-                              <div
-                                className={`flex min-h-[4.25rem] items-center justify-between gap-3 px-3 py-2.5 transition-[background-color,border-color] ${rowStripeClass}`}
-                              >
-                                <div className="flex min-w-0 flex-1 items-center gap-3">
-                                  <div
-                                    className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ${
-                                      filled
-                                        ? filledAvatarClass
-                                        : isTeacherRole
-                                          ? 'bg-violet-100 text-violet-700'
-                                          : 'bg-yellow-100 text-yellow-800'
-                                    }`}
-                                  >
-                                    {filled ? (
-                                      row.avatarUrl ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
-                                          src={row.avatarUrl}
-                                          alt={row.fullName}
-                                          className="h-full w-full object-cover"
-                                          onError={(e) => {
-                                            (e.currentTarget as HTMLImageElement).src = '/img/ava.png';
-                                          }}
-                                        />
-                                      ) : (
-                                        (row.fullName || '—')[0]
-                                      )
-                                    ) : (
-                                      <span className="text-base font-semibold leading-none">?</span>
-                                    )}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-slate-900">
-                                      {filled ? row.fullName || '—' : 'Chưa có nhân sự'}
-                                    </p>
-                                    <p className="truncate text-xs text-slate-500">
-                                      {filled ? row.email || '—' : 'Phân công trống — chờ Trưởng nhóm xử lý'}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                                  {isApproved && (
-                                    <span
-                                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
-                                    >
-                                      {assignmentStatusUi.label}
-                                    </span>
-                                  )}
-                                  {isRejected && (
-                                    <span
-                                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${assignmentStatusUi.className}`}
-                                    >
-                                      {assignmentStatusUi.label}
-                                    </span>
-                                  )}
-                                  {canReview && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="text-xs font-medium text-red-600 hover:text-red-700 underline-offset-2 hover:underline bg-transparent border-0 p-0 shadow-none cursor-pointer"
-                                        onClick={() =>
-                                          handleOpenRejectAssignment(rightPanel.session.sessionId, row)
-                                        }
-                                      >
-                                        Từ chối
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleToggleAssignmentSelection(
-                                            rightPanel.session.sessionId,
-                                            row.assignmentId
-                                          )
-                                        }
-                                        className={`text-xs font-medium bg-transparent border-0 p-0 shadow-none cursor-pointer underline-offset-2 ${
-                                          checked
-                                            ? 'text-emerald-600 hover:text-emerald-700'
-                                            : 'text-slate-600 hover:text-slate-900 hover:underline'
-                                        }`}
-                                      >
-                                        {checked ? 'Đã chọn' : 'Chọn duyệt'}
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              {isRejected ? (
-                                <div className="border-t border-slate-200/45 bg-rose-50/25 px-3 py-2.5">
-                                  <div className="rounded-lg border border-rose-200 bg-rose-50/80 px-3 py-2.5">
-                                    <p className="text-xs font-medium text-rose-900 mb-1.5">Lý do từ chối</p>
-                                    {rejectedReasonLines.length > 0 ? (
-                                      <ul className="space-y-1 text-xs text-rose-950 leading-relaxed list-none pl-0">
-                                        {rejectedReasonLines.map((line, idx) => (
-                                          <li key={idx} className="pl-3 border-l-2 border-rose-300">
-                                            {line}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    ) : (
-                                      <p className="text-xs text-rose-700/85 italic">
-                                        Chưa có lý do ghi nhận từ quản lý.
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              ) : null}
-                            </div>
-                          );
-                        };
-
-                        return (
-                          <div className="space-y-4">
-                            <div>
-                              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Giảng viên
-                              </p>
-                              <div className="divide-y divide-slate-200/45 overflow-hidden rounded-xl bg-violet-50/40">
-                                {teacherRows.length ? (
-                                  teacherRows.map(renderAssignmentRow)
-                                ) : (
-                                  <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                )}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Sinh viên
-                              </p>
-                              <div className="divide-y divide-slate-200/45 overflow-hidden rounded-xl bg-yellow-50/45">
-                                {taRows.length ? (
-                                  taRows.map(renderAssignmentRow)
-                                ) : (
-                                  <p className="px-3 py-2 text-xs text-gray-500">—</p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                    );
-                  */}
+                  
 
                   {request && !isPendingRequest && (
                     <RequestSessionDetailPanel
@@ -1972,7 +1623,6 @@ export default function RequestDetail() {
         </div>
       )}
 
-      {/* Popup preview file đính kèm */}
       <Dialog
         open={attachmentPreviewOpen}
         onClose={() => setAttachmentPreviewOpen(false)}
@@ -1990,7 +1640,6 @@ export default function RequestDetail() {
             if (isImage) {
               return (
                 <div className="space-y-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={url}
                     alt={attachmentPreview.fileName}
@@ -2015,7 +1664,7 @@ export default function RequestDetail() {
             return (
               <div className="space-y-2">
                 <p className="text-xs text-slate-600">
-                  Trình duyệt không hỗ trợ preview trực tiếp cho loại tệp này.
+                  Trình duyệt không hỗ trợ trực tiếp cho loại tệp này.
                 </p>
                 <a
                   href={url}
@@ -2033,7 +1682,6 @@ export default function RequestDetail() {
         )}
       </Dialog>
 
-      {/* Hủy buổi (PUT /sessions/cancel) — cần lý do */}
       <Dialog
         open={cancelSessionOpen}
         onClose={() => !cancelSessionLoading && setCancelSessionOpen(false)}
@@ -2078,7 +1726,6 @@ export default function RequestDetail() {
         </div>
       </Dialog>
 
-      {/* Dialog từ chối assignment */}
       <Dialog
         open={rejectAssignmentState.open}
         onClose={() => {
@@ -2129,7 +1776,6 @@ export default function RequestDetail() {
         </div>
       </Dialog>
 
-      {/* Từ chối (PUT /reject) hoặc Hủy yêu cầu (PUT /cancel) — đều cần lý do */}
       <Dialog
         open={rejectOpen}
         onClose={() => !actionLoading && setRejectOpen(false)}

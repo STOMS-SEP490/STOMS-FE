@@ -338,7 +338,6 @@ export default function UserManagement() {
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Vai trò</span>
             <Select value={filterRoleId} onValueChange={setFilterRoleIdAndResetPage}>
               <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
                 <SelectValue placeholder="Chọn vai trò" />
@@ -355,7 +354,6 @@ export default function UserManagement() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 whitespace-nowrap shrink-0">Trạng thái</span>
             <Select value={filterStatus} onValueChange={setFilterStatusAndResetPage}>
               <SelectTrigger className="text-gray-500 text-sm gap-2 bg-white w-[180px]">
                 <SelectValue placeholder="Chọn trạng thái" />

@@ -36,6 +36,8 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { getStoredAuthUser, setActiveRoleIdInStorage } from '@/modules/auth/authStorage';
 import { getHomePathByRole } from '@/modules/auth/roleAccess';
 import { getRoleLabel } from '@/constants/role';
+import authService from '@/modules/auth/api/authApi';
+import { message } from 'antd';
 
 const TOP_ROW = 'grid w-full grid-cols-[18px_1fr] items-center gap-3 px-3 py-2.5';
 const TOP_ROW_WITH_CHEVRON = 'grid w-full grid-cols-[18px_1fr_18px] items-center gap-3 px-3 py-2.5';
@@ -51,6 +53,7 @@ export default function Sidebar() {
   const location = useLocation();
   const { login: setCurrentUser } = useAuth();
   const [accountOpen, setAccountOpen] = useState(false);
+  const [switchingRoleId, setSwitchingRoleId] = useState<number | null>(null);
   const [sidebarAvatarSrc, setSidebarAvatarSrc] = useState(() => {
     const avatarUrl = localStorage.getItem('memberAvatarUrl') || '';
     return avatarUrl.trim() ? avatarUrl : '/img/ava.png';
@@ -77,32 +80,48 @@ export default function Sidebar() {
     const memberRoleId = stored?.memberRoleId ?? null;
     if (userRoleId == null || memberRoleId == null) return [];
     if (userRoleId === memberRoleId) return [];
-    const activeRoleId = stored?.roleId ?? null;
+    const activeRoleId = stored?.activeRoleId ?? null;
     return [
       { roleId: userRoleId, source: 'user' as const },
       { roleId: memberRoleId, source: 'member' as const },
     ].filter((x) => activeRoleId == null || x.roleId !== activeRoleId);
   }, []);
 
-  const handleSwitchRole = (roleId: number) => {
+  const handleSwitchRole = async (roleId: number) => {
     const stored = getStoredAuthUser();
-    const token = localStorage.getItem('accessToken');
-    if (!stored?.userId || !stored.email || !token) {
+    if (!stored?.userId || !stored.email || !stored.deviceUid) {
       setAccountOpen(false);
       navigate('/login');
       return;
     }
 
-    setActiveRoleIdInStorage(roleId);
-    setCurrentUser({
-      id: stored.userId,
-      email: stored.email,
-      fullName: stored.email,
-      role: String(roleId),
-      token,
-    });
-    setAccountOpen(false);
-    navigate(getHomePathByRole(roleId));
+    setSwitchingRoleId(roleId);
+    try {
+      const res = await authService.switchRole({
+        targetRoleId: roleId,
+        deviceUid: stored.deviceUid,
+      });
+
+      // Cập nhật access token mới vào storage
+      localStorage.setItem('accessToken', res.accessToken);
+      localStorage.setItem('accessTokenExpiresAt', res.accessTokenExpiresAt);
+      setActiveRoleIdInStorage(res.activeRoleId);
+
+      setCurrentUser({
+        id: stored.userId,
+        email: stored.email,
+        fullName: stored.email,
+        role: String(res.activeRoleId),
+        token: res.accessToken,
+      });
+      message.success(`Đã chuyển sang: ${getRoleLabel(res.activeRoleId)}`);
+      setAccountOpen(false);
+      navigate(getHomePathByRole(res.activeRoleId));
+    } catch {
+      message.error('Chuyển tư cách thất bại. Vui lòng thử lại.');
+    } finally {
+      setSwitchingRoleId(null);
+    }
   };
 
   useEffect(() => {
@@ -136,9 +155,10 @@ export default function Sidebar() {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
-      if (!sidebarRef.current?.contains(target)) {
-        setCollapsed(true);
-      }
+      // Removed auto-collapse when clicking outside sidebar
+      // if (!sidebarRef.current?.contains(target)) {
+      //   setCollapsed(true);
+      // }
       if (accountOpen && !accountMenuRef.current?.contains(target)) {
         setAccountOpen(false);
       }
@@ -503,19 +523,22 @@ export default function Sidebar() {
                         key={`${opt.source}-${opt.roleId}`}
                         type="button"
                         onClick={() => handleSwitchRole(opt.roleId)}
-                        className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                        disabled={switchingRoleId != null}
+                        className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50"
                       >
                         <span className="truncate">
                           {getRoleLabel(opt.roleId)}
                         </span>
-                        <ChevronDown className="h-4 w-4 rotate-[-90deg] text-slate-400" />
+                        {switchingRoleId === opt.roleId
+                          ? <span className="text-xs text-slate-400">...</span>
+                          : <ChevronDown className="h-4 w-4 rotate-[-90deg] text-slate-400" />
+                        }
                       </button>
                     ))}
                   </div>
                 </div>
               ) : null}
 
-              {roleOptions.length > 0 ? <div className="my-1 h-px bg-slate-200" /> : null}
 
               <div className="my-1 h-px bg-slate-200" />
 

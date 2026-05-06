@@ -39,7 +39,7 @@ export default function TeamLeaderAssignmentsLayout() {
       ) : null}
 
       <div className="flex-1 pb-4">
-        <div className="h-full pr-1">
+        <div className="h-full">
           <Outlet />
         </div>
       </div>
