@@ -252,7 +252,7 @@ export default function TeacherContributionHistoryPage() {
                     backgroundColor: selectedWalletId == null ? '#2197C0' : undefined,
                   }}
                 />
-                <span className="text-xs font-medium text-slate-700">Tất cả khoản của tôi</span>
+                <span className="text-xs font-medium text-slate-700">Giao dịch của tôi</span>
               </div>
               {selectedWalletId != null && (
                 <span className="rounded-full bg-[#2197C0]/10 px-2.5 py-1 text-xs font-medium text-[#208AAE]">
