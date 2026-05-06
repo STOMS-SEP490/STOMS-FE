@@ -408,13 +408,23 @@ export default function TaskSessionDetailPage() {
                       className="mt-4"
                       items={sortedRequestReports.map((r) => {
                         const hasExpenses = (r.expenses?.length ?? 0) > 0;
+                        const hasPendingExpense = hasExpenses && r.expenses!.some((e) => 
+                          e.status === 1 || e.status === EXPENSE_STATUS.PENDING
+                        );
                         return {
                           dot: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
                           children: (
                             <div className="pb-2">
                               <div className="border-l-4 border-l-[#1a7a99] bg-white px-4 py-3 shadow-sm">
-                                <div className="text-xs font-medium text-[#1a7a99]">
-                                  {formatDateRange(r.startAt, r.endAt)}
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="text-xs font-medium text-[#1a7a99]">
+                                    {formatDateRange(r.startAt, r.endAt)}
+                                  </div>
+                                  {hasPendingExpense && (
+                                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] px-2 py-0.5 whitespace-nowrap">
+                                      Cần duyệt
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="mt-0.5 text-sm font-semibold text-slate-900">{r.title || '—'}</div>
                                 <p className="mt-1 text-xs text-slate-600 line-clamp-3">{r.description || '—'}</p>
@@ -518,13 +528,23 @@ export default function TaskSessionDetailPage() {
                       className="mt-4"
                       items={sortedSessionReports.map((r) => {
                         const hasExpenses = (r.expenses?.length ?? 0) > 0;
+                        const hasPendingExpense = hasExpenses && r.expenses!.some((e) => 
+                          e.status === 1 || e.status === EXPENSE_STATUS.PENDING
+                        );
                         return {
                           dot: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
                           children: (
                             <div className="pb-2">
                               <div className="border-l-4 border-l-[#1a7a99] bg-white px-4 py-3 shadow-sm">
-                                <div className="text-xs font-medium text-[#1a7a99]">
-                                  {formatDateRange(r.startAt, r.endAt)}
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="text-xs font-medium text-[#1a7a99]">
+                                    {formatDateRange(r.startAt, r.endAt)}
+                                  </div>
+                                  {hasPendingExpense && (
+                                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] px-2 py-0.5 whitespace-nowrap">
+                                      Cần duyệt
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="mt-0.5 text-sm font-semibold text-slate-900">{r.title || '—'}</div>
                                 <p className="mt-1 text-xs text-slate-600 line-clamp-3">{r.description || '—'}</p>
@@ -1000,7 +1020,7 @@ export default function TaskSessionDetailPage() {
                           <SelectContent>
                             {wallets.map((wallet) => (
                               <SelectItem key={wallet.walletId} value={wallet.walletId.toString()}>
-                                {wallet.walletName} - {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(wallet.balance)}
+                                {wallet.walletName}: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(wallet.balance)}
                               </SelectItem>
                             ))}
                           </SelectContent>
