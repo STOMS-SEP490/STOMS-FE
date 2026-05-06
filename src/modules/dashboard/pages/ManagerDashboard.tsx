@@ -529,7 +529,9 @@ export default function ManagerDashboard() {
             try {
               setExporting(true);
               const blob = await dashboardApi.exportDashboard({
-                range: effectiveRange,
+                startAt: dayjs(exportStartAt).format('YYYY-MM-DDTHH:mm:ss'),
+                endAt: dayjs(exportEndAt).format('YYYY-MM-DDTHH:mm:ss'),
+                sheetTypes: [...selectedSheetTypes],
               });
               downloadBlob(blob, 'STOMS_Reports.xlsx');
               message.success('Đã xuất báo cáo');

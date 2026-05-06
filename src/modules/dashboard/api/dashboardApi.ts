@@ -8,6 +8,12 @@ export type DashboardRangeParams = {
   to?: string;
 };
 
+export type DashboardExportParams = {
+  startAt: string;
+  endAt: string;
+  sheetTypes: number[];
+};
+
 export type DashboardTeachingHistoryItem = {
   sessionId: number;
   sessionName: string;
@@ -307,17 +313,10 @@ export const dashboardApi = {
     }
   },
 
-  exportDashboard: async (params: { range?: string }): Promise<Blob> => {
-    try {
-      const query = new URLSearchParams();
-      if (params.range) query.set('Range', params.range);
-      const qs = query.toString();
-      return await axiosClient.get(`/dashboard/export${qs ? `?${qs}` : ''}`, {
-        responseType: 'blob',
-      }) as Blob;
-    } catch {
-      return new Blob();
-    }
+  exportDashboard: async (params: DashboardExportParams): Promise<Blob> => {
+    return (await axiosClient.post('/dashboard/export', params, {
+      responseType: 'blob',
+    })) as Blob;
   },
 
   getUserTeachingHistory: async (memberId: number, params?: DashboardRangeParams & { from?: string; to?: string }): Promise<any> => {
