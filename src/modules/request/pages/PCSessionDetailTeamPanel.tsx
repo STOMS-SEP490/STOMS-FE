@@ -114,25 +114,19 @@ export default function PCSessionDetailTeamPanel({
   // Extract topics - MUST be before any conditional returns
   const topics = useMemo(() => {
     if (!sessionDetail) return [];
-    const fromEvent = [
-      ...((Array.isArray(sessionDetail?.EventSession?.Topics) ? sessionDetail.EventSession.Topics : []) as any[]),
-      ...((Array.isArray(sessionDetail?.eventSession?.topics) ? sessionDetail.eventSession.topics : []) as any[]),
-    ];
-    const fromSubject = [
-      ...((Array.isArray(sessionDetail?.SubjectSession?.Topics) ? sessionDetail.SubjectSession.Topics : []) as any[]),
-      ...((Array.isArray(sessionDetail?.subjectSession?.topics) ? sessionDetail.subjectSession.topics : []) as any[]),
-    ];
-    const subjectTopicName = String(
-      (sessionDetail as any)?.SubjectSession?.topicName ??
-      (sessionDetail as any)?.subjectSession?.topicName ??
-      ''
-    ).trim();
-    const names = [...fromEvent, ...fromSubject]
-      .filter((t: any) => (t?.IsActive ?? t?.isActive ?? true) !== false)
-      .map((t: any) => String(t?.TopicName ?? t?.topicName ?? '').trim())
+    const d = sessionDetail as any;
+    
+    const eventTopics = d?.EventSession?.topics ?? d?.eventSession?.topics ?? [];
+    const subjectTopics = d?.SubjectSession?.topics ?? d?.subjectSession?.topics ?? [];
+    const subjectTopicName = String(d?.SubjectSession?.topicName ?? d?.subjectSession?.topicName ?? '').trim();
+    
+    const names = [...eventTopics, ...subjectTopics]
+      .filter((t: any) => (t?.isActive ?? t?.IsActive ?? true))
+      .map((t: any) => String(t?.topicName ?? t?.TopicName ?? '').trim())
       .filter(Boolean);
+    
     if (subjectTopicName) names.push(subjectTopicName);
-    return Array.from(new Set(names));
+    return [...new Set(names)];
   }, [sessionDetail]);
 
   const toggleTeamExpanded = (teamId: number) => {
