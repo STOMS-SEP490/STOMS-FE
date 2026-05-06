@@ -931,7 +931,7 @@ export default function CreateBorrowingModal({
             <>
               <div className="flex gap-2">
                 <Input
-                  placeholder="Nhập ID hoặc tên"
+                  placeholder="Nhập tên người mượn"
                   value={borrowerSearch}
                   onChange={(e) => setBorrowerSearch(e.target.value)}
                   onKeyDown={(e) =>
