@@ -74,17 +74,25 @@ export default function Sidebar() {
     }
   }, []);
 
-  const roleOptions = useMemo(() => {
+  const roleOptions = useMemo<Array<{ source: string; roleId: number }>>(() => {
     const stored = getStoredAuthUser();
     const userRoleId = stored?.userRoleId ?? null;
     const memberRoleId = stored?.memberRoleId ?? null;
-    if (userRoleId == null || memberRoleId == null) return [];
-    if (userRoleId === memberRoleId) return [];
     const activeRoleId = stored?.activeRoleId ?? null;
-    return [
-      { roleId: userRoleId, source: 'user' as const },
-      { roleId: memberRoleId, source: 'member' as const },
-    ].filter((x) => activeRoleId == null || x.roleId !== activeRoleId);
+    
+    if (userRoleId == null) return [];
+    
+    const options: Array<{ source: string; roleId: number }> = [];
+    
+    if (userRoleId !== activeRoleId) {
+      options.push({ source: 'user', roleId: userRoleId });
+    }
+    
+    if (memberRoleId != null && memberRoleId !== activeRoleId && memberRoleId !== userRoleId) {
+      options.push({ source: 'member', roleId: memberRoleId });
+    }
+    
+    return options;
   }, []);
 
   const handleSwitchRole = async (roleId: number) => {
@@ -510,7 +518,6 @@ export default function Sidebar() {
                 Thông tin cá nhân
               </button>
 
-              <div className="my-1 h-px bg-slate-200" />
 
               {roleOptions.length > 0 ? (
                 <div className="px-2 py-1.5">

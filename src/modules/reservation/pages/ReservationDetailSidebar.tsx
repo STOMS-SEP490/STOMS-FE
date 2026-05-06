@@ -66,7 +66,8 @@ export default function ReservationDetailSidebar({
     try {
       const raw = localStorage.getItem('user');
       if (!raw) return null;
-      const roleId = Number(JSON.parse(raw).roleId);
+      const parsed = JSON.parse(raw);
+      const roleId = Number(parsed.userRoleId ?? parsed.roleId);
       return Number.isFinite(roleId) && roleId > 0 ? roleId : null;
     } catch {
       return null;
@@ -74,6 +75,20 @@ export default function ReservationDetailSidebar({
   }, []);
 
   const isEquipmentManager = currentUserRole === ROLE_ID.EQUIPMENT_MANAGER;
+
+  // Check if reservation is expired (past EndAt)
+  const isExpired = useMemo(() => {
+    if (!reservation?.EndAt) return false;
+    return new Date(reservation.EndAt) < new Date();
+  }, [reservation?.EndAt]);
+
+  // Check if reservation has started (past StartAt) - for yellow highlight
+  const hasStarted = useMemo(() => {
+    if (!reservation?.StartAt) return false;
+    return new Date(reservation.StartAt) < new Date();
+  }, [reservation?.StartAt]);
+
+  const canApproveEquipments = isEquipmentManager && !isExpired;
 
   if (!open) return null;
   if (!reservation) return null;
@@ -119,14 +134,6 @@ export default function ReservationDetailSidebar({
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium uppercase tracking-widest text-slate-400">CHI TIẾT ĐƠN YÊU CẦU THIẾT BỊ</p>
                   <h2 className="mt-1.5 text-xl font-semibold text-[#1a7a99]">Đơn yêu cầu thiết bị #{reservation.ReservationId}</h2>
-                  {createdBy && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <img src={createdBy.AvatarUrl?.trim() || '/img/ava.png'} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
-                      <span className="text-sm text-slate-600 truncate">{createdBy.FullName?.trim() || '—'}</span>
-                      <span className="text-slate-300">·</span>
-                      <span className="text-xs text-slate-500 truncate">{createdBy.Email?.trim() || '—'}</span>
-                    </div>
-                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   {showEditButton && (
@@ -145,11 +152,13 @@ export default function ReservationDetailSidebar({
             {/* Meta bar */}
             <div className="grid w-full grid-cols-3 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
               <div className="px-5 py-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Bắt đầu</p>
-                <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatDateTime(reservation.StartAt)}</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Ngày đặt</p>
+                <p className={cn("mt-0.5 text-sm font-semibold", hasStarted ? "text-yellow-600" : "text-slate-900")}>
+                  {formatDateTime(reservation.StartAt)}
+                </p>
               </div>
               <div className="px-5 py-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Kết thúc</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Hạn trả</p>
                 <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatDateTime(reservation.EndAt)}</p>
               </div>
               <div className="px-5 py-3">
@@ -171,13 +180,21 @@ export default function ReservationDetailSidebar({
                     {displayStatus}
                   </Badge>
                 } />
-                <MetaRow label="Bắt đầu" value={formatDateTime(reservation.StartAt)} />
-                <MetaRow label="Kết thúc" value={formatDateTime(reservation.EndAt)} />
+                <MetaRow label="Ngày đặt" value={formatDateTime(reservation.StartAt)} />
+                <MetaRow label="Hạn trả" value={formatDateTime(reservation.EndAt)} />
                 <MetaRow label="Ngày tạo" value={formatDateTime(reservation.CreatedAt)} />
                 <MetaRow label="Số thiết bị" value={equipmentCount} />
                 {createdBy && (
                   <>
-                    <MetaRow label="Người tạo" value={createdBy.FullName?.trim() || '—'} />
+                    <MetaRow label="Người tạo" value={
+                      <div className="flex items-center gap-2">
+                        <img src={createdBy.AvatarUrl?.trim() || '/img/ava.png'} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{createdBy.FullName?.trim() || '—'}</div>
+                          <div className="text-xs text-slate-500 truncate">{createdBy.Email?.trim() || '—'}</div>
+                        </div>
+                      </div>
+                    } />
                     <MetaRow label="SĐT" value={createdBy.Phone?.trim() || '—'} />
                   </>
                 )}
@@ -215,7 +232,7 @@ export default function ReservationDetailSidebar({
               icon={Package}
               title={`Thiết bị (${equipmentList.length})`}
               action={
-                isEquipmentManager && equipmentList.length > 0 ? (
+                canApproveEquipments && equipmentList.length > 0 ? (
                   showApprovalMode ? (
                     <Checkbox
                       checked={selectedEquipmentIds.length === equipmentList.length}
@@ -252,7 +269,7 @@ export default function ReservationDetailSidebar({
                       
                       return (
                         <div key={`${code ?? 'eq'}-${idx}`} className="py-3 flex items-center gap-3">
-                          {isEquipmentManager && showApprovalMode && (
+                          {canApproveEquipments && showApprovalMode && (
                             <Checkbox
                               checked={isSelected}
                               onChange={(e) => {
@@ -302,7 +319,7 @@ export default function ReservationDetailSidebar({
                     })}
                   </div>
 
-                  {isEquipmentManager && showApprovalMode && selectedEquipmentIds.length > 0 && (
+                  {canApproveEquipments && showApprovalMode && selectedEquipmentIds.length > 0 && (
                     <div className="mt-3 pl-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
                       <span className="text-sm text-slate-600">
                         Đã chọn <span className="font-semibold text-[#2197C0]">{selectedEquipmentIds.length}</span> thiết bị

@@ -1,10 +1,24 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { ChevronRight, Users, CalendarDays, CheckCircle2, Clock, AlertTriangle, FileText, BarChart3 } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { 
+  ChevronRight, 
+  Users, 
+  CheckCircle2, 
+  Clock, 
+  AlertTriangle, 
+  FileText, 
+  BarChart3
+} from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
 import {
   dashboardApi,
   type DashboardRangeParams,
@@ -12,38 +26,6 @@ import {
   type DashboardAttendanceHistoryItem,
 } from '@/modules/dashboard/api/dashboardApi';
 import memberApi from '@/modules/member/api/memberApi';
-
-type KpiTone = 'sky' | 'indigo' | 'emerald' | 'amber';
-
-function KpiCard(props: {
-  title: string;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
-  icon: React.ReactNode;
-  tone: KpiTone;
-}) {
-  const toneClass: Record<KpiTone, { ring: string; iconBg: string; iconFg: string }> = {
-    sky: { ring: 'ring-sky-100/80', iconBg: 'bg-sky-50', iconFg: 'text-sky-600' },
-    indigo: { ring: 'ring-indigo-100/80', iconBg: 'bg-indigo-50', iconFg: 'text-indigo-600' },
-    emerald: { ring: 'ring-emerald-100/80', iconBg: 'bg-emerald-50', iconFg: 'text-emerald-600' },
-    amber: { ring: 'ring-amber-100/80', iconBg: 'bg-amber-50', iconFg: 'text-amber-600' },
-  };
-  const t = toneClass[props.tone];
-  return (
-    <div className={cn('rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1', t.ring)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{props.title}</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{props.value}</p>
-          {props.sub != null && <p className="mt-1 text-[11px] text-slate-400">{props.sub}</p>}
-        </div>
-        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', t.iconBg, t.iconFg)}>
-          {props.icon}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const rangeLabelMap: Record<NonNullable<DashboardRangeParams['range']>, string> = {
   today: 'Hôm nay',
@@ -150,10 +132,12 @@ function TeachingHistoryRow(props: { item: DashboardTeachingHistoryItem }) {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3.5 w-3.5 text-slate-400" />
-              {dayjs(it.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.endAt).format('HH:mm')}
+              <span className="font-semibold text-slate-900">
+                {dayjs(it.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.endAt).format('HH:mm')}
+              </span>
             </span>
             <span className="text-slate-300">•</span>
-            <span className="truncate">{it.location || '—'}</span>
+            <span className="truncate font-semibold text-slate-900">{it.location || '—'}</span>
             <span className="text-slate-300">•</span>
             <span
               className={cn(
@@ -174,11 +158,7 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
   const it = props.item;
   const missingCheckin = !it.checkinAt;
   const missingCheckout = !!it.checkinAt && !it.checkoutAt;
-  const badgeLabel = missingCheckin ? 'Thiếu đầu giờ' : missingCheckout ? 'Thiếu cuối giờ ' : '—';
-  const badgeTone =
-    missingCheckin || missingCheckout
-      ? 'border-amber-200 bg-amber-50 text-amber-700'
-      : 'border-slate-200 bg-slate-50 text-slate-600';
+  
   return (
     <div
       className={cn(
@@ -186,26 +166,24 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
         missingCheckin || missingCheckout ? 'border-amber-200/70 bg-amber-50/30' : 'border-slate-200/70 bg-slate-50/40',
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-2">
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-slate-900">{it.session?.sessionTitle ?? '—'}</div>
-          <div className="mt-1 truncate text-xs text-slate-500">
+          <div className="text-sm font-semibold text-slate-900 truncate">{it.session?.sessionTitle ?? '—'}</div>
+          <div className="mt-1 text-xs text-slate-500 truncate">
             {it.request?.requestCode ? `${it.request.requestCode} · ` : ''}
             {it.request?.requestName ?? '—'}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <span className="inline-flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5 text-slate-400" />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+          <span className="inline-flex items-center gap-1">
+            <Clock className="h-3.5 w-3.5 text-slate-400" />
+            <span className="font-semibold text-slate-900">
               {dayjs(it.session?.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.session?.endAt).format('HH:mm')}
             </span>
-            <span className="text-slate-300">•</span>
-            <span className="truncate">{it.session?.location || '—'}</span>
-          </div>
+          </span>
+          <span className="text-slate-300">•</span>
+          <span className="truncate font-semibold text-slate-900">{it.session?.location || '—'}</span>
         </div>
-
-        <span className={cn('inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold', badgeTone)}>
-          {badgeLabel}
-        </span>
       </div>
     </div>
   );
@@ -218,6 +196,7 @@ export default function TeamLeaderDashboard() {
   const { from, toExclusive } = useMemo(() => resolveRange(effectiveRange), [effectiveRange]);
   const toInclusiveIso = useMemo(() => toLocalDateTimeParam(dayjs(toExclusive).subtract(1, 'millisecond')), [toExclusive]);
 
+  // 1. Get member info to find team
   const memberQ = useQuery({
     queryKey: ['tl-dashboard', 'member', memberId ?? 0],
     queryFn: () => memberApi.getMemberById(memberId as number),
@@ -225,6 +204,7 @@ export default function TeamLeaderDashboard() {
   });
   const teamId = memberQ.data?.teamId ?? null;
 
+  // 2. Team statistics (for team overview)
   const teamStatsQ = useQuery({
     queryKey: ['tl-dashboard', 'team-stats', teamId ?? 0, effectiveRange],
     queryFn: () =>
@@ -235,16 +215,7 @@ export default function TeamLeaderDashboard() {
     enabled: teamId != null,
   });
 
-  const requestSummaryQ = useQuery({
-    queryKey: ['tl-dashboard', 'request-summary', effectiveRange],
-    queryFn: () => dashboardApi.getRequestSummary({ range: effectiveRange }),
-  });
-
-  const sessionSummaryQ = useQuery({
-    queryKey: ['tl-dashboard', 'session-summary', effectiveRange],
-    queryFn: () => dashboardApi.getSessionSummary({ range: effectiveRange }),
-  });
-
+  // 3. Personal teaching history (TL as a teacher/assistant)
   const teachingHistoryQ = useQuery({
     queryKey: ['tl-dashboard', 'teaching-history', memberId ?? 0, effectiveRange],
     queryFn: () =>
@@ -255,6 +226,7 @@ export default function TeamLeaderDashboard() {
     enabled: memberId != null,
   });
 
+  // 4. Personal attendance issues
   const attendanceIssuesQ = useQuery({
     queryKey: ['tl-dashboard', 'attendance-issues', memberId ?? 0, effectiveRange],
     queryFn: () =>
@@ -265,6 +237,7 @@ export default function TeamLeaderDashboard() {
     enabled: memberId != null,
   });
 
+  // 5. Personal contracts
   const contractsQ = useQuery({
     queryKey: ['tl-dashboard', 'contracts', memberId ?? 0, effectiveRange],
     queryFn: () =>
@@ -274,64 +247,50 @@ export default function TeamLeaderDashboard() {
     enabled: memberId != null,
   });
 
+  // Derived data
+  const teamStats = teamStatsQ.data?.items?.[0] ?? null;
   const teachingItems = teachingHistoryQ.data?.items ?? [];
   const attendanceItems = attendanceIssuesQ.data?.items ?? [];
   const missingCheckoutTotal = Number(attendanceIssuesQ.data?.totalItems ?? 0) || 0;
-  const teamStats = teamStatsQ.data?.items?.[0] ?? null;
-
-  const teamProgressData = teamStats
-    ? [
-        { name: 'Hoàn thành', value: teamStats.completedSessions },
-        { name: 'Sắp tới', value: teamStats.upcomingSessions },
-        { name: 'Đã hủy', value: teamStats.canceledSessions },
-      ]
-    : [];
-
-  const requestSessionData = [
-    { name: 'Yêu cầu đang xử lý', value: (requestSummaryQ.data?.approvedRequests ?? 0) + (requestSummaryQ.data?.assigningRequests ?? 0) + (requestSummaryQ.data?.publishedRequests ?? 0) },
-    { name: 'Yêu cầu hoàn thành', value: requestSummaryQ.data?.completedRequests ?? 0 },
-    { name: 'Buổi đang dạy', value: sessionSummaryQ.data?.ongoingSessions ?? 0 },
-    { name: 'Buổi hoàn thành', value: sessionSummaryQ.data?.completedSessions ?? 0 },
-  ];
 
   const firstError =
     memberQ.error ??
     teamStatsQ.error ??
-    requestSummaryQ.error ??
-    sessionSummaryQ.error ??
     teachingHistoryQ.error ??
     attendanceIssuesQ.error ??
     contractsQ.error ??
     null;
 
   return (
-    <div className="min-h-full space-y-5 app-page-bg p-6 pl-8">
+    <div className="min-h-full space-y-4 app-page-bg p-6 pl-8">
       <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-[#1a7a99]">Bảng điều khiển</h2>
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Bảng điều khiển {teamStats?.teamName ?? ''} </h2> <p className="text-xs text-slate-500">
+                 
+                </p>
             <p className="mt-1 text-xs text-slate-500">
-              Tổng quan nhóm của bạn, tiến độ các buổi và các mục cần theo dõi.
+              Quản lý nhóm, theo dõi hiệu suất và hoạt động cá nhân của bạn
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="text-xs text-slate-500">Khoảng thời gian:</span>
-            <select
-              className="h-9 min-w-[160px] rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400/30"
-              value={effectiveRange}
-              onChange={(e) => setRange(e.target.value as NonNullable<DashboardRangeParams['range']>)}
-            >
-              <option value="today">Hôm nay</option>
-              <option value="thisweek">Tuần này</option>
-              <option value="thismonth">Tháng này</option>
-              <option value="last3months">3 tháng gần đây</option>
-              <option value="last6months">6 tháng gần đây</option>
-              <option value="1year">1 năm gần đây</option>
-            </select>
+            <Select value={effectiveRange} onValueChange={(value) => setRange(value as NonNullable<DashboardRangeParams['range']>)}>
+              <SelectTrigger className="w-[180px] h-9 border-slate-200 bg-white">
+                <SelectValue placeholder="Chọn khoảng thời gian" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Hôm nay</SelectItem>
+                <SelectItem value="thisweek">Tuần này</SelectItem>
+                <SelectItem value="thismonth">Tháng này</SelectItem>
+                <SelectItem value="last3months">3 tháng gần đây</SelectItem>
+                <SelectItem value="last6months">6 tháng gần đây</SelectItem>
+                <SelectItem value="1year">1 năm gần đây</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
-
+    
       {memberId == null ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           Không tìm thấy thông tin người dùng (memberId). Vui lòng đăng nhập lại.
@@ -344,120 +303,167 @@ export default function TeamLeaderDashboard() {
             </div>
           ) : null}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <KpiCard
-              tone="sky"
-              title="Thành viên team"
-              value={teamStats?.totalMembers ?? '—'}
-              sub={rangeLabelMap[effectiveRange]}
-              icon={<Users className="h-5 w-5" />}
-            />
-            <KpiCard
-              tone="indigo"
-              title="Tổng buổi của team"
-              value={teamStats?.totalSessions ?? '—'}
-              sub={rangeLabelMap[effectiveRange]}
-              icon={<CalendarDays className="h-5 w-5" />}
-            />
-            <KpiCard
-              tone="emerald"
-              title="Buổi hoàn thành"
-              value={teamStats?.completedSessions ?? '—'}
-              sub={teamStats ? `Sắp tới: ${teamStats.upcomingSessions}` : rangeLabelMap[effectiveRange]}
-              icon={<CheckCircle2 className="h-5 w-5" />}
-            />
-            <KpiCard
-              tone="amber"
-              title="Tổng giờ dạy team"
-              value={teamStats ? Number(teamStats.totalTeachingHours ?? 0).toFixed(1) : '—'}
-              sub={rangeLabelMap[effectiveRange]}
-              icon={<Clock className="h-5 w-5" />}
-            />
+          {/* SECTION 1: TEAM OVERVIEW - Thông tin tổng quan về nhóm */}
+          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="rounded-lg bg-indigo-50 p-2">
+                <Users className="h-4 w-4 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Tổng quan nhóm</h3>
+                <p className="text-xs text-slate-500">
+                  {teamStats?.teamName ?? 'Đang tải...'} • {rangeLabelMap[effectiveRange]}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+              <div className="rounded-lg border border-slate-200/70 bg-white p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1">THÀNH VIÊN</p>
+                <p className="text-xl font-bold text-slate-900">{teamStats?.totalMembers ?? '—'}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  Hoạt động: {teamStats?.activeMembers ?? 0}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200/70 bg-white p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1">TỔNG BUỔI HỌC</p>
+                <p className="text-xl font-bold text-slate-900">{teamStats?.totalSessions ?? '—'}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Buổi của nhóm</p>
+              </div>
+
+              <div className="rounded-lg border border-emerald-200/70 bg-white p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-600 mb-1">ĐÃ HOÀN THÀNH</p>
+                <p className="text-xl font-bold text-emerald-700">{teamStats?.completedSessions ?? '—'}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Buổi hoàn thành</p>
+              </div>
+
+              <div className="rounded-lg border border-sky-200/70 bg-white p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-sky-600 mb-1">SẮP DIỄN RA</p>
+                <p className="text-xl font-bold text-sky-700">{teamStats?.upcomingSessions ?? '—'}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Buổi sắp tới</p>
+              </div>
+
+              <div className="rounded-lg border border-rose-200/70 bg-white p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-rose-600 mb-1">ĐÃ BỊ HỦY</p>
+                <p className="text-xl font-bold text-rose-700">{teamStats?.canceledSessions ?? '—'}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Buổi bị hủy</p>
+              </div>
+
+              <div className="rounded-lg border border-amber-200/70 bg-white p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-amber-600 mb-1">TỔNG GIỜ DẠY</p>
+                <p className="text-xl font-bold text-amber-700">
+                  {teamStats ? Number(teamStats.totalTeachingHours ?? 0).toFixed(1) : '—'}
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Giờ dạy nhóm</p>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-            <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-indigo-600" />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Tiến độ buổi team</p>
-                    <p className="text-xs text-slate-500">Theo {rangeLabelMap[effectiveRange]}</p>
-                  </div>
-                </div>
+          {/* SECTION 2: TEAM PERFORMANCE - Hiệu suất và chỉ số trung bình */}
+          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="rounded-lg bg-violet-50 p-2">
+                <BarChart3 className="h-4 w-4 text-violet-600" />
               </div>
-              {teamProgressData.length > 0 ? (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={teamProgressData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                      <Tooltip formatter={(value: any) => Number(value ?? 0).toLocaleString('vi-VN')} wrapperClassName="text-xs" />
-                      <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#0ea5e9" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="py-8 text-center text-xs text-slate-500">Chưa có dữ liệu team.</p>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-sky-600" />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Yêu cầu & buổi</p>
-                    <p className="text-xs text-slate-500">Tổng quan hệ thống theo kỳ</p>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {requestSessionData.map((it) => (
-                  <div key={it.name} className="flex items-center justify-between rounded-lg border border-slate-200/70 bg-slate-50/40 px-3 py-2">
-                    <span className="text-xs font-medium text-slate-700">{it.name}</span>
-                    <span className="text-sm font-semibold text-slate-900">{it.value}</span>
-                  </div>
-                ))}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Hiệu suất nhóm</h3>
+                <p className="text-xs text-slate-500">Các chỉ số đánh giá trung bình</p>
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-lg border border-slate-200/70 bg-white p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1">TB GIỜ / THÀNH VIÊN</p>
+                <p className="text-xl font-bold text-slate-900">
+                  {teamStats ? Number(teamStats.averageTeachingHoursPerMember ?? 0).toFixed(1) : '—'}
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Giờ dạy trung bình mỗi người</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200/70 bg-white p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1">TB BUỔI / THÀNH VIÊN</p>
+                <p className="text-xl font-bold text-slate-900">
+                  {teamStats ? Number(teamStats.averageSessionsPerMember ?? 0).toFixed(1) : '—'}
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Buổi học trung bình mỗi người</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200/70 bg-white p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1">TỶ LỆ HOÀN THÀNH</p>
+                <p className="text-xl font-bold text-slate-900">
+                  {teamStats && teamStats.totalSessions > 0
+                    ? ((teamStats.completedSessions / teamStats.totalSessions) * 100).toFixed(1)
+                    : '—'}%
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  {teamStats?.completedSessions ?? 0}/{teamStats?.totalSessions ?? 0} buổi
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3 & 4: PERSONAL ACTIVITIES & ISSUES - Hoạt động cá nhân và vấn đề cần xử lý */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {/* Personal Teaching History - 2 columns */}
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm lg:col-span-2">
               <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Buổi đã tham gia gần đây</p>
-                  <p className="text-xs text-slate-500">Trong {rangeLabelMap[effectiveRange]}</p>
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-sky-50 p-2">
+                    <Clock className="h-4 w-4 text-sky-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Hoạt động cá nhân của bạn</p>
+                    <p className="text-xs text-slate-500">
+                      {teachingItems.length} buổi đã tham gia trong {rangeLabelMap[effectiveRange]}
+                    </p>
+                  </div>
                 </div>
-                <Button type="button" variant="ghost" size="sm" className="text-sky-700" onClick={() => (window.location.href = '/tl/teaching-history')}>
-                  Xem danh sách
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-sky-700 hover:text-sky-800 hover:bg-sky-50"
+                  onClick={() => (window.location.href = '/tl/teaching-history')}
+                >
+                  Xem tất cả
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {teachingItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Chưa có dữ liệu.</p>
+                  <div className="py-12 text-center">
+                    <Clock className="mx-auto h-12 w-12 text-slate-300 mb-3" />
+                    <p className="text-sm text-slate-500">Chưa có buổi học nào</p>
+                    <p className="text-xs text-slate-400 mt-1">Dữ liệu sẽ hiển thị khi bạn tham gia buổi học</p>
+                  </div>
                 ) : (
                   teachingItems.map((it: any) => <TeachingHistoryRow key={it.sessionId} item={it} />)
                 )}
               </div>
             </div>
 
+            {/* Attendance Issues - 1 column */}
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Cần chú ý</p>
-                  <p className="text-xs text-slate-500">
-                    Thiếu cuối giờ : <span className="font-semibold text-amber-700">{missingCheckoutTotal}</span>
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2 text-amber-600">
-                  <AlertTriangle className="h-4 w-4" />
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-amber-50 p-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Cần chú ý</p>
+                    <p className="text-xs text-slate-500">
+                      <span className="font-semibold text-amber-700">{missingCheckoutTotal}</span> buổi chưa xác nhận
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {attendanceItems.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-500">Không có buổi thiếu cuối giờ .</p>
+                  <div className="py-12 text-center">
+                    <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-300 mb-3" />
+                    <p className="text-xs text-slate-500 mt-1">Đã xác nhận tham gia tất cả các buổi</p>
+                  </div>
                 ) : (
                   attendanceItems.map((it: any) => <AttendanceIssueRow key={it.attendanceId} item={it} />)
                 )}
@@ -465,34 +471,67 @@ export default function TeamLeaderDashboard() {
             </div>
           </div>
 
+          {/* SECTION 5: FINANCIAL - Hợp đồng và thanh toán */}
           <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-indigo-600" />
+                <div className="rounded-lg bg-indigo-50 p-2">
+                  <FileText className="h-4 w-4 text-indigo-600" />
+                </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Hợp đồng & thanh toán</p>
-                  <p className="text-xs text-slate-500">Tổng quan trong {rangeLabelMap[effectiveRange]}</p>
+                  <p className="text-sm font-semibold text-slate-900">Hợp đồng & Thanh toán cá nhân</p>
+                  <p className="text-xs text-slate-500">Tổng quan tài chính trong {rangeLabelMap[effectiveRange]}</p>
                 </div>
               </div>
-              <Button type="button" variant="ghost" size="sm" className="text-sky-700" onClick={() => (window.location.href = '/tl/contracts')}>
-                Xem hợp đồng
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-sky-700 hover:text-sky-800 hover:bg-sky-50"
+                onClick={() => (window.location.href = '/tl/contracts')}
+              >
+                Xem chi tiết
                 <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             </div>
 
             {contractsQ.data ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
-                  <p className="text-[11px] font-medium uppercase text-slate-500">Tổng hợp đồng</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{contractsQ.data.totalContracts}</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border border-slate-200/70 bg-white p-3">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1">TỔNG HỢP ĐỒNG</p>
+                  <p className="text-xl font-bold text-slate-900">{contractsQ.data.totalContracts}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Hợp đồng đã ký</p>
                 </div>
-                <div className="rounded-xl border border-slate-200/70 bg-slate-50/40 p-3">
-                  <p className="text-[11px] font-medium uppercase text-slate-500">Hợp đồng gần đây</p>
-                  <p className="mt-1 text-xs text-slate-600">{contractsQ.data.contracts?.items?.length ?? 0} mục (trang 1)</p>
+
+                <div className="rounded-lg border border-emerald-200/70 bg-white p-3">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-600 mb-1">ĐÃ THANH TOÁN</p>
+                  <p className="text-xl font-bold text-emerald-700">{contractsQ.data.paidContracts ?? 0} </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                     {new Intl.NumberFormat('vi-VN', {
+                      notation: 'compact',
+                      compactDisplay: 'short',
+                      maximumFractionDigits: 0,
+                    }).format(contractsQ.data.paidValue ?? 0)} đ
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-amber-200/70 bg-white p-3">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-amber-600 mb-1">CHƯA THANH TOÁN</p>
+                  <p className="text-xl font-bold text-amber-700">{contractsQ.data.unpaidContracts ?? 0}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {new Intl.NumberFormat('vi-VN', {
+                      notation: 'compact',
+                      compactDisplay: 'short',
+                      maximumFractionDigits: 0,
+                    }).format(contractsQ.data.unpaidValue ?? 0)} đ
+                  </p>
                 </div>
               </div>
             ) : (
-              <p className="py-6 text-center text-xs text-slate-500">Chưa có dữ liệu hợp đồng.</p>
+              <div className="py-8 text-center">
+                <FileText className="mx-auto h-10 w-10 text-slate-300 mb-2" />
+                <p className="text-sm text-slate-500">Chưa có dữ liệu hợp đồng</p>
+              </div>
             )}
           </div>
         </>
