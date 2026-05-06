@@ -266,7 +266,7 @@ export default function TeamLeaderDashboard() {
       <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-[#1a7a99]">Bảng điều khiển {teamStats?.teamName ?? 'Đang tải...'} </h2> <p className="text-xs text-slate-500">
+            <h2 className="text-xl font-semibold text-[#1a7a99]">Bảng điều khiển {teamStats?.teamName ?? ''} </h2> <p className="text-xs text-slate-500">
                  
                 </p>
             <p className="mt-1 text-xs text-slate-500">

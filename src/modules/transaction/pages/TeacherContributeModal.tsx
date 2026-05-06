@@ -129,7 +129,7 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
       open={open}
       onClose={handleClose}
       title="Đóng góp vào quỹ"
-      description="Nhập số tiền bạn muốn đóng góp và tải lên ảnh chứng từ chuyển khoản."
+      description="Nhập số tiền bạn đóng góp và tải lên ảnh chứng từ."
       className="max-w-lg"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
