@@ -265,15 +265,15 @@ export function useTeacherTaskSession(sessionId: number) {
         const exp = createExpenses[i];
         const amountNum = Number((exp.amount || '').replace(/\D/g, ''));
         if (!amountNum || amountNum <= 0) {
-          message.warning(`Vui lòng nhập số tiền hợp lệ (khoản #${i + 1}).`);
+          message.warning(`Vui lòng nhập số tiền hợp lệ`);
           return;
         }
         if (!exp.description.trim()) {
-          message.warning(`Vui lòng nhập mô tả cho khoản chi (khoản #${i + 1}).`);
+          message.warning(`Vui lòng nhập mô tả cho khoản chi`);
           return;
         }
         if (!exp.file) {
-          message.warning(`Mỗi khoản chi phí bắt buộc có ảnh chứng từ (khoản #${i + 1}).`);
+          message.warning(`Mỗi khoản chi phí bắt buộc có ảnh chứng từ`);
           return;
         }
       }
@@ -352,15 +352,15 @@ export function useTeacherTaskSession(sessionId: number) {
         const exp = createExpenses[i];
         const amountNum = Number((exp.amount || '').replace(/\D/g, ''));
         if (!amountNum || amountNum <= 0) {
-          message.warning(`Vui lòng nhập số tiền hợp lệ (khoản #${i + 1}).`);
+          message.warning(`Vui lòng nhập số tiền hợp lệ`);
           return;
         }
         if (!exp.description.trim()) {
-          message.warning(`Vui lòng nhập mô tả cho khoản chi (khoản #${i + 1}).`);
+          message.warning(`Vui lòng nhập mô tả cho khoản chi`);
           return;
         }
         if (!exp.file) {
-          message.warning(`Mỗi khoản chi phí bắt buộc có ảnh chứng từ (khoản #${i + 1}).`);
+          message.warning(`Mỗi khoản chi phí bắt buộc có ảnh chứng từ `);
           return;
         }
       }

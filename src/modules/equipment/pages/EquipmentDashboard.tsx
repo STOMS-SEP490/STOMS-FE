@@ -159,17 +159,6 @@ export default function EquipmentDashboard() {
       }),
   })
 
-  const { data: activeSlipsCount } = useQuery({
-    queryKey: ['em-dashboard', 'active-slips-count'],
-    queryFn: async () => {
-      const [b, p] = await Promise.all([
-        borrowingApi.getBorrowings({ pageNumber: 1, pageSize: 1, status: 'Borrowed' }),
-        borrowingApi.getBorrowings({ pageNumber: 1, pageSize: 1, status: 'PartialReturned' }),
-      ])
-      return (b.totalItems ?? 0) + (p.totalItems ?? 0)
-    },
-  })
-
   const { data: attentionEquipments } = useQuery({
     queryKey: ['em-dashboard', 'attention-equipments'],
     queryFn: async () => {
@@ -267,25 +256,21 @@ export default function EquipmentDashboard() {
           tone="sky"
           title="Đang cho mượn"
           value={statsLoading ? '—' : (equipmentStats?.borrowedEquipment ?? '—')}
-          sub={
-            typeof activeSlipsCount === 'number'
-              ? `${activeSlipsCount.toLocaleString('vi-VN')} phiếu đang hoạt động`
-              : '—'
-          }
+           sub="Thiết bị"
           icon={<Package className="h-5 w-5" strokeWidth={2} />}
         />
         <EmKpiCard
           tone="amber"
           title="Cần xử lý"
           value={statsLoading ? '—' : needsAttention}
-          sub="Hư hỏng + mất (theo hệ thống)"
+          sub="Hỏng hoặc mất"
           icon={<Wrench className="h-5 w-5" strokeWidth={2} />}
         />
         <EmKpiCard
           tone="rose"
           title="Phiếu quá hạn"
           value={overdueCount}
-          sub="Cần liên hệ người mượn"
+          sub="Phiếu"
           icon={<AlertTriangle className="h-5 w-5" strokeWidth={2} />}
           badge={overdueCount > 0 ? 'Cảnh báo' : undefined}
         />
