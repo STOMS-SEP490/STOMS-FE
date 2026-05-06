@@ -717,103 +717,140 @@ export default function ManagerDashboard() {
           </div>
         </div>
 
-        {/* CHARTS ROW 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* So sánh trạng thái Request */}
+          {/* CHARTS ROW 7: Contracts + Upcoming events + Teams */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+          {/* Contract summary */}
           <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Trạng thái yêu cầu
+                  Hợp đồng
                 </p>
-                <p className="text-sm text-gray-600">Tổng hợp theo trạng thái</p>
+                <p className="text-sm text-gray-600">Tổng quan trạng thái thanh toán</p>
               </div>
-              <ClipboardList className="h-5 w-5 text-sky-500" />
             </div>
-            {requestSummaryData.length > 0 ? (
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={requestSummaryData}
-                    margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
-                    barCategoryGap="65%"
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-  dataKey="key"
-  tick={{ fontSize: 11 }}
-  tickMargin={12}
-  interval={0}
-  minTickGap={0}
-  tickLine={false}
-  axisLine={false}
-  padding={{ left: 10, right: 10 }}
-  angle={-25}
-  textAnchor="end"
-  height={60}
-/>
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value: any) =>
-                        Number(value ?? 0).toLocaleString('vi-VN')
-                      }
-                      wrapperClassName="text-xs"
-                    />
-                    <Bar dataKey="value" fill="#0ea5e9" radius={[4, 4, 0, 0]} barSize={30} />
-                  </BarChart>
-                </ResponsiveContainer>
+            {contractSummary && contractValueStats ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-xs text-gray-700">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                    <p className="text-[11px] text-slate-500 font-medium">Tổng hợp đồng</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">{contractSummary.totalContracts}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                    <p className="text-[11px] text-slate-500 font-medium">Tổng giá trị</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">
+                      {Number(contractValueStats.totalValue).toLocaleString('vi-VN', {
+                        style: 'currency',
+                        currency: 'VND',
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-700 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Đã thanh toán</span>
+                    <span className="font-medium text-emerald-700">
+                      {contractSummary.paidContracts} ({contractSummary.paidPercent.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Chưa thanh toán</span>
+                    <span className="font-medium text-amber-700">
+                      {contractSummary.unpaidContracts} ({contractSummary.unpaidPercent.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-slate-500">
+                    <span>Giá trị TB</span>
+                    <span>
+                      {Number(contractValueStats.averageValue).toLocaleString('vi-VN', {
+                        style: 'currency',
+                        currency: 'VND',
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
+                  </div>
+                </div>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu yêu cầu.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu hợp đồng.</p>
             )}
           </div>
 
-          {/* So sánh trạng thái Session */}
+          {/* Upcoming events table */}
           <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Trạng thái buổi dạy
+                  Sự kiện sắp diễn ra
                 </p>
-                <p className="text-sm text-gray-600">Tổng hợp theo trạng thái</p>
+                <p className="text-sm text-gray-600">Danh sách request có event gần nhất</p>
               </div>
-              <CalendarDays className="h-5 w-5 text-amber-500" />
             </div>
-            {sessionSummaryData.length > 0 ? (
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={sessionSummaryData}
-                    margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
-                    barCategoryGap="45%"
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="key"
-                      tick={{ fontSize: 11 }}
-                      tickMargin={8}
-                      interval={0}
-                      minTickGap={0}
-                      tickLine={false}
-                      axisLine={false}
-                      padding={{ left: 10, right: 10 }}
-                    />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value: any) =>
-                        Number(value ?? 0).toLocaleString('vi-VN')
-                      }
-                      wrapperClassName="text-xs"
-                    />
-                    <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} barSize={22} />
-                  </BarChart>
-                </ResponsiveContainer>
+            {upcomingEvents.length > 0 ? (
+              <div className="stoms-scrollbar max-h-60 overflow-y-auto">
+                <ul className="space-y-2 text-xs">
+                  {upcomingEvents.map((e: any) => (
+                    <li key={e.requestId} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 truncate">
+                            {e.eventCode} · {e.eventName}
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            {e.requestCode} · {e.requestName}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[11px] font-medium">
+                          {e.daysRemaining} ngày
+                        </span>
+                      </div>
+                      <div className="mt-2 flex justify-between text-[11px] text-slate-500">
+                        <span>Bắt đầu: {new Date(e.startDate).toLocaleDateString('vi-VN')}</span>
+                        <span>{e.sessionsRequired} buổi</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu buổi dạy.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu sự kiện sắp diễn ra.</p>
+            )}
+          </div>
+
+          {/* Teams statistics - top by sessions */}
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase">
+                  Hiệu suất nhóm
+                </p>
+                <p className="text-sm text-gray-600">Top nhóm theo số buổi dạy</p>
+              </div>
+            </div>
+            {topTeamsBySessions.length > 0 ? (
+              <div className="space-y-2 text-xs">
+                {topTeamsBySessions.map((t: any) => (
+                  <div key={t.teamId} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-slate-900 truncate">{t.teamName}</p>
+                      <span className="text-sky-700 font-semibold">{t.totalSessions}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+                      <span>Thành viên: {t.totalMembers}</span>
+                      <span>Hoàn thành: {t.completedSessions}</span>
+                      <span>Sắp tới: {t.upcomingSessions}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500">Chưa có dữ liệu thống kê nhóm.</p>
             )}
           </div>
         </div>
+
+        
 
         {/* CHARTS ROW 3 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1472,135 +1509,102 @@ export default function ManagerDashboard() {
           </div>
         </div>
 
-        {/* CHARTS ROW 7: Contracts + Upcoming events + Teams */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-          {/* Contract summary */}
+      
+
+      {/* CHARTS ROW 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* So sánh trạng thái Request */}
           <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Hợp đồng
+                  Trạng thái yêu cầu
                 </p>
-                <p className="text-sm text-gray-600">Tổng quan trạng thái thanh toán</p>
+                <p className="text-sm text-gray-600">Tổng hợp theo trạng thái</p>
               </div>
+              <ClipboardList className="h-5 w-5 text-sky-500" />
             </div>
-            {contractSummary && contractValueStats ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-xs text-gray-700">
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                    <p className="text-[11px] text-slate-500 font-medium">Tổng hợp đồng</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{contractSummary.totalContracts}</p>
-                  </div>
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                    <p className="text-[11px] text-slate-500 font-medium">Tổng giá trị</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">
-                      {Number(contractValueStats.totalValue).toLocaleString('vi-VN', {
-                        style: 'currency',
-                        currency: 'VND',
-                        maximumFractionDigits: 0,
-                      })}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-xs text-gray-700 space-y-1">
-                  <div className="flex justify-between">
-                    <span>Đã thanh toán</span>
-                    <span className="font-medium text-emerald-700">
-                      {contractSummary.paidContracts} ({contractSummary.paidPercent.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Chưa thanh toán</span>
-                    <span className="font-medium text-amber-700">
-                      {contractSummary.unpaidContracts} ({contractSummary.unpaidPercent.toFixed(1)}%)
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-[11px] text-slate-500">
-                    <span>Giá trị TB</span>
-                    <span>
-                      {Number(contractValueStats.averageValue).toLocaleString('vi-VN', {
-                        style: 'currency',
-                        currency: 'VND',
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
-                  </div>
-                </div>
+            {requestSummaryData.length > 0 ? (
+              <div className="h-60">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={requestSummaryData}
+                    margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
+                    barCategoryGap="65%"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+  dataKey="key"
+  tick={{ fontSize: 11 }}
+  tickMargin={12}
+  interval={0}
+  minTickGap={0}
+  tickLine={false}
+  axisLine={false}
+  padding={{ left: 10, right: 10 }}
+  angle={-25}
+  textAnchor="end"
+  height={60}
+/>
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(value: any) =>
+                        Number(value ?? 0).toLocaleString('vi-VN')
+                      }
+                      wrapperClassName="text-xs"
+                    />
+                    <Bar dataKey="value" fill="#0ea5e9" radius={[4, 4, 0, 0]} barSize={30} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu hợp đồng.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu yêu cầu.</p>
             )}
           </div>
 
-          {/* Upcoming events table */}
+          {/* So sánh trạng thái Session */}
           <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Sự kiện sắp diễn ra
+                  Trạng thái buổi dạy
                 </p>
-                <p className="text-sm text-gray-600">Danh sách request có event gần nhất</p>
+                <p className="text-sm text-gray-600">Tổng hợp theo trạng thái</p>
               </div>
+              <CalendarDays className="h-5 w-5 text-amber-500" />
             </div>
-            {upcomingEvents.length > 0 ? (
-              <div className="stoms-scrollbar max-h-60 overflow-y-auto">
-                <ul className="space-y-2 text-xs">
-                  {upcomingEvents.map((e: any) => (
-                    <li key={e.requestId} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-900 truncate">
-                            {e.eventCode} · {e.eventName}
-                          </p>
-                          <p className="text-[11px] text-slate-500 truncate">
-                            {e.requestCode} · {e.requestName}
-                          </p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[11px] font-medium">
-                          {e.daysRemaining} ngày
-                        </span>
-                      </div>
-                      <div className="mt-2 flex justify-between text-[11px] text-slate-500">
-                        <span>Bắt đầu: {new Date(e.startDate).toLocaleDateString('vi-VN')}</span>
-                        <span>{e.sessionsRequired} buổi</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+            {sessionSummaryData.length > 0 ? (
+              <div className="h-60">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={sessionSummaryData}
+                    margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
+                    barCategoryGap="45%"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="key"
+                      tick={{ fontSize: 11 }}
+                      tickMargin={8}
+                      interval={0}
+                      minTickGap={0}
+                      tickLine={false}
+                      axisLine={false}
+                      padding={{ left: 10, right: 10 }}
+                    />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(value: any) =>
+                        Number(value ?? 0).toLocaleString('vi-VN')
+                      }
+                      wrapperClassName="text-xs"
+                    />
+                    <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} barSize={22} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu sự kiện sắp diễn ra.</p>
-            )}
-          </div>
-
-          {/* Teams statistics - top by sessions */}
-          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Hiệu suất nhóm
-                </p>
-                <p className="text-sm text-gray-600">Top nhóm theo số buổi dạy</p>
-              </div>
-            </div>
-            {topTeamsBySessions.length > 0 ? (
-              <div className="space-y-2 text-xs">
-                {topTeamsBySessions.map((t: any) => (
-                  <div key={t.teamId} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-slate-900 truncate">{t.teamName}</p>
-                      <span className="text-sky-700 font-semibold">{t.totalSessions}</span>
-                    </div>
-                    <div className="mt-1 flex justify-between text-[11px] text-slate-500">
-                      <span>Thành viên: {t.totalMembers}</span>
-                      <span>Hoàn thành: {t.completedSessions}</span>
-                      <span>Sắp tới: {t.upcomingSessions}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu thống kê nhóm.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu buổi dạy.</p>
             )}
           </div>
         </div>
