@@ -154,12 +154,14 @@ export default function RequestSessionDetailPanel({
 
   const topics = useMemo(() => {
     const detailAny = sessionDetail as any;
-    const fromEvent = (Array.isArray(detailAny?.EventSession?.topics ?? detailAny?.eventSession?.topics)
-      ? (detailAny?.EventSession?.topics ?? detailAny?.eventSession?.topics)
-      : []) as any[];
-    const fromSubject = (Array.isArray(detailAny?.SubjectSession?.topics ?? detailAny?.subjectSession?.topics)
-      ? (detailAny?.SubjectSession?.topics ?? detailAny?.subjectSession?.topics)
-      : []) as any[];
+    
+    // Lấy topics từ EventSession hoặc eventSession
+    const eventSessionTopics = detailAny?.EventSession?.topics ?? detailAny?.eventSession?.topics;
+    const fromEvent = (Array.isArray(eventSessionTopics) ? eventSessionTopics : []) as any[];
+    
+    // Lấy topics từ SubjectSession hoặc subjectSession
+    const subjectSessionTopics = detailAny?.SubjectSession?.topics ?? detailAny?.subjectSession?.topics;
+    const fromSubject = (Array.isArray(subjectSessionTopics) ? subjectSessionTopics : []) as any[];
 
     // course/subject: topicName là string đơn trực tiếp trên subjectSession
     const subjectTopicName = String(
