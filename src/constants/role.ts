@@ -51,7 +51,7 @@ export function getStaffRoleId(staffRole: string | null | undefined): number | n
   }
   
   // Assistant/Student patterns  
-  if (normalized.includes('ta') || normalized.includes('trợ giảng') || normalized.includes('sinh viên') || normalized.includes('assistant') || normalized.includes('student') || normalized.includes('sv') || normalized.includes('sinh')) {
+  if (normalized.includes('ta') || normalized.includes('sinh viên') || normalized.includes('assistant') || normalized.includes('student') || normalized.includes('sv') || normalized.includes('sinh')) {
     return ROLE_ID.ASSISTANT;
   }
   
