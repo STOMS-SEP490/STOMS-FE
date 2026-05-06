@@ -179,10 +179,12 @@ function TeachingHistoryRow(props: { item: DashboardTeachingHistoryItem }) {
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 min-w-0">
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3.5 w-3.5 text-slate-400" />
-              {dayjs(it.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.endAt).format('HH:mm')}
+              <span className="font-semibold text-slate-900">
+                {dayjs(it.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.endAt).format('HH:mm')}
+              </span>
             </span>
             <span className="text-slate-300">•</span>
-            <span className="truncate">{it.location || '—'}</span>
+            <span className="truncate font-semibold text-slate-900">{it.location || '—'}</span>
           </div>
           <span
             className={cn(
@@ -202,8 +204,7 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
   const it = props.item;
   const missingCheckin = !it.checkinAt;
   const missingCheckout = !!it.checkinAt && !it.checkoutAt;
-  const badgeLabel = missingCheckin ? 'Chưa xác nhận' : missingCheckout ? 'Thiếu xác nhận' : '—';
-  const badgeTone = missingCheckin || missingCheckout ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600';
+  
   return (
     <div
       className={cn(
@@ -211,26 +212,24 @@ function AttendanceIssueRow(props: { item: DashboardAttendanceHistoryItem }) {
         missingCheckin || missingCheckout ? 'border-amber-200/70 bg-amber-50/30' : 'border-slate-200/70 bg-slate-50/40',
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-2">
+        <div className="min-w-0">
           <div className="text-sm font-semibold text-slate-900 truncate">{it.session?.sessionTitle ?? '—'}</div>
           <div className="mt-1 text-xs text-slate-500 truncate">
             {it.request?.requestCode ? `${it.request.requestCode} · ` : ''}
             {it.request?.requestName ?? '—'}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <span className="inline-flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5 text-slate-400" />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+          <span className="inline-flex items-center gap-1">
+            <Clock className="h-3.5 w-3.5 text-slate-400" />
+            <span className="font-semibold text-slate-900">
               {dayjs(it.session?.startAt).format('DD/MM/YYYY HH:mm')} - {dayjs(it.session?.endAt).format('HH:mm')}
             </span>
-            <span className="text-slate-300">•</span>
-            <span className="truncate">{it.session?.location || '—'}</span>
-          </div>
+          </span>
+          <span className="text-slate-300">•</span>
+          <span className="truncate font-semibold text-slate-900">{it.session?.location || '—'}</span>
         </div>
-
-        <span className={cn('shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap', badgeTone)}>
-          {badgeLabel}
-        </span>
       </div>
     </div>
   );
@@ -434,7 +433,6 @@ export default function TeacherDashboard() {
                 {attendanceItems.length === 0 ? (
                   <div className="py-12 text-center">
                     <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-300 mb-3" />
-                    <p className="text-sm text-emerald-600 font-medium">Tuyệt vời!</p>
                     <p className="text-xs text-slate-500 mt-1">Đã xác nhận tham gia tất cả các buổi</p>
                   </div>
                 ) : (
@@ -473,7 +471,6 @@ export default function TeacherDashboard() {
                 <div className="rounded-xl border border-slate-200/70 bg-gradient-to-br from-slate-50 to-white p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-slate-500 font-medium uppercase">Tổng hợp đồng</p>
-                    <FileText className="h-4 w-4 text-slate-400" />
                   </div>
                   <p className="text-2xl font-bold text-slate-900">{contractsQ.data.totalContracts}</p>
                   <p className="text-xs text-slate-500 mt-1">Hợp đồng đã ký</p>
@@ -482,7 +479,6 @@ export default function TeacherDashboard() {
                 <div className="rounded-xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-emerald-600 font-medium uppercase">Đã thanh toán</p>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                   </div>
                   <p className="text-2xl font-bold text-emerald-700">{contractsQ.data.paidContracts ?? 0}</p>
                   <p className="text-xs text-slate-500 mt-1">
@@ -497,7 +493,6 @@ export default function TeacherDashboard() {
                 <div className="rounded-xl border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-amber-600 font-medium uppercase">Chưa thanh toán</p>
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
                   </div>
                   <p className="text-2xl font-bold text-amber-700">{contractsQ.data.unpaidContracts ?? 0}</p>
                   <p className="text-xs text-slate-500 mt-1">
@@ -511,7 +506,6 @@ export default function TeacherDashboard() {
               </div>
             ) : (
               <div className="py-12 text-center">
-                <FileText className="mx-auto h-12 w-12 text-slate-300 mb-3" />
                 <p className="text-sm text-slate-500">Chưa có dữ liệu hợp đồng</p>
               </div>
             )}
