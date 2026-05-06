@@ -1604,6 +1604,104 @@ export default function ManagerDashboard() {
             )}
           </div>
         </div>
+
+      {/* CHARTS ROW 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* So sánh trạng thái Request */}
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase">
+                  Trạng thái yêu cầu
+                </p>
+                <p className="text-sm text-gray-600">Tổng hợp theo trạng thái</p>
+              </div>
+              <ClipboardList className="h-5 w-5 text-sky-500" />
+            </div>
+            {requestSummaryData.length > 0 ? (
+              <div className="h-60">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={requestSummaryData}
+                    margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
+                    barCategoryGap="65%"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+  dataKey="key"
+  tick={{ fontSize: 11 }}
+  tickMargin={12}
+  interval={0}
+  minTickGap={0}
+  tickLine={false}
+  axisLine={false}
+  padding={{ left: 10, right: 10 }}
+  angle={-25}
+  textAnchor="end"
+  height={60}
+/>
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(value: any) =>
+                        Number(value ?? 0).toLocaleString('vi-VN')
+                      }
+                      wrapperClassName="text-xs"
+                    />
+                    <Bar dataKey="value" fill="#0ea5e9" radius={[4, 4, 0, 0]} barSize={30} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500">Chưa có dữ liệu yêu cầu.</p>
+            )}
+          </div>
+
+          {/* So sánh trạng thái Session */}
+          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase">
+                  Trạng thái buổi dạy
+                </p>
+                <p className="text-sm text-gray-600">Tổng hợp theo trạng thái</p>
+              </div>
+              <CalendarDays className="h-5 w-5 text-amber-500" />
+            </div>
+            {sessionSummaryData.length > 0 ? (
+              <div className="h-60">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={sessionSummaryData}
+                    margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
+                    barCategoryGap="45%"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="key"
+                      tick={{ fontSize: 11 }}
+                      tickMargin={8}
+                      interval={0}
+                      minTickGap={0}
+                      tickLine={false}
+                      axisLine={false}
+                      padding={{ left: 10, right: 10 }}
+                    />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(value: any) =>
+                        Number(value ?? 0).toLocaleString('vi-VN')
+                      }
+                      wrapperClassName="text-xs"
+                    />
+                    <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} barSize={22} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500">Chưa có dữ liệu buổi dạy.</p>
+            )}
+          </div>
+        </div>
     </div>
   );
 }
