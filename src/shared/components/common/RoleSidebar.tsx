@@ -439,7 +439,6 @@ export default function RoleSidebar({ menus, profilePath }: RoleSidebarProps) {
                   Thông tin cá nhân
                 </button>
 
-                <div className="my-1 h-px bg-slate-200" />
 
                 {roleOptions.length > 0 ? (
                   <div className="px-2 py-1.5">
