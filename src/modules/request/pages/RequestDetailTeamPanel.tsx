@@ -478,7 +478,7 @@ export default function RequestDetailTeamPanel({
           statusCode === REQUEST_STATUS.COMPLETED ||
           statusCode === REQUEST_STATUS.CANCELLED;
         
-        if (shouldHideTeamSection && state.sessionDetail && !state.sessionDetailLoading) {
+        if (shouldHideTeamSection && state.sessionDetail && !state.sessionDetailLoading && !state.teamEditMode) {
           return null; // Ẩn phần "Nhóm phụ trách" khi đã có sinh viên phân công
         }
 
@@ -494,15 +494,18 @@ export default function RequestDetailTeamPanel({
                     variant="outline"
                     className="h-7 px-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 border-slate-200"
                     disabled={state.saving || state.loading}
-                    onClick={actions.handleCancelTeamEdit}
+                    onClick={() => {
+                      actions.handleCancelTeamEdit();
+                    }}
                   >
                     Hủy
                   </Button>
                   <Button
                     type="button"
                     size="sm"
-                    className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
-                    disabled={state.saving || state.loading}
+                    className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={state.saving || state.loading || !computed.isTasValid}
+                    title={!computed.isTasValid ? `Tổng sinh viên (${computed.totals.tas}) chưa khớp yêu cầu (${state.requestedTas})` : undefined}
                     onClick={() => void actions.handleSaveTeamsOnly()}
                   >
                     Lưu
@@ -537,7 +540,7 @@ export default function RequestDetailTeamPanel({
           statusCode === REQUEST_STATUS.COMPLETED ||
           statusCode === REQUEST_STATUS.CANCELLED;
         
-        if (shouldHideTeamSection && state.sessionDetail && !state.sessionDetailLoading) {
+        if (shouldHideTeamSection && state.sessionDetail && !state.sessionDetailLoading && !state.teamEditMode) {
           return null; 
         }
 
@@ -904,29 +907,110 @@ export default function RequestDetailTeamPanel({
           return role === 'TA' || role.includes('STUDENT') || role.includes('SV') || role.includes('SINH');
         });
 
-        // Nhóm sinh viên theo team - bao gồm CẢ những sinh viên không có team
+        // Nhóm sinh viên theo team
         const studentsByTeam: Record<number, any[]> = {};
         const studentsWithoutTeam: any[] = [];
-        
-        allAssignments.forEach((a: any) => {
-          const teamId = Number(a.TeamId ?? a.StaffMember?.TeamId ?? 0);
-          if (teamId > 0) {
-            if (!studentsByTeam[teamId]) studentsByTeam[teamId] = [];
-            studentsByTeam[teamId].push(a);
-          } else {
-            studentsWithoutTeam.push(a);
+
+        // Lấy TeamSessions từ session detail (đã có tasRequired mới nhất sau khi lưu)
+        const teamSessions = (state.sessionDetail.TeamSessions ?? [])
+          .map((ts: any) => ({
+            teamId: Number(ts.TeamId ?? ts.teamId ?? 0),
+            tasRequired: Number(ts.TasRequired ?? ts.tasRequired ?? 0),
+          }))
+          .filter((ts: { teamId: number; tasRequired: number }) => ts.teamId > 0);
+
+
+        if (teamSessions.length > 0) {
+          // Phân bổ assignment theo tasRequired của từng team (theo thứ tự)
+          // Ưu tiên: assignment có TeamId trực tiếp → AssignedByMemberId (leader) → phân bổ theo slot
+          const assigned = new Set<number>(); // assignmentId đã được gán
+
+          // Tạo map leaderMemberId → teamId
+          const leaderToTeamId: Record<number, number> = {};
+          state.suggestedTeams.forEach((t) => {
+            if (t.leaderMemberId) leaderToTeamId[t.leaderMemberId] = t.teamId;
+          });
+
+          // Pass 1: gán những assignment có TeamId trực tiếp
+          allAssignments.forEach((a: any) => {
+            const directTeamId = Number(a.TeamId ?? a.StaffMember?.TeamId ?? 0);
+            if (directTeamId > 0) {
+              if (!studentsByTeam[directTeamId]) studentsByTeam[directTeamId] = [];
+              studentsByTeam[directTeamId].push(a);
+              assigned.add(Number(a.AssignmentId ?? 0));
+            }
+          });
+
+          // Pass 1.5: gán những assignment có AssignedByMemberId (leader của team)
+          allAssignments.forEach((a: any) => {
+            const assignmentId = Number(a.AssignmentId ?? 0);
+            if (assigned.has(assignmentId)) return; // đã gán ở Pass 1
+            
+            const assignedBy = Number(a.AssignedByMemberId ?? 0);
+            if (assignedBy > 0 && leaderToTeamId[assignedBy]) {
+              const teamId = leaderToTeamId[assignedBy];
+              if (!studentsByTeam[teamId]) studentsByTeam[teamId] = [];
+              studentsByTeam[teamId].push(a);
+              assigned.add(assignmentId);
+            }
+          });
+
+          // Pass 2: gán những assignment chưa có TeamId theo tasRequired của từng team
+          const remaining = allAssignments.filter((a: any) => !assigned.has(Number(a.AssignmentId ?? 0)));
+          let remainingIdx = 0;
+          for (const ts of teamSessions) {
+            const alreadyInTeam = (studentsByTeam[ts.teamId] ?? []).length;
+            const needed = Math.max(0, ts.tasRequired - alreadyInTeam);
+            for (let i = 0; i < needed && remainingIdx < remaining.length; i++, remainingIdx++) {
+              if (!studentsByTeam[ts.teamId]) studentsByTeam[ts.teamId] = [];
+              studentsByTeam[ts.teamId].push(remaining[remainingIdx]);
+            }
           }
-        });
+          // Còn dư → studentsWithoutTeam
+          while (remainingIdx < remaining.length) {
+            studentsWithoutTeam.push(remaining[remainingIdx++]);
+          }
+        } else {
+          // Không có TeamSessions → fallback cũ
+          const leaderToTeamId: Record<number, number> = {};
+          state.suggestedTeams.forEach((t) => {
+            if (t.leaderMemberId) leaderToTeamId[t.leaderMemberId] = t.teamId;
+          });
+          allAssignments.forEach((a: any) => {
+            let teamId = Number(a.TeamId ?? a.StaffMember?.TeamId ?? 0);
+            if (teamId <= 0) {
+              const assignedBy = Number(a.AssignedByMemberId ?? 0);
+              if (assignedBy > 0 && leaderToTeamId[assignedBy]) teamId = leaderToTeamId[assignedBy];
+            }
+            if (teamId > 0) {
+              if (!studentsByTeam[teamId]) studentsByTeam[teamId] = [];
+              studentsByTeam[teamId].push(a);
+            } else {
+              studentsWithoutTeam.push(a);
+            }
+          });
+        }
 
         const hasAnyStudents = allAssignments.length > 0;
         if (!hasAnyStudents) return null;
 
-        // Count pending students - check ALL assignments, not just those in addedTeamIds
+        // Count pending students - chỉ tính PENDING có staffMemberId > 0 (đã có người, chờ duyệt)
+        // PENDING mà staffMemberId = null là chưa phân công → không cho duyệt
         const allPendingStudents = allAssignments.filter((a: any) => {
           const statusInfo = getAssignmentStatusInfo(a.Status);
-          return statusInfo.code === ASSIGNMENT_STATUS.PENDING;
+          const hasStaff = a.StaffMemberId && Number(a.StaffMemberId) > 0;
+          return statusInfo.code === ASSIGNMENT_STATUS.PENDING && hasStaff;
         });
         const hasPendingStudents = allPendingStudents.length > 0;
+
+        // Kiểm tra có SV bị từ chối / chưa có người → hiện nút Đổi nhóm
+        const hasNeedChangeStudents = allAssignments.some((a: any) => {
+          const st = String(a.Status ?? '').toUpperCase().replace(/_/g, '').replace(/ /g, '');
+          const isRejected = st === 'REJECTED' || st === '3';
+          const isCancelled = st === 'CANCELLED' || st === '4';
+          const isUnassigned = !a.StaffMemberId || Number(a.StaffMemberId) === 0;
+          return isRejected || isCancelled || isUnassigned;
+        });
 
         // Debug info removed for production performance
         // console.log('Debug approval button:', {
@@ -946,54 +1030,68 @@ export default function RequestDetailTeamPanel({
           <div className="space-y-3 border-t border-slate-200 pt-4 mt-4">
             <div className="flex items-center justify-between">
               <h4 className="text-base font-semibold text-slate-900">Sinh viên tham dự</h4>
-              {canApproveStudents && hasPendingStudents && (
-                <div className="flex items-center gap-2">
-                  {state.studentApprovalMode ? (
-                    <>
-                      <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer hover:text-slate-900">
-                        <Checkbox
-                          checked={allPendingStudents.length > 0 && allPendingStudents.every((s: any) => state.selectedStudentAssignmentIds.has(Number(s.AssignmentId ?? 0)))}
-                          onChange={() => {
-                            const allPendingIds = allPendingStudents.map((s: any) => Number(s.AssignmentId ?? 0)).filter((id: number) => id > 0);
-                            actions.handleToggleSelectAllStudents(allPendingIds);
-                          }}
-                        />
-                        <span>Chọn tất cả</span>
-                      </label>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 border-slate-200"
-                        disabled={state.bulkApprovingStudents}
-                        onClick={actions.handleToggleStudentApprovalMode}
-                      >
-                        Hủy
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-7 px-2 text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 border-0"
-                        disabled={state.bulkApprovingStudents || state.selectedStudentAssignmentIds.size === 0}
-                        onClick={() => void actions.handleBulkApproveStudents()}
-                      >
-                        {state.bulkApprovingStudents ? 'Đang xử lý...' : `Xác nhận duyệt (${state.selectedStudentAssignmentIds.size})`}
-                      </Button>
-                    </>
-                  ) : (
+              <div className="flex items-center gap-2">
+                {/* Nút Đổi nhóm: hiện khi có SV bị từ chối/hủy/chưa phân công và user có quyền edit */}
+                {canApproveStudents && hasNeedChangeStudents && !state.teamEditMode && !state.studentApprovalMode && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs font-medium text-rose-600 hover:bg-rose-50 border-rose-200"
+                    onClick={() => {
+                      actions.setTeamEditMode(true);
+                    }}
+                  >
+                    Đổi nhóm
+                  </Button>
+                )}
+                {canApproveStudents && hasPendingStudents && !state.changeTeamMode && !state.studentApprovalMode && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
+                    onClick={actions.handleToggleStudentApprovalMode}
+                  >
+                    Duyệt
+                  </Button>
+                )}
+                {canApproveStudents && hasPendingStudents && !state.changeTeamMode && state.studentApprovalMode && (
+                  <>
+                    <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer hover:text-slate-900">
+                      <Checkbox
+                        checked={allPendingStudents.length > 0 && allPendingStudents.every((s: any) => state.selectedStudentAssignmentIds.has(Number(s.AssignmentId ?? 0)))}
+                        onChange={() => {
+                          const allPendingIds = allPendingStudents.map((s: any) => Number(s.AssignmentId ?? 0)).filter((id: number) => id > 0);
+                          actions.handleToggleSelectAllStudents(allPendingIds);
+                        }}
+                      />
+                      <span>Chọn tất cả</span>
+                    </label>
                     <Button
                       type="button"
                       size="sm"
-                      className="h-7 px-2 text-xs font-medium bg-[#208aae] text-white hover:bg-[#1a7090] border-0"
+                      variant="outline"
+                      className="h-7 px-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 border-slate-200"
+                      disabled={state.bulkApprovingStudents}
                       onClick={actions.handleToggleStudentApprovalMode}
                     >
-                      Duyệt
+                      Hủy
                     </Button>
-                  )}
-                </div>
-              )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 px-2 text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 border-0"
+                      disabled={state.bulkApprovingStudents || state.selectedStudentAssignmentIds.size === 0}
+                      onClick={() => void actions.handleBulkApproveStudents()}
+                    >
+                      {state.bulkApprovingStudents ? 'Đang xử lý...' : `Xác nhận duyệt (${state.selectedStudentAssignmentIds.size})`}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
-            {Object.keys(studentsByTeam).map((tidStr) => {
+
+            {!state.teamEditMode && Object.keys(studentsByTeam).map((tidStr) => {
               const tid = Number(tidStr);
               // Try to get team info from sessionDetail.TeamSessions first (has full team name)
               const teamFromSession = state.sessionDetail?.TeamSessions?.find((ts: any) => Number(ts.TeamId ?? ts.teamId) === tid);
@@ -1129,7 +1227,7 @@ export default function RequestDetailTeamPanel({
             })}
             
             {/* Hiển thị sinh viên không có team */}
-            {studentsWithoutTeam.length > 0 && (
+            {!state.teamEditMode && studentsWithoutTeam.length > 0 && (
               <div className="space-y-2 border-t border-slate-200 pt-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 flex items-center justify-center shrink-0">

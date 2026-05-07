@@ -1487,7 +1487,8 @@ Các buổi diễn ra trong vòng 7 ngày có thể không đảm bảo thời g
                         session={rightPanel.session}
                         canEdit={
                           requestStatusCode === REQUEST_STATUS.APPROVED &&
-                          getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
+                          (getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED ||
+                           getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.ASSIGNMENT_REJECTED)
                         }
                         canEditTeacher={(() => {
                           if (!requestStatusCode || requestStatusCode < REQUEST_STATUS.APPROVED) return false;
@@ -1551,7 +1552,8 @@ Các buổi diễn ra trong vòng 7 ngày có thể không đảm bảo thời g
                   session={rightPanel.session}
                   canEdit={
                     requestStatusCode === REQUEST_STATUS.APPROVED &&
-                    getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
+                    (getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED ||
+                     getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.ASSIGNMENT_REJECTED)
                   }
                   canEditTeacher={(() => {
                     if (!requestStatusCode || requestStatusCode < REQUEST_STATUS.APPROVED) return false;
