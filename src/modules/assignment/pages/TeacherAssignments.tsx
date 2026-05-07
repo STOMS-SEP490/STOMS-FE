@@ -50,7 +50,7 @@ export default function TeacherAssignments() {
   const columns: ColumnDef<TeachingScheduleItem>[] = [
     {
       id: 'sessionName',
-      header: 'Buổi dạy / Yêu cầu',
+      header: 'Buổi / Yêu cầu',
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-semibold text-[#1a7a99]">{sessionDisplayName(row.original)}</span>
@@ -155,7 +155,7 @@ export default function TeacherAssignments() {
         <HoverSearch
           value={search}
           onChange={setSearch}
-          placeholder="Tìm theo tên buổi dạy..."
+          placeholder="Tìm theo tên buổi..."
         />
       </div>
 
