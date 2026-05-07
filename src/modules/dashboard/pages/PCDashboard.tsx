@@ -5,21 +5,27 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  PieChart,
+  Pie,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
   Cell,
+  Legend,
 } from 'recharts'
 import {
   ArrowRight,
   Calendar,
+  CheckCircle2,
   ChevronRight,
   ClipboardList,
   Layers,
   ListChecks,
   Plus,
+  Send,
   Timer,
+  XCircle,
 } from 'lucide-react'
 import { dashboardApi, type DashboardRangeParams } from '@/modules/dashboard/api/dashboardApi'
 import requestApi from '@/modules/request/api/requestApi'
@@ -30,17 +36,6 @@ import { cn } from '@/shared/lib/utils'
 import dayjs from 'dayjs'
 
 const PAGE_BG = 'app-page-bg'
-
-const rangeLabelMap: Record<NonNullable<DashboardRangeParams['range']>, string> = {
-  today: 'Hôm nay',
-  thisweek: 'Tuần này',
-  thismonth: 'Tháng này',
-  last3months: '3 tháng gần đây',
-  last6months: '6 tháng gần đây',
-  '1year': '1 năm gần đây',
-}
-
-const TYPE_BAR_COLORS = ['#0EA5E9', '#22C55E', '#A855F7', '#64748B']
 
 type KpiTone = 'sky' | 'indigo' | 'blue' | 'emerald' | 'amber' | 'rose'
 
@@ -204,21 +199,40 @@ export default function PCDashboard() {
     }
 
     const rows = [
-      { key: 'Sự kiện', value: eventCount },
-      { key: 'Chương trình học', value: courseCount },
-      { key: 'Môn học', value: subjectCount },
-      { key: 'Khác', value: otherCount },
+      { key: 'Sự kiện', value: eventCount, color: '#8B5CF6' },
+      { key: 'Chương trình học', value: courseCount, color: '#10B981' },
+      { key: 'Môn học', value: subjectCount, color: '#F59E0B' },
+      { key: 'Khác', value: otherCount, color: '#64748B' },
     ]
     const nonZero = rows.filter((x) => x.value > 0)
     return nonZero.length > 0 ? nonZero : rows
   }, [requestTypeSample])
 
-  const inProgressKpi =
-    (requestSummary?.approvedRequests ?? 0) +
-    (requestSummary?.assigningRequests ?? 0) +
-    (requestSummary?.publishedRequests ?? 0)
+  const completionVsCancelledData = useMemo(() => {
+    const completed = requestSummary?.completedRequests ?? 0
+    const cancelled = requestSummary?.cancelledRequests ?? 0
+    
+    if (completed === 0 && cancelled === 0) return []
+    
+    return [
+      { name: 'Yêu cầu hoàn thành', value: completed, color: '#10B981' },
+      { name: 'Yêu cầu bị hủy', value: cancelled, color: '#F43F5E' },
+    ]
+  }, [requestSummary])
 
-  const blockedKpi = (requestSummary?.rejectedRequests ?? 0) + (requestSummary?.cancelledRequests ?? 0)
+  const approvalStatusData = useMemo(() => {
+    const pending = requestSummary?.pendingRequests ?? 0
+    const approved = requestSummary?.approvedRequests ?? 0
+    const rejected = requestSummary?.rejectedRequests ?? 0
+    
+    if (pending === 0 && approved === 0 && rejected === 0) return []
+    
+    return [
+      { key: 'Chờ duyệt', value: pending, color: '#F59E0B' },
+      { key: 'Đã duyệt', value: approved, color: '#10B981' },
+      { key: 'Từ chối', value: rejected, color: '#F43F5E' },
+    ].filter(item => item.value > 0)
+  }, [requestSummary])
 
   return (
     <div className={cn('min-h-full space-y-4 p-6', PAGE_BG)}>
@@ -273,48 +287,82 @@ export default function PCDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <PcKpiCard
           tone="sky"
           title="Tổng yêu cầu"
           value={requestSummary?.totalRequests ?? '—'}
-          sub={rangeLabelMap[effectiveRange]}
           icon={<Layers className="h-5 w-5" strokeWidth={2} />}
         />
         <PcKpiCard
           tone="amber"
           title="Chờ duyệt"
           value={requestSummary?.pendingRequests ?? '—'}
-          sub="Cần phản hồi từ quản lý"
           icon={<Timer className="h-5 w-5" strokeWidth={2} />}
         />
         <PcKpiCard
           tone="indigo"
-          title="Đang xử lý"
-          value={requestSummary != null ? inProgressKpi : '—'}
-          sub="Đã duyệt + phân công + triển khai"
+          title="Chờ duyệt phân công"
+          value={requestSummary?.assigningRequests ?? '—'}
           icon={<ListChecks className="h-5 w-5" strokeWidth={2} />}
+        />
+        <PcKpiCard
+          tone="blue"
+          title="Đã công bố"
+          value={requestSummary?.publishedRequests ?? '—'}
+          icon={<Send className="h-5 w-5" strokeWidth={2} />}
         />
         <PcKpiCard
           tone="emerald"
           title="Hoàn thành"
           value={requestSummary?.completedRequests ?? '—'}
-          sub={rangeLabelMap[effectiveRange]}
-          icon={<ClipboardList className="h-5 w-5" strokeWidth={2} />}
+          icon={<CheckCircle2 className="h-5 w-5" strokeWidth={2} />}
         />
         <PcKpiCard
           tone="rose"
-          title="Từ chối / Hủy"
-          value={requestSummary != null ? blockedKpi : '—'}
-          sub="Không tiếp tục xử lý"
-          icon={<ClipboardList className="h-5 w-5" strokeWidth={2} />}
+          title="Hủy"
+          value={requestSummary?.cancelledRequests ?? '—'}
+          icon={<XCircle className="h-5 w-5" strokeWidth={2} />}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex h-[380px] flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <div className="mb-2 shrink-0">
+              <p className="text-sm font-semibold text-slate-900">Trạng thái phê duyệt</p>
+              <p className="text-xs text-slate-500">Chờ duyệt / Đã duyệt / Từ chối</p>
+            </div>
+            {approvalStatusData.length > 0 ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center">
+                <div className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={approvalStatusData} margin={{ top: 8, right: 8, left: 0, bottom: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-100" />
+                      <XAxis dataKey="key" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={36} />
+                      <Tooltip
+                        formatter={(value) => [`${Number(value ?? 0).toLocaleString('vi-VN')} yêu cầu`, '']}
+                        wrapperClassName="text-xs"
+                      />
+                      <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={54}>
+                        {approvalStatusData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-h-0 flex-1 items-center justify-center">
+                <p className="text-xs text-slate-500">Chưa có dữ liệu.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex h-[380px] flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Timer className="h-5 w-5 text-amber-600" />
               <div>
@@ -332,20 +380,22 @@ export default function PCDashboard() {
               Xem tất cả
             </Button>
           </div>
-          <div className="grid grid-cols-1 gap-3">
-            {(pendingList?.items ?? []).length === 0 && (
-              <div className="col-span-full flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <ClipboardList className="h-9 w-9 text-slate-200" />
-                <p className="text-sm text-slate-600">Không có yêu cầu chờ duyệt</p>
-              </div>
-            )}
-            {(pendingList?.items ?? []).map((r: RequestListItem) => (
-              <RequestPipelineCard key={r.requestId} r={r} onClick={() => navigate(`/pc/requests/${r.requestId}`)} />
-            ))}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 gap-3">
+              {(pendingList?.items ?? []).length === 0 && (
+                <div className="col-span-full flex flex-col items-center justify-center gap-2 py-8 text-center">
+                  <ClipboardList className="h-9 w-9 text-slate-200" />
+                  <p className="text-sm text-slate-600">Không có yêu cầu chờ duyệt</p>
+                </div>
+              )}
+              {(pendingList?.items ?? []).map((r: RequestListItem) => (
+                <RequestPipelineCard key={r.requestId} r={r} onClick={() => navigate(`/pc/requests/${r.requestId}`)} />
+              ))}
+            </div>
           </div>
         </div>
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex h-[380px] flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <ListChecks className="h-5 w-5 text-indigo-600" />
               <div>
@@ -363,24 +413,102 @@ export default function PCDashboard() {
               Xem tất cả
             </Button>
           </div>
-          <div className="grid grid-cols-1 gap-3">
-            {(inProgressList?.items ?? []).length === 0 && (
-              <div className="col-span-full flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <ListChecks className="h-9 w-9 text-slate-200" />
-                <p className="text-sm text-slate-600">Chưa có yêu cầu đang xử lý</p>
-              </div>
-            )}
-            {(inProgressList?.items ?? []).map((r: RequestListItem) => (
-              <RequestPipelineCard key={r.requestId} r={r} onClick={() => navigate(`/pc/requests/${r.requestId}`)} />
-            ))}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 gap-3">
+              {(inProgressList?.items ?? []).length === 0 && (
+                <div className="col-span-full flex flex-col items-center justify-center gap-2 py-8 text-center">
+                  <ListChecks className="h-9 w-9 text-slate-200" />
+                  <p className="text-sm text-slate-600">Chưa có yêu cầu đang xử lý</p>
+                </div>
+              )}
+              {(inProgressList?.items ?? []).map((r: RequestListItem) => (
+                <RequestPipelineCard key={r.requestId} r={r} onClick={() => navigate(`/pc/requests/${r.requestId}`)} />
+              ))}
+            </div>
           </div>
         </div>
+        </div>
 
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="space-y-4">
+          <div className="flex h-[380px] flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <div className="mb-2 shrink-0">
+              <p className="text-sm font-semibold text-slate-900">Phân bố theo loại yêu cầu</p>
+              <p className="text-xs text-slate-500">Sự kiện / Chương trình học / Môn học</p>
+            </div>
+            {requestTypeCounts?.length > 0 ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center">
+                <div className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={requestTypeCounts} margin={{ top: 8, right: 8, left: 0, bottom: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-100" />
+                      <XAxis dataKey="key" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={36} />
+                      <Tooltip
+                        formatter={(value) => [Number(value ?? 0).toLocaleString('vi-VN'), 'Yêu cầu']}
+                        wrapperClassName="text-xs"
+                      />
+                      <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={54}>
+                        {requestTypeCounts.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-h-0 flex-1 items-center justify-center">
+                <p className="text-xs text-slate-500">Chưa có dữ liệu.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex h-[380px] flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <div className="mb-2 shrink-0">
+              <p className="text-sm font-semibold text-slate-900">Số yêu cầu hoàn thành và số yêu cầu bị hủy</p>
+            </div>
+            {completionVsCancelledData.length > 0 ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center">
+                <div className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={completionVsCancelledData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {completionVsCancelledData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value, name) => [
+                          `${Number(value ?? 0).toLocaleString('vi-VN')} yêu cầu`,
+                          name
+                        ]} 
+                      />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-h-0 flex-1 items-center justify-center">
+                <p className="text-xs text-slate-500">Chưa có dữ liệu.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex h-[380px] flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Hoạt động gần đây</p>
-                <p className="text-xs text-slate-500">Các yêu cầu mới cập nhật — bấm để xem chi tiết</p>
+                <p className="text-xs text-slate-500">Các yêu cầu mới cập nhật</p>
               </div>
               <Button
                 type="button"
@@ -392,75 +520,20 @@ export default function PCDashboard() {
                 Danh sách
               </Button>
             </div>
-            <div className="grid grid-cols-1 gap-3">
-              {(recentRequests?.items ?? []).length === 0 && (
-                <p className="py-6 text-center text-xs text-slate-500">Chưa có dữ liệu.</p>
-              )}
-              {(recentRequests?.items ?? []).map((r: RequestListItem) => (
-                <RequestPipelineCard
-                  key={`recent-${r.requestId}`}
-                  r={r}
-                  onClick={() => navigate(`/pc/requests/${r.requestId}`)}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="mb-2">
-              <p className="text-sm font-semibold text-slate-900">Request theo loại nội dung</p>
-              <p className="text-xs text-slate-500">Event / Chương trình học / Môn học (lấy mẫu trang 1)</p>
-            </div>
-            {requestTypeCounts?.length > 0 ? (
-              <div className="h-[260px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={requestTypeCounts} margin={{ top: 8, right: 8, left: 0, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-slate-100" />
-                    <XAxis dataKey="key" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={36} />
-                    <Tooltip
-                      formatter={(value) => [Number(value ?? 0).toLocaleString('vi-VN'), 'Yêu cầu']}
-                      wrapperClassName="text-xs"
-                    />
-                    <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={54}>
-                      {requestTypeCounts.map((_, i) => (
-                        <Cell key={i} fill={TYPE_BAR_COLORS[i % TYPE_BAR_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="py-10 text-center text-xs text-slate-500">Chưa có dữ liệu.</p>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="mb-2">
-              <p className="text-sm font-semibold text-slate-900">Tổng quan trạng thái</p>
-              <p className="text-xs text-slate-500">Từ API dashboard (theo khoảng thời gian)</p>
-            </div>
-            {requestSummary ? (
-              <div className="grid grid-cols-1 gap-2">
-                {[
-                  { label: 'Chờ duyệt', value: requestSummary.pendingRequests, tone: 'border-amber-500 bg-amber-50 text-amber-800' },
-                  { label: 'Đang phân công', value: requestSummary.assigningRequests, tone: 'border-sky-500 bg-sky-50 text-sky-800' },
-                  { label: 'Đang triển khai', value: requestSummary.publishedRequests, tone: 'border-violet-500 bg-violet-50 text-violet-800' },
-                  { label: 'Hoàn thành', value: requestSummary.completedRequests, tone: 'border-emerald-500 bg-emerald-50 text-emerald-800' },
-                ].map((x) => (
-                  <div key={x.label} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-slate-50/40 px-3 py-2">
-                    <span className="text-xs font-medium text-slate-700">{x.label}</span>
-                    <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold', x.tone)}>
-                      {x.value}
-                    </span>
-                  </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 gap-3">
+                {(recentRequests?.items ?? []).length === 0 && (
+                  <p className="py-6 text-center text-xs text-slate-500">Chưa có dữ liệu.</p>
+                )}
+                {(recentRequests?.items ?? []).map((r: RequestListItem) => (
+                  <RequestPipelineCard
+                    key={`recent-${r.requestId}`}
+                    r={r}
+                    onClick={() => navigate(`/pc/requests/${r.requestId}`)}
+                  />
                 ))}
               </div>
-            ) : (
-              <p className="py-6 text-center text-xs text-slate-500">Đang tải...</p>
-            )}
+            </div>
           </div>
         </div>
       </div>
