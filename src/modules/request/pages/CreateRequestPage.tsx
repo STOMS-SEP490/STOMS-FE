@@ -460,6 +460,13 @@ export default function CreateRequestPage() {
     const accentColor =
       sourceType === 'subject' ? '#2197C0' : sourceType === 'course' ? '#8B5CF6' : '#F59E0B'
 
+    // Kiểm tra xem có session nào diễn ra trong vòng 7 ngày không
+    const hasSessionWithin7Days = sessions.some((s) => {
+      if (!s.startAt) return false
+      const daysUntilSession = s.startAt.diff(dayjs(), 'day')
+      return daysUntilSession < 7
+    })
+
     Modal.confirm({
       title: isEditMode ? 'Xác nhận cập nhật yêu cầu' : 'Xác nhận tạo yêu cầu',
       icon: <ExclamationCircleFilled className="text-[#F59E0B]" />,
@@ -554,7 +561,15 @@ export default function CreateRequestPage() {
                 ) : null}
               </div>
 
-             
+              {/* Cảnh báo nếu có session diễn ra trong vòng 7 ngày */}
+              {hasSessionWithin7Days && (
+                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <TriangleAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[13px] text-amber-800">
+                    Các buổi diễn ra trong vòng 7 ngày có thể không đảm bảo thời gian xét duyệt, số lượng nhân sự và thiết bị.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Sessions list */}
@@ -1000,14 +1015,6 @@ export default function CreateRequestPage() {
                       if (value && sessions.length > 0) {
                         setSessions(applyAutoSchedule(value, sessions))
                       }
-                      // Toast warning nếu trong vòng 7 ngày
-                      if (value) {
-                        const daysLeft = value.startOf('day').diff(dayjs().startOf('day'), 'day')
-                        if (daysLeft < 7) {
-                          const label = daysLeft === 0 ? 'hôm nay' : `${daysLeft} ngày nữa`
-                          message.warning(`Buổi đầu tiên diễn ra ${label} — tạo yêu cầu dưới 7 ngày có thể không đảm bảo thiết bị, giảng viên và thời gian xét duyệt.`)
-                        }
-                      }
                     }}
                   />
                 </div>
@@ -1284,14 +1291,7 @@ export default function CreateRequestPage() {
                             }
                             const end = calculateEndTime(value, s.duration)
                             updateSession(index, { startAt: value, endAt: end })
-                            // Toast warning nếu trong vòng 7 ngày
-                            if (index === 0) {
-                              const daysLeft = value.startOf('day').diff(dayjs().startOf('day'), 'day')
-                              if (daysLeft < 7) {
-                                const label = daysLeft === 0 ? 'hôm nay' : `${daysLeft} ngày nữa`
-                                message.warning(`Buổi đầu tiên diễn ra ${label} — tạo yêu cầu dưới 7 ngày có thể không đảm bảo thiết bị, giảng viên và thời gian xét duyệt.`)
-                              }
-                            }
+                           
                           }}
                         />
                       </div>
