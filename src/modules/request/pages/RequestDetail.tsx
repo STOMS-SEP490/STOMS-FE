@@ -1470,7 +1470,8 @@ export default function RequestDetail() {
                         session={rightPanel.session}
                         canEdit={
                           requestStatusCode === REQUEST_STATUS.APPROVED &&
-                          getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
+                          (getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED ||
+                           getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.ASSIGNMENT_REJECTED)
                         }
                         canEditTeacher={(() => {
                           if (!requestStatusCode || requestStatusCode < REQUEST_STATUS.APPROVED) return false;
@@ -1534,7 +1535,8 @@ export default function RequestDetail() {
                   session={rightPanel.session}
                   canEdit={
                     requestStatusCode === REQUEST_STATUS.APPROVED &&
-                    getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED
+                    (getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.APPROVED ||
+                     getSessionStatusCode(rightPanel.session.status) === SESSION_STATUS.ASSIGNMENT_REJECTED)
                   }
                   canEditTeacher={(() => {
                     if (!requestStatusCode || requestStatusCode < REQUEST_STATUS.APPROVED) return false;

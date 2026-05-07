@@ -120,6 +120,12 @@ export function useRequestDetailTeamPanel({
   >({});
   const [expandedTeamIds, setExpandedTeamIds] = useState<number[]>([]);
   const [expandedAddedTeamIds, setExpandedAddedTeamIds] = useState<number[]>([]);
+
+  // Delta validation state (isReplaceMode)
+  // maxReducibleByTeam[teamId] = số TA có thể giảm an toàn (pool: Pending-null + Rejected)
+  const [maxReducibleByTeam, setMaxReducibleByTeam] = useState<Record<number, number>>({});
+  // originalTaByTeam[teamId] = số TA ban đầu khi mở edit (snapshot từ currentTeamQuantities)
+  const [originalTaByTeam, setOriginalTaByTeam] = useState<Record<number, number>>({});
   
   // Teacher assignment state
   const [selectedTeacherCount, setSelectedTeacherCount] = useState(0);
@@ -147,6 +153,9 @@ export function useRequestDetailTeamPanel({
   const [studentApprovalMode, setStudentApprovalMode] = useState(false);
   const [selectedStudentAssignmentIds, setSelectedStudentAssignmentIds] = useState<Set<number>>(new Set());
   const [bulkApprovingStudents, setBulkApprovingStudents] = useState(false);
+
+  // Change team mode (đổi nhóm khi có SV bị từ chối/chưa phân công)
+  const [changeTeamMode, setChangeTeamMode] = useState(false);
   
   // Reject modal state
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -184,6 +193,23 @@ export function useRequestDetailTeamPanel({
       cancelled = true;
     };
   }, [session.sessionId]);
+
+  // Hàm refresh sessionDetail thủ công — gọi sau khi save team để cập nhật danh sách SV
+  const refreshSessionDetail = useCallback(async () => {
+    const statusCode = getRequestStatusCode(requestStatus);
+    const shouldLoadStudentAssignments =
+      statusCode === REQUEST_STATUS.ASSIGNING ||
+      statusCode === REQUEST_STATUS.PUBLISHED ||
+      statusCode === REQUEST_STATUS.COMPLETED ||
+      statusCode === REQUEST_STATUS.CANCELLED;
+    if (!shouldLoadStudentAssignments) return;
+    try {
+      const detail = await sessionService.getById(session.sessionId);
+      if (detail) setSessionDetail(detail);
+    } catch {
+      // fail-safe
+    }
+  }, [requestStatus, session.sessionId]);
 
   // Fetch session detail once — used for both teacher assignments and student assignment display
   useEffect(() => {
@@ -274,6 +300,77 @@ export function useRequestDetailTeamPanel({
     };
   }, [session.sessionId, separateTeacherSelection, requestStatus]);
 
+  // Load maxReducible khi có assigned teams (isReplaceMode)
+  // maxReducible[teamId] = số TA có thể giảm an toàn
+  // = số assignments TA có status PENDING (staffMemberId=null) + REJECTED
+  const loadMaxReducible = useCallback(
+    async (assignedIds: number[]) => {
+      if (assignedIds.length === 0) return;
+      try {
+        const detail = await sessionService.getById(session.sessionId);
+        const assignments = (detail.Assignments ?? []).filter((a) => {
+          const role = String(a.StaffRole ?? '').toUpperCase();
+          return role === 'TA' || role.includes('STUDENT') || role.includes('SV');
+        });
+
+        // Lấy TeamSessions từ session detail để map teamId → leaderMemberId
+        // TeamSession.Team.Members có thể chứa leader, nhưng cách đơn giản nhất:
+        // dùng AssignedByMemberId = leaderMemberId của team
+        // Tuy nhiên cần suggestedTeams đã load → dùng cả 2 cách:
+        // Cách 1: assignment.TeamId (nếu BE trả về)
+        // Cách 2: map qua leaderMemberId từ suggestedTeams (fallback)
+
+        const maxReducible: Record<number, number> = {};
+
+        for (const teamId of assignedIds) {
+          // Lọc assignments thuộc team này
+          // Ưu tiên: a.TeamId === teamId
+          // Fallback: a.StaffMember?.TeamId === teamId
+          // Fallback 2: a.AssignedByMemberId === leaderMemberId của team
+          const team = suggestedTeams.find((t) => t.teamId === teamId);
+          const leaderId = team?.leaderMemberId ?? null;
+
+          const teamAssignments = assignments.filter((a) => {
+            // Cách 1: TeamId trực tiếp trên assignment
+            const directTeamId = Number(a.TeamId ?? 0);
+            if (directTeamId > 0) return directTeamId === teamId;
+
+            // Cách 2: TeamId trong StaffMember
+            const memberTeamId = Number(a.StaffMember?.TeamId ?? 0);
+            if (memberTeamId > 0) return memberTeamId === teamId;
+
+            // Cách 3: AssignedByMemberId = leaderMemberId
+            if (leaderId != null && leaderId > 0) {
+              return Number(a.AssignedByMemberId ?? 0) === leaderId;
+            }
+
+            return false;
+          });
+
+          // Pool an toàn = Pending (staffMemberId=null/0) + Rejected
+          const poolCount = teamAssignments.filter((a) => {
+            const st = String(a.Status ?? '')
+              .toUpperCase()
+              .replace(/_/g, '')
+              .replace(/ /g, '');
+            const isPending = st === 'PENDING' || st === '1';
+            const isRejected = st === 'REJECTED' || st === '3';
+            const isUnassigned = !a.StaffMemberId || Number(a.StaffMemberId) === 0;
+            return isRejected || (isPending && isUnassigned);
+          }).length;
+
+          maxReducible[teamId] = poolCount;
+        }
+
+        setMaxReducibleByTeam(maxReducible);
+      } catch {
+        // fail-safe: không block UI nếu load thất bại
+        setMaxReducibleByTeam({});
+      }
+    },
+    [session.sessionId, suggestedTeams],
+  );
+
   // Sync with current assigned teams
   const assignedIdsKey = useMemo(
     () => (currentAssignedTeamIds ?? []).slice().sort((a, b) => a - b).join(','),
@@ -293,7 +390,30 @@ export function useRequestDetailTeamPanel({
     }, {});
     setTeamQuantities(next);
     setShowAddTeam(false);
+
+    // Snapshot originalTaByTeam khi sync (dùng cho delta validation)
+    const originalSnapshot = ids.reduce<Record<number, number>>((acc, teamId) => {
+      acc[teamId] = Math.max(0, Number(currentTeamQuantities?.[teamId]?.tasRequired ?? 0) || 0);
+      return acc;
+    }, {});
+    setOriginalTaByTeam(originalSnapshot);
+
+    // Load maxReducible nếu đang ở replace mode (đã có assigned teams)
+    if (ids.length > 0) {
+      void loadMaxReducible(ids);
+    } else {
+      setMaxReducibleByTeam({});
+    }
   }, [session.sessionId, assignedIdsKey, currentTeamQuantities]);
+
+  // Re-run loadMaxReducible khi suggestedTeams load xong (giải quyết timing issue)
+  // suggestedTeams cần thiết để map leaderMemberId → teamId (fallback)
+  useEffect(() => {
+    const ids = currentAssignedTeamIds ?? [];
+    if (ids.length > 0 && suggestedTeams.length > 0) {
+      void loadMaxReducible(ids);
+    }
+  }, [suggestedTeams]);
 
   // Computed values
   const filteredTeams = useMemo(() => {
@@ -410,6 +530,30 @@ export function useRequestDetailTeamPanel({
       setShowAddTeam(false);
       return;
     }
+
+    // Validate: phải chọn ít nhất 1 nhóm
+    if (addedTeamIds.length === 0) {
+      void message.warning('Vui lòng chọn ít nhất một nhóm.');
+      return;
+    }
+
+    // Validate: tổng tasRequired phải bằng session.tasRequired (nếu session cần SV)
+    const needed = Math.max(0, Number(session.tasRequired ?? 0) || 0);
+    if (needed > 0) {
+      const totalTas = addedTeamIds.reduce(
+        (sum, id) => sum + Math.max(0, Number(teamQuantities[id]?.tasRequired ?? 0) || 0),
+        0,
+      );
+      if (totalTas !== needed) {
+        const diff = needed - totalTas;
+        const sign = diff > 0 ? 'thiếu' : 'dư';
+        void message.error(
+          `Số sinh viên phân công (${totalTas}) chưa khớp yêu cầu (${needed}). ${sign} ${Math.abs(diff)} sinh viên.`,
+        );
+        return;
+      }
+    }
+
     const finalQuantities = addedTeamIds.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>((acc, teamId) => {
       acc[teamId] = {
         teachersRequired: 0,
@@ -437,12 +581,14 @@ export function useRequestDetailTeamPanel({
       setTeamEditMode(false);
       setShowAddTeam(false);
       message.success('Đã lưu nhóm phụ trách.');
+      await refreshSessionDetail();
+      await onTeacherAssignmentUpdated?.();
     } catch (err: unknown) {
       message.error(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
-  }, [addedTeamIds, currentAssignedTeamIds, hasTeamChanges, onAssignSession, session.sessionId, teamQuantities]);
+  }, [addedTeamIds, currentAssignedTeamIds, hasTeamChanges, onAssignSession, onTeacherAssignmentUpdated, refreshSessionDetail, session.sessionId, session.tasRequired, teamQuantities]);
 
   const handleCancelTeacherEdit = useCallback(() => {
     setTeacherAssignments(initialTeacherAssignments);
@@ -605,6 +751,20 @@ export function useRequestDetailTeamPanel({
 
       if (safeValue > maxTasThisTeam) return;
 
+      // isReplaceMode: validate delta giảm không vượt quá pool an toàn
+      const isReplaceMode = (currentAssignedTeamIds ?? []).length > 0;
+      if (isReplaceMode && safeValue < current.tasRequired) {
+        const original = originalTaByTeam[teamId] ?? current.tasRequired;
+        const reduction = original - safeValue; // tổng giảm so với ban đầu
+        const maxReducible = maxReducibleByTeam[teamId] ?? 0;
+        if (reduction > maxReducible) {
+          void message.error(
+            `Đội này chỉ có thể giảm tối đa ${maxReducible} sinh viên (còn ${maxReducible} phân công chưa được gán nhân sự).`,
+          );
+          return;
+        }
+      }
+
       setTeamQuantities((prev) => ({
         ...prev,
         [teamId]: {
@@ -613,24 +773,27 @@ export function useRequestDetailTeamPanel({
         },
       }));
     },
-    [requestedTas, suggestedTeams, teamQuantities, totals]
+    [currentAssignedTeamIds, maxReducibleByTeam, originalTaByTeam, requestedTas, suggestedTeams, teamQuantities, totals]
   );
 
   const toggleTeamAdded = useCallback((teamId: number) => {
     setExpandedTeamIds([]);
-    setAddedTeamIds((prev) => {
-      const exists = prev.includes(teamId);
-      if (exists) {
-        setTeamQuantities((prevQ) => {
-          const next = { ...prevQ };
-          delete next[teamId];
-          return next;
-        });
-        return prev.filter((id) => id !== teamId);
-      }
-
+    const exists = addedTeamIds.includes(teamId);
+    
+    if (exists) {
+      // Bỏ team
+      setAddedTeamIds((prev) => prev.filter((id) => id !== teamId));
       setTeamQuantities((prevQ) => {
-        const usedTas = prev.reduce((sum, id) => sum + Math.max(0, Number(prevQ[id]?.tasRequired ?? 0) || 0), 0);
+        const next = { ...prevQ };
+        delete next[teamId];
+        return next;
+      });
+    } else {
+      // Thêm team mới
+      setAddedTeamIds((prev) => [...prev, teamId]);
+      setTeamQuantities((prevQ) => {
+        // Tính số TA đã dùng từ các team hiện tại (bao gồm cả team đang được thêm)
+        const usedTas = addedTeamIds.reduce((sum, id) => sum + Math.max(0, Number(prevQ[id]?.tasRequired ?? 0) || 0), 0);
         const needTa = Math.max(0, requestedTas - usedTas);
         const picked = suggestedTeams.find((t) => t.teamId === teamId);
         const capped = {
@@ -639,12 +802,26 @@ export function useRequestDetailTeamPanel({
         };
         return { ...prevQ, [teamId]: capped };
       });
-
-      return [...prev, teamId];
-    });
-  }, [requestedTas, suggestedTeams]);
+    }
+  }, [addedTeamIds, requestedTas, suggestedTeams]);
 
   const removeAddedTeam = useCallback((teamId: number) => {
+    // isReplaceMode: validate trước khi bỏ team đã có TA
+    const isReplaceMode = (currentAssignedTeamIds ?? []).includes(teamId);
+    if (isReplaceMode) {
+      const original = originalTaByTeam[teamId] ?? 0;
+      if (original > 0) {
+        // Bỏ team = giảm toàn bộ original về 0
+        const maxReducible = maxReducibleByTeam[teamId] ?? 0;
+        if (original > maxReducible) {
+          void message.error(
+            `Không thể bỏ đội này vì có ${original - maxReducible} phân công đã được gán nhân sự.`,
+          );
+          return;
+        }
+      }
+    }
+
     setExpandedTeamIds([]);
     setAddedTeamIds((prev) => prev.filter((id) => id !== teamId));
     setTeamQuantities((prevQ) => {
@@ -652,7 +829,7 @@ export function useRequestDetailTeamPanel({
       delete next[teamId];
       return next;
     });
-  }, []);
+  }, [currentAssignedTeamIds, maxReducibleByTeam, originalTaByTeam]);
 
   const toggleTeamExpanded = useCallback((teamId: number) => {
     setExpandedTeamIds((prev) => (prev.includes(teamId) ? [] : [teamId]));
@@ -686,6 +863,7 @@ export function useRequestDetailTeamPanel({
       sessionDetail,
       sessionDetailLoading,
       studentApprovalMode,
+      changeTeamMode,
       selectedStudentAssignmentIds,
       bulkApprovingStudents,
       rejectModalOpen,
@@ -694,6 +872,8 @@ export function useRequestDetailTeamPanel({
       rejectingStudent,
       requestedTeachers,
       requestedTas,
+      maxReducibleByTeam,
+      originalTaByTeam,
     },
     // Computed
     computed: {
@@ -702,6 +882,7 @@ export function useRequestDetailTeamPanel({
       assignedTeacherCountByAssignments,
       hasPendingTeacherAssignmentChanges,
       hasTeamChanges,
+      isTasValid: requestedTas === 0 || totals.tas === requestedTas,
     },
     // Actions
     actions: {
@@ -728,6 +909,7 @@ export function useRequestDetailTeamPanel({
       handleCancelTeamEdit,
       handleAssignTeacherToSlot,
       handleLoadTeacherSuggestions,
+      setChangeTeamMode,
       handleToggleStudentApprovalMode,
       handleToggleStudentSelection,
       handleToggleSelectAllStudents,

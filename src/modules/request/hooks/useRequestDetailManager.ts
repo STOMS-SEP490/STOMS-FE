@@ -143,6 +143,7 @@ const mapSessionFromFilterItem = (raw: SessionResponse): SessionWithFlags => {
     teamAssigned,
     assignedTeamIds: backendTeamIds,
     equipmentReserved: reservationId != null,
+    TeamSessions: fromSessions, // Giữ TeamSessions để đọc TasRequired
   } as SessionWithFlags;
 };
 
@@ -202,8 +203,8 @@ export const useRequestDetailManager = (params: {
       const anyS = s as SessionWithFlags & {
         teamId?: number | null;
         TeamId?: number | null;
-        teamSessions?: { teamId?: number | null; TeamId?: number | null }[];
-        TeamSessions?: { teamId?: number | null; TeamId?: number | null }[];
+        teamSessions?: { teamId?: number | null; TeamId?: number | null; tasRequired?: number | null; TasRequired?: number | null }[];
+        TeamSessions?: { teamId?: number | null; TeamId?: number | null; tasRequired?: number | null; TasRequired?: number | null }[];
       };
       const fromSessions = anyS.teamSessions ?? anyS.TeamSessions ?? [];
       const backendTeamIds = fromSessions
@@ -234,23 +235,56 @@ export const useRequestDetailManager = (params: {
         ...prev,
       };
     });
+    
+    // Đọc TasRequired trực tiếp từ TeamSession của backend thay vì phân bổ lại
     const nextTeamQuantities = mappedSessions.reduce<
       Record<number, Record<number, { teachersRequired: number; tasRequired: number }>>
     >(
         (acc, s) => {
+          const anyS = s as SessionWithFlags & {
+            teamSessions?: { teamId?: number | null; TeamId?: number | null; tasRequired?: number | null; TasRequired?: number | null }[];
+            TeamSessions?: { teamId?: number | null; TeamId?: number | null; tasRequired?: number | null; TasRequired?: number | null }[];
+          };
+          const fromSessions = anyS.teamSessions ?? anyS.TeamSessions ?? [];
           const teamIds = nextUiAssigned[s.sessionId] ?? [];
-          const requiredTas = normalizeRequiredCount((s as any).tasRequired, 1);
-          const taDist = distributeCountByTeam(teamIds, requiredTas);
-          acc[s.sessionId] = teamIds.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>(
-            (m, teamId, idx) => {
-              m[teamId] = {
-              teachersRequired: 0,
-                tasRequired: taDist[idx]?.count ?? 0,
-              };
-              return m;
-            },
-            {}
+          
+          // Nếu backend trả về TasRequired cho từng team, dùng giá trị đó
+          const hasBackendQuantities = fromSessions.some(ts => 
+            (ts.tasRequired != null && ts.tasRequired > 0) || 
+            (ts.TasRequired != null && ts.TasRequired > 0)
           );
+          
+          if (hasBackendQuantities) {
+            // Dùng giá trị TasRequired từ backend
+            acc[s.sessionId] = fromSessions.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>(
+              (m, ts) => {
+                const teamId = Number(ts.teamId ?? ts.TeamId ?? 0);
+                if (teamId > 0) {
+                  m[teamId] = {
+                    teachersRequired: 0,
+                    tasRequired: Math.max(0, Number(ts.tasRequired ?? ts.TasRequired ?? 0)),
+                  };
+                }
+                return m;
+              },
+              {}
+            );
+          } else {
+            // Fallback: phân bổ đều nếu backend không trả về
+            const sortedTeamIds = [...teamIds].sort((a, b) => a - b);
+            const requiredTas = normalizeRequiredCount((s as any).tasRequired, 1);
+            const taDist = distributeCountByTeam(sortedTeamIds, requiredTas);
+            acc[s.sessionId] = sortedTeamIds.reduce<Record<number, { teachersRequired: number; tasRequired: number }>>(
+              (m, teamId, idx) => {
+                m[teamId] = {
+                  teachersRequired: 0,
+                  tasRequired: taDist[idx]?.count ?? 0,
+                };
+                return m;
+              },
+              {}
+            );
+          }
           return acc;
         },
         {}
