@@ -78,7 +78,7 @@ const columns: ColumnDef<ContractListItem>[] = [
   },
   {
     id: 'sessionNo',
-    header: 'Buổi học',
+    header: 'Buổi',
     cell: ({ row }) => {
       const no = row.original.session?.sessionNo;
       return no ? `Buổi ${no}` : '—';
@@ -303,7 +303,7 @@ export default function ContractsManagement() {
           icon={<FileText />}
           label="Tổng hợp đồng"
           value={summaryLoading ? '—' : (contractSummary?.totalContracts ?? totalItems).toString()}
-          sub="hợp đồng trong hệ thống"
+          sub="hợp đồng"
           variant="blue"
         />
         <StatCard

@@ -327,7 +327,7 @@ export default function TeamLeaderDashboard() {
               </div>
 
               <div className="rounded-lg border border-slate-200/70 bg-white p-3">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1">TỔNG BUỔI HỌC</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1">TỔNG SỐ BUỔI</p>
                 <p className="text-xl font-bold text-slate-900">{teamStats?.totalSessions ?? '—'}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">Buổi của nhóm</p>
               </div>
@@ -386,7 +386,7 @@ export default function TeamLeaderDashboard() {
                 <p className="text-xl font-bold text-slate-900">
                   {teamStats ? Number(teamStats.averageSessionsPerMember ?? 0).toFixed(1) : '—'}
                 </p>
-                <p className="text-[10px] text-slate-500 mt-0.5">Buổi học trung bình mỗi người</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Buổi tham gia trung bình mỗi người</p>
               </div>
 
               <div className="rounded-lg border border-slate-200/70 bg-white p-3">
@@ -434,8 +434,7 @@ export default function TeamLeaderDashboard() {
                 {teachingItems.length === 0 ? (
                   <div className="py-12 text-center">
                     <Clock className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-                    <p className="text-sm text-slate-500">Chưa có buổi học nào</p>
-                    <p className="text-xs text-slate-400 mt-1">Dữ liệu sẽ hiển thị khi bạn tham gia buổi học</p>
+                    <p className="text-sm text-slate-500">Chưa có buổi nào</p>
                   </div>
                 ) : (
                   teachingItems.map((it: any) => <TeachingHistoryRow key={it.sessionId} item={it} />)

@@ -407,7 +407,7 @@ export default function TeacherDashboard() {
                 {teachingItems.length === 0 ? (
                   <div className="py-12 text-center">
                     <Clock className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-                    <p className="text-sm text-slate-500">Chưa có buổi học nào</p>
+                    <p className="text-sm text-slate-500">Chưa có buổi nào</p>
                     <p className="text-xs text-slate-400 mt-1">Dữ liệu sẽ hiển thị khi bạn tham gia buổi học</p>
                   </div>
                 ) : (

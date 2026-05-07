@@ -147,7 +147,7 @@ export default function TaskReportsManagement() {
     >
       <div className="shrink-0 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
         <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý báo cáo công việc</h2>
-        <p className="text-xs text-slate-500">Xem danh sách buổi học, chọn buổi để xem báo cáo công việc.
+        <p className="text-xs text-slate-500">Xem danh sách buổi, chọn buổi để xem báo cáo công việc.
 
 </p>
       </div>

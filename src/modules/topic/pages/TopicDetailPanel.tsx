@@ -113,15 +113,12 @@ export default function TopicDetailPanel({ open, onClose, topicId }: Props) {
                 </div>
 
                 {/* Meta bar */}
-                <div className="grid w-full grid-cols-3 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
+                <div className="grid w-full grid-cols-2 divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
                   <div className="px-5 py-3">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Ngày tạo</p>
                     <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatDateTime(detail.createdAt)}</p>
                   </div>
-                  <div className="px-5 py-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Cập nhật lần cuối</p>
-                    <p className="mt-0.5 text-sm font-semibold text-slate-900">{formatDateTime(detail.updatedAt)}</p>
-                  </div>
+                  
                   <div className="px-5 py-3">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Trạng thái</p>
                     <p className="mt-0.5 text-sm font-semibold text-slate-900">
@@ -156,7 +153,7 @@ export default function TopicDetailPanel({ open, onClose, topicId }: Props) {
 
                 {/* Thông tin chung */}
                 <Section icon={Hash} title="Thông tin chung">
-                  <div className="pl-4 divide-y divide-slate-200">
+                  <div className="pl-4 ">
                     <MetaRow label="Tên chủ đề" value={detail.topicName || '—'} />
                     <MetaRow
                       label="Trạng thái"
@@ -169,7 +166,6 @@ export default function TopicDetailPanel({ open, onClose, topicId }: Props) {
                       }
                     />
                     <MetaRow label="Ngày tạo" value={formatDateTime(detail.createdAt)} />
-                    <MetaRow label="Cập nhật lần cuối" value={formatDateTime(detail.updatedAt)} />
                     <MetaRow label="Mô tả" value={detail.description || '—'} />
                   </div>
                 </Section>

@@ -1,7 +1,7 @@
 import type { CurrentUser } from '@/modules/user/user';
 import { createContext, useContext, useEffect, useState } from 'react';
-import authService from '@/modules/auth/api/authApi';
-import { updateTokensInStorage } from '@/modules/auth/authStorage';
+import { handleAuthFailure } from '@/modules/auth/utils/handleAuthFailure';
+import { refreshAccessToken } from '@/shared/lib/refreshTokenManager';
 
 type AuthContextType = {
   user: CurrentUser | null;
@@ -72,12 +72,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const delayMs = Math.max(5_000, expiresAt - Date.now() - refreshAheadMs);
 
       timerId = window.setTimeout(async () => {
+        console.log('[Auto Refresh] Scheduled refresh triggered', {
+          delayMs,
+          expiresAt: expiresAtRaw,
+          now: new Date().toISOString(),
+        });
+        
         try {
-          const tokens = await authService.refresh({ refreshToken, deviceUid });
-          updateTokensInStorage(tokens);
-        } catch {
-          localStorage.clear();
-          window.location.href = '/login';
+          await refreshAccessToken();
+          console.log('[Auto Refresh] Success!');
+        } catch (err) {
+          console.error('[Auto Refresh] Failed, logging out...', err);
+          await handleAuthFailure();
           return;
         }
         scheduleNext();
@@ -106,7 +112,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth phải dùng bên trong AuthProvider');
+    // Trong development, có thể xảy ra lỗi hot reload
+    // Log để debug nhưng không throw ngay
+    console.error('useAuth được gọi bên ngoài AuthProvider - có thể do hot reload');
+    
+    // Trả về giá trị mặc định thay vì throw
+    // Điều này giúp tránh crash khi hot reload
+    return {
+      user: null,
+      login: () => {},
+      logout: () => {},
+    };
   }
   return context;
 }

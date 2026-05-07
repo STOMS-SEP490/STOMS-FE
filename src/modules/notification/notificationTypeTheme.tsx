@@ -77,7 +77,7 @@ const THEMES: Record<NotificationKind, Omit<NotificationVisual, 'kind'>> = {
     iconWrapClass: 'bg-rose-50 text-rose-600 ring-1 ring-rose-100',
   },
   SESSION: {
-    label: 'Buổi học',
+    label: 'Buổi',
     Icon: CalendarClock,
     iconWrapClass: 'bg-cyan-50 text-cyan-600 ring-1 ring-cyan-100',
   },

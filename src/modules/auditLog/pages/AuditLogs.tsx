@@ -27,7 +27,7 @@ const entityTypeLabelMap: Record<string, string> = {
   '4': 'Phiếu mượn', '5': 'Danh mục', '6': 'Chương trình học',
   '7': 'Thiết bị', '8': 'Mượn thiết bị', '9': 'Sự kiện',
   '10': 'Tài khoản', '11': 'Thành viên', '12': 'Yêu cầu',
-  '13': 'Buổi học', '14': 'Kỹ năng', '15': 'Buổi môn học',
+  '13': 'Buổi', '14': 'Kỹ năng', '15': 'Buổi môn học',
   '16': 'Môn học', '17': 'Báo cáo công việc', '18': 'Nhóm',
   '19': 'Chủ đề', '20': 'Giao dịch',
 };
