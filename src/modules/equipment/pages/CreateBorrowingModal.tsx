@@ -374,7 +374,7 @@ export default function CreateBorrowingModal({
         const now = dayjs()
         const res = await sessionApi.getFilter({
           RequestId: selectedRequestId,
-          Statuses: ['ASSIGNED', 'ONGOING'],
+          Statuses: ['ASSIGNED'],
           PageNumber: 1,
           PageSize: 500,
         })
