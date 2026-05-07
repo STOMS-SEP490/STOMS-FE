@@ -535,6 +535,23 @@ export default function RequestDetail() {
                       </div>
                     ) : null}
                     
+                    {/* Cảnh báo nếu có session diễn ra trong vòng 7 ngày */}
+                    {previews.some(p => {
+                      if (!p.startAt) return false;
+                      const daysUntilSession = dayjs(p.startAt).diff(dayjs(), 'day');
+                      return daysUntilSession < 7;
+                    }) && (
+                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <TriangleAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                          <p className="text-xs text-amber-800 font-medium">
+Các buổi diễn ra trong vòng 7 ngày có thể không đảm bảo thời gian xét duyệt, số lượng nhân sự và thiết bị.
+
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
                     {previews.some(p => 
                       ((p.teachersRequired ?? 0) + 3 > (p.availableTeacherCount ?? 0) && (p.teachersRequired ?? 0) > 0) ||
                       ((p.tasRequired ?? 0) + 3 > (p.availableTaCount ?? 0) && (p.tasRequired ?? 0) > 0)
@@ -543,7 +560,7 @@ export default function RequestDetail() {
                         <div className="flex items-start gap-2">
                           <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                           <p className="text-xs text-amber-800 font-medium">
-                            Nhân sự phù hợp có thể không đáp ứng đủ cho yêu cầu này
+                            Số nhân sự phù hợp có thể không đáp ứng đủ cho yêu cầu này
                           </p>
                         </div>
                       </div>
