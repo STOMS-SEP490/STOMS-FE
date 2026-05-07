@@ -518,15 +518,15 @@ export default function TeacherTaskReportPage() {
         const exp = createExpenses[i];
         const amountNum = Number((exp.amount || '').replace(/\D/g, ''));
         if (!amountNum || Number.isNaN(amountNum) || amountNum <= 0) {
-          message.warning(`Vui lòng nhập số tiền chi phí hợp lệ (khoản #${i + 1}).`);
+          message.warning(`Vui lòng nhập số tiền chi phí hợp lệ `);
           return;
         }
         if (!String(exp.description ?? '').trim()) {
-          message.warning(`Vui lòng nhập mô tả cho khoản chi phí (khoản #${i + 1}).`);
+          message.warning(`Vui lòng nhập mô tả cho khoản chi phí`);
           return;
         }
         if (!exp.file) {
-          message.warning(`Mỗi khoản chi phí bắt buộc có ảnh chứng từ chuyển khoản (khoản #${i + 1}).`);
+          message.warning(`Mỗi khoản chi phí bắt buộc có ảnh chứng từ chuyển khoản`);
           return;
         }
       }
@@ -537,7 +537,6 @@ export default function TeacherTaskReportPage() {
       const endAtVal = formState.endAt ? dayjs(formState.endAt).toISOString() : undefined;
 
       if (editingId != null) {
-        // Khi đang edit: bấm "Lưu" sẽ tự lưu chi phí (thêm mới / chỉnh sửa) trước.
         let didSaveExpense = false;
         if (showNewExpenseForm) {
           const ok = await handleSaveNewExpense();

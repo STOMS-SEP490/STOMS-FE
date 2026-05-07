@@ -609,42 +609,39 @@ export default function RequestDetailTeamPanel({
                 {isExpanded && team && (
                   <div className="px-3 py-3 bg-slate-50 border-t border-slate-200 space-y-2">
                     {(() => {
-                      const matchedTeacher = getTeamMetric(team, ['matchingSkillTeacherCount']);
+                      // Backend đã tắt tính năng này, giữ comment để sau này bật lại có thể dùng.
+                      // const matchedTeacher = getTeamMetric(team, ['matchingSkillTeacherCount']);
                       const matchedTa = getTeamMetric(team, ['matchingSkillTaCount']);
-                      const availableTeacher = getTeamMetric(team, ['availableTeacherCount', 'availableTeachersCount']);
+                      // const availableTeacher = getTeamMetric(team, ['availableTeacherCount', 'availableTeachersCount']);
                       const availableTa = getTeamMetric(team, ['availableTaCount', 'availableTACount']);
-                      const totalTeacher = getTeamMetric(team, ['totalTeacherCount', 'teachersCount']);
+                      // const totalTeacher = getTeamMetric(team, ['totalTeacherCount', 'teachersCount']);
                       const totalTa = getTeamMetric(team, ['totalTaCount', 'totalTACount', 'tasCount']);
-                      const hasTeacher = availableTeacher != null || totalTeacher != null;
+                      // const hasTeacher = availableTeacher != null || totalTeacher != null;
                       const hasTa = availableTa != null || totalTa != null;
                       return (
                         <>
-                          {memberCount != null && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-semibold text-slate-700">Tổng thành viên:</span>
-                              <span className="text-[10px] font-semibold text-slate-700">{memberCount}</span>
-                            </div>
-                          )}
-                          {hasTeacher && (
+                         
+                          {/* NOTE(2026-04): TẠM THỜI TẮT - Backend đã tắt gợi ý giảng viên trong team */}
+                          {/* {hasTeacher && (
                             <>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold text-slate-700">Giảng viên khả dụng:</span>
+                                <span className="text-[10px] font-semibold text-slate-700">Số giảng viên khả dụng:</span>
                                 <span className="text-[10px] font-semibold text-slate-700">{availableTeacher ?? totalTeacher ?? '—'}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold text-slate-700">Kĩ năng phù hợp (GV):</span>
+                                <span className="text-[10px] font-semibold text-slate-700">Số giảng viên có kỹ năng phù hợp:</span>
                                 <span className="text-[10px] font-semibold text-slate-700">{matchedTeacher ?? '—'}</span>
                               </div>
                             </>
-                          )}
+                          )} */}
                           {hasTa && (
                             <>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold text-slate-700">Sinh viên khả dụng:</span>
+                                <span className="text-[10px] font-semibold text-slate-700">Số sinh viên khả dụng:</span>
                                 <span className="text-[10px] font-semibold text-slate-700">{availableTa ?? totalTa ?? '—'}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold text-slate-700">Kĩ năng phù hợp (SV):</span>
+                                <span className="text-[10px] font-semibold text-slate-700">Số sinh viên có kĩ năng phù hợp:</span>
                                 <span className="text-[10px] font-semibold text-slate-700">{matchedTa ?? '—'}</span>
                               </div>
                             </>
@@ -819,37 +816,40 @@ export default function RequestDetailTeamPanel({
                         </div>
 
                         {(() => {
-                          const matchedTeacher = getTeamMetric(team, ['matchingSkillTeacherCount']);
+                          // NOTE(2026-04): TẠM THỜI TẮT HIỂN THỊ GIẢNG VIÊN (Teacher) trong team suggestions
+                          // Backend đã tắt tính năng này, giữ comment để sau này bật lại có thể dùng.
+                          // const matchedTeacher = getTeamMetric(team, ['matchingSkillTeacherCount']);
                           const matchedTa = getTeamMetric(team, ['matchingSkillTaCount']);
-                          const availableTeacher = getTeamMetric(team, ['availableTeacherCount', 'availableTeachersCount']);
+                          // const availableTeacher = getTeamMetric(team, ['availableTeacherCount', 'availableTeachersCount']);
                           const availableTa = getTeamMetric(team, ['availableTaCount', 'availableTACount']);
-                          const totalTeacher = getTeamMetric(team, ['totalTeacherCount', 'teachersCount']);
+                          // const totalTeacher = getTeamMetric(team, ['totalTeacherCount', 'teachersCount']);
                           const totalTa = getTeamMetric(team, ['totalTaCount', 'totalTACount', 'tasCount']);
-                          const hasTeacher = availableTeacher != null || totalTeacher != null;
+                          // const hasTeacher = availableTeacher != null || totalTeacher != null;
                           const hasTa = availableTa != null || totalTa != null;
-                          if (!hasTeacher && !hasTa) return null;
+                          if (!hasTa) return null; // Chỉ kiểm tra hasTa vì hasTeacher đã tắt
                           return (
                             <>
-                              {hasTeacher && (
+                              {/* NOTE(2026-04): TẠM THỜI TẮT - Backend đã tắt gợi ý giảng viên trong team */}
+                              {/* {hasTeacher && (
                                 <>
                                   <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-semibold text-slate-700">Giảng viên khả dụng:</span>
                                     <span className="text-[10px] font-semibold text-slate-700">{availableTeacher ?? totalTeacher ?? '—'}</span>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-semibold text-slate-700">Kĩ năng phù hợp (GV):</span>
+                                    <span className="text-[10px] font-semibold text-slate-700">Số giảng viên có kỹ năng phù hợp:</span>
                                     <span className="text-[10px] font-semibold text-slate-700">{matchedTeacher ?? '—'}</span>
                                   </div>
                                 </>
-                              )}
+                              )} */}
                               {hasTa && (
                                 <>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-semibold text-slate-700">Sinh viên khả dụng:</span>
+                                    <span className="text-[10px] font-semibold text-slate-700">Số sinh viên khả dụng:</span>
                                     <span className="text-[10px] font-semibold text-slate-700">{availableTa ?? totalTa ?? '—'}</span>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-semibold text-slate-700">Kĩ năng phù hợp:</span>
+                                    <span className="text-[10px] font-semibold text-slate-700">Số sinh viên có kỹ năng phù hợp:</span>
                                     <span className="text-[10px] font-semibold text-slate-700">{matchedTa ?? '—'}</span>
                                   </div>
                                 </>

@@ -222,6 +222,20 @@ export default function TeamLeaderStaffAssignmentPanel({
     );
   }
 
+  // Check if there are any editable assignments (PENDING or REJECTED)
+  const hasEditableAssignments = useMemo(() => {
+    return taAssignments.some((slot) => {
+      const assignedByMemberId = Number(slot.AssignedByMemberId ?? 0);
+      const isAssignedByCurrentUser = assignedByMemberId === 0 || assignedByMemberId === currentMemberId;
+      const statusInfo = getAssignmentStatusInfo(slot.Status);
+      const statusCode = statusInfo.code;
+      
+      return isAssignedByCurrentUser &&
+        (statusCode === ASSIGNMENT_STATUS.PENDING || 
+         statusCode === ASSIGNMENT_STATUS.REJECTED);
+    });
+  }, [taAssignments, currentMemberId]);
+
   return (
     <section className="space-y-3 border-t border-slate-200 pt-4">
       <div className="flex items-center justify-between">
@@ -248,7 +262,7 @@ export default function TeamLeaderStaffAssignmentPanel({
               {saving ? 'Đang lưu...' : 'Lưu'}
             </Button>
           </div>
-        ) : canEdit ? (
+        ) : canEdit && hasEditableAssignments ? (
           <Button
             type="button"
             size="sm"
@@ -274,11 +288,11 @@ export default function TeamLeaderStaffAssignmentPanel({
             const assignedByMemberId = Number(slot.AssignedByMemberId ?? 0);
             const isAssignedByCurrentUser = assignedByMemberId === 0 || assignedByMemberId === currentMemberId;
             
+            // Only allow editing for PENDING or REJECTED status, not CANCELLED
             const canEditThisSlot = 
               isAssignedByCurrentUser &&
               (statusCode === ASSIGNMENT_STATUS.PENDING || 
-               statusCode === ASSIGNMENT_STATUS.REJECTED || 
-               statusCode === ASSIGNMENT_STATUS.CANCELLED);
+               statusCode === ASSIGNMENT_STATUS.REJECTED);
             const suggestions = taSuggestionsByAssignmentId[assignmentId] ?? [];
             const selectedIdsOnOtherSlots = taAssignments
               .map((s) => (s.AssignmentId === assignmentId ? 0 : Math.max(0, Number(s.StaffMemberId ?? 0))))
