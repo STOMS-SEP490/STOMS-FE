@@ -26,11 +26,11 @@ export default function ForgotPassword() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const inputClass =
-    'w-full rounded-2xl border border-sky-100 bg-white py-3 pl-12 pr-4 text-slate-700 placeholder-slate-400 shadow-[0_4px_16px_rgba(2,132,199,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-300';
+    'w-full rounded-xl sm:rounded-2xl border border-sky-100 bg-white py-2.5 sm:py-3 pl-10 sm:pl-12 pr-3 sm:pr-4 text-sm sm:text-base text-slate-700 placeholder-slate-400 shadow-[0_4px_16px_rgba(2,132,199,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-300';
   const inputPasswordClass =
-    'w-full rounded-2xl border border-sky-100 bg-white py-3 pl-12 pr-12 text-slate-700 placeholder-slate-400 shadow-[0_4px_16px_rgba(2,132,199,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-300';
+    'w-full rounded-xl sm:rounded-2xl border border-sky-100 bg-white py-2.5 sm:py-3 pl-10 sm:pl-12 pr-10 sm:pr-12 text-sm sm:text-base text-slate-700 placeholder-slate-400 shadow-[0_4px_16px_rgba(2,132,199,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-300';
   const primaryBtnClass =
-    'w-full py-3 rounded-lg bg-[#193350] text-white hover:opacity-90 transition disabled:opacity-70';
+    'w-full py-2.5 sm:py-3 text-sm sm:text-base rounded-lg bg-[#193350] text-white hover:opacity-90 transition disabled:opacity-70';
 
   useEffect(() => {
     setImage('/img/ForgotPassword.png');
@@ -152,14 +152,23 @@ export default function ForgotPassword() {
     <>
       {step === 1 && (
         <>
-          <h2 className="text-5xl font-bold">QUÊN MẬT KHẨU</h2>
-          <p className="text-sm text-white/80 mt-2 mb-8">
+          {/* Robot Image - Mobile only */}
+          <div className="flex justify-start items-center mb-6 lg:hidden h-[40vh] sm:h-[45vh] w-full overflow-hidden -mx-6 sm:-mx-12 md:-mx-20">
+            <img 
+              src="/img/ForgotPassword.png" 
+              alt="Forgot Password" 
+              className="h-full w-full object-cover object-left" 
+            />
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold">QUÊN MẬT KHẨU</h2>
+          <p className="text-xs sm:text-sm text-white/80 mt-2 mb-6 sm:mb-8">
             Hãy nhập địa chỉ email của bạn để khôi phục mật khẩu.
           </p>
 
-          <form onSubmit={handleRequestOtp} className="space-y-4" noValidate>
+          <form onSubmit={handleRequestOtp} className="space-y-3 sm:space-y-4" noValidate>
             <div className="relative">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+              <span className="pointer-events-none absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Mail size={18} />
               </span>
               <input
@@ -174,11 +183,11 @@ export default function ForgotPassword() {
               />
             </div>
 
-            <button type="submit" disabled={loading} className={`mt-4 ${primaryBtnClass}`}>
+            <button type="submit" disabled={loading} className={`mt-3 sm:mt-4 ${primaryBtnClass}`}>
               {loading ? 'Đang gửi...' : 'Gửi Yêu Cầu'}
             </button>
 
-            <div className="text-right text-sm">
+            <div className="text-right text-xs sm:text-sm">
               <Link to="/login" className="text-blue-200 hover:underline">
                 Quay lại đăng nhập
               </Link>
@@ -189,15 +198,24 @@ export default function ForgotPassword() {
 
       {step === 2 && (
         <>
-          <h2 className="text-5xl font-bold">Kiểm Tra Email Của Bạn</h2>
-          <p className="text-sm text-white/80 mt-2 mb-8">
+          {/* Robot Image - Mobile only */}
+          <div className="flex justify-start items-center mb-6 lg:hidden h-[40vh] sm:h-[45vh] w-full overflow-hidden -mx-6 sm:-mx-12 md:-mx-20">
+            <img 
+              src="/img/ForgotPassword.png" 
+              alt="Forgot Password" 
+              className="h-full w-full object-cover object-left" 
+            />
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold">Kiểm Tra Email Của Bạn</h2>
+          <p className="text-xs sm:text-sm text-white/80 mt-2 mb-6 sm:mb-8">
             Chúng tôi đã gửi mã OTP đến email của bạn.
             <br /> Vui lòng nhập mã để tiếp tục.
           </p>
 
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div className="relative">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+              <span className="pointer-events-none absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <KeyRound size={18} />
               </span>
               <input
@@ -218,7 +236,7 @@ export default function ForgotPassword() {
               {loading ? 'Đang xác thực...' : 'Xác Nhận Mã'}
             </button>
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 text-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 text-xs sm:text-sm">
               <button
                 type="button"
                 disabled={loading}
@@ -237,14 +255,23 @@ export default function ForgotPassword() {
 
       {step === 3 && (
         <>
-          <h2 className="text-5xl font-bold">Đặt Lại Mật Khẩu</h2>
-          <p className="text-sm text-white/80 mt-2 mb-8">
+          {/* Robot Image - Mobile only */}
+          <div className="flex justify-start items-center mb-6 lg:hidden h-[40vh] sm:h-[45vh] w-full overflow-hidden -mx-6 sm:-mx-12 md:-mx-20">
+            <img 
+              src="/img/ForgotPassword.png" 
+              alt="Forgot Password" 
+              className="h-full w-full object-cover object-left" 
+            />
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold">Đặt Lại Mật Khẩu</h2>
+          <p className="text-xs sm:text-sm text-white/80 mt-2 mb-6 sm:mb-8">
             Vui lòng nhập mật khẩu mới của bạn.
           </p>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4" noValidate>
             <div className="relative">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+              <span className="pointer-events-none absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Lock size={18} />
               </span>
               <input
@@ -264,7 +291,7 @@ export default function ForgotPassword() {
             </div>
 
             <div className="relative">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+              <span className="pointer-events-none absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Lock size={18} />
               </span>
               <input
@@ -287,13 +314,13 @@ export default function ForgotPassword() {
             </div>
 
             {errors.confirmPassword && (
-              <p className="text-red-200 text-sm">{errors.confirmPassword.message}</p>
+              <p className="text-red-200 text-xs sm:text-sm">{errors.confirmPassword.message}</p>
             )}
 
             <button
               type="submit"
               disabled={!isValid || loading}
-              className={`mt-4 w-full py-3 rounded-lg text-white transition
+              className={`mt-3 sm:mt-4 w-full py-2.5 sm:py-3 text-sm sm:text-base rounded-lg text-white transition
                 ${
                   isValid
                     ? 'bg-[#193350] hover:opacity-90'
@@ -303,7 +330,7 @@ export default function ForgotPassword() {
               {loading ? 'Đang cập nhật...' : 'Cập Nhật Mật Khẩu'}
             </button>
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 text-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 text-xs sm:text-sm">
               <button
                 type="button"
                 disabled={loading}

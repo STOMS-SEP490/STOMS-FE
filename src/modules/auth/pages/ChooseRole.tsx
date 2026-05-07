@@ -79,8 +79,17 @@ export default function ChooseRole() {
 
   return (
     <div className="w-full max-w-xl">
-      <h2 className="text-3xl font-bold text-white">CHỌN TƯ CÁCH ĐĂNG NHẬP</h2>
-      <p className="text-sm text-white/80 mt-2 mb-6">
+      {/* Robot Image - Mobile only */}
+      <div className="flex justify-start items-center mb-6 lg:hidden h-[40vh] sm:h-[45vh] w-full overflow-hidden -mx-6 sm:-mx-12 md:-mx-20">
+        <img 
+          src="/img/login.png" 
+          alt="Choose Role" 
+          className="h-full w-full object-cover object-left" 
+        />
+      </div>
+
+      <h2 className="text-2xl sm:text-3xl lg:text-3xl font-bold text-white">CHỌN TƯ CÁCH ĐĂNG NHẬP</h2>
+      <p className="text-xs sm:text-sm text-white/80 mt-2 mb-4 sm:mb-6">
         Tài khoản của bạn có nhiều tư cách. Vui lòng chọn để tiếp tục.
       </p>
 
@@ -88,7 +97,7 @@ export default function ChooseRole() {
         {roleSelection.availableRoles.map((role) => (
           <div
             key={role.roleId}
-            className="text-left rounded-2xl border border-sky-100/60 bg-white/95 px-4 py-4 shadow-[0_10px_30px_rgba(2,132,199,0.18)] hover:bg-white transition cursor-pointer"
+            className="text-left rounded-xl sm:rounded-2xl border border-sky-100/60 bg-white/95 px-3 sm:px-4 py-3 sm:py-4 shadow-[0_10px_30px_rgba(2,132,199,0.18)] hover:bg-white transition cursor-pointer"
             onClick={() => pick(role.roleId)}
             role="button"
             tabIndex={0}
@@ -96,14 +105,14 @@ export default function ChooseRole() {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900 truncate">
+                <div className="text-sm sm:text-base font-semibold text-slate-900 truncate">
                   {role.roleName}
                 </div>
               </div>
             </div>
-            <div className="mt-3">
+            <div className="mt-2 sm:mt-3">
               <Button
-                className="bg-[#208aae] hover:bg-[#1f819f] text-white w-full"
+                className="bg-[#208aae] hover:bg-[#1f819f] text-white w-full text-xs sm:text-sm py-2 sm:py-2.5"
                 type="button"
                 disabled={loadingRoleId != null}
               >
