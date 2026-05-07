@@ -230,12 +230,7 @@ export default function TopicsReadonlyPage() {
                     {detailTopic.createdAt ? new Date(detailTopic.createdAt).toLocaleString('vi-VN') : '—'}
                   </p>
                 </div>
-                <div className="px-5 py-3">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Cập nhật lần cuối</p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                    {detailTopic.updatedAt ? new Date(detailTopic.updatedAt).toLocaleString('vi-VN') : '—'}
-                  </p>
-                </div>
+                
                 <div className="px-5 py-3">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-[#2197C0]">Trạng thái</p>
                   <p className="mt-0.5 text-sm font-semibold text-slate-900">
@@ -271,10 +266,7 @@ export default function TopicsReadonlyPage() {
                       label="Ngày tạo" 
                       value={detailTopic.createdAt ? new Date(detailTopic.createdAt).toLocaleString('vi-VN') : '—'} 
                     />
-                    <MetaRow 
-                      label="Cập nhật lần cuối" 
-                      value={detailTopic.updatedAt ? new Date(detailTopic.updatedAt).toLocaleString('vi-VN') : '—'} 
-                    />
+                   
                     <MetaRow label="Mô tả" value={detailTopic.description || '—'} />
                   </div>
                 </section>

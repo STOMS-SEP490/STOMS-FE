@@ -1125,7 +1125,7 @@ export default function ManagerDashboard() {
                 <p className="text-xs font-semibold text-gray-500 uppercase">
                   Phân bố số buổi môn học
                 </p>
-                <p className="text-sm text-gray-600">Số môn theo khoảng số buổi học</p>
+                <p className="text-sm text-gray-600">Số môn theo khoảng số buổi</p>
               </div>
             </div>
             {subjectSessionDistData.length > 0 ? (

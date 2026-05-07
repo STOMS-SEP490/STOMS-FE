@@ -412,8 +412,8 @@ export default function TaskSessionDetailPage() {
                           e.status === 1 || e.status === EXPENSE_STATUS.PENDING
                         );
                         return {
-                          dot: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
-                          children: (
+                          icon: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
+                          content: (
                             <div className="pb-2">
                               <div className="border-l-4 border-l-[#1a7a99] bg-white px-4 py-3 shadow-sm">
                                 <div className="flex items-center justify-between gap-2">
@@ -532,8 +532,8 @@ export default function TaskSessionDetailPage() {
                           e.status === 1 || e.status === EXPENSE_STATUS.PENDING
                         );
                         return {
-                          dot: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
-                          children: (
+                          icon: <div className="h-2.5 w-2.5 rounded-full bg-[#1a7a99] border-2 border-white shadow-sm" />,
+                          content: (
                             <div className="pb-2">
                               <div className="border-l-4 border-l-[#1a7a99] bg-white px-4 py-3 shadow-sm">
                                 <div className="flex items-center justify-between gap-2">

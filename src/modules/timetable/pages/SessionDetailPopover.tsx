@@ -83,7 +83,7 @@ export default function SessionDetailPopover({
     (eventMeta?.sessionTitle ?? '').trim() ||
     topicTitle ||
     (session?.Notes ?? '').trim() ||
-    'Buổi học';
+    'Buổi';
 
   const memberId = Number(JSON.parse(localStorage.getItem('user') || '{}')?.memberId || 0) || 0;
   const ownerIdFromSession = getAttendanceOwnerId(session?.Attendances ?? null);
