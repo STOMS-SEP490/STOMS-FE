@@ -157,7 +157,6 @@ export default function ContractDetailSidebar({ open, onClose, contract, loading
                 <Section icon={Hash} title="Thông tin hợp đồng">
                   <div className="pl-4 grid grid-cols-2 gap-x-6">
                     <MetaRow label="Mã hợp đồng" value={contract.contractCode} />
-                    <MetaRow label="ID" value={`#${contract.contractId}`} />
                     <MetaRow label="Số tiền" value={
                       <span className="font-semibold text-emerald-700 tabular-nums">{amountFormatted}</span>
                     } />

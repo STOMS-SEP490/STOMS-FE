@@ -30,7 +30,11 @@ export default function CreateContractModal({
   const [error, setError] = useState('');
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<
-    Array<Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'RequestId' | 'StartAt' | 'Location'>>
+    Array<
+      Pick<SessionResponse, 'SessionId' | 'SessionNo' | 'RequestId' | 'StartAt' | 'Location'> & {
+        RequestCode?: string | null;
+      }
+    >
   >([]);
 
   const memberId =
@@ -54,6 +58,7 @@ export default function CreateContractModal({
             SessionId: Number(raw.SessionId ?? 0),
             SessionNo: Number(raw.SessionNo ?? 0),
             RequestId: Number(raw.RequestId ?? 0),
+            RequestCode: raw.Request?.RequestCode ?? null,
             StartAt: String(raw.StartAt ?? ''),
             Location: String(raw.Location ?? ''),
           }))
@@ -180,7 +185,7 @@ export default function CreateContractModal({
         {!initialSessionId && (
           <div className="space-y-2">
             <Label className="text-black font-medium">
-              Buổi học (đã hoàn thành & đã phân công)
+              Buổi:
             </Label>
             <Select
               value={sessionId ?? undefined}
@@ -192,7 +197,7 @@ export default function CreateContractModal({
             >
               {sessionOptions.map((item) => (
                 <Select.Option key={item.SessionId} value={item.SessionId}>
-                  {`Request #${item.RequestId} - Buổi ${item.SessionNo || item.SessionId} — ${new Date(
+                  {`${item.RequestCode || '—'} - Buổi ${item.SessionNo || item.SessionId} — ${new Date(
                     item.StartAt,
                   ).toLocaleString('vi-VN')} (${item.Location || '—'})`}
                 </Select.Option>

@@ -171,7 +171,7 @@ export default function TransactionDetailPanel({ item, loading, onClose }: Trans
                                   )}
                                   {expense.taskReport.sessionNo != null && (
                                     <div>
-                                      <div className="text-xs text-slate-500 mb-1">Buổi học</div>
+                                      <div className="text-xs text-slate-500 mb-1">Buổi</div>
                                       <div className="text-slate-900">Buổi {expense.taskReport.sessionNo}</div>
                                     </div>
                                   )}

@@ -2,14 +2,12 @@ import axios, {
   type AxiosError,
   type InternalAxiosRequestConfig,
 } from 'axios';
-import authService from '@/modules/auth/api/authApi';
-import { updateTokensInStorage } from '@/modules/auth/authStorage';
+import { handleAuthFailure } from '@/modules/auth/utils/handleAuthFailure';
+import { refreshAccessToken } from './refreshTokenManager';
 
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
 });
-
-let refreshPromise: Promise<string> | null = null;
 
 async function getValidAccessToken(): Promise<string | null> {
   const token = localStorage.getItem('accessToken');
@@ -25,20 +23,13 @@ async function getValidAccessToken(): Promise<string | null> {
   }
 
   try {
-    if (!refreshPromise) {
-      refreshPromise = (async () => {
-        const refreshToken = localStorage.getItem('refreshToken');
-        const rawUser = localStorage.getItem('user');
-        const deviceUid = rawUser ? JSON.parse(rawUser).deviceUid : null;
-        if (!refreshToken || !deviceUid) throw new Error('Missing refresh token or deviceUid');
-        const tokens = await authService.refresh({ refreshToken, deviceUid });
-        updateTokensInStorage(tokens);
-        return tokens.accessToken;
-      })().finally(() => { refreshPromise = null; });
-    }
-    return await refreshPromise;
-  } catch {
-    return token; 
+    console.log('[getValidAccessToken] Token expiring soon, refreshing...');
+    return await refreshAccessToken();
+  } catch (err) {
+    console.error('[getValidAccessToken] Refresh failed, logging out...', err);
+    // Refresh fail -> logout ngay, KHÔNG trả về token cũ
+    void handleAuthFailure();
+    return null;
   }
 }
 
@@ -85,37 +76,19 @@ axiosClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        if (!refreshPromise) {
-          refreshPromise = (async () => {
-            const refreshToken = localStorage.getItem('refreshToken');
-            const rawUser = localStorage.getItem('user');
-            const deviceUid = rawUser ? JSON.parse(rawUser).deviceUid : null;
-
-            if (!refreshToken || !deviceUid) {
-              throw new Error('Missing refresh token or deviceUid');
-            }
-
-            const tokens = await authService.refresh({
-              refreshToken,
-              deviceUid,
-            });
-            updateTokensInStorage(tokens);
-            return tokens.accessToken;
-          })().finally(() => {
-            refreshPromise = null;
-          });
-        }
-
-        const nextAccessToken = await refreshPromise;
+        console.log('[401 Retry] Attempting refresh for URL:', originalRequest?.url);
+        const nextAccessToken = await refreshAccessToken();
 
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`;
         }
 
+        console.log('[401 Retry] Retrying original request with new token');
         return axiosClient(originalRequest);
-      } catch {
-        localStorage.clear();
-        window.location.href = '/login';
+      } catch (refreshError) {
+        console.error('[401 Retry] Refresh failed, logging out...', refreshError);
+        // Refresh token thất bại -> logout đúng cách
+        await handleAuthFailure();
         return Promise.reject(error);
       }
     }
@@ -124,8 +97,8 @@ axiosClient.interceptors.response.use(
       if (isAuthEndpoint) {
         return Promise.reject(error);
       }
-      localStorage.clear();
-      window.location.href = '/login';
+      // 401 không thể retry -> logout đúng cách
+      await handleAuthFailure();
       return Promise.reject(error.response?.data || error);
     }
 

@@ -228,11 +228,10 @@ export default function TeacherContributeModal({ open, onClose, onSubmitted }: P
         </div>
 
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-black">Ghi chú (Tùy chọn)</Label>
+          <Label className="text-sm font-medium text-black">Nội dung: </Label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Thêm ghi chú về khoản đóng góp của bạn..."
             className="w-full min-h-[80px] rounded-md border border-gray-200 px-3 py-2 text-sm text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
           />
         </div>

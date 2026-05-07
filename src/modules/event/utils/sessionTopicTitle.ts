@@ -2,7 +2,6 @@ import type { SessionDetail } from '@/modules/request/type';
 
 type TopicRef = { Title?: string | null } | null | undefined;
 
-/** BE: EventSession / SubjectSession lite — nếu một bên null thì lấy Title của bên còn lại; cả hai có thì ưu Event rồi Subject. */
 export function resolveSessionTopicTitleFromRefs(
   eventSession: TopicRef,
   subjectSession: TopicRef,
@@ -25,7 +24,6 @@ export function resolveSessionTopicTitleFromSessionLike(session: {
   return resolveSessionTopicTitleFromRefs(session.EventSession, session.SubjectSession);
 }
 
-/** Popover: ưu tiên sessionTitle từ meta (lịch), sau đó cùng quy tắc Event/Subject. */
 export function resolvePopoverSessionHeading(
   eventMetaSessionTitle: string | undefined,
   session: SessionDetail | null,
