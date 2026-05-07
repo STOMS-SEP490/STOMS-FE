@@ -43,10 +43,9 @@ function formatTimeRange(startAt?: string, endAt?: string) {
 
 function getSessionDisplayName(row: TeamLeaderTimetableAssignmentRow) {
   if (row.sessionNo != null) return `Buổi ${row.sessionNo}`;
-  return 'Buổi dạy';
+  return 'Buổi';
 }
 
-/** Tiêu đề panel — ưu tiên tên buổi/khóa từ API, không chỉ "Buổi 2". */
 function getSessionPanelTitle(
   session: RequestSessionSummary | null,
   requestName?: string | null,
@@ -278,7 +277,7 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
           },
           {
             id: 'operation',
-            header: () => <span className="block w-full text-center">THAO TÁC</span>,
+            header: () => <span className="block w-full text-center">Thao tác</span>,
             enableSorting: false,
             cell: ({ row }) => (
               <button
@@ -614,10 +613,10 @@ export default function TeamLeaderTimetableAssignments(props?: TeamLeaderTimetab
               </h2>
               <p className={cn(isTeacherRoute ? 'mt-0.5 text-[13px]' : 'mt-1 text-sm', 'text-slate-500')}>
                 {isTeacherRoute
-                  ? 'Theo dõi các buổi dạy của bạn theo từng buổi.'
+                  ? 'Theo dõi các buổi tham gia của bạn theo từng buổi.'
                   : byMember
-                  ? 'Theo dõi các buổi dạy của bạn theo từng buổi.'
-                  : 'Theo dõi buổi dạy, lịch trình của team theo từng buổi.'}
+                  ? 'Theo dõi các buổi tham gia của bạn theo từng buổi.'
+                  : 'Theo dõi buổi, lịch trình của nhóm theo từng buổi.'}
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">

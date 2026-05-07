@@ -104,5 +104,5 @@ export function sessionDisplayName(item: { sessionTitle?: string; sessionNo?: nu
   const title = (item.sessionTitle ?? '').trim();
   if (title) return title;
   if (item.sessionNo != null) return `Buổi ${item.sessionNo}`;
-  return 'Buổi dạy';
+  return 'Buổi';
 }

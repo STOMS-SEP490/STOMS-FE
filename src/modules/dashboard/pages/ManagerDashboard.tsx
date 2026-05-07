@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, ClipboardList, Wallet, PieChart, Laptop, Calendar, ArrowLeftRight, Users, Download } from 'lucide-react';
+import { CalendarDays, Wallet, PieChart, Laptop, Calendar, Download, Layers, Timer, ListChecks, Send, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
 import dayjs from 'dayjs';
 import {
   ResponsiveContainer,
@@ -9,20 +9,24 @@ import {
   Cell,
   BarChart,
   Bar,
-  LineChart,
-  Line,
-  ComposedChart,
   XAxis,
   YAxis,
   Tooltip,
   Legend,
   CartesianGrid,
-  Brush,
-  ReferenceLine,
 } from 'recharts';
 import { dashboardApi, type DashboardRangeParams } from '@/modules/dashboard/api/dashboardApi';
+import requestApi from '@/modules/request/api/requestApi';
 import { Checkbox, DatePicker, message, Modal } from 'antd';
 import { getRoleLabel } from '@/constants/role';
+import { useMemo } from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
 
 type KpiTone = 'sky' | 'indigo' | 'blue' | 'purple' | 'emerald' | 'amber';
 
@@ -132,7 +136,6 @@ function KpiCard(props: {
 
 export default function ManagerDashboard() {
   const [range, setRange] = useState<NonNullable<DashboardRangeParams['range']>>('thismonth');
-  const [contributorsWalletId, setContributorsWalletId] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [selectedSheetTypes, setSelectedSheetTypes] = useState<number[]>([]);
@@ -154,9 +157,10 @@ export default function ManagerDashboard() {
     queryFn: () => dashboardApi.getUsersOverview(),
   });
 
-  const { data: eventStatus } = useQuery({
-    queryKey: ['dashboard', 'events-status'],
-    queryFn: () => dashboardApi.getEventStatusDistribution(),
+  const { data: requestTypeSample } = useQuery({
+    queryKey: ['manager-dashboard', 'request-type-sample'],
+    queryFn: () => requestApi.getRequests({ pageNumber: 1, pageSize: 24 }),
+    staleTime: 60_000,
   });
 
   const { data: requestSummary } = useQuery({
@@ -164,62 +168,9 @@ export default function ManagerDashboard() {
     queryFn: () => dashboardApi.getRequestSummary({ range: effectiveRange }),
   });
 
-  const { data: sessionSummary } = useQuery({
-    queryKey: ['dashboard', 'session-summary', effectiveRange],
-    queryFn: () => dashboardApi.getSessionSummary({ range: effectiveRange }),
-  });
-
-  const { data: sessionSummaryToday } = useQuery({
-    queryKey: ['dashboard', 'session-summary', 'today'],
-    queryFn: () => dashboardApi.getSessionSummary({ range: 'today' }),
-  });
-
-  const { data: walletSummary } = useQuery({
-    queryKey: ['dashboard', 'wallet-summary', effectiveRange],
-    queryFn: () => dashboardApi.getWalletSummary({ range: effectiveRange }),
-  });
-
   const { data: walletMetrics } = useQuery({
     queryKey: ['dashboard', 'wallet-metrics', effectiveRange],
     queryFn: () => dashboardApi.getWalletMetrics({ range: effectiveRange }),
-  });
-
-  const { data: walletTopContributors } = useQuery({
-    queryKey: ['dashboard', 'wallet-top-contributors', effectiveRange, contributorsWalletId ?? 'all'],
-    queryFn: () =>
-      dashboardApi.getWalletTopContributors({
-        range: effectiveRange,
-        walletId: contributorsWalletId ?? 0,
-      }),
-    enabled: contributorsWalletId != null,
-  });
-
-  const { data: totalIncomeExpenseSeries } = useQuery({
-    queryKey: ['dashboard', 'wallet-metrics', 'series'],
-    queryFn: async () => {
-      const ranges: NonNullable<DashboardRangeParams['range']>[] = [
-        'today',
-        'thisweek',
-        'thismonth',
-        'last3months',
-        'last6months',
-        '1year',
-      ];
-      const results = await Promise.all(ranges.map((r) => dashboardApi.getWalletMetrics({ range: r })));
-
-      return ranges.map((r, idx) => {
-        const arr = results[idx] ?? [];
-        const totalContribution = arr.reduce((sum: number, x: any) => sum + (Number(x.totalContribution) || 0), 0);
-        const totalExpense = arr.reduce((sum: number, x: any) => sum + (Number(x.totalExpense) || 0), 0);
-        return {
-          range: r,
-          label: rangeLabelMap[r],
-          contribution: totalContribution,
-          expense: totalExpense,
-          net: totalContribution - totalExpense,
-        };
-      });
-    },
   });
 
   const { data: skillStats } = useQuery({
@@ -292,79 +243,32 @@ export default function ManagerDashboard() {
     queryFn: () => dashboardApi.getTeamsStatistics({ pageNumber: 1, pageSize: 8 }),
   });
 
-  const totalWalletBalance =
-    walletSummary?.reduce((sum: number, w: any) => sum + (Number(w.balance) || 0), 0) ?? 0;
-
-  const totalTransactionsInRange =
-    walletSummary?.reduce(
-      (sum: number, w: any) =>
-        sum +
-        (Number(w.totalContributionTransactions) || 0) +
-        (Number(w.totalExpenseTransactions) || 0),
-      0,
-    ) ?? 0;
-
   const roleDistributionData =
     usersOverview?.roleDistribution?.map((r: any) => ({
       name: getRoleLabel(r.roleId) || r.roleName,
       value: r.userCount,
     })) ?? [];
 
-  const viEventStatus = (status: string | null | undefined) => {
-    const s = String(status ?? '').trim();
-    switch (s) {
-      case 'Active':
-        return 'Đang hoạt động';
-      case 'Inactive':
-        return 'Ngừng hoạt động';
-      case 'Completed':
-        return 'Hoàn tất';
-      case 'Cancelled':
-        return 'Đã hủy';
-      default:
-        return s || '—';
+  const requestTypeCounts = useMemo(() => {
+    const items = requestTypeSample?.items ?? []
+    let eventCount = 0
+    let courseCount = 0
+    let subjectCount = 0
+
+    for (const r of items) {
+      if (r.eventId != null) eventCount += 1
+      else if (r.courseId != null) courseCount += 1
+      else if (r.subjectId != null) subjectCount += 1
     }
-  };
 
-  const eventStatusData =
-    eventStatus?.map((s: any) => ({
-      status: viEventStatus(s.status),
-      total: s.totalEvents,
-    })) ?? [];
-
-  const requestSummaryData = requestSummary
-    ? [
-        { key: 'Chờ duyệt', value: requestSummary.pendingRequests },
-        { key: 'Đã duyệt', value: requestSummary.approvedRequests },
-        { key: 'Đang phân công', value: requestSummary.assigningRequests },
-        { key: 'Đang triển khai', value: requestSummary.publishedRequests },
-        { key: 'Hoàn thành', value: requestSummary.completedRequests },
-        { key: 'Từ chối', value: requestSummary.rejectedRequests },
-        { key: 'Hủy', value: requestSummary.cancelledRequests },
-      ]
-    : [];
-
-  const sessionSummaryData = sessionSummary
-    ? [
-        { key: 'Chờ duyệt', value: sessionSummary.pendingSessions },
-        { key: 'Đã duyệt', value: sessionSummary.approvedSessions },
-        { key: 'Đã phân công', value: sessionSummary.assignedSessions },
-        { key: 'Đang dạy', value: sessionSummary.ongoingSessions },
-        { key: 'Hoàn thành', value: sessionSummary.completedSessions },
-        { key: 'Từ chối', value: sessionSummary.rejectedSessions },
-        { key: 'Hủy', value: sessionSummary.cancelledSessions },
-      ]
-    : [];
-
-  const topWalletsByBalance =
-    walletSummary
-      ?.slice()
-      .sort((a: any, b: any) => Number(b.balance) - Number(a.balance))
-      .slice(0, 5)
-      .map((w: any) => ({
-        name: w.walletName,
-        balance: Number(w.balance),
-      })) ?? [];
+    const rows = [
+      { key: 'Sự kiện', value: eventCount, color: '#8B5CF6' },
+      { key: 'Chương trình học', value: courseCount, color: '#10B981' },
+      { key: 'Môn học', value: subjectCount, color: '#F59E0B' },
+    ]
+    const nonZero = rows.filter((x) => x.value > 0)
+    return nonZero.length > 0 ? nonZero : rows
+  }, [requestTypeSample])
 
   const pieColors = ['#2563eb', '#16a34a', '#f97316', '#e11d48', '#7c3aed', '#0f766e'];
 
@@ -431,31 +335,6 @@ export default function ManagerDashboard() {
   const topTeamsBySessions =
     teamsStatisticsPaged?.items?.slice().sort((a: any, b: any) => (b.totalSessions || 0) - (a.totalSessions || 0)).slice(0, 8) ?? [];
 
-  const walletsForContributorSelect =
-    walletSummary?.slice().sort((a: any, b: any) => Number(b.balance) - Number(a.balance)) ?? [];
-
-  const selectedContributorWallet =
-    walletTopContributors && walletTopContributors.length > 0
-      ? contributorsWalletId != null
-        ? walletTopContributors[0]
-        : walletTopContributors[0]
-      : null;
-
-  const contributorChartData =
-    selectedContributorWallet?.topContributors?.map((c: any) => ({
-      name: c.fullName,
-      amount: Number(c.totalContribution) || 0,
-    })) ?? [];
-
-  const rangeLabelMap: Record<NonNullable<DashboardRangeParams['range']>, string> = {
-    today: 'Hôm nay',
-    thisweek: 'Tuần này',
-    thismonth: 'Tháng này',
-    last3months: '3 tháng gần đây',
-    last6months: '6 tháng gần đây',
-    '1year': '1 năm gần đây',
-  };
-
   return (
     <div className="p-6 pl-8 space-y-6">
         {/* HEADER */}
@@ -463,25 +342,24 @@ export default function ManagerDashboard() {
           <div className="min-w-0">
             <h2 className="text-xl font-semibold text-[#1a7a99]">Quản lý thống kê</h2>
             <p className="text-xs text-gray-500 mt-1">
-              Tổng quan hệ thống — số liệu người dùng, sự kiện, yêu cầu, buổi dạy và quỹ.
+              Tổng quan hệ thống — số liệu người dùng, sự kiện, yêu cầu, buổi và quỹ.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <span className="text-xs text-gray-500">Khoảng thời gian:</span>
-            <select
-              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-400/30 min-w-[160px]"
-              value={effectiveRange}
-              onChange={(e) =>
-                setRange(e.target.value as NonNullable<DashboardRangeParams['range']>)
-              }
-            >
-              <option value="today">Hôm nay</option>
-              <option value="thisweek">Tuần này</option>
-              <option value="thismonth">Tháng này</option>
-              <option value="last3months">3 tháng gần đây</option>
-              <option value="last6months">6 tháng gần đây</option>
-              <option value="1year">1 năm gần đây</option>
-            </select>
+            <Select value={effectiveRange} onValueChange={(value) => setRange(value as NonNullable<DashboardRangeParams['range']>)}>
+              <SelectTrigger className="h-9 w-[180px] border-slate-200 bg-white">
+                <SelectValue placeholder="Chọn khoảng thời gian" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Hôm nay</SelectItem>
+                <SelectItem value="thisweek">Tuần này</SelectItem>
+                <SelectItem value="thismonth">Tháng này</SelectItem>
+                <SelectItem value="last3months">3 tháng gần đây</SelectItem>
+                <SelectItem value="last6months">6 tháng gần đây</SelectItem>
+                <SelectItem value="1year">1 năm gần đây</SelectItem>
+              </SelectContent>
+            </Select>
             <button
               type="button"
               className="h-9 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
@@ -586,51 +464,41 @@ export default function ManagerDashboard() {
         </Modal>
 
         {/* STAT CARDS */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <KpiCard
-            title="Yêu cầu chờ duyệt"
-            value={requestSummary?.pendingRequests ?? '—'}
-            sub={rangeLabelMap[effectiveRange]}
-            icon={<CalendarDays className="h-4 w-4 text-sky-700" />}
+            title="Tổng yêu cầu"
+            value={requestSummary?.totalRequests ?? '—'}
+            icon={<Layers className="h-5 w-5 text-sky-700" />}
             tone="sky"
           />
           <KpiCard
-            title="Yêu cầu đang phân công"
+            title="Chờ duyệt"
+            value={requestSummary?.pendingRequests ?? '—'}
+            icon={<Timer className="h-5 w-5 text-amber-700" />}
+            tone="amber"
+          />
+          <KpiCard
+            title="Chờ duyệt phân công"
             value={requestSummary?.assigningRequests ?? '—'}
-            sub={rangeLabelMap[effectiveRange]}
-            icon={<ClipboardList className="h-4 w-4 text-indigo-700" />}
+            icon={<ListChecks className="h-5 w-5 text-indigo-700" />}
             tone="indigo"
           />
           <KpiCard
-            title="Buổi hôm nay"
-            value={sessionSummaryToday?.totalSessions ?? '—'}
-            sub={`Đang diễn ra: ${sessionSummaryToday?.ongoingSessions ?? '—'}`}
-            icon={<Calendar className="h-4 w-4 text-blue-700" />}
+            title="Đã công bố"
+            value={requestSummary?.publishedRequests ?? '—'}
+            icon={<Send className="h-5 w-5 text-blue-700" />}
             tone="blue"
           />
           <KpiCard
-            title="Thiết bị đang mượn"
-            value={equipmentStats?.borrowedEquipment ?? '—'}
-            sub={`Tổng: ${equipmentStats?.totalEquipment ?? '—'} thiết bị`}
-            icon={<Laptop className="h-4 w-4 text-purple-700" />}
-            tone="purple"
-          />
-          <KpiCard
-            title="Số dư quỹ"
-            value={totalWalletBalance.toLocaleString('vi-VN', {
-              style: 'currency',
-              currency: 'VND',
-              maximumFractionDigits: 0,
-            })}
-            sub={rangeLabelMap[effectiveRange]}
-            icon={<Wallet className="h-4 w-4 text-emerald-700" />}
+            title="Hoàn thành"
+            value={requestSummary?.completedRequests ?? '—'}
+            icon={<CheckCircle2 className="h-5 w-5 text-emerald-700" />}
             tone="emerald"
           />
           <KpiCard
-            title="Giao dịch"
-            value={totalTransactionsInRange}
-            sub={rangeLabelMap[effectiveRange]}
-            icon={<ArrowLeftRight className="h-4 w-4 text-amber-700" />}
+            title="Hủy"
+            value={requestSummary?.cancelledRequests ?? '—'}
+            icon={<XCircle className="h-5 w-5 text-rose-700" />}
             tone="amber"
           />
         </div>
@@ -681,44 +549,46 @@ export default function ManagerDashboard() {
             )}
           </div>
 
-          {/* Biểu đồ phân bố trạng thái sự kiện (Bar chart) */}
+          {/* Biểu đồ Phân bố theo loại yêu cầu (Horizontal Bar chart) */}
           <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Trạng thái sự kiện
+                  Phân bố theo loại yêu cầu
                 </p>
                 <p className="text-sm text-gray-600">
-                  Phân bố theo trạng thái hiện tại
+                  Sự kiện / Chương trình học / Môn học
                 </p>
               </div>
               <PieChart className="h-5 w-5 text-blue-500" />
             </div>
-            {eventStatusData.length > 0 ? (
+            {requestTypeCounts.length > 0 ? (
               <div className="h-60">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={eventStatusData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="status" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <BarChart data={requestTypeCounts} layout="vertical" margin={{ top: 40, right: 80, left: -20, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="key" tick={{ fontSize: 11 }} width={140} />
                     <Tooltip
-                      formatter={(value: any) =>
-                        Number(value ?? 0).toLocaleString('vi-VN')
-                      }
+                      formatter={(value: any) => [`${Number(value ?? 0).toLocaleString('vi-VN')} yêu cầu`, '']}
                       wrapperClassName="text-xs"
                     />
-                    <Bar dataKey="total" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={18} maxBarSize={18}>
+                      {requestTypeCounts.map((entry: any, i: number) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu trạng thái sự kiện.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu.</p>
             )}
           </div>
         </div>
 
           {/* CHARTS ROW 7: Contracts + Upcoming events + Teams */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           {/* Contract summary */}
           <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
@@ -780,80 +650,66 @@ export default function ManagerDashboard() {
           {/* Upcoming events table */}
           <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Sự kiện sắp diễn ra
-                </p>
-                <p className="text-sm text-gray-600">Danh sách request có event gần nhất</p>
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-sky-50 p-2">
+                  <Calendar className="h-4 w-4 text-sky-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Sự kiện sắp diễn ra</p>
+                  <p className="text-xs text-slate-500">Danh sách request có event gần nhất</p>
+                </div>
               </div>
             </div>
             {upcomingEvents.length > 0 ? (
-              <div className="stoms-scrollbar max-h-60 overflow-y-auto">
-                <ul className="space-y-2 text-xs">
-                  {upcomingEvents.map((e: any) => (
-                    <li key={e.requestId} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-900 truncate">
-                            {e.eventCode} · {e.eventName}
-                          </p>
-                          <p className="text-[11px] text-slate-500 truncate">
-                            {e.requestCode} · {e.requestName}
-                          </p>
+              <div className="stoms-scrollbar max-h-60 overflow-y-auto space-y-3">
+                {upcomingEvents.map((e: any) => (
+                  <div
+                    key={e.requestId}
+                    className="group relative flex flex-col gap-2 rounded-xl border border-slate-200/90 bg-white p-3.5 pl-4 shadow-sm transition-all duration-200 hover:border-sky-200/90 hover:shadow-md border-l-4 border-l-sky-500"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="line-clamp-2 text-[14px] font-semibold leading-snug tracking-tight text-slate-900 group-hover:text-sky-900">
+                          {e.eventName}
+                        </h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700">
+                            Sự kiện
+                          </span>
+                          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+                            {e.daysRemaining} ngày nữa
+                          </span>
                         </div>
-                        <span className="shrink-0 rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[11px] font-medium">
-                          {e.daysRemaining} ngày
+                      </div>
+                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-sky-500" aria-hidden />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 pt-1">
+                      <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+                        <span className="min-w-0 truncate">
+                          <span className="font-medium text-slate-700">{e.eventCode}</span>
+                          <span className="text-slate-300"> · </span>
+                          <time dateTime={e.startDate}>{new Date(e.startDate).toLocaleDateString('vi-VN')}</time>
+                          <span className="text-slate-300"> · </span>
+                          <span>{e.sessionsRequired} buổi</span>
                         </span>
                       </div>
-                      <div className="mt-2 flex justify-between text-[11px] text-slate-500">
-                        <span>Bắt đầu: {new Date(e.startDate).toLocaleDateString('vi-VN')}</span>
-                        <span>{e.sessionsRequired} buổi</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu sự kiện sắp diễn ra.</p>
-            )}
-          </div>
-
-          {/* Teams statistics - top by sessions */}
-          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Hiệu suất nhóm
-                </p>
-                <p className="text-sm text-gray-600">Top nhóm theo số buổi dạy</p>
-              </div>
-            </div>
-            {topTeamsBySessions.length > 0 ? (
-              <div className="space-y-2 text-xs">
-                {topTeamsBySessions.map((t: any) => (
-                  <div key={t.teamId} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-slate-900 truncate">{t.teamName}</p>
-                      <span className="text-sky-700 font-semibold">{t.totalSessions}</span>
-                    </div>
-                    <div className="mt-1 flex justify-between text-[11px] text-slate-500">
-                      <span>Thành viên: {t.totalMembers}</span>
-                      <span>Hoàn thành: {t.completedSessions}</span>
-                      <span>Sắp tới: {t.upcomingSessions}</span>
+                      <span className="shrink-0 font-mono text-[10px] font-semibold tracking-wide text-slate-400">
+                        {e.requestCode}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu thống kê nhóm.</p>
+              <div className="py-8 text-center">
+                <Calendar className="mx-auto h-10 w-10 text-slate-300 mb-2" />
+                <p className="text-sm text-slate-500">Chưa có sự kiện sắp diễn ra</p>
+              </div>
             )}
           </div>
-        </div>
 
-        
-
-        {/* CHARTS ROW 3 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Tình trạng thiết bị */}
           <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
@@ -907,173 +763,79 @@ export default function ManagerDashboard() {
             )}
           </div>
 
-          {/* Top quỹ theo số dư (Bar chart) */}
+          {/* Teams statistics - top by sessions */}
           <div className="bg-white rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Quỹ có số dư cao
+                  Hiệu suất nhóm
                 </p>
-                <p className="text-sm text-gray-600">Top 5 quỹ theo số dư hiện tại</p>
+                <p className="text-sm text-gray-600">Top nhóm theo số buổi</p>
               </div>
-              <Wallet className="h-5 w-5 text-emerald-500" />
             </div>
-            {topWalletsByBalance.length > 0 ? (
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={topWalletsByBalance} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={120}
-                      tick={{ fontSize: 11 }}
-                    />
-                    <Tooltip
-                      formatter={(value: any) =>
-                        Number(value ?? 0).toLocaleString('vi-VN', {
-                          style: 'currency',
-                          currency: 'VND',
-                          maximumFractionDigits: 0,
-                        })
-                      }
-                      wrapperClassName="text-xs"
-                    />
-                    <Bar dataKey="balance" fill="#22c55e" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+            {topTeamsBySessions.length > 0 ? (
+              <div className="space-y-2 text-xs">
+                {topTeamsBySessions.map((t: any) => (
+                  <div key={t.teamId} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-slate-900 truncate">{t.teamName}</p>
+                      <span className="text-sky-700 font-semibold">{t.totalSessions}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+                      <span>Thành viên: {t.totalMembers}</span>
+                      <span>Hoàn thành: {t.completedSessions}</span>
+                      <span>Sắp tới: {t.upcomingSessions}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu quỹ.</p>
-            )}
-          </div>
-
-          {/* Biểu đồ thu / chi / net theo quỹ (Line + Bar kết hợp) */}
-          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Thu / Chi theo quỹ
-                </p>
-                <p className="text-sm text-gray-600">
-                  Tổng quan thu, chi và số dư ròng trong khoảng thời gian chọn
-                </p>
-              </div>
-              <Wallet className="h-5 w-5 text-sky-500" />
-            </div>
-            {walletMetricsChartData.length > 0 ? (
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart
-                    data={walletMetricsChartData}
-                    margin={{ top: 8, right: 12, left: 6, bottom: 44 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1} />
-                    <XAxis
-                      dataKey="name"
-                      interval={0}
-                      height={58}
-                      angle={-25}
-                      textAnchor="end"
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v: any) => {
-                        const s = String(v ?? '');
-                        if (s.length <= 12) return s;
-                        return `${s.slice(0, 10)}…`;
-                      }}
-                    />
-                    <YAxis
-                      width={84}
-                      tickMargin={8}
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(v: any) => formatCompactVnd(v)}
-                    />
-                    <Tooltip
-                      labelFormatter={(label: any) => String(label ?? '')}
-                      formatter={(value: any, name: any) => {
-                        const n = Number(value ?? 0);
-                        const display = name === 'Chi tiêu' ? Math.abs(n) : n;
-                        return Number(display).toLocaleString('vi-VN', {
-                          style: 'currency',
-                          currency: 'VND',
-                          maximumFractionDigits: 0,
-                        });
-                      }}
-                      wrapperClassName="text-xs"
-                    />
-                    <Legend
-                      verticalAlign="bottom"
-                      align="center"
-                      wrapperStyle={{ fontSize: 12, paddingTop: 6 }}
-                    />
-                    <Bar
-                      dataKey="contribution"
-                      stackId="wallet"
-                      fill="#22c55e"
-                      radius={[4, 4, 0, 0]}
-                      name="Đóng góp"
-                      maxBarSize={28}
-                    />
-                    <Bar
-                      dataKey={(d: any) => -Math.abs(Number(d?.expense ?? 0))}
-                      stackId="wallet"
-                      fill="#ef4444"
-                      radius={[4, 4, 0, 0]}
-                      name="Chi tiêu"
-                      maxBarSize={28}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="net"
-                      stroke="#2563eb"
-                      strokeWidth={2}
-                      dot={{ r: 2 }}
-                      name="Ròng"
-                    />
-                    {walletMetricsChartData.length > 8 ? (
-                      <Brush
-                        dataKey="name"
-                        height={18}
-                        travellerWidth={10}
-                        stroke="#94a3b8"
-                        tickFormatter={(v: any) => {
-                          const s = String(v ?? '');
-                          if (s.length <= 10) return s;
-                          return `${s.slice(0, 8)}…`;
-                        }}
-                      />
-                    ) : null}
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu thu chi quỹ.</p>
+              <p className="text-xs text-gray-500">Chưa có dữ liệu thống kê nhóm.</p>
             )}
           </div>
         </div>
 
-        {/* CHARTS ROW 3.5: Tổng thu/chi theo thời gian (theo range) */}
+        
+
+        {/* CHARTS ROW 3 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        </div>
+
+        {/* Biểu đồ thu / chi theo quỹ - Full width */}
         <div className="bg-white rounded-xl border border-border shadow-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase">
-                Tổng thu/chi theo thời gian
+                Thu / Chi theo quỹ
               </p>
               <p className="text-sm text-gray-600">
-                Xu hướng tổng đóng góp và chi tiêu theo các mốc thời gian
+                Đóng góp và chi tiêu của các quỹ
               </p>
             </div>
-            <ArrowLeftRight className="h-5 w-5 text-sky-600" />
+            <Wallet className="h-5 w-5 text-sky-500" />
           </div>
-          {totalIncomeExpenseSeries && totalIncomeExpenseSeries.length > 0 ? (
+          {walletMetricsChartData.length > 0 ? (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={totalIncomeExpenseSeries}>
+                <BarChart
+                  data={walletMetricsChartData}
+                  margin={{ top: 8, right: 12, left: 6, bottom: 30 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
+                  <XAxis
+                    dataKey="name"
+                    interval={0}
+                    height={40}
+                    angle={0}
+                    textAnchor="middle"
+                    tick={{ fontSize: 11 }}
+                  />
+                  <YAxis
+                    width={84}
+                    tickMargin={8}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v: any) => formatCompactVnd(v)}
+                  />
                   <Tooltip
                     formatter={(value: any) =>
                       Number(value ?? 0).toLocaleString('vi-VN', {
@@ -1084,122 +846,30 @@ export default function ManagerDashboard() {
                     }
                     wrapperClassName="text-xs"
                   />
-                  <Legend />
-                  <Line
-                    type="monotone"
+                  <Legend
+                    verticalAlign="bottom"
+                    align="center"
+                    wrapperStyle={{ fontSize: 12, paddingTop: 4 }}
+                  />
+                  <Bar
                     dataKey="contribution"
-                    name="Tổng thu"
-                    stroke="#22c55e"
-                    strokeWidth={2}
-                    dot={{ r: 2 }}
+                    fill="#22c55e"
+                    radius={[4, 4, 0, 0]}
+                    name="Đóng góp"
+                    maxBarSize={28}
                   />
-                  <Line
-                    type="monotone"
+                  <Bar
                     dataKey="expense"
-                    name="Tổng chi"
-                    stroke="#ef4444"
-                    strokeWidth={2}
-                    dot={{ r: 2 }}
+                    fill="#ef4444"
+                    radius={[4, 4, 0, 0]}
+                    name="Chi tiêu"
+                    maxBarSize={28}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="net"
-                    name="Ròng"
-                    stroke="#2563eb"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-xs text-gray-500">Chưa có dữ liệu thu/chi theo thời gian.</p>
-          )}
-        </div>
-
-        {/* CHARTS ROW 3.75: Top người đóng góp */}
-        <div className="bg-white rounded-xl border border-border shadow-sm p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase">
-                Top người đóng góp
-              </p>
-              <p className="text-sm text-gray-600">
-                Top 5 theo tổng tiền đóng góp ({rangeLabelMap[effectiveRange]})
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">Quỹ:</span>
-              <select
-                className="h-8 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-400"
-                value={contributorsWalletId == null ? 'all' : String(contributorsWalletId)}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setContributorsWalletId(v === 'all' ? null : Number(v));
-                }}
-              >
-                <option value="all">Tất cả quỹ</option>
-                {walletsForContributorSelect.map((w: any) => (
-                  <option key={w.walletId} value={String(w.walletId)}>
-                    {w.walletName}
-                  </option>
-                ))}
-              </select>
-              <Users className="h-5 w-5 text-indigo-500" />
-            </div>
-          </div>
-
-          {selectedContributorWallet ? (
-            <div className="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                <p className="text-[11px] text-slate-500 font-medium">Quỹ</p>
-                <p className="mt-1 text-base font-semibold text-slate-900">
-                  {selectedContributorWallet.walletName}
-                </p>
-                <p className="mt-2 text-[11px] text-slate-500 font-medium">Tổng đóng góp</p>
-                <p className="mt-1 text-lg font-semibold text-emerald-700">
-                  {Number(selectedContributorWallet.totalFund).toLocaleString('vi-VN', {
-                    style: 'currency',
-                    currency: 'VND',
-                    maximumFractionDigits: 0,
-                  })}
-                </p>
-              </div>
-
-              <div className="lg:col-span-2">
-                {contributorChartData.length > 0 ? (
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={contributorChartData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                        <XAxis type="number" tick={{ fontSize: 11 }} />
-                        <YAxis
-                          type="category"
-                          dataKey="name"
-                          width={160}
-                          tick={{ fontSize: 11 }}
-                        />
-                        <Tooltip
-                          formatter={(value: any) =>
-                            Number(value ?? 0).toLocaleString('vi-VN', {
-                              style: 'currency',
-                              currency: 'VND',
-                              maximumFractionDigits: 0,
-                            })
-                          }
-                          wrapperClassName="text-xs"
-                        />
-                        <Bar dataKey="amount" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500">Chưa có dữ liệu người đóng góp.</p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="mt-3 text-xs text-gray-500">Chưa có dữ liệu top người đóng góp.</p>
+            <p className="text-xs text-gray-500">Chưa có dữ liệu thu chi quỹ.</p>
           )}
         </div>
 
@@ -1510,104 +1180,6 @@ export default function ManagerDashboard() {
         </div>
 
       
-
-      {/* CHARTS ROW 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* So sánh trạng thái Request */}
-          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Trạng thái yêu cầu
-                </p>
-                <p className="text-sm text-gray-600">Tổng hợp theo trạng thái</p>
-              </div>
-              <ClipboardList className="h-5 w-5 text-sky-500" />
-            </div>
-            {requestSummaryData.length > 0 ? (
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={requestSummaryData}
-                    margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
-                    barCategoryGap="65%"
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-  dataKey="key"
-  tick={{ fontSize: 11 }}
-  tickMargin={12}
-  interval={0}
-  minTickGap={0}
-  tickLine={false}
-  axisLine={false}
-  padding={{ left: 10, right: 10 }}
-  angle={-25}
-  textAnchor="end"
-  height={60}
-/>
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value: any) =>
-                        Number(value ?? 0).toLocaleString('vi-VN')
-                      }
-                      wrapperClassName="text-xs"
-                    />
-                    <Bar dataKey="value" fill="#0ea5e9" radius={[4, 4, 0, 0]} barSize={30} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu yêu cầu.</p>
-            )}
-          </div>
-
-          {/* So sánh trạng thái Session */}
-          <div className="bg-white rounded-xl border border-border shadow-sm p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">
-                  Trạng thái buổi dạy
-                </p>
-                <p className="text-sm text-gray-600">Tổng hợp theo trạng thái</p>
-              </div>
-              <CalendarDays className="h-5 w-5 text-amber-500" />
-            </div>
-            {sessionSummaryData.length > 0 ? (
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={sessionSummaryData}
-                    margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
-                    barCategoryGap="45%"
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="key"
-                      tick={{ fontSize: 11 }}
-                      tickMargin={8}
-                      interval={0}
-                      minTickGap={0}
-                      tickLine={false}
-                      axisLine={false}
-                      padding={{ left: 10, right: 10 }}
-                    />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value: any) =>
-                        Number(value ?? 0).toLocaleString('vi-VN')
-                      }
-                      wrapperClassName="text-xs"
-                    />
-                    <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} barSize={22} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-500">Chưa có dữ liệu buổi dạy.</p>
-            )}
-          </div>
-        </div>
     </div>
   );
 }
